@@ -58,6 +58,7 @@ flowchart TB
 ## Quickstart
 
 ```bash
+cp .env.example .env         # fill in stack outputs after deploy; source with: set -a && source .env && set +a
 make install                 # deps
 make lint test               # local checks
 cd infra && cdk bootstrap    # once per account/region

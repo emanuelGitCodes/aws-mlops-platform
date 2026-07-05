@@ -1,0 +1,35 @@
+[project]
+name = "aws-mlops-platform"
+version = "0.1.0"
+description = "Portfolio-grade MLOps reference platform on AWS: SageMaker Pipelines, serverless inference, and a closed drift->retrain loop, all in CDK."
+authors = [{ name = "Emanuel J. Cortes-Lugo" }]
+requires-python = ">=3.12"
+dependencies = [
+    "aws-cdk-lib>=2.150,<3",
+    "constructs>=10,<11",
+    "pydantic>=2,<3",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+    "boto3>=1.34",
+]
+pipeline = [
+    "sagemaker>=2.220",
+    "pandas>=2",
+    "scikit-learn>=1.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = ["."]

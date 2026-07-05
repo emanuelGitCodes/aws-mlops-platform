@@ -1,0 +1,12 @@
+env_name: prod
+model_package_group: churn-model-group
+model_approval_status: PendingManualApproval
+endpoint_name: churn-serverless-prod
+pipeline_name: churn-training-pipeline-prod
+serverless:
+  memory_mb: 3072
+  max_concurrency: 20
+monitor:
+  schedule_cron: "cron(0 * ? * * *)"
+budget_usd: 20
+log_retention_days: 14

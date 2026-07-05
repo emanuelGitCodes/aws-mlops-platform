@@ -1,0 +1,12 @@
+env_name: dev
+model_package_group: churn-model-group
+model_approval_status: Approved   # auto-approve challengers in dev
+endpoint_name: churn-serverless-dev
+pipeline_name: churn-training-pipeline-dev
+serverless:
+  memory_mb: 2048
+  max_concurrency: 5
+monitor:
+  schedule_cron: "cron(0 * ? * * *)"   # hourly
+budget_usd: 20
+log_retention_days: 14

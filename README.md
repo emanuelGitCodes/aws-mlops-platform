@@ -53,6 +53,7 @@ flowchart TB
 | `src/pipeline/` | SageMaker Pipeline definition + preprocess/evaluate scripts |
 | `src/ingestion/`, `src/serving/` | Lambda handlers (validate, proxy, endpoint deploy) |
 | `scripts/` | Monitor setup, drift-traffic demo |
+| `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
 | `.github/workflows/` | CI (lint/test/synth) and OIDC-federated deploy (dev → manual gate → prod) |
 
 ## Quickstart
@@ -79,6 +80,18 @@ curl -X POST <ApiUrl> -H "x-api-key: <key>" -H "Content-Type: application/json" 
 python scripts/setup_monitor.py --endpoint churn-serverless-dev ...
 python scripts/send_drift_traffic.py --url <ApiUrl> --api-key <key> -n 200
 ```
+
+## LLM Wiki
+
+The repository also includes a local-first LLM Wiki. `wiki/raw/` stores immutable source material; `wiki/pages/` stores the maintained synthesis; `wiki/index.md` and `wiki/log.md` provide navigation and history; and `wiki/SCHEMA.md` defines the agent's operating contract.
+
+```bash
+make wiki-search Q="SageMaker permissions"
+make wiki-ingest SOURCE=/path/to/article.md TITLE="Article title"
+make wiki-lint
+```
+
+The helper is intentionally deterministic and does not call an LLM. It handles source registration, page scaffolding, index rebuilding, full-text search, operation logging, and health checks so an LLM can focus on reading, synthesis, and cross-referencing.
 
 ## Decisions log
 

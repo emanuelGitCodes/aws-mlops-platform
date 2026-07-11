@@ -2,8 +2,8 @@
 type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
-updated: "2026-07-10"
-sources: ["../../README.md", "../../infra/app.py"]
+updated: "2026-07-11"
+sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md"]
 summary: "A portfolio-grade AWS platform whose main deliverable is the closed drift-to-retrain-to-deploy engineering loop."
 ---
 # AWS MLOps platform overview
@@ -11,6 +11,8 @@ summary: "A portfolio-grade AWS platform whose main deliverable is the closed dr
 ## Confirmed
 
 The repository is a CDK application split into data, ingestion, training, registry, serving, and monitoring stacks. The model is intentionally simple; the engineering story is the closed operational loop around it.
+
+The July 10 deployment verified the six-stack infrastructure and the raw-to-curated ingestion path. The current end-to-end checkpoint is documented in the [deployment and pipeline troubleshooting page](architecture/deployment-and-pipeline-troubleshooting.md): the SageMaker pipeline preprocesses, trains, evaluates, and registers an approved model, while the serverless endpoint returns protected API predictions. SageMaker Model Monitor capture is deferred because serverless endpoints do not support data capture.
 
 The runtime path is:
 
@@ -26,3 +28,4 @@ The most important boundaries are the [training and inference contracts](concept
 ## Tensions or open questions
 
 - The pipeline and Model Monitor are created or updated through SDK-driven scripts because they depend on live SageMaker state; this is a deliberate split from CDK-owned wiring and should be revisited if deployment requirements change.
+- Infrastructure deployment, data ingestion, pipeline execution, and API serving have separate observable failure boundaries; successful CloudWatch ingestion logs do not prove that training or endpoint deployment succeeded.

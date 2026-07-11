@@ -10,29 +10,9 @@ Documented the CDK bootstrap roles, the two-policy deployment boundary, the brea
 
 Found 7 matching page(s).
 
-## [2026-07-10] lint
-
-Wiki health check passed.
-
-## [2026-07-10] lint
-
-Wiki health check passed.
-
 ## [2026-07-10] query | closed drift
 
 Found 5 matching page(s).
-
-## [2026-07-10] lint
-
-Wiki health check passed.
-
-## [2026-07-10] lint
-
-Wiki health check passed.
-
-## [2026-07-10] lint
-
-Wiki health check passed.
 
 ## [2026-07-10] query | SageMaker permissions
 
@@ -41,9 +21,6 @@ Found 7 matching page(s).
 ## [2026-07-10] query | IAM CDK bootstrap deployment policy
 
 Found 5 matching page(s).
-## [2026-07-10] lint
-
-Wiki health check passed.
 
 ## [2026-07-10] update | Detailed CDK deployment IAM checkpoint
 
@@ -406,3 +383,211 @@ The three buckets retained by the third failed Data-stack attempt were confirmed
 - `mlops-dev-data-artifactsbucket2aac5544-fxrncmav2v0j`
 
 The deletion loop returned no errors. The next checkpoint is a final account-wide prefix query, followed by a deployment retry using policy version `v4`.
+## [2026-07-11] query | deployment pipeline CloudWatch Lambda API Gateway SageMaker
+
+Found 8 matching page(s).
+
+## [2026-07-11] ingest | MLOps deployment and pipeline troubleshooting summary — July 10, 2026
+
+Registered immutable source `raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md`.
+
+## [2026-07-11] update | Deployment and pipeline troubleshooting checkpoint
+
+### Objective
+
+Carry the July 10 AWS deployment and testing work into the maintained wiki so the next study or debugging session can distinguish completed infrastructure, successful ingestion, API behavior, and the remaining SageMaker pipeline failure.
+
+### Scope
+
+- Account `${AWS_ACCOUNT_ID}`, region `us-east-1`.
+- CDK deployment identity and CloudFormation execution boundary.
+- Lambda dependency packaging, API Gateway authentication, S3 ingestion, and SageMaker pipeline execution.
+- New page: `pages/architecture/deployment-and-pipeline-troubleshooting.md`.
+- Updated pages: overview, CDK deployment IAM, data and ingestion, validation versus preprocessing, closed drift loop, and interview walkthrough.
+
+### Evidence and interpretation
+
+- Six CDK application stacks completed after the execution policy was expanded from specific CloudFormation denials.
+- Lambda packaging had to target Python 3.12 because the local bundler ran under Python 3.14 while Lambda used Python 3.12.
+- API Gateway accepted the authenticated POST after the payload and shell environment were corrected; the remaining `502` was the downstream missing SageMaker endpoint.
+- The ingestion Lambda validated 7,043 Telco rows with zero rejected rows and wrote the curated object.
+- SageMaker execution `tsjaspu5m480` failed in `Preprocess` with `ModuleNotFoundError: No module named 'src'`, before the `Train` step. The training log group is therefore expected to be empty for this execution.
+
+### Decision and next checkpoint
+
+Keep the shared schema as the source of truth and package `src.common.schema` into the SageMaker Processing job rather than duplicating it in `preprocess.py`. After that fix, rerun the pipeline, confirm that `Train`, `Evaluate`, and `Register` complete, verify the endpoint reaches `InService`, and only then repeat the API prediction test.
+
+### Verification
+
+- Registered the immutable raw source with `scripts/wiki.py add-source`.
+- Rebuilt `index.md` with `scripts/wiki.py index`.
+- The wiki linter is the remaining final check before handoff.
+
+## [2026-07-11] update | SageMaker pipeline completion and serving deployment checkpoint
+
+### Objective
+
+Resolve the SageMaker Processing packaging failures, observe real training and
+evaluation output in CloudWatch, preserve the successful model-registration
+state, and identify the exact remaining blocker before testing the API.
+
+### Scope
+
+- Account `${AWS_ACCOUNT_ID}`, region `us-east-1`, administrative inspection profile
+  `${AWS_ADMIN_USER_NAME}`.
+- Pipeline `churn-training-pipeline-dev`, model package group
+  `churn-model-group`, and serverless endpoint name `churn-serverless-dev`.
+- `src/common/features.py`, `src/common/schema.py`,
+  `src/pipeline/preprocess.py`, `src/pipeline/pipeline.py`,
+  `src/pipeline/evaluation_runtime/`, and `src/serving/deploy_handler.py`.
+- Maintained wiki pages: deployment troubleshooting, overview, and closed
+  drift-to-retrain loop.
+
+### Commands and observed results
+
+1. The prior execution `tsjaspu5m480` failed before training because a
+   Processing job uploaded only `preprocess.py`, causing
+   `ModuleNotFoundError: No module named 'src'`.
+2. Preprocessing was changed to `FrameworkProcessor` source bundling with the
+   repository `src` dependency. The next execution exposed that importing the
+   Pydantic validation model required a package absent from the sklearn
+   Processing image.
+3. The ordered feature and label constants were moved to dependency-free
+   `src.common.features`; the Pydantic schema re-exports them for existing
+   callers. The successful `Preprocess` log printed:
+
+   ```text
+   {'train': 4930, 'validation': 1056, 'test': 1057}
+   ```
+
+4. Training completed in
+   `pipelines-nntqc422p0p1-Train-beG0CsQiXC`. CloudWatch confirmed a 4,930-row,
+   19-feature training matrix and 1,056 validation rows; validation AUC reached
+   `0.80610` during the logged rounds.
+5. The first evaluation run failed with `ModuleNotFoundError: No module named
+   'xgboost'`. Evaluation was moved to its own `FrameworkProcessor` bundle with
+   `xgboost==1.7.6` in `evaluation_runtime/requirements.txt`.
+6. CloudWatch for `pipelines-nntqc422p0p1-Evaluate-kij0xE0MAF` confirmed the
+   wheel downloaded and installed, then printed `test AUC: 0.8398`.
+7. Pipeline execution `nntqc422p0p1` succeeded and registered approved model
+   package `arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:model-package/churn-model-group/1`.
+8. `describe-endpoint churn-serverless-dev` returned endpoint-not-found. The
+   approval EventBridge rule did invoke the deployment Lambda, whose CloudWatch
+   log reported: `The data capture config is not supported for serverless
+   endpoint. Please disable data capture config.`
+
+### Interpretation
+
+The training system is now proven independently: data was split, XGBoost
+trained, evaluation loaded the model artifact and emitted a test AUC, and the
+registry accepted the approved package. The remaining API failure is neither
+API-key authentication nor model training. It is a serving design mismatch:
+SageMaker serverless endpoints reject `DataCaptureConfig`, while the current
+closed-loop design assumes capture for Model Monitor.
+
+### Decision and next checkpoint
+
+Do not test API Gateway until `churn-serverless-dev` exists and reports
+`InService`. Choose one serving posture before changing the deploy Lambda:
+
+- Keep serverless inference and remove `DataCaptureConfig`; this enables the
+  API but requires a different observability path than SageMaker Model Monitor
+  capture.
+- Move to a provisioned real-time endpoint; this retains data capture and the
+  intended Model Monitor loop, at greater standing cost.
+
+After that decision, deploy the Serving stack, invoke the approved-package
+deployment path for model package `/1`, verify the endpoint, and send the
+existing `sample.json` through the API Gateway `/dev/predict` URL with its API
+key.
+
+### Verification
+
+- `pytest tests/unit -q`: 32 passed.
+- Ruff lint and format checks passed for the changed pipeline and common-source
+  files.
+- Live SageMaker execution, TrainingJobs logs, ProcessingJobs logs, model
+  package registration, endpoint lookup, and deployment Lambda logs were read
+  with `${AWS_ADMIN_USER_NAME}` in `us-east-1`.
+
+## [2026-07-11] recovery | Low-cost API inference and explicit model-result logging
+
+### Objective
+
+Keep SageMaker inference low-cost for weekend and job-application demos while
+making the pipeline and API observable: show training start, challenger and
+champion comparison, model-package deployment, and the returned API prediction
+in CloudWatch.
+
+### Scope
+
+- Serving stack only: `Mlops-Dev-Serving` was deployed with CDK `--exclusively`.
+- Serverless endpoint `churn-serverless-dev`, API Gateway `/dev/predict`, and
+  approved model package `churn-model-group/1`.
+- Lambda bundle code, deployment handler, proxy handler, pipeline definition,
+  evaluation script, and their unit tests.
+
+### Commands and observed results
+
+1. A provisioned real-time endpoint was rejected as too expensive for this
+   weekend/demo-only use case. The chosen posture is serverless inference with
+   no SageMaker `DataCaptureConfig`.
+2. The first targeted CDK deploy also selected the dependent Data stack, which
+   rolled back because it attempted to delete an export still consumed by
+   Serving. Retrying `Mlops-Dev-Serving` with CDK `--exclusively` avoided that
+   unrelated stack update and reached `UPDATE_COMPLETE`.
+3. `src.serving.deploy_handler` was changed to omit `DataCaptureConfig`, which
+   SageMaker rejects for serverless endpoints. The existing approved package
+   `/1` was invoked through the deployment Lambda and returned action
+   `created`, test AUC `0.8398418749117607`.
+4. The first API call still returned `502` because the Lambda bundle contained
+   an incompatible native `pydantic_core` binary. The Docker fallback now pins
+   the same CPython 3.12, manylinux x86_64 wheel target as local bundling. The
+   deploy output confirmed a `pydantic_core` cp312 manylinux x86_64 wheel.
+5. After redeploying only Serving, `churn-serverless-dev` reached `InService`.
+   The protected API request using `sample.json` returned:
+
+   ```json
+   {"churn_probability": 0.3656342029571533, "churn": false}
+   ```
+
+6. The proxy Lambda now writes a payload-free CloudWatch record for every
+   successful API call:
+
+   ```json
+   {"event":"inference_response","endpoint":"churn-serverless-dev","churn_probability":0.3656342029571533,"churn":false}
+   ```
+
+7. The pipeline was upserted without `--start`, so no new training job was
+   charged. Future `Evaluate` logs receive and print the champion model package
+   ARN and test AUC, challenger model-artifact URI and test AUC, and the strict
+   promotion decision (`register` or `reject`).
+
+### Interpretation
+
+The complete low-cost demo path is now observable and works: CloudWatch
+TrainingJobs records when XGBoost starts and its validation AUC; ProcessingJobs
+records the challenger-versus-champion evaluation; the deployment Lambda records
+the approved model package and test AUC; and the proxy Lambda records the API
+prediction result. The serverless endpoint provides an API response without a
+standing real-time hosting instance.
+
+### Decision and next checkpoint
+
+Keep Model Monitor capture disabled for this demo configuration. Do not add
+`DataCaptureConfig` back to the serverless endpoint. This endpoint has no
+configured provisioned concurrency, so it does not retain a real-time hosting
+instance while idle; delete it only for a complete teardown. If built-in Model
+Monitor becomes necessary, make a separate decision on capture architecture or
+provisioned inference.
+
+### Verification
+
+- Full unit suite: 32 passed.
+- Ruff lint, formatting, and `git diff --check` passed.
+- `Mlops-Dev-Serving` reached `UPDATE_COMPLETE` after the scoped deployment.
+- Endpoint reached `InService`; the API returned HTTP 200 and the structured
+  proxy log was read from CloudWatch.
+## [2026-07-11] query | SageMaker evaluation serverless endpoint data capture
+
+Found 10 matching page(s).

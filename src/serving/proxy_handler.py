@@ -49,4 +49,14 @@ def handler(event, context):
         Body=csv_line,
     )
     score = float(result["Body"].read().decode().strip())
-    return _response(200, {"churn_probability": score, "churn": score >= 0.5})
+    prediction = {"churn_probability": score, "churn": score >= 0.5}
+    print(
+        json.dumps(
+            {
+                "event": "inference_response",
+                "endpoint": ENDPOINT_NAME,
+                **prediction,
+            }
+        )
+    )
+    return _response(200, prediction)

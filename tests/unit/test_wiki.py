@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.wiki import Wiki, WikiError
+from scripts.wiki import Wiki, WikiError, main
 
 
 def test_add_source_is_copy_once_and_scaffolds_page(tmp_path: Path):
@@ -74,6 +74,16 @@ def test_lint_reports_broken_links_and_orphans(tmp_path: Path):
     assert any("missing source reference" in error for error in errors)
     assert any("broken link" in error for error in errors)
     assert any("stale" in error for error in errors)
+
+
+def test_successful_lint_does_not_append_to_log(tmp_path: Path):
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+    before = wiki.log_path.read_text(encoding="utf-8")
+
+    assert main(["--wiki-root", str(wiki.root), "lint"]) == 0
+
+    assert wiki.log_path.read_text(encoding="utf-8") == before
 
 
 def test_repo_wiki_is_healthy():

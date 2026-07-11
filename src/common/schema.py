@@ -7,32 +7,11 @@ training data contract and the API contract can't drift apart.
 
 from pydantic import BaseModel, Field, field_validator
 
-YES_NO = {"Yes", "No"}
+from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
 
-# Order matters: this is the feature order the model is trained on and the
-# CSV column order written to the curated bucket (after the label).
-FEATURE_COLUMNS = [
-    "gender",
-    "SeniorCitizen",
-    "Partner",
-    "Dependents",
-    "tenure",
-    "PhoneService",
-    "MultipleLines",
-    "InternetService",
-    "OnlineSecurity",
-    "OnlineBackup",
-    "DeviceProtection",
-    "TechSupport",
-    "StreamingTV",
-    "StreamingMovies",
-    "Contract",
-    "PaperlessBilling",
-    "PaymentMethod",
-    "MonthlyCharges",
-    "TotalCharges",
-]
-LABEL_COLUMN = "Churn"
+__all__ = ["CustomerRecord", "FEATURE_COLUMNS", "LABEL_COLUMN"]
+
+YES_NO = {"Yes", "No"}
 
 
 class CustomerRecord(BaseModel):

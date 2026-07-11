@@ -3,8 +3,6 @@ from unittest import mock
 
 os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
 os.environ.setdefault("EXECUTION_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
-os.environ.setdefault("CAPTURE_BUCKET", "test-artifacts")
-
 with mock.patch("boto3.client"):
     from src.serving import deploy_handler
 
@@ -23,6 +21,7 @@ class _ClientError(Exception):
 def _mock_sm(endpoint_exists: bool) -> mock.Mock:
     sm = mock.Mock()
     sm.exceptions.ClientError = _ClientError
+    sm.describe_model_package.return_value = {"CustomerMetadataProperties": {"test_auc": "0.8398"}}
     if not endpoint_exists:
         sm.describe_endpoint.side_effect = _ClientError("not found")
     return sm
@@ -51,7 +50,8 @@ def test_first_approval_creates_endpoint():
     config_call = sm.create_endpoint_config.call_args.kwargs
     variant = config_call["ProductionVariants"][0]
     assert "ServerlessConfig" in variant
-    assert config_call["DataCaptureConfig"]["EnableCapture"] is True
+    assert "DataCaptureConfig" not in config_call
+    assert result["test_auc"] == "0.8398"
 
 
 def test_subsequent_approval_updates_endpoint():

@@ -13,11 +13,11 @@ import sagemaker
 from sagemaker.inputs import TrainingInput
 from sagemaker.model import Model
 from sagemaker.model_metrics import MetricsSource, ModelMetrics
-from sagemaker.processing import ProcessingInput, ProcessingOutput
-from sagemaker.sklearn.processing import SKLearnProcessor
+from sagemaker.processing import FrameworkProcessor, ProcessingInput, ProcessingOutput
+from sagemaker.sklearn.estimator import SKLearn
 from sagemaker.workflow.condition_step import ConditionStep
 from sagemaker.workflow.conditions import ConditionGreaterThan
-from sagemaker.workflow.functions import JsonGet
+from sagemaker.workflow.functions import Join, JsonGet
 from sagemaker.workflow.model_step import ModelStep
 from sagemaker.workflow.parameters import ParameterFloat, ParameterString
 from sagemaker.workflow.pipeline import Pipeline
@@ -26,8 +26,8 @@ from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
 
 
-def get_champion_auc(model_package_group: str, region: str) -> float:
-    """AUC of the latest Approved model package; 0.5 (coin flip) if none exists."""
+def get_champion(model_package_group: str, region: str) -> tuple[str, float]:
+    """Latest approved package ARN and its AUC; use a 0.5 baseline if absent."""
     sm = boto3.client("sagemaker", region_name=region)
     packages = sm.list_model_packages(
         ModelPackageGroupName=model_package_group,
@@ -37,12 +37,16 @@ def get_champion_auc(model_package_group: str, region: str) -> float:
         MaxResults=1,
     )["ModelPackageSummaryList"]
     if not packages:
-        return 0.5
-    desc = sm.describe_model_package(ModelPackageName=packages[0]["ModelPackageArn"])
-    return float(
-        desc["CustomerMetadataProperties"].get("test_auc", 0.5)
-        if "CustomerMetadataProperties" in desc
-        else 0.5
+        return "none", 0.5
+    arn = packages[0]["ModelPackageArn"]
+    desc = sm.describe_model_package(ModelPackageName=arn)
+    return (
+        arn,
+        float(
+            desc["CustomerMetadataProperties"].get("test_auc", 0.5)
+            if "CustomerMetadataProperties" in desc
+            else 0.5
+        ),
     )
 
 
@@ -59,27 +63,38 @@ def build_pipeline(
     cache = CacheConfig(enable_caching=True, expire_after="P30D")
 
     input_data = ParameterString(name="InputDataUri", default_value=f"s3://{curated_bucket}/telco/")
-    champion_auc = ParameterFloat(
-        name="ChampionAuc", default_value=get_champion_auc(model_package_group, region)
+    champion_model_arn, champion_test_auc = get_champion(model_package_group, region)
+    champion_auc = ParameterFloat(name="ChampionAuc", default_value=champion_test_auc)
+    champion_model = ParameterString(
+        name="ChampionModelPackageArn", default_value=champion_model_arn
     )
 
-    sklearn = SKLearnProcessor(
+    # SKLearnProcessor uploads only the entrypoint script. Preprocessing also
+    # needs the shared ``src.common.features`` contract, so use
+    # FrameworkProcessor to bundle ``src`` beside the entrypoint.
+    preprocess_processor = FrameworkProcessor(
+        estimator_cls=SKLearn,
         framework_version="1.2-1",
         role=role_arn,
         instance_type="ml.m5.large",
         instance_count=1,
         sagemaker_session=session,
     )
-
-    preprocess = ProcessingStep(
-        name="Preprocess",
-        processor=sklearn,
+    preprocess_args = preprocess_processor.run(
+        code="preprocess.py",
+        source_dir="src/pipeline",
+        dependencies=["src"],
         inputs=[ProcessingInput(source=input_data, destination="/opt/ml/processing/input")],
         outputs=[
             ProcessingOutput(output_name=n, source=f"/opt/ml/processing/{n}")
             for n in ("train", "validation", "test")
         ],
-        code="src/pipeline/preprocess.py",
+    )
+    preprocess = ProcessingStep(
+        name="Preprocess",
+        step_args=preprocess_args,
+        # Cache configuration belongs to the pipeline step rather than the
+        # ProcessingJob request returned by FrameworkProcessor.run().
         cache_config=cache,
     )
 
@@ -119,9 +134,21 @@ def build_pipeline(
     evaluation_report = PropertyFile(
         name="EvaluationReport", output_name="evaluation", path="evaluation.json"
     )
-    evaluate = ProcessingStep(
-        name="Evaluate",
-        processor=sklearn,
+    # The sklearn Processing image does not ship XGBoost. Give only the
+    # evaluation step a small source bundle with its pinned runtime dependency;
+    # preprocessing remains dependency-free and does not pay this install cost.
+    evaluate_processor = FrameworkProcessor(
+        estimator_cls=SKLearn,
+        framework_version="1.2-1",
+        role=role_arn,
+        instance_type="ml.m5.large",
+        instance_count=1,
+        sagemaker_session=session,
+    )
+    evaluate_args = evaluate_processor.run(
+        code="evaluate_entrypoint.py",
+        source_dir="src/pipeline/evaluation_runtime",
+        dependencies=["src"],
         inputs=[
             ProcessingInput(
                 source=train.properties.ModelArtifacts.S3ModelArtifacts,
@@ -135,7 +162,18 @@ def build_pipeline(
         outputs=[
             ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation")
         ],
-        code="src/pipeline/evaluate.py",
+        arguments=[
+            "--champion-model-package-arn",
+            champion_model,
+            "--champion-test-auc",
+            champion_auc.to_string(),
+            "--challenger-model-artifact",
+            train.properties.ModelArtifacts.S3ModelArtifacts,
+        ],
+    )
+    evaluate = ProcessingStep(
+        name="Evaluate",
+        step_args=evaluate_args,
         property_files=[evaluation_report],
     )
 
@@ -161,10 +199,15 @@ def build_pipeline(
             approval_status=approval_status,
             model_metrics=ModelMetrics(
                 model_statistics=MetricsSource(
-                    s3_uri=evaluate.properties.ProcessingOutputConfig.Outputs[
-                        "evaluation"
-                    ].S3Output.S3Uri.to_string()
-                    + "/evaluation.json",
+                    s3_uri=Join(
+                        on="/",
+                        values=[
+                            evaluate.properties.ProcessingOutputConfig.Outputs[
+                                "evaluation"
+                            ].S3Output.S3Uri,
+                            "evaluation.json",
+                        ],
+                    ),
                     content_type="application/json",
                 )
             ),
@@ -181,7 +224,7 @@ def build_pipeline(
 
     return Pipeline(
         name=pipeline_name,
-        parameters=[input_data, champion_auc],
+        parameters=[input_data, champion_auc, champion_model],
         steps=[preprocess, train, evaluate, gate],
         sagemaker_session=session,
     )

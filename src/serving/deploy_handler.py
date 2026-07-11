@@ -5,6 +5,7 @@ package in our group flips to Approved. Creates a Model + EndpointConfig for
 the new package and points the endpoint at it (create if first deploy).
 """
 
+import json
 import os
 import time
 
@@ -16,7 +17,6 @@ ENDPOINT_NAME = os.environ["ENDPOINT_NAME"]
 EXECUTION_ROLE_ARN = os.environ["EXECUTION_ROLE_ARN"]
 MEMORY_MB = int(os.environ.get("MEMORY_MB", "2048"))
 MAX_CONCURRENCY = int(os.environ.get("MAX_CONCURRENCY", "5"))
-CAPTURE_BUCKET = os.environ["CAPTURE_BUCKET"]
 
 
 def handler(event, context):
@@ -34,6 +34,9 @@ def handler(event, context):
         ExecutionRoleArn=EXECUTION_ROLE_ARN,
         Containers=[{"ModelPackageName": package_arn}],
     )
+    # SageMaker Serverless Inference does not support DataCaptureConfig. Keeping
+    # this endpoint serverless avoids idle hosting cost; Model Monitor capture
+    # must therefore be configured through a separate serving design later.
     sm.create_endpoint_config(
         EndpointConfigName=config_name,
         ProductionVariants=[
@@ -46,13 +49,6 @@ def handler(event, context):
                 },
             }
         ],
-        DataCaptureConfig={
-            "EnableCapture": True,
-            "InitialSamplingPercentage": 100,
-            "DestinationS3Uri": f"s3://{CAPTURE_BUCKET}/data-capture",
-            "CaptureOptions": [{"CaptureMode": "Input"}, {"CaptureMode": "Output"}],
-            "CaptureContentTypeHeader": {"CsvContentTypes": ["text/csv"]},
-        },
     )
 
     try:
@@ -63,5 +59,22 @@ def handler(event, context):
         sm.create_endpoint(EndpointName=ENDPOINT_NAME, EndpointConfigName=config_name)
         action = "created"
 
-    print(f"{action} endpoint {ENDPOINT_NAME} -> {package_arn}")
-    return {"endpoint": ENDPOINT_NAME, "action": action, "package": package_arn}
+    package = sm.describe_model_package(ModelPackageName=package_arn)
+    test_auc = package.get("CustomerMetadataProperties", {}).get("test_auc")
+    print(
+        json.dumps(
+            {
+                "event": "approved_challenger_deployed",
+                "action": action,
+                "endpoint": ENDPOINT_NAME,
+                "model_package_arn": package_arn,
+                "test_auc": test_auc,
+            }
+        )
+    )
+    return {
+        "endpoint": ENDPOINT_NAME,
+        "action": action,
+        "package": package_arn,
+        "test_auc": test_auc,
+    }

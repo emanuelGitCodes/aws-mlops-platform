@@ -13,7 +13,7 @@ import glob
 import os
 import random
 
-from src.common.schema import FEATURE_COLUMNS, LABEL_COLUMN
+from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
 
 # Fixed ordinal maps: deterministic, no fitted state to ship to the Lambda.
 YES_NO_MAP = {"No": 0, "Yes": 1, "No phone service": 2, "No internet service": 2}

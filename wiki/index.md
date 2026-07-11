@@ -13,6 +13,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [AWS resource and permission boundaries](pages/architecture/permissions.md) — Each runtime component receives only the storage, invocation, or orchestration permissions needed for its position in the loop.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
+- [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The pipeline, low-cost serverless endpoint, and API inference path work; SageMaker Model Monitor capture is deferred because serverless endpoints do not support it.
 
 ## Concepts
 
@@ -26,3 +27,7 @@ This is the content map. Read it first, then follow the most relevant links.
 ## Filed answers
 
 - [How to explain this repo in an interview](pages/answers/repo-walkthrough.md) — An interview-ready explanation organized around resources, event flow, contracts, permissions, and failure behavior.
+
+## Sources
+
+- [MLOps deployment and pipeline troubleshooting summary — July 10, 2026](pages/sources/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md) — Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session.

@@ -495,7 +495,6 @@ def main(argv: list[str] | None = None) -> int:
                 for error in errors:
                     print(f"ERROR: {error}")
                 return 1
-            wiki.record("lint", details="Wiki health check passed.")
             print(f"Wiki healthy: {len(wiki._page_files())} page(s)")
     except WikiError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

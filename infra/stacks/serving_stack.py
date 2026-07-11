@@ -54,7 +54,6 @@ class ServingStack(Stack):
                 "EXECUTION_ROLE_ARN": model_exec_role.role_arn,
                 "MEMORY_MB": str(config["serverless"]["memory_mb"]),
                 "MAX_CONCURRENCY": str(config["serverless"]["max_concurrency"]),
-                "CAPTURE_BUCKET": artifacts_bucket.bucket_name,
             },
             log_retention=logs.RetentionDays.TWO_WEEKS,
         )

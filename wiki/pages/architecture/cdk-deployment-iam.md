@@ -2,8 +2,8 @@
 type: architecture
 title: CDK deployment identity and bootstrap boundary
 created: "2026-07-10"
-updated: "2026-07-10"
-sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
+updated: "2026-07-11"
+sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
 summary: "A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy."
 ---
 # CDK deployment identity and bootstrap boundary
@@ -102,6 +102,8 @@ The AWS account currently shows six matching `mlops-dev-data-` buckets: two Raw,
 All six retained buckets were inspected with `s3api list-object-versions`; each returned zero object versions and zero delete markers. They are empty cleanup candidates from the failed deployments.
 
 The six empty retained buckets were then cleaned up: one Raw bucket had already been deleted, one Curated bucket was already missing, and the remaining four buckets were deleted successfully. A final prefix query returned no `mlops-dev-data-` buckets.
+
+The final deployment completed all six application stacks. The later pipeline and API checks confirmed that the CDK resource boundary was working: the API reached the proxy Lambda, and the pipeline could be upserted and started. The remaining failure was inside SageMaker Processing, not the CDK deployment path. See the [deployment and pipeline troubleshooting checkpoint](deployment-and-pipeline-troubleshooting.md) for the end-to-end evidence.
 
 ## Synthesis
 

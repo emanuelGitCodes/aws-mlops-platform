@@ -16,7 +16,10 @@ def _event(body) -> dict:
 
 
 def test_valid_request_invokes_endpoint_and_returns_score():
-    with mock.patch.object(proxy_handler, "runtime") as runtime:
+    with (
+        mock.patch.object(proxy_handler, "runtime") as runtime,
+        mock.patch("builtins.print") as log,
+    ):
         runtime.invoke_endpoint.return_value = {"Body": io.BytesIO(b"0.83")}
         resp = proxy_handler.handler(_event(VALID), None)
 
@@ -30,6 +33,12 @@ def test_valid_request_invokes_endpoint_and_returns_score():
     # payload is the encoded feature vector, one float per feature
     values = call["Body"].split(",")
     assert all(float(v) >= 0 for v in values)
+    assert json.loads(log.call_args.args[0]) == {
+        "event": "inference_response",
+        "endpoint": "test-endpoint",
+        "churn_probability": 0.83,
+        "churn": True,
+    }
 
 
 def test_low_score_maps_to_churn_false():

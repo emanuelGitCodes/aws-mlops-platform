@@ -1015,3 +1015,37 @@ after this completion record is committed and passes hosted CI.
 
 Add exactly the six Security Hub/CIS metric filters and five-minute alarms to
 `Mlops-Dev-Security`; do not change Data or budget wiring until Phase 2D.
+
+## [2026-07-12] implement | AWS security hardening Phase 2C detections
+
+### Objective
+
+Implement the six approved real-time security detections without changing the
+verified audit foundation or Data stack.
+
+### Scope and evidence
+
+GitHub run 11 for Phase 2B closeout passed both hosted jobs. Added only six
+metric filters and six alarms to `Mlops-Dev-Security`, using the current exact
+AWS Security Hub remediation patterns for CloudWatch.1, .2, .4, .5, .7, and .8.
+
+### Commands and results
+
+- Lock check passed with 108 packages; dependency audit found no known
+  vulnerabilities.
+- Ruff and formatting passed across 43 files; 48 unit tests passed.
+- Normal Security-only synthesis and cdk-nag validation passed.
+- Tests lock every filter pattern, namespace, metric value/default, alarm
+  period, threshold, comparison, missing-data behavior, and SNS action.
+- The Security-stack IAM fingerprint remains unchanged.
+
+### Interpretation and decision
+
+Phase 2C is ready for its isolated commit and hosted CI. The local go/no-go is
+GO for commit and NO-GO for deployment until CI and the scoped diff pass.
+
+### Next checkpoint
+
+Push the Phase 2C commit, verify CI, review a Security-only diff, and deploy only
+`Mlops-Dev-Security`. Then trigger one safe denied IAM request and verify the
+metric, alarm transition, and received email.

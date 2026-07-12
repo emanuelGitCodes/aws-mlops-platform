@@ -3,7 +3,7 @@ type: architecture
 title: Phase 2 audit foundation
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html"]
+sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path."
 ---
 # Phase 2 audit foundation
@@ -44,6 +44,15 @@ this account and their respective ARN namespaces.
 The CloudTrail service role can create streams and put events only under the
 one audit log group. Its wildcard is limited to the required `log-stream:*`
 suffix rather than all log groups.
+
+### Phase 2C detection contract
+
+The implemented but not yet deployed Phase 2C change adds one exact AWS
+Security Hub/CIS metric filter and one alarm for root usage, unauthorized API
+calls, IAM policy changes, CloudTrail configuration changes, KMS disable or
+scheduled deletion, and S3 bucket-policy changes. Every filter writes to
+`MLOps/Security`; every five-minute alarm notifies the confirmed encrypted topic
+at `>= 1` and treats missing data as non-breaching.
 
 ## Tensions or open questions
 

@@ -1,7 +1,9 @@
-"""Phase 2 audit foundation: retained evidence, CloudTrail, and alert delivery."""
+"""Phase 2 audit foundation, CIS metric detections, and alert delivery."""
 
-from aws_cdk import ArnFormat, CfnOutput, CfnParameter, RemovalPolicy, Stack, Tags
+from aws_cdk import ArnFormat, CfnOutput, CfnParameter, Duration, RemovalPolicy, Stack, Tags
 from aws_cdk import aws_cloudtrail as cloudtrail
+from aws_cdk import aws_cloudwatch as cloudwatch
+from aws_cdk import aws_cloudwatch_actions as cloudwatch_actions
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kms as kms
 from aws_cdk import aws_logs as logs
@@ -9,6 +11,55 @@ from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct
+
+SECURITY_DETECTIONS = (
+    (
+        "RootUserActivity",
+        "root-user-activity",
+        '{$.userIdentity.type="Root" && $.userIdentity.invokedBy NOT EXISTS && '
+        '$.eventType !="AwsServiceEvent"}',
+    ),
+    (
+        "UnauthorizedApiCalls",
+        "unauthorized-api-calls",
+        '{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}',
+    ),
+    (
+        "IamPolicyChanges",
+        "iam-policy-changes",
+        "{($.eventSource=iam.amazonaws.com) && "
+        "(($.eventName=DeleteGroupPolicy) || ($.eventName=DeleteRolePolicy) || "
+        "($.eventName=DeleteUserPolicy) || ($.eventName=PutGroupPolicy) || "
+        "($.eventName=PutRolePolicy) || ($.eventName=PutUserPolicy) || "
+        "($.eventName=CreatePolicy) || ($.eventName=DeletePolicy) || "
+        "($.eventName=CreatePolicyVersion) || ($.eventName=DeletePolicyVersion) || "
+        "($.eventName=AttachRolePolicy) || ($.eventName=DetachRolePolicy) || "
+        "($.eventName=AttachUserPolicy) || ($.eventName=DetachUserPolicy) || "
+        "($.eventName=AttachGroupPolicy) || ($.eventName=DetachGroupPolicy))}",
+    ),
+    (
+        "CloudTrailConfigurationChanges",
+        "cloudtrail-configuration-changes",
+        "{($.eventName=CreateTrail) || ($.eventName=UpdateTrail) || "
+        "($.eventName=DeleteTrail) || ($.eventName=StartLogging) || "
+        "($.eventName=StopLogging)}",
+    ),
+    (
+        "KmsKeyDisableOrDeletion",
+        "kms-key-disable-or-deletion",
+        "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
+        "($.eventName=ScheduleKeyDeletion))}",
+    ),
+    (
+        "S3BucketPolicyChanges",
+        "s3-bucket-policy-changes",
+        "{($.eventSource=s3.amazonaws.com) && (($.eventName=PutBucketAcl) || "
+        "($.eventName=PutBucketPolicy) || ($.eventName=PutBucketCors) || "
+        "($.eventName=PutBucketLifecycle) || ($.eventName=PutBucketReplication) || "
+        "($.eventName=DeleteBucketPolicy) || ($.eventName=DeleteBucketCors) || "
+        "($.eventName=DeleteBucketLifecycle) || ($.eventName=DeleteBucketReplication))}",
+    ),
+)
 
 
 class SecurityStack(Stack):
@@ -251,6 +302,37 @@ class SecurityStack(Stack):
                     },
                 )
             )
+
+        for metric_name, alarm_slug, filter_pattern in SECURITY_DETECTIONS:
+            logs.MetricFilter(
+                self,
+                f"{metric_name}Filter",
+                default_value=0,
+                filter_pattern=logs.FilterPattern.literal(filter_pattern),
+                log_group=audit_log_group,
+                metric_name=metric_name,
+                metric_namespace="MLOps/Security",
+                metric_value="1",
+            )
+            alarm = cloudwatch.Alarm(
+                self,
+                f"{metric_name}Alarm",
+                actions_enabled=True,
+                alarm_name=f"mlops-{env_name}-security-{alarm_slug}",
+                comparison_operator=(
+                    cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD
+                ),
+                evaluation_periods=1,
+                metric=cloudwatch.Metric(
+                    metric_name=metric_name,
+                    namespace="MLOps/Security",
+                    period=Duration.minutes(5),
+                    statistic="Sum",
+                ),
+                threshold=1,
+                treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+            )
+            alarm.add_alarm_action(cloudwatch_actions.SnsAction(alert_topic))
 
         CfnOutput(self, "TrailName", value=trail_name)
         CfnOutput(self, "AuditBucketName", value=audit_bucket.bucket_name)

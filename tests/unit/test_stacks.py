@@ -267,8 +267,8 @@ def test_security_audit_foundation(stacks):
             )
         },
     )
-    template.resource_count_is("AWS::Logs::MetricFilter", 0)
-    template.resource_count_is("AWS::CloudWatch::Alarm", 0)
+    template.resource_count_is("AWS::Logs::MetricFilter", 6)
+    template.resource_count_is("AWS::CloudWatch::Alarm", 6)
 
     resources = document["Resources"]
     retained_types = {"AWS::KMS::Key", "AWS::S3::Bucket", "AWS::Logs::LogGroup"}
@@ -348,6 +348,72 @@ def test_security_audit_foundation(stacks):
             )
         },
     )
+
+
+def test_security_detection_patterns_and_alarms_are_exact(stacks):
+    document = stacks["security"].to_json()
+    resources = document["Resources"]
+    expected_patterns = {
+        '{$.userIdentity.type="Root" && $.userIdentity.invokedBy NOT EXISTS && '
+        '$.eventType !="AwsServiceEvent"}',
+        '{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}',
+        "{($.eventSource=iam.amazonaws.com) && "
+        "(($.eventName=DeleteGroupPolicy) || ($.eventName=DeleteRolePolicy) || "
+        "($.eventName=DeleteUserPolicy) || ($.eventName=PutGroupPolicy) || "
+        "($.eventName=PutRolePolicy) || ($.eventName=PutUserPolicy) || "
+        "($.eventName=CreatePolicy) || ($.eventName=DeletePolicy) || "
+        "($.eventName=CreatePolicyVersion) || ($.eventName=DeletePolicyVersion) || "
+        "($.eventName=AttachRolePolicy) || ($.eventName=DetachRolePolicy) || "
+        "($.eventName=AttachUserPolicy) || ($.eventName=DetachUserPolicy) || "
+        "($.eventName=AttachGroupPolicy) || ($.eventName=DetachGroupPolicy))}",
+        "{($.eventName=CreateTrail) || ($.eventName=UpdateTrail) || "
+        "($.eventName=DeleteTrail) || ($.eventName=StartLogging) || "
+        "($.eventName=StopLogging)}",
+        "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
+        "($.eventName=ScheduleKeyDeletion))}",
+        "{($.eventSource=s3.amazonaws.com) && (($.eventName=PutBucketAcl) || "
+        "($.eventName=PutBucketPolicy) || ($.eventName=PutBucketCors) || "
+        "($.eventName=PutBucketLifecycle) || ($.eventName=PutBucketReplication) || "
+        "($.eventName=DeleteBucketPolicy) || ($.eventName=DeleteBucketCors) || "
+        "($.eventName=DeleteBucketLifecycle) || ($.eventName=DeleteBucketReplication))}",
+    }
+
+    metric_filters = [
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::Logs::MetricFilter"
+    ]
+    assert {metric_filter["FilterPattern"] for metric_filter in metric_filters} == (
+        expected_patterns
+    )
+    for metric_filter in metric_filters:
+        assert metric_filter["LogGroupName"] == {"Ref": "AuditLogGroup6D13791A"}
+        assert metric_filter["MetricTransformations"] == [
+            {
+                "DefaultValue": 0,
+                "MetricName": metric_filter["MetricTransformations"][0]["MetricName"],
+                "MetricNamespace": "MLOps/Security",
+                "MetricValue": "1",
+            }
+        ]
+
+    alarms = [
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    ]
+    topic_ref = {"Ref": "SecurityAlertsTopic1CE4D100"}
+    assert len(alarms) == 6
+    for alarm in alarms:
+        assert alarm["ActionsEnabled"] is True
+        assert alarm["AlarmActions"] == [topic_ref]
+        assert alarm["ComparisonOperator"] == "GreaterThanOrEqualToThreshold"
+        assert alarm["EvaluationPeriods"] == 1
+        assert alarm["Namespace"] == "MLOps/Security"
+        assert alarm["Period"] == 300
+        assert alarm["Statistic"] == "Sum"
+        assert alarm["Threshold"] == 1
+        assert alarm["TreatMissingData"] == "notBreaching"
 
 
 def test_ingestion_wiring(stacks):

@@ -2,9 +2,9 @@
 type: architecture
 title: AWS resource and permission boundaries
 created: "2026-07-10"
-updated: "2026-07-10"
-sources: ["../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
-summary: "Each runtime component receives only the storage, invocation, or orchestration permissions needed for its position in the loop."
+updated: "2026-07-12"
+sources: ["../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md"]
+summary: "Runtime roles are separated by component, while the phased hardening roadmap removes the remaining broad SageMaker policies one role at a time."
 ---
 # AWS resource and permission boundaries
 
@@ -25,6 +25,16 @@ The platform separates resource ownership from runtime authority. CDK defines du
 
 These runtime boundaries are separate from the human deployment boundary. The `${MLOPS_DEPLOYER_USER_NAME}` identity assumes CDK bootstrap roles, while CloudFormation uses its own execution role to apply the templates. See [CDK deployment identity and bootstrap boundary](cdk-deployment-iam.md) for the control-plane flow and its verification checkpoints.
 
+The [phased security hardening roadmap](phased-security-hardening.md) preserves
+these component boundaries while replacing broad SageMaker managed policies.
+It changes the proxy, model, deployment, and pipeline roles independently, with
+a live component check after each role so an `AccessDenied` can be attributed to
+one policy change.
+
 ## Tensions or open questions
 
-- The training role currently attaches the AWS-managed `AmazonSageMakerFullAccess` policy. It is convenient for a reference platform, but a production hardening pass should replace it with an action- and resource-scoped policy.
+- The training and model execution roles currently attach the AWS-managed
+  `AmazonSageMakerFullAccess` policy. Phase 5 replaces them with action- and
+  resource-scoped policies only after CloudTrail and alerting are available.
+- Phase 6 changes the serving access boundary from API-key identification to
+  IAM/SigV4 authorization. The inference response contract does not change.

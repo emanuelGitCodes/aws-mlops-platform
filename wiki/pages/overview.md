@@ -2,8 +2,8 @@
 type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
-updated: "2026-07-11"
-sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md"]
+updated: "2026-07-12"
+sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md"]
 summary: "A portfolio-grade AWS platform whose closed loop produces gated models plus reproducible held-out evaluation reports."
 ---
 # AWS MLOps platform overview
@@ -24,6 +24,12 @@ The runtime path is:
 ## Synthesis
 
 The most important boundaries are the [training and inference contracts](concepts/contracts-and-preprocessing.md), the [raw-data ingestion path](architecture/data-and-ingestion.md), and the [closed drift loop](concepts/closed-drift-loop.md). The platform's resource and permission choices are captured in [platform design decisions](decisions/platform-design.md) and [permission boundaries](architecture/permissions.md).
+
+The next approved improvement is the
+[phased AWS security hardening roadmap](architecture/phased-security-hardening.md).
+It intentionally begins with a read-only baseline and repository guardrails,
+then introduces audit, detection, encryption, least privilege, IAM/SigV4 API
+authorization, and WAF as separately deployed and accepted phases.
 
 ## Tensions or open questions
 

@@ -682,3 +682,61 @@ Found 10 matching page(s).
 ## [2026-07-11] ingest | Evaluation report rollout — July 11, 2026
 
 Registered immutable source `raw/evaluation-report-rollout-july-11-2026.md`.
+## [2026-07-12] query | security IAM CloudTrail GuardDuty API Gateway WAF KMS phased rollout
+
+Found 9 matching page(s).
+
+## [2026-07-12] ingest | Phased AWS security hardening plan — July 12, 2026
+
+Registered immutable source `raw/phased-aws-security-hardening-plan-july-12-2026.md`.
+
+## [2026-07-12] update | Phased AWS security hardening roadmap
+
+### Objective
+
+Preserve the approved AWS security-hardening plan as a morning-ready roadmap
+whose changes can be implemented and diagnosed one phase at a time.
+
+### Scope
+
+- Immutable source `raw/phased-aws-security-hardening-plan-july-12-2026.md`.
+- New architecture page `pages/architecture/phased-security-hardening.md`.
+- Source synthesis, overview navigation, and permission-boundary context.
+- Wiki index and health validation.
+
+### Identity and environment
+
+This was a local documentation-only update in the repository. No AWS profile was
+used, no AWS resource was created or changed, and no secret or alert email was
+recorded.
+
+### Commands and results
+
+1. `python3 scripts/wiki.py search` identified the permission, deployment, and
+   overview pages related to the plan.
+2. `python3 scripts/wiki.py add-source` registered the dated immutable plan and
+   scaffolded its source page.
+3. `python3 scripts/wiki.py index` rebuilt navigation with the new architecture
+   and source pages.
+4. `python3 scripts/wiki.py lint` reported `Wiki healthy: 13 page(s)`.
+5. The focused wiki unit suite reported `5 passed`.
+
+### Interpretation
+
+The plan is intentionally more granular than a single security deployment.
+Auditability precedes risky IAM, KMS, API-authentication, and WAF changes. KMS
+bucket migration and IAM reduction each have internal one-resource-at-a-time
+checkpoints, and every phase stops before the next begins.
+
+### Decision and next checkpoint
+
+Begin with Phase 0 only: capture a read-only AWS and repository baseline plus
+rollback surfaces. Phase 1 is repository-only. Do not mutate AWS until those two
+checkpoints are accepted; the first AWS change is Phase 2 audit and alerting.
+
+### Verification
+
+- Wiki index rebuilt successfully.
+- Wiki lint healthy with 13 pages.
+- Focused wiki tests: 5 passed.
+- No application code or AWS infrastructure changed.

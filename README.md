@@ -1,48 +1,87 @@
 # aws-mlops-platform
 
-A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately trivial (Telco customer churn, XGBoost, ~78% AUC is fine); the engineering lives in the pipeline, the IaC, the CI/CD, and the **closed drift → retrain loop**.
+A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
-**One command to a working platform:** `cdk deploy --all` into a clean account stands up ingestion, training, a champion/challenger promotion gate, serverless inference, and drift monitoring.
+`cdk deploy --all` creates the six infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, and API inference.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Ingest["Ingestion (primitives)"]
+    subgraph Ingest["Ingestion"]
         RAW[(S3 raw)] -->|ObjectCreated| EB1[EventBridge]
         EB1 --> Q[SQS + DLQ]
         Q --> LV[Lambda: validate schema]
         LV --> CUR[(S3 curated)]
     end
 
-    subgraph Train["Training (SageMaker)"]
+    subgraph Train["SageMaker training and evaluation"]
         CUR --> PIPE[SageMaker Pipeline]
-        PIPE --> PRE[Preprocess] --> TR[Train] --> EV[Evaluate]
-        EV --> GATE{Beats champion AUC?}
+        PIPE --> PRE[Preprocess]
+        PRE -->|encoded train + validation| TR[Train XGBoost]
+        PRE -->|encoded held-out test| EV[Evaluate challenger]
+        TR -->|model artifact| EV
+        PRE -->|raw labeled fixture| FIX[(S3 api_test.jsonl)]
+        EV --> REPORTS[(S3 evaluation bundle<br/>metrics, predictions, 5 PNG charts)]
+        EV -->|test AUC| GATE{AUC beats champion?}
         GATE -->|yes| REG[Model Registry]
-        GATE -->|no| STOP[Stop]
+        GATE -->|no| STOP[Reject challenger]
     end
 
-    subgraph Serve["Serving"]
+    subgraph Serve["Current serving path"]
         REG -->|Approved event| DEP[Lambda: update endpoint]
         DEP --> EP[SageMaker Serverless Endpoint]
-        APIGW[API Gateway] --> LI[Lambda: thin proxy] --> EP
+        CLIENT[Client] -->|POST /predict + API key| APIGW[API Gateway]
+        APIGW --> LI[Lambda: validate + encode]
+        LI --> EP
+        FIX --> CHECK[API evaluator]
+        CHECK -->|representative sample or full test| APIGW
     end
 
-    subgraph Ops["Monitoring + loop"]
-        EP -->|data capture| MM[Model Monitor]
-        MM -->|violations| EB2[EventBridge] -->|StartPipelineExecution| PIPE
-        EP --> CW[CloudWatch dashboard + alarms]
+    subgraph Ops["Operations"]
+        EP --> CW[CloudWatch metrics, dashboard + 5xx alarm]
+        MM[Model Monitor capture<br/>deferred for serverless endpoint]
+        MM -. future violation event .-> RETRAIN[EventBridge + retrain Lambda<br/>wiring deployed]
+        RETRAIN -. StartPipelineExecution .-> PIPE
     end
+
+    subgraph Security["Approved phased security roadmap — not deployed yet"]
+        S1[Audit + detection] --> S2[Customer KMS + least privilege]
+        S2 --> S3[IAM/SigV4 + TLS + API logs]
+        S3 --> S4[AWS WAF + identity cleanup]
+    end
+
+    S1 -. adds audit coverage .-> CW
+    S2 -. hardens storage .-> RAW
+    S2 -. hardens runtime roles .-> PIPE
+    S3 -. replaces API-key boundary .-> APIGW
+    S4 -. protects .-> APIGW
+
+    classDef planned fill:#fff4cc,stroke:#b7791f,stroke-dasharray:5 5,color:#1a202c
+    class MM,RETRAIN,S1,S2,S3,S4 planned
 ```
 
-## The closed loop
+Solid runtime arrows describe the current dev data path. Dashed arrows and
+yellow nodes are deferred or approved future work. In particular, the retrain
+wiring exists, but built-in SageMaker Model Monitor capture is not active because
+serverless endpoints do not support `DataCaptureConfig`.
 
-1. Traffic hits the API; the endpoint's **Data Capture** logs request/response to S3.
-2. **Model Monitor** compares captured traffic against a baseline from training data on a schedule.
-3. A violation emits a `CompletedWithViolations` event → EventBridge → Lambda → `StartPipelineExecution`.
-4. The pipeline trains a **challenger**; a `ConditionStep` registers it **only if its test AUC beats the current champion's**.
-5. Registry approval (auto in dev, manual in prod) → EventBridge → deploy Lambda updates the serverless endpoint. Loop closed.
+## Current operational loop
+
+1. A raw CSV upload is validated before accepted rows are written to curated S3.
+2. The pipeline creates deterministic training, validation, held-out test, and raw API-verification fixtures.
+3. `Evaluate` scores the challenger on unseen test data, writes the JSON/CSV/PNG report bundle, and exposes test AUC to the promotion gate.
+4. A `ConditionStep` registers the challenger only when its test AUC is strictly greater than the current approved champion's AUC.
+5. Registry approval (automatic in dev, manual in prod) triggers the deployment Lambda, which creates or updates the SageMaker serverless endpoint.
+6. API Gateway and the proxy Lambda validate and encode `/predict` requests before invoking the endpoint. The API evaluator can replay the labeled held-out fixture through this deployed serving path.
+
+The drift-to-retrain leg is intentionally incomplete today. CloudWatch provides
+endpoint invocations, latency, and error visibility, and the monitoring stack
+contains the violation-event-to-pipeline wiring. However, the serverless
+endpoint cannot produce SageMaker's built-in capture stream, so no Model Monitor
+schedule is supplying violation events. A future phase must choose another
+capture design or provisioned inference before calling this a closed automated
+drift loop.
 
 ## Repo map
 
@@ -52,7 +91,7 @@ flowchart TB
 | `src/common/schema.py` | Single source of truth: pydantic schema shared by ingestion validation and the inference API |
 | `src/pipeline/` | SageMaker Pipeline definition + preprocess/evaluate scripts |
 | `src/ingestion/`, `src/serving/` | Lambda handlers (validate, proxy, endpoint deploy) |
-| `scripts/` | Monitor setup, drift-traffic demo |
+| `scripts/` | API evaluation plus optional monitor/drift utilities for a compatible capture architecture |
 | `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
 | `.github/workflows/` | CI (lint/test/synth) and OIDC-federated deploy (dev → manual gate → prod) |
 
@@ -76,10 +115,13 @@ python src/pipeline/pipeline.py --pipeline-name churn-training-pipeline-dev \
 # 3. Serve: approval event auto-deploys the endpoint; then
 curl -X POST <ApiUrl> -H "x-api-key: <key>" -H "Content-Type: application/json" -d @sample.json
 
-# 4. Close the loop: baseline + schedule, then send drifted traffic
-python scripts/setup_monitor.py --endpoint churn-serverless-dev ...
-python scripts/send_drift_traffic.py --url <ApiUrl> --api-key <key> -n 200
+# 4. Inspect the execution's report bundle in the artifacts bucket, then run
+# the API verification command shown in the next section.
 ```
+
+Do not run `setup_monitor.py` against the current serverless endpoint expecting
+built-in request/response capture. That path requires a compatible alternative
+capture design or a provisioned endpoint.
 
 ## Model evaluation reports
 
@@ -131,15 +173,36 @@ The helper is intentionally deterministic and does not call an LLM. It handles s
 | Decision | Choice | Rationale |
 |---|---|---|
 | Serving | SageMaker Serverless Inference | Scales to zero (~$0 idle); registry-native; cold-start latency accepted and named |
-| Managed vs. primitive | Mix | SageMaker where ML lineage matters (training/registry/monitor); primitives (S3/SQS/Lambda) where it doesn't |
+| Managed vs. primitive | Mix | SageMaker where ML lineage matters (training and registry); primitives (S3/SQS/Lambda) for transport and integration |
 | Orchestration | SageMaker Pipelines | Step lineage + caching for free vs. hand-rolled Step Functions |
 | Promotion | ConditionStep vs. champion AUC | Challenger must beat champion; no silent regressions |
 | IaC | CDK (Python) | Type-checked infra, same language as the ML code |
 | CI auth | GitHub OIDC | No long-lived keys in secrets |
-| Pipeline/monitor via SDK | Not CloudFormation | SageMaker Pipelines are versioned documents; Monitor needs a live endpoint. CDK owns the IAM + wiring |
+| Pipeline via SDK | Not CloudFormation | SageMaker Pipelines are versioned documents and resolve live champion state; CDK owns the supporting IAM |
+| Serverless monitoring | Defer built-in capture | Keep the endpoint near-zero idle cost; choose another capture design before enabling Model Monitor |
+| Security rollout | Phase-by-phase | Audit and guardrails precede KMS, least privilege, IAM/SigV4, TLS, and WAF changes so failures stay attributable |
 
-## Security & cost posture
+## Security and cost posture
 
-- Per-component IAM roles (validation Lambda, pipeline, proxy, deploy Lambda) — no shared god role. `InvokeEndpoint` is never exposed directly; only API Gateway with API-key auth is.
-- All buckets: block-public, SSE-KMS, TLS-only, versioned.
-- Everything scales to zero when idle; standing cost is S3 pennies + logs (14-day retention). Budget alarm at $20/mo as a tripwire.
+Current dev baseline:
+
+- Raw, curated, and artifact buckets block public access, enforce TLS, use
+  AWS-managed SSE-KMS encryption, retain versions, and are not public.
+- Runtime responsibilities use separate validation, pipeline, proxy, deployment,
+  and model roles. The proxy is scoped to invoke only the configured endpoint;
+  the pipeline and model roles still use `AmazonSageMakerFullAccess` and are a
+  documented hardening gap.
+- `/predict` currently requires an API key and is throttled, but the key is not
+  strong user authentication. The approved roadmap replaces it with IAM/SigV4.
+- CloudWatch currently covers endpoint operations. At the July 12 security
+  checkpoint, CloudTrail, GuardDuty, Security Hub, AWS Config, IAM Access
+  Analyzer, account-level S3 blocking, and WAF were not enabled.
+- Serverless inference has no configured provisioned concurrency, so endpoint
+  compute has no standing instance while idle. S3, logs, and other retained AWS
+  resources still incur small ongoing charges. The monthly budget is `$20`.
+
+The approved [phased security hardening roadmap](wiki/pages/architecture/phased-security-hardening.md)
+adds repository guardrails first, then audit and detection, customer-managed
+KMS encryption, least-privilege IAM, IAM/SigV4 API authorization, TLS/logging,
+WAF, and operator-identity cleanup. Every phase has its own commit, deployment,
+verification, rollback point, and explicit stop before the next phase.

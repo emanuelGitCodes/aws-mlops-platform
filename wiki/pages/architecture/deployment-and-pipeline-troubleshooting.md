@@ -2,17 +2,33 @@
 type: architecture
 title: Deployment and pipeline troubleshooting checkpoint
 created: "2026-07-11"
-updated: "2026-07-11"
-sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../scripts/evaluate_api.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py", "../../../WORK_SUMMARY_2026-07-10.md"]
-summary: "The pipeline and low-cost API work, with held-out evaluation metrics and visual report artifacts stored per execution in S3; built-in Model Monitor capture remains deferred for serverless inference."
+updated: "2026-07-12"
+sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../scripts/evaluate_api.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py", "../../../WORK_SUMMARY_2026-07-10.md"]
+summary: "The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving."
 ---
 # Deployment and pipeline troubleshooting checkpoint
 
 ## Confirmed
 
+### July 12 Phase 0 status update
+
+The current runtime remains healthy, but the stack status is no longer six
+successful terminal states. `Mlops-Dev-Data` is
+`UPDATE_ROLLBACK_COMPLETE` after an update attempted to delete the
+artifacts-bucket export still imported by `Mlops-Dev-Serving`. Its buckets and
+policies remain `CREATE_COMPLETE`, and ingestion, the successful pipeline,
+endpoint, and API were reverified read-only.
+
+The current source diff would repeat that export removal and also update Lambda
+assets in Ingestion and Serving. Do not run `cdk deploy --all` until the export
+relationship has a reviewed remediation. See the
+[Phase 0 security baseline](security-phase-0-baseline.md) for exact fingerprints,
+commands, and rollback surfaces.
+
 ### Infrastructure deployment
 
-The `us-east-1` environment in account `${AWS_ACCOUNT_ID}` contains six successfully deployed CDK stacks:
+The July 10 deployment originally created six CDK stacks in `us-east-1`, account
+`${AWS_ACCOUNT_ID}`:
 
 - `Mlops-Dev-Data`
 - `Mlops-Dev-Registry`

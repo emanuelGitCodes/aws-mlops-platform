@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -57,6 +57,16 @@ the boundary.
 | 8 | WAF in count mode, then rule-by-rule blocking | Legitimate evaluation traffic passes and controlled malicious/rate traffic is blocked. |
 | 9 | Identity Center, long-lived-key retirement, finding review, and final docs | Temporary access works before old keys are disabled; no high finding is unexplained. |
 
+### Current phase status
+
+- **Phase 0: complete.** The
+  [read-only baseline](security-phase-0-baseline.md) records the working runtime,
+  template and pipeline fingerprints, security gaps, costs, and rollback
+  surfaces.
+- **Phase 1: next.** It is repository-only and must not deploy AWS resources.
+- **Phases 2–9: not started.** No planned audit, detection, encryption, IAM,
+  API-authentication, transport, WAF, or identity change is deployed yet.
+
 ### Stable interfaces and deliberate breakpoints
 
 - The `/predict` JSON request, JSON response, and `score >= 0.50` churn rule do
@@ -70,13 +80,12 @@ the boundary.
 - WAF begins in count mode. Each managed rule moves to blocking independently
   after sampled legitimate requests are reviewed.
 
-### Morning starting point
+### Next checkpoint
 
-Begin with Phase 0 only. Do not edit IAM, KMS, API Gateway, or security-service
-configuration during that checkpoint. Capture the working baseline and rollback
-surfaces first; then implement Phase 1 as a repository-only change. This ensures
-the first AWS mutation—Phase 2 CloudTrail and alerts—arrives after local security
-checks exist.
+Implement Phase 1 only. It may add repository and CI guardrails but must not edit
+IAM, KMS, API Gateway, or security-service configuration. The Phase 0 diff also
+means no all-stack deployment is safe until the Data-to-Serving export
+relationship has a separate remediation.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

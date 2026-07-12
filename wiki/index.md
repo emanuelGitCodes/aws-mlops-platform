@@ -6,14 +6,15 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Overview
 
-- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform whose closed loop produces gated models plus reproducible held-out evaluation reports.
+- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform with gated models and reproducible evaluation reports; serverless drift capture remains deferred.
 
 ## Architecture
 
 - [AWS resource and permission boundaries](pages/architecture/permissions.md) — Runtime roles are separated by component, while the phased hardening roadmap removes the remaining broad SageMaker policies one role at a time.
+- [AWS security hardening Phase 0 baseline](pages/architecture/security-phase-0-baseline.md) — The pre-hardening dev baseline is captured: runtime paths work, security gaps are measured, and the Data-stack export rollback blocks an all-stack deploy.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
-- [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The pipeline and low-cost API work, with held-out evaluation metrics and visual report artifacts stored per execution in S3; built-in Model Monitor capture remains deferred for serverless inference.
+- [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving.
 - [Phased AWS security hardening roadmap](pages/architecture/phased-security-hardening.md) — A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls.
 
 ## Concepts
@@ -31,6 +32,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Sources
 
+- [AWS security hardening Phase 0 baseline — July 12, 2026](pages/sources/aws-security-hardening-phase-0-baseline-july-12-2026.md) — Read-only evidence for the pre-hardening AWS state, live application checkpoints, rollback surfaces, and the Data-stack export blocker.
 - [Evaluation report rollout — July 11, 2026](pages/sources/evaluation-report-rollout-july-11-2026.md) — Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution.
 - [MLOps deployment and pipeline troubleshooting summary — July 10, 2026](pages/sources/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md) — Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session.
 - [Phased AWS security hardening plan — July 12, 2026](pages/sources/phased-aws-security-hardening-plan-july-12-2026.md) — Evidence and implementation checkpoints for the approved phase-by-phase AWS security-hardening roadmap.

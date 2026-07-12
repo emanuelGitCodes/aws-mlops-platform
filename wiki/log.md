@@ -740,3 +740,82 @@ checkpoints are accepted; the first AWS change is Phase 2 audit and alerting.
 - Wiki lint healthy with 13 pages.
 - Focused wiki tests: 5 passed.
 - No application code or AWS infrastructure changed.
+## [2026-07-12] query | Phase 0 security baseline rollback Data stack export
+
+Found 13 matching page(s).
+
+## [2026-07-12] ingest | AWS security hardening Phase 0 baseline — July 12, 2026
+
+Registered immutable source `raw/aws-security-hardening-phase-0-baseline-july-12-2026.md`.
+
+## [2026-07-12] verify | AWS security hardening Phase 0 baseline
+
+### Objective
+
+Execute Phase 0 of the approved security roadmap: capture the pre-hardening AWS
+and repository state, prove the current application checkpoints, preserve
+rollback surfaces, and make no security or workload configuration change.
+
+### Scope
+
+- Six `Mlops-Dev-*` CloudFormation stacks in `us-east-1`.
+- Raw, curated, and artifacts S3 buckets.
+- SageMaker pipeline, versions, last successful execution, model package,
+  endpoint, and endpoint config.
+- API Gateway method/stage configuration and one normal `/predict` request.
+- Runtime IAM policies, current security-service subscriptions, budget, alarms,
+  processed-template fingerprints, and no-change-set CDK diff.
+- Immutable Phase 0 source, maintained baseline page, roadmap, deployment
+  checkpoint, overview, and index.
+
+### Identity and environment
+
+AWS read operations used `${AWS_ADMIN_USER_NAME}` in account `${AWS_ACCOUNT_ID}`, Region
+`us-east-1`. `${MLOPS_DEPLOYER_USER_NAME}` ran only `cdk diff --no-change-set`. The API key
+was retrieved into a shell variable for the smoke request and was never printed
+or recorded. No training execution or CloudFormation change set was created.
+
+### Commands and observed results
+
+1. `describe-stacks` found five healthy stack terminal states and
+   `Mlops-Dev-Data` at `UPDATE_ROLLBACK_COMPLETE`.
+2. `describe-stack-events` identified the exact blocker: the update attempted to
+   delete an artifacts-bucket export still imported by Serving.
+3. Live processed templates and the pipeline definition were exported through
+   read APIs and SHA-256 fingerprinted for future comparison.
+4. `cdk diff --no-change-set` reproduced the Data export removal and showed
+   Lambda asset changes in Ingestion and Serving; it did not mutate AWS.
+5. S3 checks confirmed all workload buckets are private, versioned, Bucket Owner
+   Enforced, and encrypted with the AWS-managed S3 KMS key. Raw and curated
+   Telco objects remain present with matching sizes.
+6. Pipeline version 9 is Active but unexecuted. Version-8 execution
+   `53ww289tjhoz` succeeded through all steps and retains the complete report
+   bundle under its older prefix. Approved package `/1` retains AUC `0.8398`.
+7. `churn-serverless-dev` is `InService`; a normal API-key request returned
+   probability `0.3656342029571533` and `churn: false`.
+8. CloudTrail, GuardDuty, Security Hub, Config, Access Analyzer, account-level S3
+   blocking, and WAF remain absent. The `$20` budget has no notifications, and
+   the endpoint alarm has no action.
+
+### Interpretation
+
+The runtime is usable, but the environment is not safe for an undifferentiated
+`cdk deploy --all`. Phase 0 established comparison evidence without treating
+the Data rollback or security gaps as fixed. The empty top-level `evaluations/`
+prefix is expected because pipeline version 9 has not run.
+
+### Decision and next checkpoint
+
+Phase 0 is complete. Proceed only to Phase 1 repository and CI guardrails. Do
+not deploy AWS resources, start a billable pipeline execution, or retry the Data
+stack during Phase 1. The Data-to-Serving export requires a separate reviewed
+remediation before any all-stack deployment.
+
+### Verification
+
+- Full unit suite: 40 passed.
+- Ruff check: passed; 40 files already formatted.
+- CDK synthesized all six stacks during the no-change-set diff.
+- Wiki lint: healthy with 15 pages before this append-only entry.
+- `git diff --check` is rerun after the final log update.
+- No AWS configuration or repository application code changed.

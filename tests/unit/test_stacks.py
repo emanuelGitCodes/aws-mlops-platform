@@ -18,6 +18,7 @@ from infra.stacks.data_stack import DataStack
 from infra.stacks.ingestion_stack import IngestionStack
 from infra.stacks.monitoring_stack import MonitoringStack
 from infra.stacks.registry_stack import RegistryStack
+from infra.stacks.security_stack import SecurityStack
 from infra.stacks.serving_stack import ServingStack
 from infra.stacks.training_stack import TrainingStack
 
@@ -29,7 +30,13 @@ CONFIG = yaml.safe_load(
 @pytest.fixture(scope="module")
 def stack_constructs() -> dict:
     """All stacks built once; the construct tree can't change after first synth."""
-    app = cdk.App(context={"aws:cdk:bundling-stacks": []})
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    security = SecurityStack(app, "TestSecurity", config=CONFIG)
     data = DataStack(app, "TestData", config=CONFIG)
     ingestion = IngestionStack(
         app,
@@ -55,6 +62,7 @@ def stack_constructs() -> dict:
     )
     monitoring = MonitoringStack(app, "TestMonitoring", config=CONFIG)
     stacks = {
+        "security": security,
         "data": data,
         "ingestion": ingestion,
         "registry": registry,
@@ -90,6 +98,236 @@ def test_buckets_are_locked_down(stacks):
             "VersioningConfiguration": {"Status": "Enabled"},
         },
     )
+    template.has_resource_properties(
+        "AWS::Budgets::Budget",
+        {"Budget": Match.object_like({"BudgetLimit": {"Amount": CONFIG["budget_usd"]}})},
+    )
+
+
+def test_security_audit_foundation(stacks):
+    template = stacks["security"]
+    document = template.to_json()
+
+    assert document["Parameters"]["SecurityAlertEmail"] == {
+        "Type": "String",
+        "Description": "Email endpoint for dev security and budget alerts",
+    }
+    assert set(document["Outputs"]) >= {
+        "TrailName",
+        "AuditBucketName",
+        "AccessLogBucketName",
+        "AuditLogGroupName",
+        "SecurityAlertsTopicArn",
+        "AuditKeyAlias",
+    }
+
+    template.resource_count_is("AWS::KMS::Key", 1)
+    template.has_resource_properties(
+        "AWS::KMS::Key",
+        {
+            "EnableKeyRotation": True,
+            "KeyPolicy": Match.object_like(
+                {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "AllowCloudTrailAuditEncryption",
+                                    "Principal": {"Service": "cloudtrail.amazonaws.com"},
+                                    "Action": ["kms:GenerateDataKey*", "kms:DescribeKey"],
+                                    "Condition": Match.object_like(
+                                        {
+                                            "StringEquals": Match.object_like(
+                                                {"aws:SourceArn": Match.any_value()}
+                                            ),
+                                            "StringLike": Match.object_like(
+                                                {
+                                                    "kms:EncryptionContext:aws:cloudtrail:arn": (
+                                                        Match.any_value()
+                                                    )
+                                                }
+                                            ),
+                                        }
+                                    ),
+                                }
+                            ),
+                            Match.object_like(
+                                {
+                                    "Sid": "AllowRegionalCloudWatchLogsEncryption",
+                                    "Principal": {"Service": Match.any_value()},
+                                }
+                            ),
+                            Match.object_like({"Sid": "AllowCloudWatchEncryptedAlerts"}),
+                            Match.object_like({"Sid": "AllowBudgetsEncryptedAlerts"}),
+                        ]
+                    )
+                }
+            ),
+        },
+    )
+    template.has_resource_properties("AWS::KMS::Alias", {"AliasName": "alias/mlops-dev-audit"})
+
+    template.resource_count_is("AWS::S3::Bucket", 2)
+    template.all_resources_properties(
+        "AWS::S3::Bucket",
+        {
+            "PublicAccessBlockConfiguration": Match.object_like(
+                {
+                    "BlockPublicAcls": True,
+                    "BlockPublicPolicy": True,
+                    "IgnorePublicAcls": True,
+                    "RestrictPublicBuckets": True,
+                }
+            ),
+            "OwnershipControls": {"Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]},
+            "VersioningConfiguration": {"Status": "Enabled"},
+        },
+    )
+    template.has_resource_properties(
+        "AWS::S3::Bucket",
+        {
+            "BucketEncryption": {
+                "ServerSideEncryptionConfiguration": [
+                    {"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}
+                ]
+            }
+        },
+    )
+    template.has_resource_properties(
+        "AWS::S3::Bucket",
+        {
+            "BucketEncryption": Match.object_like(
+                {
+                    "ServerSideEncryptionConfiguration": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "BucketKeyEnabled": True,
+                                    "ServerSideEncryptionByDefault": Match.object_like(
+                                        {"SSEAlgorithm": "aws:kms"}
+                                    ),
+                                }
+                            )
+                        ]
+                    )
+                }
+            ),
+            "LoggingConfiguration": Match.object_like({"LogFilePrefix": "cloudtrail/"}),
+        },
+    )
+
+    template.has_resource_properties(
+        "AWS::Logs::LogGroup",
+        {
+            "KmsKeyId": Match.any_value(),
+            "LogGroupName": "/aws/cloudtrail/mlops-dev-audit",
+            "RetentionInDays": 90,
+        },
+    )
+    template.has_resource_properties(
+        "AWS::CloudTrail::Trail",
+        {
+            "EnableLogFileValidation": True,
+            "EventSelectors": [{"IncludeManagementEvents": True, "ReadWriteType": "All"}],
+            "IncludeGlobalServiceEvents": True,
+            "IsLogging": True,
+            "IsMultiRegionTrail": True,
+            "IsOrganizationTrail": False,
+            "KMSKeyId": Match.any_value(),
+            "TrailName": "mlops-dev-audit",
+        },
+    )
+
+    template.has_resource_properties(
+        "AWS::SNS::Topic",
+        {
+            "KmsMasterKeyId": Match.any_value(),
+            "TopicName": "mlops-dev-security-alerts",
+        },
+    )
+    template.has_resource_properties(
+        "AWS::SNS::Subscription",
+        {
+            "Endpoint": {"Ref": "SecurityAlertEmail"},
+            "Protocol": "email",
+        },
+    )
+    template.has_resource_properties(
+        "AWS::SNS::TopicPolicy",
+        {
+            "PolicyDocument": Match.object_like(
+                {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like({"Sid": "AllowCloudWatchAlarmPublish"}),
+                            Match.object_like({"Sid": "AllowBudgetsPublish"}),
+                        ]
+                    )
+                }
+            )
+        },
+    )
+    template.resource_count_is("AWS::Logs::MetricFilter", 0)
+    template.resource_count_is("AWS::CloudWatch::Alarm", 0)
+
+    resources = document["Resources"]
+    retained_types = {"AWS::KMS::Key", "AWS::S3::Bucket", "AWS::Logs::LogGroup"}
+    for resource in resources.values():
+        if resource["Type"] in retained_types:
+            assert resource["DeletionPolicy"] == "Retain"
+            assert resource["UpdateReplacePolicy"] == "Retain"
+
+    trail_properties = next(
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::CloudTrail::Trail"
+    )
+    event_selector = trail_properties["EventSelectors"][0]
+    assert "DataResources" not in event_selector
+    assert "InsightSelectors" not in trail_properties
+    assert ":log-group:/aws/cloudtrail/mlops-dev-audit:*" in json.dumps(
+        trail_properties["CloudWatchLogsLogGroupArn"]
+    )
+
+    role_policy = next(
+        resource["Properties"]["PolicyDocument"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::IAM::Policy"
+    )
+    assert ":log-group:/aws/cloudtrail/mlops-dev-audit:log-stream:*" in json.dumps(role_policy)
+
+    key_policy = next(
+        resource["Properties"]["KeyPolicy"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::KMS::Key"
+    )
+    service_sids = {
+        statement["Sid"]
+        for statement in key_policy["Statement"]
+        if "Service" in statement.get("Principal", {})
+    }
+    assert service_sids == {
+        "AllowCloudTrailAuditEncryption",
+        "AllowRegionalCloudWatchLogsEncryption",
+        "AllowCloudWatchEncryptedAlerts",
+        "AllowBudgetsEncryptedAlerts",
+    }
+
+    topic_policy = next(
+        resource["Properties"]["PolicyDocument"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::SNS::TopicPolicy"
+    )
+    service_statements = {
+        statement["Sid"]: statement
+        for statement in topic_policy["Statement"]
+        if statement["Sid"] in {"AllowCloudWatchAlarmPublish", "AllowBudgetsPublish"}
+    }
+    assert set(service_statements) == {"AllowCloudWatchAlarmPublish", "AllowBudgetsPublish"}
+    for statement in service_statements.values():
+        assert "aws:SourceAccount" in statement["Condition"]["StringEquals"]
+        assert "aws:SourceArn" in statement["Condition"]["ArnLike"]
+
     # TLS-only: every bucket policy denies insecure transport
     template.all_resources_properties(
         "AWS::S3::BucketPolicy",
@@ -109,10 +347,6 @@ def test_buckets_are_locked_down(stacks):
                 }
             )
         },
-    )
-    template.has_resource_properties(
-        "AWS::Budgets::Budget",
-        {"Budget": Match.object_like({"BudgetLimit": {"Amount": CONFIG["budget_usd"]}})},
     )
 
 
@@ -331,6 +565,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         ).hexdigest()
 
     assert fingerprints == {
+        "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
         "data": "defc965af9288dbbb5f4d03319208bdff311cfd5b5cdaf3215308525464f9b35",
         "ingestion": "6af42bd809ed5eaa65a19802ba43e8f0a49ece99ca0677631106d7ad6ac515b1",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",

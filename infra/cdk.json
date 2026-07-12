@@ -2,6 +2,7 @@
   "app": "python3 app.py",
   "context": {
     "env": "dev",
-    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+    "@aws-cdk/core:defaultCrossStackReferences": "strong",
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true
   }
 }

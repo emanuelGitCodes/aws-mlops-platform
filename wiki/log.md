@@ -939,3 +939,40 @@ Stop until the parameterized SNS email subscription is manually confirmed.
 
 The policy JSON parses, its regression tests pass, the wiki index is rebuilt,
 and wiki lint plus the repository gates run before the Phase 2A commit.
+
+## [2026-07-12] implement | AWS security hardening Phase 2B audit foundation
+
+### Objective
+
+Implement the isolated retained audit-storage, CloudTrail, CloudWatch Logs, KMS,
+and encrypted SNS foundation without deploying it or adding detections.
+
+### Scope and boundary
+
+Added only `Mlops-Dev-Security` and its configuration, tests, exact cdk-nag
+acknowledgements, and documentation. No AWS mutation, Data-stack reference,
+budget notification, metric filter, alarm, API change, or SageMaker execution
+occurred. The email endpoint remains a parameter with no source-controlled
+default.
+
+### Commands and results
+
+- Phase 2A GitHub run 9 passed `validate` and `secret-scan` with no leaks.
+- Enabled CDK's S3 bucket-policy log-delivery mode after synthesis rejected the
+  legacy ACL as incompatible with Bucket Owner Enforced.
+- Corrected CloudWatch alarm and Logs ARN delimiters after inspecting the normal
+  synthesized template.
+- Narrowed the CloudTrail role to `log-stream:*` beneath one audit log group.
+- Ruff and formatting passed; 47 unit tests passed.
+- Normal scoped Security-stack synthesis and cdk-nag validation passed.
+
+### Interpretation and decision
+
+Phase 2B is ready for its isolated commit and hosted CI. The local go/no-go is
+GO for commit, but deployment remains NO-GO until both hosted jobs pass and the
+Security-only diff is reviewed.
+
+### Next checkpoint
+
+Push the Phase 2B commit, verify CI, run a scoped Security diff, deploy only
+`Mlops-Dev-Security`, and then wait for manual email-subscription confirmation.

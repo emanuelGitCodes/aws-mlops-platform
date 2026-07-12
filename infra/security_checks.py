@@ -33,6 +33,21 @@ APIGW_LOG_POLICY = (
 
 
 ACKNOWLEDGEMENTS = (
+    Acknowledgement(
+        "security",
+        "AccessLogBucket",
+        "AwsSolutions::AwsSolutions-S1",
+        "Phase 2 access-log sink must not recursively deliver server access logs to itself.",
+    ),
+    Acknowledgement(
+        "security",
+        "CloudTrailLogsRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:logs:<AWS::Region>:"
+            "<AWS::AccountId>:log-group:/aws/cloudtrail/mlops-dev-audit:log-stream:*]"
+        ),
+        "Phase 2 CloudTrail delivery requires the generated log-stream suffix under one group.",
+    ),
     # Data: server access logging is evaluated with the Phase 2 audit design.
     *(
         Acknowledgement(

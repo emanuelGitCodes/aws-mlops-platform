@@ -15,6 +15,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
 - [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving.
+- [Phase 2 audit foundation](pages/architecture/security-phase-2-audit-foundation.md) — The isolated Security stack retains encrypted CloudTrail evidence and provides a parameterized encrypted alert path.
 - [Phased AWS security hardening roadmap](pages/architecture/phased-security-hardening.md) — A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls.
 
 ## Concepts
@@ -36,6 +37,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [AWS security hardening Phase 1 completion — July 12, 2026](pages/sources/aws-security-hardening-phase-1-completion-july-12-2026.md) — All Phase 1 repository-security gates pass locally without an AWS deployment; the uncommitted diff is ready for final human review.
 - [AWS security hardening Phase 1 implementation — July 12, 2026](pages/sources/aws-security-hardening-phase-1-implementation-july-12-2026.md) — Phase 1 repository and CI guardrails are implemented locally and await human review plus network-backed CI validation.
 - [AWS security hardening Phase 2A completion — July 12, 2026](pages/sources/aws-security-hardening-phase-2a-completion-july-12-2026.md) — The Data export drift is reconciled and execution-policy v6 is installed with an exact v1 archive and v5 rollback path.
+- [AWS security hardening Phase 2B implementation — July 12, 2026](pages/sources/aws-security-hardening-phase-2b-implementation-july-12-2026.md) — The isolated Security audit-foundation stack passes local tests and synthesis and awaits hosted CI and deployment.
 - [Evaluation report rollout — July 11, 2026](pages/sources/evaluation-report-rollout-july-11-2026.md) — Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution.
 - [MLOps deployment and pipeline troubleshooting summary — July 10, 2026](pages/sources/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md) — Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session.
 - [Phased AWS security hardening plan — July 12, 2026](pages/sources/phased-aws-security-hardening-plan-july-12-2026.md) — Evidence and implementation checkpoints for the approved phase-by-phase AWS security-hardening roadmap.

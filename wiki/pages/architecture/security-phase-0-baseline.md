@@ -71,10 +71,10 @@ The platform is usable but not ready for a broad CDK deployment. Phase 0
 success means that the baseline is trustworthy and later regressions have a
 comparison point; it does not mean the recorded gaps are fixed.
 
-The next safe change is Phase 1, which touches only repository and CI security
-guardrails. Audit and detection remain Phase 2. Before any future Data-stack or
-all-stack deployment, preserve the artifacts-bucket export or update its
-consumer relationship in a separately reviewed change.
+Phase 1 repository and CI guardrails are now complete. Audit and detection
+remain Phase 2 and require a separate go/no-go decision. Before any future
+Data-stack or all-stack deployment, preserve the artifacts-bucket export or
+update its consumer relationship in a separately reviewed change.
 
 The rollback hierarchy is:
 

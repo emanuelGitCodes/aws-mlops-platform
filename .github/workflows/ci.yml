@@ -5,23 +5,53 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          version: "0.11.28"
           python-version: "3.12"
-      - name: Install
-        run: pip install -e ".[dev]"
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+
       - name: Lint
         run: |
-          ruff check .
-          ruff format --check .
+          uv run --locked ruff check .
+          uv run --locked ruff format --check .
+
       - name: Unit tests
-        run: pytest tests/unit -q
-      - name: CDK synth
+        run: uv run --locked pytest tests/unit -q
+
+      - name: Audit Python dependencies
+        run: uv run --locked pip-audit --skip-editable
+
+      - name: CDK security synthesis
         run: |
-          npm install -g aws-cdk
-          cd infra && cdk synth -c env=dev --no-lookups
+          cd infra
+          uv run --locked npx aws-cdk@2.1130.0 synth \
+            -c env=dev \
+            --no-lookups
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Scan Git history for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

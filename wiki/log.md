@@ -819,3 +819,75 @@ remediation before any all-stack deployment.
 - Wiki lint: healthy with 15 pages before this append-only entry.
 - `git diff --check` is rerun after the final log update.
 - No AWS configuration or repository application code changed.
+
+## [2026-07-12] implement | AWS security hardening Phase 1 guardrails
+
+### Objective
+
+Implement the repository-only security guardrails from Phase 1 and leave the
+changes uncommitted for human review.
+
+### Scope and boundary
+
+Added locked Python dependencies, construct-scoped `cdk-nag` validation, CDK
+security regression tests, dependency and secret scanning, immutable GitHub
+Action pins, and a manual-only deployment workflow. No AWS API, deployment,
+pipeline execution, or cloud resource configuration was changed.
+
+### Commands and results
+
+- `uv lock --check`: passed with 108 packages.
+- Ruff check and format check: passed across 41 files.
+- Full unit suite: 44 passed, including isolated synthesis of all six stacks
+  with `AwsSolutionsChecks`.
+- Local `pip-audit` could not reach PyPI from the sandbox; the approval service
+  was unavailable. Gitleaks is not installed locally. Both remain required CI
+  checks, along with the normal Lambda-asset-bundling CDK synth.
+
+### Decision and next checkpoint
+
+Phase 1 is implemented but not complete. Review the uncommitted diff and require
+all GitHub CI jobs to pass before committing Phase 1 or beginning Phase 2. The
+known Data-to-Serving export blocker still prevents an all-stack deployment.
+
+### Verification
+
+The wiki index and lint are rebuilt after this entry. `git diff --check` is run
+at final handoff. No commit was created.
+
+## [2026-07-12] verify | AWS security hardening Phase 1 completion
+
+### Objective
+
+Close the remaining Phase 1 repository-security acceptance gates without an AWS
+deployment or commit.
+
+### Commands and results
+
+- Upgraded reviewed action pins to checkout v7.0.0, setup-uv v8.3.2,
+  configure-aws-credentials v6.2.2, and Gitleaks action v3.0.0.
+- Upgraded cdk-nag to 3.0.1 and registered it as a native CDK validation plugin.
+- `uv lock --check` passed with 108 packages.
+- `pip-audit` reported no known vulnerabilities.
+- Gitleaks v8.30.1 found no leaks in 10 commits, the tracked diff, or any
+  untracked Phase 1 file.
+- Ruff passed; all 41 files were formatted.
+- The full unit suite reported 44 passed.
+- Normal Docker-backed CDK synthesis passed across all six dev stacks with no
+  unacknowledged AwsSolutions finding.
+- A final synthesis explicitly locked the existing `strong` cross-stack
+  reference behavior and removed that feature-flag warning. Only the recorded
+  `logRetention` deprecation warnings remain.
+
+### Interpretation and decision
+
+Phase 1 is complete. The earlier implementation record remains immutable and
+documents why the network-backed gates were initially pending. This completion
+entry supersedes that checkpoint with passing evidence. No AWS resource or
+runtime changed, and the work remains uncommitted for final review.
+
+### Next checkpoint
+
+Commit Phase 1 separately only after final human approval. Do not begin Phase 2
+without an explicit go/no-go decision, and do not run an all-stack deployment
+until the Data-to-Serving export-removal blocker has a reviewed remediation.

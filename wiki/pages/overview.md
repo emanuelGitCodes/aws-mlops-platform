@@ -3,7 +3,7 @@ type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
 updated: "2026-07-12"
-sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md"]
+sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../raw/aws-security-hardening-phase-1-completion-july-12-2026.md"]
 summary: "A portfolio-grade AWS platform with gated models and reproducible evaluation reports; serverless drift capture remains deferred."
 ---
 # AWS MLOps platform overview
@@ -30,7 +30,8 @@ The most important boundaries are the [training and inference contracts](concept
 The approved improvement is the
 [phased AWS security hardening roadmap](architecture/phased-security-hardening.md).
 Its [Phase 0 baseline](architecture/security-phase-0-baseline.md) is complete.
-Phase 1 is next and remains repository-only; later phases introduce audit,
+Phase 1 repository and CI security guardrails are complete; later phases
+introduce audit,
 detection, encryption, least privilege, IAM/SigV4 API authorization, and WAF as
 separately deployed and accepted changes.
 

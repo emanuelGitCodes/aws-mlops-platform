@@ -9,6 +9,7 @@ import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+from infra.security_checks import apply_security_checks
 from infra.stacks.data_stack import DataStack
 from infra.stacks.ingestion_stack import IngestionStack
 from infra.stacks.monitoring_stack import MonitoringStack
@@ -22,7 +23,7 @@ config = yaml.safe_load((pathlib.Path(__file__).parent / "config" / f"{env_name}
 prefix = f"Mlops-{env_name.capitalize()}"
 
 data = DataStack(app, f"{prefix}-Data", config=config)
-IngestionStack(
+ingestion = IngestionStack(
     app,
     f"{prefix}-Ingestion",
     raw_bucket=data.raw_bucket,
@@ -30,20 +31,32 @@ IngestionStack(
     config=config,
 )
 registry = RegistryStack(app, f"{prefix}-Registry", config=config)
-TrainingStack(
+training = TrainingStack(
     app,
     f"{prefix}-Training",
     curated_bucket=data.curated_bucket,
     artifacts_bucket=data.artifacts_bucket,
     config=config,
 )
-ServingStack(
+serving = ServingStack(
     app,
     f"{prefix}-Serving",
     artifacts_bucket=data.artifacts_bucket,
     package_group_name=registry.package_group_name,
     config=config,
 )
-MonitoringStack(app, f"{prefix}-Monitoring", config=config)
+monitoring = MonitoringStack(app, f"{prefix}-Monitoring", config=config)
+
+apply_security_checks(
+    app,
+    {
+        "data": data,
+        "ingestion": ingestion,
+        "training": training,
+        "registry": registry,
+        "serving": serving,
+        "monitoring": monitoring,
+    },
+)
 
 app.synth()

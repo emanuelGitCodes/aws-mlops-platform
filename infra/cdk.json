@@ -1,6 +1,7 @@
 {
   "app": "python3 app.py",
   "context": {
-    "env": "dev"
+    "env": "dev",
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
   }
 }

@@ -18,6 +18,8 @@ dev = [
     "boto3>=1.34",
     "scikit-learn>=1.4,<2",
     "matplotlib>=3.7,<4",
+    "cdk-nag==3.0.1",
+    "pip-audit>=2.10,<3",
 ]
 pipeline = [
     "sagemaker>=2.220,<3",

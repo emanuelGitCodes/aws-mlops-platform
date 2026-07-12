@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -63,7 +63,14 @@ the boundary.
   [read-only baseline](security-phase-0-baseline.md) records the working runtime,
   template and pipeline fingerprints, security gaps, costs, and rollback
   surfaces.
-- **Phase 1: next.** It is repository-only and must not deploy AWS resources.
+- **Phase 1: complete.** Locked dependencies, construct-scoped `cdk-nag` 3
+  acknowledgements, IAM/S3 regression tests, dependency and secret scanning,
+  current immutable action pins, and a manual-only deployment workflow are in
+  place. The lock check, dependency audit, full-history and worktree secret
+  scans, lint, 44 tests, and normal asset-bundling CDK synthesis pass. See the
+  [completion record](../sources/aws-security-hardening-phase-1-completion-july-12-2026.md).
+  CDK's existing producer-protecting cross-stack reference behavior is now
+  explicitly locked to `strong`.
 - **Phases 2–9: not started.** No planned audit, detection, encryption, IAM,
   API-authentication, transport, WAF, or identity change is deployed yet.
 
@@ -82,10 +89,11 @@ the boundary.
 
 ### Next checkpoint
 
-Implement Phase 1 only. It may add repository and CI guardrails but must not edit
-IAM, KMS, API Gateway, or security-service configuration. The Phase 0 diff also
-means no all-stack deployment is safe until the Data-to-Serving export
-relationship has a separate remediation.
+Perform final human review and commit Phase 1 separately. Do not begin Phase 2
+without an explicit go/no-go decision. Phase 1 does not edit IAM, KMS, API
+Gateway, or security-service configuration. The Phase 0 diff also means no
+all-stack deployment is safe until the Data-to-Serving export relationship has
+a separate remediation.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

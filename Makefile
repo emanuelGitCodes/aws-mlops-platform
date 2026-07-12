@@ -1,25 +1,33 @@
-.PHONY: install lint test synth deploy destroy wiki-init wiki-index wiki-search wiki-ingest wiki-lint
+.PHONY: install lock-check lint test audit synth security deploy destroy wiki-init wiki-index wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 
 install:
-	pip install -e ".[dev]"
+	uv sync --locked --extra dev
+
+lock-check:
+	uv lock --check
 
 lint:
-	ruff check .
-	ruff format --check .
+	uv run --locked ruff check .
+	uv run --locked ruff format --check .
 
 test:
-	pytest tests/unit -q
+	uv run --locked pytest tests/unit -q
+
+audit:
+	uv run --locked pip-audit --skip-editable
 
 synth:
-	cd infra && cdk synth -c env=$(ENV)
+	cd infra && uv run --locked npx aws-cdk@2.1130.0 synth -c env=$(ENV) --no-lookups
+
+security: lock-check audit synth
 
 deploy:
-	cd infra && cdk deploy --all -c env=$(ENV) --require-approval never
+	cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=$(ENV) --require-approval never
 
 destroy:
-	cd infra && cdk destroy --all -c env=$(ENV)
+	cd infra && uv run --locked npx aws-cdk@2.1130.0 destroy --all -c env=$(ENV)
 
 wiki-init:
 	python3 scripts/wiki.py init

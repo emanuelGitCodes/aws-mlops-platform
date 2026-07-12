@@ -10,7 +10,8 @@ expected format) to /opt/ml/processing/{train,validation,test}.
 
 import csv
 import glob
-import os
+import json
+import pathlib
 import random
 
 from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
@@ -51,25 +52,54 @@ def encode_labeled_row(row: dict) -> list[float]:
     return [label, *encode_features(row)]
 
 
+def split_records(records: list[dict]) -> dict[str, list[dict]]:
+    """Create deterministic train, validation, and held-out test splits."""
+    shuffled = list(records)
+    random.Random(42).shuffle(shuffled)
+    n = len(shuffled)
+    return {
+        "train": shuffled[: int(n * 0.7)],
+        "validation": shuffled[int(n * 0.7) : int(n * 0.85)],
+        "test": shuffled[int(n * 0.85) :],
+    }
+
+
+def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -> None:
+    """Write XGBoost-compatible CSVs and the raw held-out API test fixture."""
+    root = pathlib.Path(output_root)
+    for name in ("train", "validation", "test"):
+        out_dir = root / name
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_dir / f"{name}.csv", "w", newline="") as f:
+            csv.writer(f).writerows(encode_labeled_row(row) for row in splits[name])
+
+    # This contains only fields accepted by the public prediction API. Keeping
+    # the label separate makes it possible to evaluate a deployed endpoint
+    # without reversing the lossy categorical encoding used for XGBoost.
+    api_test_dir = root / "api_test"
+    api_test_dir.mkdir(parents=True, exist_ok=True)
+    with open(api_test_dir / "api_test.jsonl", "w") as f:
+        for row_id, row in enumerate(splits["test"]):
+            json.dump(
+                {
+                    "row_id": row_id,
+                    "record": {column: row[column] for column in FEATURE_COLUMNS},
+                    "label": int(row[LABEL_COLUMN] == "Yes"),
+                },
+                f,
+            )
+            f.write("\n")
+
+
 def main():
     input_dir = "/opt/ml/processing/input"
-    rows = []
+    records = []
     for path in glob.glob(f"{input_dir}/*.csv"):
         with open(path) as f:
-            rows.extend(encode_labeled_row(r) for r in csv.DictReader(f))
+            records.extend(csv.DictReader(f))
 
-    random.Random(42).shuffle(rows)
-    n = len(rows)
-    splits = {
-        "train": rows[: int(n * 0.7)],
-        "validation": rows[int(n * 0.7) : int(n * 0.85)],
-        "test": rows[int(n * 0.85) :],
-    }
-    for name, split in splits.items():
-        out_dir = f"/opt/ml/processing/{name}"
-        os.makedirs(out_dir, exist_ok=True)
-        with open(f"{out_dir}/{name}.csv", "w", newline="") as f:
-            csv.writer(f).writerows(split)
+    splits = split_records(records)
+    write_preprocessed_splits(splits, "/opt/ml/processing")
     print({name: len(split) for name, split in splits.items()})
 
 

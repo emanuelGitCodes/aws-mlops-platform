@@ -3,8 +3,8 @@ type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
 updated: "2026-07-11"
-sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md"]
-summary: "A portfolio-grade AWS platform whose main deliverable is the closed drift-to-retrain-to-deploy engineering loop."
+sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md"]
+summary: "A portfolio-grade AWS platform whose closed loop produces gated models plus reproducible held-out evaluation reports."
 ---
 # AWS MLOps platform overview
 
@@ -12,7 +12,7 @@ summary: "A portfolio-grade AWS platform whose main deliverable is the closed dr
 
 The repository is a CDK application split into data, ingestion, training, registry, serving, and monitoring stacks. The model is intentionally simple; the engineering story is the closed operational loop around it.
 
-The July 10 deployment verified the six-stack infrastructure and the raw-to-curated ingestion path. The current end-to-end checkpoint is documented in the [deployment and pipeline troubleshooting page](architecture/deployment-and-pipeline-troubleshooting.md): the SageMaker pipeline preprocesses, trains, evaluates, and registers an approved model, while the serverless endpoint returns protected API predictions. SageMaker Model Monitor capture is deferred because serverless endpoints do not support data capture.
+The July 10 deployment verified the six-stack infrastructure and the raw-to-curated ingestion path. The current end-to-end checkpoint is documented in the [deployment and pipeline troubleshooting page](architecture/deployment-and-pipeline-troubleshooting.md): the SageMaker pipeline preprocesses, trains, evaluates, and registers an approved model, while the serverless endpoint returns protected API predictions. Each successful evaluation now writes a reproducible S3 report bundle with metrics, predictions, and five diagnostic charts. SageMaker Model Monitor capture is deferred because serverless endpoints do not support data capture.
 
 The runtime path is:
 

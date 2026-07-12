@@ -6,18 +6,18 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Overview
 
-- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform whose main deliverable is the closed drift-to-retrain-to-deploy engineering loop.
+- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform whose closed loop produces gated models plus reproducible held-out evaluation reports.
 
 ## Architecture
 
 - [AWS resource and permission boundaries](pages/architecture/permissions.md) — Each runtime component receives only the storage, invocation, or orchestration permissions needed for its position in the loop.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
-- [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The pipeline, low-cost serverless endpoint, and API inference path work; SageMaker Model Monitor capture is deferred because serverless endpoints do not support it.
+- [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The pipeline and low-cost API work, with held-out evaluation metrics and visual report artifacts stored per execution in S3; built-in Model Monitor capture remains deferred for serverless inference.
 
 ## Concepts
 
-- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — Captured inference traffic can produce a monitoring violation that starts a gated challenger training run and eventual redeployment.
+- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — A gated challenger run produces held-out metrics and report artifacts before registry promotion; serverless monitoring capture remains a future design boundary.
 - [Validation versus preprocessing contracts](pages/concepts/contracts-and-preprocessing.md) — Validation checks whether a record is acceptable; preprocessing deterministically converts an accepted record into the model's numeric feature vector.
 
 ## Decisions
@@ -30,4 +30,5 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Sources
 
+- [Evaluation report rollout — July 11, 2026](pages/sources/evaluation-report-rollout-july-11-2026.md) — Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution.
 - [MLOps deployment and pipeline troubleshooting summary — July 10, 2026](pages/sources/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md) — Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session.

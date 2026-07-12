@@ -591,3 +591,70 @@ provisioned inference.
 ## [2026-07-11] query | SageMaker evaluation serverless endpoint data capture
 
 Found 10 matching page(s).
+
+## [2026-07-11] ingest | Evaluation report rollout — July 11, 2026
+
+### Objective
+
+Persist the implementation, deployment, recovery, and observed outcome of
+held-out model evaluation reports and API-ready test fixtures.
+
+### Scope
+
+- `src/pipeline/preprocess.py`, `src/pipeline/evaluate.py`,
+  `src/pipeline/pipeline.py`, and `scripts/evaluate_api.py`.
+- SageMaker pipeline `churn-training-pipeline-dev` in `us-east-1`, account
+  `${AWS_ACCOUNT_ID}`.
+- Artifacts bucket execution prefix for retry `53ww289tjhoz`.
+- Deployment checkpoint, closed-loop concept, overview, and new immutable
+  rollout source.
+
+### Identity and environment
+
+The normal `${MLOPS_DEPLOYER_USER_NAME}` identity could use the CDK deployment path but is
+not allowed to call `sagemaker:ListModelPackages`, which SDK pipeline upsert
+uses to resolve the champion. The existing `${AWS_ADMIN_USER_NAME}` break-glass profile
+therefore upserted only the SDK-managed pipeline; no IAM policy was widened.
+
+### Commands and observed results
+
+1. The first post-update execution `3sg58t1vx4uv` reached `Evaluate`, wrote
+   `evaluation.json`, `metrics.json`, and `predictions.csv`, then failed with
+   Python 3.9 `TypeError: zip() takes no keyword arguments` before PNG output.
+2. The error came from `zip(..., strict=True)` in the report writer. The loops
+   were changed to index-based access, focused evaluation tests passed, and the
+   pipeline was upserted again.
+3. Retry execution `53ww289tjhoz` succeeded and wrote the full metrics,
+   predictions, confusion matrix, ROC, precision-recall, calibration, and
+   score-distribution artifact bundle to S3.
+4. The report measured AUC `0.8398`, accuracy `0.8023`, precision `0.6332`,
+   recall `0.5370`, F1 `0.5812`, specificity `0.8933`, and confusion matrix
+   TN `703`, FP `84`, FN `125`, TP `145` at threshold `0.50`.
+
+### Interpretation
+
+An S3 prefix can contain partial output from a failed Processing job, so the
+pipeline and `Evaluate` ProcessingJob statuses are the completion authority.
+The successful retry proves the full artifact contract, while its recall versus
+specificity tradeoff makes threshold selection an explicit future business
+decision rather than a hidden model default.
+
+### Decision and next checkpoint
+
+Keep the shared `0.50` API/report threshold for comparability. Use
+`scripts/evaluate_api.py` against the `api_test` fixture after an endpoint
+deployment when an end-to-end serving check is needed. Revisit the threshold
+only with retention-offer and missed-churn cost inputs.
+
+### Verification
+
+- Focused evaluation report tests: 2 passed.
+- Ruff lint and formatting checks for `src/pipeline/evaluate.py` passed.
+- The full visual-artifact bundle was downloaded from the successful retry.
+## [2026-07-11] query | evaluation pipeline execution artifacts
+
+Found 10 matching page(s).
+
+## [2026-07-11] ingest | Evaluation report rollout — July 11, 2026
+
+Registered immutable source `raw/evaluation-report-rollout-july-11-2026.md`.

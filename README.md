@@ -81,6 +81,38 @@ python scripts/setup_monitor.py --endpoint churn-serverless-dev ...
 python scripts/send_drift_traffic.py --url <ApiUrl> --api-key <key> -n 200
 ```
 
+## Model evaluation reports
+
+Each `Evaluate` ProcessingStep scores a model on the held-out test split. It
+stores an execution-scoped report bundle in the artifacts bucket: the existing
+`evaluation.json` (AUC and Model Registry input), `metrics.json`,
+`predictions.csv`, and PNG confusion-matrix, ROC, precision-recall,
+calibration, and score-distribution charts. The confusion matrix uses the same
+`0.50` cutoff as the `/predict` API: a probability of `0.50` or above is
+classified as churn.
+
+After an endpoint deployment, validate the public serving path against the
+same raw, labeled held-out records. The default is a deterministic,
+class-balanced sample of 25 records; use `--all` for the full test split.
+
+```bash
+API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
+API_KEY="$API_KEY" \
+python scripts/evaluate_api.py \
+  --pipeline-execution-arn <pipeline-execution-arn>
+
+# Full held-out test-set API evaluation (more endpoint invocations):
+API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
+API_KEY="$API_KEY" \
+python scripts/evaluate_api.py \
+  --pipeline-execution-arn <pipeline-execution-arn> --all
+```
+
+The evaluator discovers the `api_test` fixture output of that execution,
+checks that every API response obeys the probability and `0.50` classification
+contract, and prints labeled endpoint metrics. The offline `Evaluate` report
+remains the source of truth for model promotion.
+
 ## LLM Wiki
 
 The repository also includes a local-first LLM Wiki. `wiki/raw/` stores immutable source material; `wiki/pages/` stores the maintained synthesis; `wiki/index.md` and `wiki/log.md` provide navigation and history; and `wiki/SCHEMA.md` defines the agent's operating contract.

@@ -87,7 +87,7 @@ def build_pipeline(
         inputs=[ProcessingInput(source=input_data, destination="/opt/ml/processing/input")],
         outputs=[
             ProcessingOutput(output_name=n, source=f"/opt/ml/processing/{n}")
-            for n in ("train", "validation", "test")
+            for n in ("train", "validation", "test", "api_test")
         ],
     )
     preprocess = ProcessingStep(

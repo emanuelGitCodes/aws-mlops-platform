@@ -1,5 +1,12 @@
+import json
+
 from src.common.schema import FEATURE_COLUMNS
-from src.pipeline.preprocess import encode_features, encode_labeled_row
+from src.pipeline.preprocess import (
+    encode_features,
+    encode_labeled_row,
+    split_records,
+    write_preprocessed_splits,
+)
 from tests.unit.test_schema import VALID
 
 
@@ -22,3 +29,21 @@ def test_no_internet_service_maps():
     vec = encode_features({**VALID, "OnlineSecurity": "No internet service"})
     idx = FEATURE_COLUMNS.index("OnlineSecurity")
     assert vec[idx] == 2.0
+
+
+def test_preprocess_writes_raw_labeled_api_test_fixture(tmp_path):
+    records = [{**VALID, "Churn": "Yes" if index % 2 else "No"} for index in range(20)]
+    splits = split_records(records)
+    write_preprocessed_splits(splits, str(tmp_path))
+
+    assert {name: len(rows) for name, rows in splits.items()} == {
+        "train": 14,
+        "validation": 3,
+        "test": 3,
+    }
+    assert len((tmp_path / "test" / "test.csv").read_text().splitlines()) == 3
+    fixture_path = tmp_path / "api_test" / "api_test.jsonl"
+    fixture = [json.loads(line) for line in fixture_path.read_text().splitlines()]
+    assert [row["row_id"] for row in fixture] == [0, 1, 2]
+    assert {key for key in fixture[0]["record"]} == set(FEATURE_COLUMNS)
+    assert fixture[0]["label"] in {0, 1}

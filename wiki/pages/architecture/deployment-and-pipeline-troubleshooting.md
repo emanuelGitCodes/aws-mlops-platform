@@ -3,8 +3,8 @@ type: architecture
 title: Deployment and pipeline troubleshooting checkpoint
 created: "2026-07-11"
 updated: "2026-07-11"
-sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py", "../../../WORK_SUMMARY_2026-07-10.md"]
-summary: "The pipeline, low-cost serverless endpoint, and API inference path work; SageMaker Model Monitor capture is deferred because serverless endpoints do not support it."
+sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../scripts/evaluate_api.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py", "../../../WORK_SUMMARY_2026-07-10.md"]
+summary: "The pipeline and low-cost API work, with held-out evaluation metrics and visual report artifacts stored per execution in S3; built-in Model Monitor capture remains deferred for serverless inference."
 ---
 # Deployment and pipeline troubleshooting checkpoint
 
@@ -112,6 +112,39 @@ Training:   pipelines-nntqc422p0p1-Train-beG0CsQiXC/algo-1-1783772939
 Evaluate:   pipelines-nntqc422p0p1-Evaluate-kij0xE0MAF/algo-1-1783773129
 ```
 
+### Held-out evaluation reports
+
+The `Evaluate` step now retains its `evaluation.json` AUC property file for the
+champion gate and also emits a complete test-set report to the same
+execution-scoped artifacts prefix. `Preprocess` emits `api_test.jsonl` with
+only API-accepted raw feature fields, a binary label, and a stable row ID; this
+permits post-deployment API checks without attempting to reverse the lossy
+categorical encoding.
+
+The report's threshold is the serving contract: `score >= 0.50` means churn.
+Its artifacts are `metrics.json`, `predictions.csv`, `confusion_matrix.png`,
+`roc_curve.png`, `precision_recall_curve.png`, `calibration_curve.png`, and
+`score_distribution.png`.
+
+The first report execution, `3sg58t1vx4uv`, reached `Evaluate` but failed only
+after it wrote JSON/CSV output. CloudWatch showed that the Python 3.9
+Processing image does not support `zip(..., strict=True)`. The chart loops were
+rewritten with index-based access, the pipeline was upserted again, and retry
+execution `53ww289tjhoz` produced the complete bundle:
+
+```text
+s3://mlops-dev-data-artifactsbucket2aac5544-wtqxu2n8hv4n/churn-training-pipeline-dev/53ww289tjhoz/Evaluate/output/evaluation/
+```
+
+Its 1,057 held-out records contained 270 churners and 787 non-churners. At the
+shared 0.50 threshold the metrics were AUC `0.8398`, accuracy `0.8023`,
+precision `0.6332`, recall `0.5370`, F1 `0.5812`, and specificity `0.8933`.
+The confusion matrix was 703 true negatives, 84 false positives, 125 false
+negatives, and 145 true positives. The model ranks examples well, but the
+current neutral threshold deliberately misses about half of actual churners;
+changing it is a separate retention-cost decision and must be applied to both
+reports and the API.
+
 ### Low-cost serving and API verification
 
 The registry approval event originally invoked the deploy Lambda but failed
@@ -153,13 +186,14 @@ Log stream: pipelines-tsjaspu5m480-Preprocess-66TI5ctfRx/algo-1-1783738269
 The observed system has four separate checkpoints:
 
 ```text
-CDK resources -> ingestion data -> SageMaker Preprocess/Train -> endpoint/API
-       done             done              blocked              waiting
+CDK resources -> ingestion data -> SageMaker Preprocess/Train/Evaluate -> endpoint/API
+       done             done                         done                 done
 ```
 
-This explains why CloudWatch can show successful preprocessing, training, and
-evaluation while the API still returns a downstream error. The components are
-independently observable and fail at different boundaries.
+This explains why each boundary needs its own evidence. An execution can write
+partial S3 output before a later chart-rendering error, so pipeline status and
+ProcessingJob logs remain authoritative until `Evaluate` reaches `Succeeded`.
+The components are independently observable and fail at different boundaries.
 
 The remaining boundary is monitoring, not model training or serving. The
 low-cost serverless endpoint can make predictions, but it cannot use SageMaker
@@ -222,3 +256,4 @@ curl -sS -X POST https://${API_GATEWAY_ID}.execute-api.us-east-1.amazonaws.com/d
 - [Validation versus preprocessing contracts](../concepts/contracts-and-preprocessing.md)
 - [Closed drift-to-retrain loop](../concepts/closed-drift-loop.md)
 - [Raw troubleshooting source](../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md)
+- [Raw evaluation-report rollout source](../../raw/evaluation-report-rollout-july-11-2026.md)

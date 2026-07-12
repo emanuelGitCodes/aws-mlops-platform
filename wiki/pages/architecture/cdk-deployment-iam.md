@@ -2,8 +2,8 @@
 type: architecture
 title: CDK deployment identity and bootstrap boundary
 created: "2026-07-10"
-updated: "2026-07-11"
-sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
+updated: "2026-07-12"
+sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
 summary: "A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy."
 ---
 # CDK deployment identity and bootstrap boundary
@@ -104,6 +104,16 @@ All six retained buckets were inspected with `s3api list-object-versions`; each 
 The six empty retained buckets were then cleaned up: one Raw bucket had already been deleted, one Curated bucket was already missing, and the remaining four buckets were deleted successfully. A final prefix query returned no `mlops-dev-data-` buckets.
 
 The final deployment completed all six application stacks. The later pipeline and API checks confirmed that the CDK resource boundary was working: the API reached the proxy Lambda, and the pipeline could be upserted and started. The remaining failure was inside SageMaker Processing, not the CDK deployment path. See the [deployment and pipeline troubleshooting checkpoint](deployment-and-pipeline-troubleshooting.md) for the end-to-end evidence.
+
+Phase 2A introduced a repository-owned copy of the execution policy and rotated
+the live managed policy from archived non-default `v1` to default `v6`. The
+exact live `v1` document was fingerprinted before deletion, and `v5` remains
+available for rollback. The Phase 2 additions cover only the KMS, CloudTrail,
+SNS, encrypted Logs, metric-filter, and alarm lifecycle required by the audit
+plan. `cloudtrail.amazonaws.com` was added to the existing `iam:PassRole`
+service condition without changing its `Mlops-Dev-*` role-resource boundary.
+The managed policy remains attached only to the CDK CloudFormation execution
+role. See the [Phase 2A completion record](../sources/aws-security-hardening-phase-2a-completion-july-12-2026.md).
 
 ## Synthesis
 

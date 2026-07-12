@@ -891,3 +891,51 @@ runtime changed, and the work remains uncommitted for final review.
 Commit Phase 1 separately only after final human approval. Do not begin Phase 2
 without an explicit go/no-go decision, and do not run an all-stack deployment
 until the Data-to-Serving export-removal blocker has a reviewed remediation.
+## [2026-07-12] query | Phase 2 security audit CloudTrail budget
+
+Found 17 matching page(s).
+
+## [2026-07-12] deploy | AWS security hardening Phase 2A
+
+### Objective
+
+Reconcile the Data-stack export prerequisite and install the narrowly expanded
+CloudFormation execution policy required for Phase 2 audit resources.
+
+### Scope, identity, and environment
+
+Worked only in account `${AWS_ACCOUNT_ID}`, dev, `us-east-1`. Read-only checks and
+the Data deployment used the normal `${MLOPS_DEPLOYER_USER_NAME}` CDK path. The controlled
+managed-policy version rotation used the break-glass `${AWS_ADMIN_USER_NAME}` profile. No
+all-stack deployment or SageMaker execution occurred.
+
+### Commands and results
+
+- Confirmed the obsolete artifacts export had zero importers.
+- A Data-only diff showed only the obsolete output removal; a Data-only deploy
+  reached `UPDATE_COMPLETE`.
+- Raw, curated, and artifacts bucket names and object-version counts remained
+  unchanged; the existing `$20` budget remained unchanged.
+- Archived and fingerprinted exact policy `v1`, deleted only that non-default
+  version, and created the reviewed repository policy as default `v6`.
+- The live and repository `v6` canonical hashes both equal
+  `<redacted>`.
+- `v5` remains for rollback. The policy remains attached only to the CDK
+  CloudFormation execution role.
+
+### Interpretation and decision
+
+The prior Data export drift no longer blocks a scoped deployment, and the
+CloudFormation execution role has the reviewed Phase 2 control-plane actions
+without widening the deployment user or application runtime roles. Phase 2A is
+a go for its separate commit and CI run.
+
+### Next checkpoint
+
+Implement, synthesize, diff, and deploy only `Mlops-Dev-Security` for Phase 2B.
+Stop until the parameterized SNS email subscription is manually confirmed.
+
+### Verification
+
+The policy JSON parses, its regression tests pass, the wiki index is rebuilt,
+and wiki lint plus the repository gates run before the Phase 2A commit.

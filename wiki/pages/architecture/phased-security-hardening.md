@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -71,8 +71,14 @@ the boundary.
   [completion record](../sources/aws-security-hardening-phase-1-completion-july-12-2026.md).
   CDK's existing producer-protecting cross-stack reference behavior is now
   explicitly locked to `strong`.
-- **Phases 2–9: not started.** No planned audit, detection, encryption, IAM,
-  API-authentication, transport, WAF, or identity change is deployed yet.
+- **Phase 2A: complete.** The obsolete Data export is reconciled with a scoped
+  Data-only deployment, and the repository-owned CloudFormation execution
+  policy is installed as `v6`. Live and repository policy fingerprints match;
+  `v5` remains the rollback version. See the
+  [Phase 2A completion record](../sources/aws-security-hardening-phase-2a-completion-july-12-2026.md).
+- **Phases 2B–9: not started.** No audit trail, detection alarm, centralized
+  access logging, budget notification, API-authentication, WAF, or identity
+  change is deployed yet.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -89,11 +95,10 @@ the boundary.
 
 ### Next checkpoint
 
-Perform final human review and commit Phase 1 separately. Do not begin Phase 2
-without an explicit go/no-go decision. Phase 1 does not edit IAM, KMS, API
-Gateway, or security-service configuration. The Phase 0 diff also means no
-all-stack deployment is safe until the Data-to-Serving export relationship has
-a separate remediation.
+Commit Phase 2A separately and require its CI run to pass. Then synthesize,
+diff, and deploy only `Mlops-Dev-Security` for Phase 2B. Stop after deployment
+until the parameterized email subscription is manually confirmed. Never use an
+all-stack deployment for a Phase 2 checkpoint.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

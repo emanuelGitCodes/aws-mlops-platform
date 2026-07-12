@@ -976,3 +976,42 @@ Security-only diff is reviewed.
 
 Push the Phase 2B commit, verify CI, run a scoped Security diff, deploy only
 `Mlops-Dev-Security`, and then wait for manual email-subscription confirmation.
+
+## [2026-07-12] deploy | AWS security hardening Phase 2B completion
+
+### Objective
+
+Deploy and prove the isolated audit foundation end to end before authorizing
+security detections.
+
+### Scope, identity, and environment
+
+Worked only in account `${AWS_ACCOUNT_ID}`, dev, `us-east-1`. The Security-only CDK
+deployment used `${MLOPS_DEPLOYER_USER_NAME}`; `${AWS_ADMIN_USER_NAME}` performed read-only live
+verification and the planned one-time SNS test publish. No existing stack or
+SageMaker pipeline was deployed.
+
+### Commands and results
+
+- GitHub run 10 passed `validate` and `secret-scan` with no leaks.
+- Security-only diff showed the planned 13 resources and six outputs.
+- `Mlops-Dev-Security` reached `CREATE_COMPLETE` in 58 seconds.
+- CloudTrail is logging multi-Region read/write management events to the
+  retained KMS audit bucket and 90-day encrypted CloudWatch log group.
+- S3 log and digest objects arrived; CloudWatch streams contain events; no
+  delivery error is present.
+- `cloudtrail validate-logs` reported 1 of 1 digest files valid.
+- Both buckets are private, versioned, Bucket Owner Enforced, and use their
+  planned encryption and access-logging configuration.
+- The subscription was confirmed and the recipient supplied evidence that the
+  direct SNS test message arrived.
+
+### Interpretation and decision
+
+Phase 2B is operational and complete. The go/no-go decision is GO for Phase 2C
+after this completion record is committed and passes hosted CI.
+
+### Next checkpoint
+
+Add exactly the six Security Hub/CIS metric filters and five-minute alarms to
+`Mlops-Dev-Security`; do not change Data or budget wiring until Phase 2D.

@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -76,10 +76,10 @@ the boundary.
   policy is installed as `v6`. Live and repository policy fingerprints match;
   `v5` remains the rollback version. See the
   [Phase 2A completion record](../sources/aws-security-hardening-phase-2a-completion-july-12-2026.md).
-- **Phase 2B: implemented, not deployed.** The isolated Security audit
-  foundation passes 47 tests and normal cdk-nag synthesis. It awaits a separate
-  commit, hosted CI, Security-only diff, and deployment. See the
-  [implementation record](../sources/aws-security-hardening-phase-2b-implementation-july-12-2026.md)
+- **Phase 2B: complete.** The isolated Security audit foundation passed 47
+  tests, cdk-nag, hosted CI, a reviewed Security-only diff, deployment, live
+  CloudTrail delivery, first-digest validation, and confirmed SNS test email.
+  See the [completion record](../sources/aws-security-hardening-phase-2b-completion-july-12-2026.md)
   and [audit architecture](security-phase-2-audit-foundation.md).
 - **Phases 2C–9: not started.** No audit resource, detection alarm, centralized
   source-bucket access logging, budget notification, API-authentication, WAF,
@@ -100,10 +100,9 @@ the boundary.
 
 ### Next checkpoint
 
-Commit Phase 2B separately and require its CI run to pass. Then review a scoped
-diff and deploy only `Mlops-Dev-Security` with the email parameter. Stop after
-deployment until the subscription is manually confirmed. Never use an all-stack
-deployment for a Phase 2 checkpoint.
+Commit the Phase 2B completion evidence and require its hosted CI run to pass.
+Then implement exactly the six Phase 2C security detections in a separate
+checkpoint. Never use an all-stack deployment for a Phase 2 checkpoint.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

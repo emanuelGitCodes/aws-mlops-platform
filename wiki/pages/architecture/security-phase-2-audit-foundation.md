@@ -3,8 +3,8 @@ type: architecture
 title: Phase 2 audit foundation
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html"]
-summary: "The isolated Security stack retains encrypted CloudTrail evidence and provides a parameterized encrypted alert path."
+sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html"]
+summary: "The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path."
 ---
 # Phase 2 audit foundation
 
@@ -24,6 +24,11 @@ summary: "The isolated Security stack retains encrypted CloudTrail evidence and 
 The trail has no data-event selectors, Insights selectors, or organization-trail
 mode. Those would change cost and scope and therefore require a separate phase.
 
+The deployed foundation has passed live verification: CloudTrail is logging,
+S3 and CloudWatch Logs receive records, the first digest validates, and a direct
+SNS test reached the confirmed email subscription. See the
+[Phase 2B completion record](../sources/aws-security-hardening-phase-2b-completion-july-12-2026.md).
+
 ## Synthesis
 
 The two storage layers serve different purposes. The CloudTrail bucket contains
@@ -42,8 +47,7 @@ suffix rather than all log groups.
 
 ## Tensions or open questions
 
-- The stack is not considered operational until the trail reports logging and
-  both S3 and CloudWatch receive events.
-- Email delivery remains pending until the subscription recipient confirms it.
 - Phase 2C owns the six security metric filters and alarms; Phase 2D owns source
   bucket logging and budget notifications.
+- The full Phase 2 foundation requires the 24-hour cost observation checkpoint
+  after Phase 2D.

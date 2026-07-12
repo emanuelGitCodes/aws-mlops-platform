@@ -651,6 +651,30 @@ only with retention-offer and missed-churn cost inputs.
 - Focused evaluation report tests: 2 passed.
 - Ruff lint and formatting checks for `src/pipeline/evaluate.py` passed.
 - The full visual-artifact bundle was downloaded from the successful retry.
+
+## [2026-07-11] update | Timestamped evaluation artifact prefixes
+
+### Objective
+
+Make per-execution evaluation reports immediately identifiable in the S3
+console without sacrificing SageMaker execution lineage.
+
+### Scope
+
+- `src/pipeline/pipeline.py` evaluation `ProcessingOutput` destination.
+- README and deployment checkpoint operator documentation.
+
+### Decision
+
+Future evaluation bundles use the native SageMaker pipeline variables
+`ExecutionVariables.START_DATETIME` and `PIPELINE_EXECUTION_ID` at:
+
+```text
+evaluations/<UTC-start-timestamp>/<execution-id>/
+```
+
+The timestamp provides at-a-glance ordering; the execution ID prevents
+collisions and links the folder unambiguously to a SageMaker execution.
 ## [2026-07-11] query | evaluation pipeline execution artifacts
 
 Found 10 matching page(s).

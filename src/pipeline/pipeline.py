@@ -17,6 +17,7 @@ from sagemaker.processing import FrameworkProcessor, ProcessingInput, Processing
 from sagemaker.sklearn.estimator import SKLearn
 from sagemaker.workflow.condition_step import ConditionStep
 from sagemaker.workflow.conditions import ConditionGreaterThan
+from sagemaker.workflow.execution_variables import ExecutionVariables
 from sagemaker.workflow.functions import Join, JsonGet
 from sagemaker.workflow.model_step import ModelStep
 from sagemaker.workflow.parameters import ParameterFloat, ParameterString
@@ -145,6 +146,15 @@ def build_pipeline(
         instance_count=1,
         sagemaker_session=session,
     )
+    evaluation_destination = Join(
+        on="/",
+        values=[
+            f"s3://{artifacts_bucket}",
+            "evaluations",
+            ExecutionVariables.START_DATETIME,
+            ExecutionVariables.PIPELINE_EXECUTION_ID,
+        ],
+    )
     evaluate_args = evaluate_processor.run(
         code="evaluate_entrypoint.py",
         source_dir="src/pipeline/evaluation_runtime",
@@ -160,7 +170,11 @@ def build_pipeline(
             ),
         ],
         outputs=[
-            ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation")
+            ProcessingOutput(
+                output_name="evaluation",
+                source="/opt/ml/processing/evaluation",
+                destination=evaluation_destination,
+            )
         ],
         arguments=[
             "--champion-model-package-arn",

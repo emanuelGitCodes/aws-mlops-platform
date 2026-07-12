@@ -122,7 +122,10 @@ permits post-deployment API checks without attempting to reverse the lossy
 categorical encoding.
 
 The report's threshold is the serving contract: `score >= 0.50` means churn.
-Its artifacts are `metrics.json`, `predictions.csv`, `confusion_matrix.png`,
+New executions place the evaluation bundle at
+`evaluations/<UTC-start-timestamp>/<execution-id>/` in the artifacts bucket,
+so operators can locate a run by date while retaining SageMaker's unique
+lineage identifier. Its artifacts are `metrics.json`, `predictions.csv`, `confusion_matrix.png`,
 `roc_curve.png`, `precision_recall_curve.png`, `calibration_curve.png`, and
 `score_distribution.png`.
 

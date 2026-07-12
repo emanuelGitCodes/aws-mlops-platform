@@ -84,8 +84,9 @@ python scripts/send_drift_traffic.py --url <ApiUrl> --api-key <key> -n 200
 ## Model evaluation reports
 
 Each `Evaluate` ProcessingStep scores a model on the held-out test split. It
-stores an execution-scoped report bundle in the artifacts bucket: the existing
-`evaluation.json` (AUC and Model Registry input), `metrics.json`,
+stores an execution-scoped report bundle under
+`s3://<artifacts-bucket>/evaluations/<UTC-start-timestamp>/<execution-id>/`:
+the existing `evaluation.json` (AUC and Model Registry input), `metrics.json`,
 `predictions.csv`, and PNG confusion-matrix, ROC, precision-recall,
 calibration, and score-distribution charts. The confusion matrix uses the same
 `0.50` cutoff as the `/predict` API: a probability of `0.50` or above is

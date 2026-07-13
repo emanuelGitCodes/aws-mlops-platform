@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -86,14 +86,13 @@ the boundary.
   deployment, live configuration checks, and a controlled denial that produced
   a received alarm email. See the
   [completion record](../sources/aws-security-hardening-phase-2c-completion-july-12-2026.md).
-- **Phase 2D: implemented, not deployed.** Data imports the Security sink and
-  topic, configures raw/curated/artifacts logging, and adds 50/80/100 alerts to
-  the existing `$20` budget. Safe S3 policy ownership requires a Security-only
-  prerequisite deploy followed by Data-only deploy. See the
-  [implementation record](../sources/aws-security-hardening-phase-2d-implementation-july-12-2026.md).
-- **Phases 2C–9: not started.** No audit resource, detection alarm, centralized
-  source-bucket access logging, budget notification, API-authentication, WAF,
-  or identity change is deployed yet.
+- **Phase 2D: deployed; 24-hour observation open.** Raw, curated, and artifacts
+  now log to the centralized sink, and the existing `$20` budget has exact
+  50/80/100 SNS alerts. Bucket identities, object counts, budget identity,
+  CloudTrail, filters, subscription, and `/predict` passed live checks. See the
+  [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md).
+- **Phases 3–9: not started.** No Phase 3 threat-detection service,
+  API-authentication change, WAF, or identity change is deployed yet.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -110,9 +109,9 @@ the boundary.
 
 ### Next checkpoint
 
-Commit Phase 2D separately and require hosted CI. Review both named diffs,
-deploy the conditioned Security sink policy first, and then deploy only Data.
-Never use an all-stack deployment for a Phase 2 checkpoint.
+Observe Phase 2 for at least 24 hours against the `$20` budget. Confirm initial
+`artifacts/` log delivery and review alarm noise and service costs before an
+explicit go/no-go decision for Phase 3.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

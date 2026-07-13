@@ -31,9 +31,9 @@ Related pages:
 - [Phased AWS security hardening roadmap](../architecture/phased-security-hardening.md)
 - [Phase 2D budget preservation](aws-security-hardening-phase-2d-budget-preservation-july-12-2026.md)
 
-## Tensions or open questions
+## Deployment outcome
 
-- Both named diffs and the two-deployment order require review after the
-  corrective hosted CI run.
-- Physical bucket identities and object-version counts must remain unchanged.
-- The full Phase 2 cost observation begins only after live Data verification.
+Phase 2D is deployed and live verification passed. The first Data attempt
+exposed the Budgets IAM action mapping and rolled back cleanly; the corrected
+retry succeeded after hosted CI. See the
+[completion record](aws-security-hardening-phase-2d-completion-july-12-2026.md).

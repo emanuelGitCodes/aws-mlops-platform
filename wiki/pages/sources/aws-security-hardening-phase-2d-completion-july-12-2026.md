@@ -1,0 +1,33 @@
+---
+type: source
+title: "AWS security hardening Phase 2D completion — July 12, 2026"
+created: "2026-07-12"
+updated: "2026-07-12"
+sources: ["../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../tests/unit/test_stacks.py"]
+summary: "Phase 2D is deployed and verified with preserved bucket and budget identities; Phase 2 now waits at its 24-hour observation checkpoint."
+---
+# AWS security hardening Phase 2D completion — July 12, 2026
+
+## Confirmed
+
+Phase 2D is deployed. The Security prerequisite remained unchanged during the
+successful Data retry. Data reached `UPDATE_COMPLETE` with all three source
+logging configurations and all three budget alert attachments.
+
+Bucket identities, version counts, the single `$20` budget, the confirmed SNS
+subscription, CloudTrail delivery, six security filters, and `/predict` behavior
+all remain correct. Immediate S3 delivery appeared under `raw/` and `curated/`;
+the first asynchronous `artifacts/` log remains an observation item.
+
+## Decision
+
+Phase 2 implementation is complete, but its observation checkpoint is still
+open. Do not authorize Phase 3 until at least 24 hours of cost and alarm behavior
+have been reviewed.
+
+Related pages:
+
+- [Phase 2 audit foundation](../architecture/security-phase-2-audit-foundation.md)
+- [Phased AWS security hardening roadmap](../architecture/phased-security-hardening.md)
+- [Phase 2D first Data deployment rollback](aws-security-hardening-phase-2d-first-data-deploy-rollback-july-12-2026.md)
+

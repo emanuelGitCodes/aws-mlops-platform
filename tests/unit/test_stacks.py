@@ -171,6 +171,19 @@ def test_buckets_are_locked_down(stacks):
     assert rendered_calls.count('\\"SubscriptionType\\":\\"SNS\\"') == 3
     assert rendered_calls.count("TestSecurity:") == 3
 
+    provider_policies = [
+        resource["Properties"]["PolicyDocument"]
+        for resource in document["Resources"].values()
+        if resource["Type"] == "AWS::IAM::Policy"
+        and "BudgetAlert" in resource["Properties"]["PolicyName"]
+    ]
+    assert len(provider_policies) == 3
+    for policy in provider_policies:
+        statements = policy["Statement"]
+        assert len(statements) == 1
+        assert statements[0]["Action"] == "budgets:ModifyBudget"
+        assert statements[0]["Effect"] == "Allow"
+
 
 def test_security_audit_foundation(stacks):
     template = stacks["security"]
@@ -721,7 +734,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
 
     assert fingerprints == {
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
-        "data": "3942278c499eec79d93f20e95df7308a8d9a4552d8110db435902745cd3dde61",
+        "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         "ingestion": "6af42bd809ed5eaa65a19802ba43e8f0a49ece99ca0677631106d7ad6ac515b1",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "50fdc90cdba074ca7631fae914e3db8aca36aaa4769202c46f9900ae0f4f208e",

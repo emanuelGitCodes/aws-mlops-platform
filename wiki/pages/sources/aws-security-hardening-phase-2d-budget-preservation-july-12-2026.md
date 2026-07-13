@@ -25,9 +25,13 @@ Phase 2D deployment is allowed only after a new scoped Data diff confirms there
 is no budget replacement. Live verification must show the same budget name and
 limit with exactly three SNS notifications.
 
+The first Data attempt preserved the budget but exposed the Budgets IAM action
+mapping and rolled back cleanly. See the rollback record for the corrected
+`budgets:ModifyBudget` authorization.
+
 Related pages:
 
 - [Phase 2D implementation](aws-security-hardening-phase-2d-implementation-july-12-2026.md)
+- [Phase 2D first Data deployment rollback](aws-security-hardening-phase-2d-first-data-deploy-rollback-july-12-2026.md)
 - [Phase 2 audit foundation](../architecture/security-phase-2-audit-foundation.md)
 - [Phased AWS security hardening roadmap](../architecture/phased-security-hardening.md)
-

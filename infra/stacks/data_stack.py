@@ -94,10 +94,8 @@ class DataStack(Stack):
         budget_policy = cr.AwsCustomResourcePolicy.from_statements(
             [
                 iam.PolicyStatement(
-                    actions=[
-                        "budgets:CreateNotification",
-                        "budgets:DeleteNotification",
-                    ],
+                    # Budgets maps both notification API calls to this IAM action.
+                    actions=["budgets:ModifyBudget"],
                     resources=[budget_arn],
                 )
             ]

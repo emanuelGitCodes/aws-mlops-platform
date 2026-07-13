@@ -1124,3 +1124,9 @@ verify its sink policy, then deploy Data only and perform live regression checks
 Pre-deployment diff caught AWS::Budgets::Budget replacement; replaced inline
 notifications with scoped lifecycle-managed Budgets API calls before any Data
 deployment.
+
+## [2026-07-12] ingest | Phase 2D first Data deployment rollback
+
+Data rolled back cleanly after the Budgets API required budgets:ModifyBudget;
+existing buckets and budget were preserved and the provider policy was
+corrected.

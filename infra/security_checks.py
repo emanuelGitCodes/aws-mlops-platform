@@ -54,6 +54,12 @@ ACKNOWLEDGEMENTS = (
         LAMBDA_BASIC_POLICY,
         "CDK singleton notification provider; replace managed log policy during Phase 5 IAM work.",
     ),
+    Acknowledgement(
+        "data",
+        "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
+        LAMBDA_BASIC_POLICY,
+        "Phase 2 budget API provider; replace managed log policy during Phase 5 IAM work.",
+    ),
     # Ingestion: existing Lambda/queue findings remain visible until their named phase.
     Acknowledgement(
         "ingestion",

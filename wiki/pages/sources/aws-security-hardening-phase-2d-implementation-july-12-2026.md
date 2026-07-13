@@ -11,9 +11,10 @@ summary: "Data logging and budget alerts pass synthesis with a required Security
 ## Confirmed
 
 The immutable implementation record captures the green Phase 2C gate, Data
-constructor changes, three logging prefixes, three existing-budget alerts,
-removed S1 acknowledgements, unsafe generated-policy finding, and corrected
-two-deployment order.
+constructor changes, three logging prefixes, removed S1 acknowledgements,
+unsafe generated-policy finding, and corrected two-deployment order. A later
+pre-deployment diff caught and corrected CloudFormation budget replacement; see
+the budget-preservation record below.
 
 ## Synthesis
 
@@ -28,9 +29,11 @@ Related pages:
 - [Phase 2 audit foundation](../architecture/security-phase-2-audit-foundation.md)
 - [Data and ingestion path](../architecture/data-and-ingestion.md)
 - [Phased AWS security hardening roadmap](../architecture/phased-security-hardening.md)
+- [Phase 2D budget preservation](aws-security-hardening-phase-2d-budget-preservation-july-12-2026.md)
 
 ## Tensions or open questions
 
-- Both named diffs and the two-deployment order require review after hosted CI.
+- Both named diffs and the two-deployment order require review after the
+  corrective hosted CI run.
 - Physical bucket identities and object-version counts must remain unchanged.
 - The full Phase 2 cost observation begins only after live Data verification.

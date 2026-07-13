@@ -2,8 +2,10 @@
 
 from aws_cdk import RemovalPolicy, Stack
 from aws_cdk import aws_budgets as budgets
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
+from aws_cdk import custom_resources as cr
 from constructs import Construct
 
 
@@ -68,7 +70,7 @@ class DataStack(Stack):
             access_log_prefix="artifacts/",
         )
 
-        budgets.CfnBudget(
+        monthly_budget = budgets.CfnBudget(
             self,
             "MonthlyBudget",
             budget=budgets.CfnBudget.BudgetDataProperty(
@@ -78,21 +80,66 @@ class DataStack(Stack):
                     amount=config["budget_usd"], unit="USD"
                 ),
             ),
-            notifications_with_subscribers=[
-                budgets.CfnBudget.NotificationWithSubscribersProperty(
-                    notification=budgets.CfnBudget.NotificationProperty(
-                        comparison_operator="GREATER_THAN",
-                        notification_type="ACTUAL",
-                        threshold=threshold,
-                        threshold_type="PERCENTAGE",
-                    ),
-                    subscribers=[
-                        budgets.CfnBudget.SubscriberProperty(
-                            address=alert_topic.topic_arn,
-                            subscription_type="SNS",
-                        )
-                    ],
-                )
-                for threshold in config["security"]["budget_thresholds"]
-            ],
         )
+
+        # CloudFormation replaces AWS::Budgets::Budget when notifications are added.
+        # Manage each notification through the Budgets API so the existing $20 budget
+        # keeps its physical name and history.
+        budget_arn = self.format_arn(
+            service="budgets",
+            region="",
+            resource="budget",
+            resource_name=monthly_budget.ref,
+        )
+        budget_policy = cr.AwsCustomResourcePolicy.from_statements(
+            [
+                iam.PolicyStatement(
+                    actions=[
+                        "budgets:CreateNotification",
+                        "budgets:DeleteNotification",
+                    ],
+                    resources=[budget_arn],
+                )
+            ]
+        )
+        for threshold in config["security"]["budget_thresholds"]:
+            notification = {
+                "ComparisonOperator": "GREATER_THAN",
+                "NotificationType": "ACTUAL",
+                "Threshold": threshold,
+                "ThresholdType": "PERCENTAGE",
+            }
+            resource = cr.AwsCustomResource(
+                self,
+                f"BudgetAlert{threshold}Percent",
+                install_latest_aws_sdk=False,
+                on_create=cr.AwsSdkCall(
+                    service="Budgets",
+                    action="createNotification",
+                    parameters={
+                        "AccountId": self.account,
+                        "BudgetName": monthly_budget.ref,
+                        "Notification": notification,
+                        "Subscribers": [
+                            {
+                                "Address": alert_topic.topic_arn,
+                                "SubscriptionType": "SNS",
+                            }
+                        ],
+                    },
+                    physical_resource_id=cr.PhysicalResourceId.of(
+                        f"actual-greater-than-{threshold}-percent"
+                    ),
+                ),
+                on_delete=cr.AwsSdkCall(
+                    service="Budgets",
+                    action="deleteNotification",
+                    parameters={
+                        "AccountId": self.account,
+                        "BudgetName": monthly_budget.ref,
+                        "Notification": notification,
+                    },
+                ),
+                policy=budget_policy,
+            )
+            resource.node.add_dependency(monthly_budget)

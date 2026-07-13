@@ -153,24 +153,23 @@ def test_buckets_are_locked_down(stacks):
         for resource in document["Resources"].values()
         if resource["Type"] == "AWS::Budgets::Budget"
     )
-    notifications = budget["NotificationsWithSubscribers"]
-    assert len(notifications) == 3
-    assert {notification["Notification"]["Threshold"] for notification in notifications} == {
-        50,
-        80,
-        100,
-    }
-    for notification in notifications:
-        assert notification["Notification"] == {
-            "ComparisonOperator": "GREATER_THAN",
-            "NotificationType": "ACTUAL",
-            "Threshold": notification["Notification"]["Threshold"],
-            "ThresholdType": "PERCENTAGE",
-        }
-        assert notification["Subscribers"][0]["SubscriptionType"] == "SNS"
-        address = notification["Subscribers"][0]["Address"]
-        assert set(address) == {"Fn::ImportValue"}
-        assert address["Fn::ImportValue"].startswith("TestSecurity:")
+    assert "NotificationsWithSubscribers" not in budget
+
+    notification_resources = [
+        resource for resource in document["Resources"].values() if resource["Type"] == "Custom::AWS"
+    ]
+    assert len(notification_resources) == 3
+    rendered_calls = json.dumps(notification_resources, sort_keys=True)
+    for threshold in (50, 80, 100):
+        assert f'\\"Threshold\\":{threshold}' in rendered_calls
+        assert f"actual-greater-than-{threshold}-percent" in rendered_calls
+    assert rendered_calls.count('\\"action\\":\\"createNotification\\"') == 3
+    assert rendered_calls.count('\\"action\\":\\"deleteNotification\\"') == 3
+    assert rendered_calls.count('\\"ComparisonOperator\\":\\"GREATER_THAN\\"') == 6
+    assert rendered_calls.count('\\"NotificationType\\":\\"ACTUAL\\"') == 6
+    assert rendered_calls.count('\\"ThresholdType\\":\\"PERCENTAGE\\"') == 6
+    assert rendered_calls.count('\\"SubscriptionType\\":\\"SNS\\"') == 3
+    assert rendered_calls.count("TestSecurity:") == 3
 
 
 def test_security_audit_foundation(stacks):
@@ -722,7 +721,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
 
     assert fingerprints == {
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
-        "data": "defc965af9288dbbb5f4d03319208bdff311cfd5b5cdaf3215308525464f9b35",
+        "data": "3942278c499eec79d93f20e95df7308a8d9a4552d8110db435902745cd3dde61",
         "ingestion": "6af42bd809ed5eaa65a19802ba43e8f0a49ece99ca0677631106d7ad6ac515b1",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "50fdc90cdba074ca7631fae914e3db8aca36aaa4769202c46f9900ae0f4f208e",

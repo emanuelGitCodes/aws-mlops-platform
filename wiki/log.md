@@ -1118,3 +1118,9 @@ scope and preserves the mandatory inverse rollback order.
 
 Commit Phase 2D, verify hosted CI, review both named diffs, deploy Security only,
 verify its sink policy, then deploy Data only and perform live regression checks.
+
+## [2026-07-12] ingest | Phase 2D budget preservation correction
+
+Pre-deployment diff caught AWS::Budgets::Budget replacement; replaced inline
+notifications with scoped lifecycle-managed Budgets API calls before any Data
+deployment.

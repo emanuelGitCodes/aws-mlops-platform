@@ -192,6 +192,28 @@ class SecurityStack(Stack):
         )
         self.audit_bucket = audit_bucket
 
+        data_bucket_arn_pattern = self.format_arn(
+            account="",
+            region="",
+            service="s3",
+            resource=f"mlops-{env_name}-data-*",
+        )
+        access_log_bucket.add_to_resource_policy(
+            iam.PolicyStatement(
+                sid="AllowDataBucketAccessLogs",
+                principals=[iam.ServicePrincipal("logging.s3.amazonaws.com")],
+                actions=["s3:PutObject"],
+                resources=[
+                    f"{access_log_bucket.bucket_arn}/{prefix}*"
+                    for prefix in ("raw/", "curated/", "artifacts/")
+                ],
+                conditions={
+                    "ArnLike": {"aws:SourceArn": data_bucket_arn_pattern},
+                    "StringEquals": {"aws:SourceAccount": self.account},
+                },
+            )
+        )
+
         audit_log_group = logs.LogGroup(
             self,
             "AuditLogGroup",

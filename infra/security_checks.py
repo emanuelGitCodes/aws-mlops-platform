@@ -48,16 +48,6 @@ ACKNOWLEDGEMENTS = (
         ),
         "Phase 2 CloudTrail delivery requires the generated log-stream suffix under one group.",
     ),
-    # Data: server access logging is evaluated with the Phase 2 audit design.
-    *(
-        Acknowledgement(
-            "data",
-            bucket,
-            "AwsSolutions::AwsSolutions-S1",
-            "Existing private ML bucket; decide centralized access-log destination in Phase 2.",
-        )
-        for bucket in ("RawBucket", "CuratedBucket", "ArtifactsBucket")
-    ),
     Acknowledgement(
         "data",
         "BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role",

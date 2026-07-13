@@ -1081,3 +1081,40 @@ and is a GO for Phase 2D after this record is committed and passes hosted CI.
 Pass the Security access-log bucket and alert topic into Data, add the three
 source-bucket log prefixes and three notifications to the single existing `$20`
 budget, and remove the three resolved Data S1 acknowledgements.
+
+## [2026-07-12] implement | AWS security hardening Phase 2D integration
+
+### Objective
+
+Connect the existing Data buckets and budget to the verified audit and alert
+foundation without replacing resources or weakening the sink policy.
+
+### Scope and findings
+
+GitHub run 13 passed both hosted jobs. Added the three source logging prefixes,
+three ACTUAL budget notifications, Security-to-Data inputs, and removed the
+three resolved Data S1 acknowledgements.
+
+Initial synthesis exposed that CDK's automatic cross-stack logging helper would
+add three unconditioned sink-policy grants. The implementation was corrected to
+use one Security-owned source-account/project-prefix statement and Data-owned
+logging configurations.
+
+### Validation
+
+- Unit synthesis and normal cdk-nag synthesis pass for Security and Data.
+- Security has one conditioned Data delivery statement and no unconditioned
+  generated Data grants.
+- Data has exactly three log prefixes and one existing `$20` budget with three
+  50/80/100 notifications.
+
+### Interpretation and decision
+
+Phase 2D requires a deliberate two-deployment sequence: Security policy first,
+Data references second. The implementation remains within the approved resource
+scope and preserves the mandatory inverse rollback order.
+
+### Next checkpoint
+
+Commit Phase 2D, verify hosted CI, review both named diffs, deploy Security only,
+verify its sink policy, then deploy Data only and perform live regression checks.

@@ -24,7 +24,13 @@ config = yaml.safe_load((pathlib.Path(__file__).parent / "config" / f"{env_name}
 prefix = f"Mlops-{env_name.capitalize()}"
 
 security = SecurityStack(app, f"{prefix}-Security", config=config)
-data = DataStack(app, f"{prefix}-Data", config=config)
+data = DataStack(
+    app,
+    f"{prefix}-Data",
+    access_log_bucket=security.access_log_bucket,
+    alert_topic=security.alert_topic,
+    config=config,
+)
 ingestion = IngestionStack(
     app,
     f"{prefix}-Ingestion",

@@ -37,7 +37,13 @@ def stack_constructs() -> dict:
         }
     )
     security = SecurityStack(app, "TestSecurity", config=CONFIG)
-    data = DataStack(app, "TestData", config=CONFIG)
+    data = DataStack(
+        app,
+        "TestData",
+        access_log_bucket=security.access_log_bucket,
+        alert_topic=security.alert_topic,
+        config=CONFIG,
+    )
     ingestion = IngestionStack(
         app,
         "TestIngestion",
@@ -102,6 +108,69 @@ def test_buckets_are_locked_down(stacks):
         "AWS::Budgets::Budget",
         {"Budget": Match.object_like({"BudgetLimit": {"Amount": CONFIG["budget_usd"]}})},
     )
+    template.resource_count_is("AWS::S3::BucketPolicy", 3)
+    template.all_resources_properties(
+        "AWS::S3::BucketPolicy",
+        {
+            "PolicyDocument": Match.object_like(
+                {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Effect": "Deny",
+                                    "Condition": {"Bool": {"aws:SecureTransport": "false"}},
+                                }
+                            )
+                        ]
+                    )
+                }
+            )
+        },
+    )
+
+    document = template.to_json()
+    buckets = [
+        resource["Properties"]
+        for resource in document["Resources"].values()
+        if resource["Type"] == "AWS::S3::Bucket"
+    ]
+    assert {bucket["LoggingConfiguration"]["LogFilePrefix"] for bucket in buckets} == {
+        "raw/",
+        "curated/",
+        "artifacts/",
+    }
+    assert all(
+        set(bucket["LoggingConfiguration"]["DestinationBucketName"]) == {"Fn::ImportValue"}
+        and bucket["LoggingConfiguration"]["DestinationBucketName"]["Fn::ImportValue"].startswith(
+            "TestSecurity:"
+        )
+        for bucket in buckets
+    )
+
+    budget = next(
+        resource["Properties"]
+        for resource in document["Resources"].values()
+        if resource["Type"] == "AWS::Budgets::Budget"
+    )
+    notifications = budget["NotificationsWithSubscribers"]
+    assert len(notifications) == 3
+    assert {notification["Notification"]["Threshold"] for notification in notifications} == {
+        50,
+        80,
+        100,
+    }
+    for notification in notifications:
+        assert notification["Notification"] == {
+            "ComparisonOperator": "GREATER_THAN",
+            "NotificationType": "ACTUAL",
+            "Threshold": notification["Notification"]["Threshold"],
+            "ThresholdType": "PERCENTAGE",
+        }
+        assert notification["Subscribers"][0]["SubscriptionType"] == "SNS"
+        address = notification["Subscribers"][0]["Address"]
+        assert set(address) == {"Fn::ImportValue"}
+        assert address["Fn::ImportValue"].startswith("TestSecurity:")
 
 
 def test_security_audit_foundation(stacks):
@@ -327,6 +396,27 @@ def test_security_audit_foundation(stacks):
     for statement in service_statements.values():
         assert "aws:SourceAccount" in statement["Condition"]["StringEquals"]
         assert "aws:SourceArn" in statement["Condition"]["ArnLike"]
+
+    access_log_policy = next(
+        resource["Properties"]["PolicyDocument"]
+        for logical_id, resource in resources.items()
+        if logical_id.startswith("AccessLogBucketPolicy")
+    )
+    data_log_statement = next(
+        statement
+        for statement in access_log_policy["Statement"]
+        if statement.get("Sid") == "AllowDataBucketAccessLogs"
+    )
+    assert data_log_statement["Principal"] == {"Service": "logging.s3.amazonaws.com"}
+    assert data_log_statement["Action"] == "s3:PutObject"
+    assert len(data_log_statement["Resource"]) == 3
+    assert set(data_log_statement["Condition"]) == {"ArnLike", "StringEquals"}
+    assert data_log_statement["Condition"]["StringEquals"] == {
+        "aws:SourceAccount": {"Ref": "AWS::AccountId"}
+    }
+    assert "mlops-dev-data-*" in json.dumps(
+        data_log_statement["Condition"]["ArnLike"]["aws:SourceArn"]
+    )
 
     # TLS-only: every bucket policy denies insecure transport
     template.all_resources_properties(

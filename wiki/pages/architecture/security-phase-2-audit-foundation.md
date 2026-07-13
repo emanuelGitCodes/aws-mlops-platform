@@ -3,7 +3,7 @@ type: architecture
 title: Phase 2 audit foundation
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
+sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path."
 ---
 # Phase 2 audit foundation
@@ -56,6 +56,14 @@ at `>= 1` and treats missing data as non-breaching.
 
 A controlled read-only IAM denial proved the entire chain through received
 email. See the [Phase 2C completion record](../sources/aws-security-hardening-phase-2c-completion-july-12-2026.md).
+
+### Phase 2D sink-policy prerequisite
+
+The implemented Phase 2D change adds a conditioned sink statement for the three
+Data log prefixes. It restricts delivery to the S3 logging service, this account,
+and source bucket ARNs matching `mlops-dev-data-*`. This Security-owned policy
+must deploy before Data enables logging; see the
+[Phase 2D implementation record](../sources/aws-security-hardening-phase-2d-implementation-july-12-2026.md).
 
 ## Tensions or open questions
 

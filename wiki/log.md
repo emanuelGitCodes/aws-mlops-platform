@@ -1049,3 +1049,35 @@ GO for commit and NO-GO for deployment until CI and the scoped diff pass.
 Push the Phase 2C commit, verify CI, review a Security-only diff, and deploy only
 `Mlops-Dev-Security`. Then trigger one safe denied IAM request and verify the
 metric, alarm transition, and received email.
+
+## [2026-07-12] deploy | AWS security hardening Phase 2C completion
+
+### Objective
+
+Deploy the six exact detections and prove one alarm end to end without changing
+application resources or permissions.
+
+### Commands and results
+
+- GitHub run 12 passed `validate` and `secret-scan` with no leaks.
+- Security-only diff contained exactly six filters and six alarms.
+- Security-only deployment reached `UPDATE_COMPLETE` in 31 seconds.
+- Live reads matched every exact pattern, metric transformation, threshold,
+  period, missing-data behavior, and encrypted SNS action.
+- A controlled read-only `iam:ListUsers` call by `${MLOPS_DEPLOYER_USER_NAME}` failed with
+  `AccessDenied`, as intended.
+- CloudTrail event `fc5c1610-af9e-4c6b-b7ac-0c7d7020bc61` records that exact
+  identity, operation, denial, and read-only management-event status.
+- `UnauthorizedApiCalls` produced a sum of 8; its alarm transitioned from OK to
+  ALARM, and the recipient supplied evidence that the alarm email arrived.
+
+### Interpretation and decision
+
+The detection chain works without granting new authority. Phase 2C is complete
+and is a GO for Phase 2D after this record is committed and passes hosted CI.
+
+### Next checkpoint
+
+Pass the Security access-log bucket and alert topic into Data, add the three
+source-bucket log prefixes and three notifications to the single existing `$20`
+budget, and remove the three resolved Data S1 acknowledgements.

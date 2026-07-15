@@ -86,12 +86,26 @@ the boundary.
   deployment, live configuration checks, and a controlled denial that produced
   a received alarm email. See the
   [completion record](../sources/aws-security-hardening-phase-2c-completion-july-12-2026.md).
-- **Phase 2D: deployed; 24-hour observation open.** Raw, curated, and artifacts
+- **Phase 2D: complete; observation closed.** Raw, curated, and artifacts
   now log to the centralized sink, and the existing `$20` budget has exact
   50/80/100 SNS alerts. Bucket identities, object counts, budget identity,
-  CloudTrail, filters, subscription, and `/predict` passed live checks. See the
-  [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md).
-- **Phases 3–9: not started.** No Phase 3 threat-detection service,
+  CloudTrail, filters, subscription, and `/predict` passed live checks. The
+  observation window closed with the first `artifacts/` access-log object
+  delivered, ~zero daily cost, and all alarm noise attributed to known
+  principals. See the
+  [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md)
+  and the
+  [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
+- **Phase 3-prep: implemented; deployment pending CI.** Six all-false
+  `security.services` enablement flags, an empty flag-gated
+  `Mlops-Dev-SecurityMonitoring` stack, and the Phase 3 execution-policy
+  extension (lifecycle actions plus scoped Config service-linked-role
+  statements) are in the repository. One flag flips per sub-phase
+  (3A Access Analyzer → 3B GuardDuty → 3C Config → 3D Security Hub →
+  3E account S3 Block Public Access → 3F EventBridge alert routing), each with
+  its own commit, named deploy, and verification. See the
+  [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
+- **Phases 3A–9: not started.** No Phase 3 threat-detection service,
   API-authentication change, WAF, or identity change is deployed yet.
 
 ### Stable interfaces and deliberate breakpoints
@@ -109,9 +123,10 @@ the boundary.
 
 ### Next checkpoint
 
-Observe Phase 2 for at least 24 hours against the `$20` budget. Confirm initial
-`artifacts/` log delivery and review alarm noise and service costs before an
-explicit go/no-go decision for Phase 3.
+Pass hosted CI for the Phase 3-prep commit, rotate the execution policy to
+`v7` (keeping `v6` for rollback), deploy only the empty
+`Mlops-Dev-SecurityMonitoring` shell, and record the completion. Sub-phase 3A
+(IAM Access Analyzer) requires its own go decision afterward.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

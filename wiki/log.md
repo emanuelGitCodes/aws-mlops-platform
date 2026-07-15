@@ -1136,3 +1136,57 @@ corrected.
 Security prerequisite and corrected Data retry are deployed; bucket and budget
 identities, logging, alerts, imports, CloudTrail, filters, SNS, and /predict
 passed live checks. Phase 2 enters 24-hour observation.
+
+## [2026-07-14] ingest | Phase 3-prep implementation and Phase 2 observation closure
+
+### Objective
+
+Close the Phase 2D observation window with evidence and implement Phase 3-prep:
+service enablement flags, an empty `Mlops-Dev-SecurityMonitoring` stack, and
+Phase 3 CloudFormation execution-policy preparation, with no security service
+enabled.
+
+### Scope
+
+`infra/app.py`, new `infra/stacks/security_monitoring_stack.py`,
+`infra/config/dev.yaml` and `prod.yaml`,
+`infra/policies/mlops-cloudformation-execution-policy.json`,
+`tests/unit/test_stacks.py`, `tests/unit/test_deployment_policy.py`, and the
+Phase 3-prep source record.
+
+### Identity and environment
+
+Account `${AWS_ACCOUNT_ID}`, `us-east-1`. Read-only verification with `${AWS_ADMIN_USER_NAME}`;
+`cdk diff` with `${MLOPS_DEPLOYER_USER_NAME}`. No mutating AWS call was made.
+
+### Commands and results
+
+- Read-only pre-state: no `Mlops-Dev-SecurityMonitoring` stack, zero
+  analyzers, `SubscriptionRequiredException` for GuardDuty and Security Hub,
+  zero Config recorders, `NoSuchPublicAccessBlockConfiguration`.
+- Access-log listing confirmed first `artifacts/` object 2026-07-13 02:21 UTC.
+- Cost Explorer: 2026-07-11..13 daily unblended cost rounds to `$0.00`.
+- Live execution-policy `v6` canonical SHA-256 matches the repository
+  (`<redacted>`); versions `v2`–`v6` occupy all five slots.
+- `uv lock --check` (108 packages), `pip-audit` (no known vulnerabilities),
+  `ruff` check/format (45 files), `pytest tests/unit` (51 passed), and full
+  cdk-nag synthesis passed; the new template holds only `CDKMetadata`.
+- Change-set `cdk diff`: no differences for Security, Data, Registry,
+  Training, Monitoring; only recorded bundle-hash drift for Ingestion and
+  Serving; SecurityMonitoring is a new metadata-only stack.
+
+### Interpretation
+
+The change-set diff itself tripped `unauthorized-api-calls`: CloudFormation's
+scoped execution role was denied read-only describe calls
+(`events:ListTagsForResource`, `s3:GetBucket*`) at 01:26–01:27 UTC, alongside
+unrelated `${AWS_ADMIN_USER_NAME}` Cost Explorer denials at 00:45–00:59 UTC. Both sources
+are known principals; the CIS filter stays exact and later diffs use
+`--no-change-set`.
+
+### Decision and next checkpoint
+
+Phase 2 observation is closed as a documented go. Commit Phase 3-prep, require
+hosted CI, rotate the execution policy to `v7` (delete non-default `v2`, keep
+`v6` for rollback), deploy only the empty shell stack, and record completion.
+Sub-phase 3A needs a separate go decision.

@@ -18,6 +18,7 @@ from infra.stacks.data_stack import DataStack
 from infra.stacks.ingestion_stack import IngestionStack
 from infra.stacks.monitoring_stack import MonitoringStack
 from infra.stacks.registry_stack import RegistryStack
+from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
 from infra.stacks.security_stack import SecurityStack
 from infra.stacks.serving_stack import ServingStack
 from infra.stacks.training_stack import TrainingStack
@@ -37,6 +38,14 @@ def stack_constructs() -> dict:
         }
     )
     security = SecurityStack(app, "TestSecurity", config=CONFIG)
+    security_monitoring = SecurityMonitoringStack(
+        app,
+        "TestSecurityMonitoring",
+        alert_topic=security.alert_topic,
+        access_log_bucket=security.access_log_bucket,
+        audit_key=security.audit_key,
+        config=CONFIG,
+    )
     data = DataStack(
         app,
         "TestData",
@@ -69,6 +78,7 @@ def stack_constructs() -> dict:
     monitoring = MonitoringStack(app, "TestMonitoring", config=CONFIG)
     stacks = {
         "security": security,
+        "security_monitoring": security_monitoring,
         "data": data,
         "ingestion": ingestion,
         "registry": registry,
@@ -674,6 +684,13 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         ), metadata_key
 
 
+def test_security_monitoring_stays_a_disabled_shell(stacks):
+    """Phase 3-prep: every service flag is false and the stack deploys no resources."""
+    assert set(CONFIG["security"]["services"].values()) == {False}
+    resources = stacks["security_monitoring"].to_json().get("Resources", {})
+    assert set(resources) <= {"CDKMetadata"}
+
+
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
     """Phase 5 owns these two known roles; Phase 1 rejects a third attachment."""
     roles = []
@@ -734,6 +751,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
 
     assert fingerprints == {
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
+        "security_monitoring": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         "ingestion": "6af42bd809ed5eaa65a19802ba43e8f0a49ece99ca0677631106d7ad6ac515b1",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",

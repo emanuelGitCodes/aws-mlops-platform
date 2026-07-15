@@ -14,6 +14,7 @@ from infra.stacks.data_stack import DataStack
 from infra.stacks.ingestion_stack import IngestionStack
 from infra.stacks.monitoring_stack import MonitoringStack
 from infra.stacks.registry_stack import RegistryStack
+from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
 from infra.stacks.security_stack import SecurityStack
 from infra.stacks.serving_stack import ServingStack
 from infra.stacks.training_stack import TrainingStack
@@ -24,6 +25,14 @@ config = yaml.safe_load((pathlib.Path(__file__).parent / "config" / f"{env_name}
 prefix = f"Mlops-{env_name.capitalize()}"
 
 security = SecurityStack(app, f"{prefix}-Security", config=config)
+security_monitoring = SecurityMonitoringStack(
+    app,
+    f"{prefix}-SecurityMonitoring",
+    alert_topic=security.alert_topic,
+    access_log_bucket=security.access_log_bucket,
+    audit_key=security.audit_key,
+    config=config,
+)
 data = DataStack(
     app,
     f"{prefix}-Data",
@@ -60,6 +69,7 @@ apply_security_checks(
     {
         "data": data,
         "security": security,
+        "security_monitoring": security_monitoring,
         "ingestion": ingestion,
         "training": training,
         "registry": registry,

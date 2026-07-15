@@ -1229,3 +1229,41 @@ sub-phases now have their permissions pre-granted and their stack in place.
 
 Phase 3-prep is complete. Sub-phase 3A (IAM Access Analyzer) requires a
 separate go decision.
+
+## [2026-07-14] query | Post-3-prep alarm email attribution
+
+### Objective
+
+Confirm for the operator that two `unauthorized-api-calls` alarm emails
+received during and after the Phase 3-prep deployment were expected, using
+read-only queries only.
+
+### Identity and environment
+
+Account `${AWS_ACCOUNT_ID}`, `us-east-1`, `${AWS_ADMIN_USER_NAME}`, read-only
+`logs:FilterLogEvents` and `cloudwatch:DescribeAlarms`.
+
+### Commands and results
+
+- The 01:28 UTC email (datapoint `11.0` at 01:23) matches the already-recorded
+  execution-role describe denials from the change-set `cdk diff`.
+- The 01:54 UTC email (datapoint `3.0` at 01:49) resolves to exactly two
+  `ce:GetCostAndUsage` and one `ce:GetCostForecast` denials for the known
+  `${AWS_ADMIN_USER_NAME}` user at 01:51:56 UTC — the same trio observed at 00:45, 00:53,
+  and 00:59 UTC, consistent with a console cost-widget auto-refresh.
+- The alarm returned to `OK` at 01:59 UTC. Hosted CI run 19 for the
+  completion commit is green with no leaks.
+
+### Interpretation
+
+Both firings are attributed to known principals; the detection pipeline
+(CloudTrail → metric filter → alarm → encrypted SNS → confirmed email) worked
+end to end. The recurring `${AWS_ADMIN_USER_NAME}` Cost Explorer denial is an operator
+permission gap, not workload drift.
+
+### Decision and next checkpoint
+
+The exact CIS filter stays unchanged. Whether to grant `${AWS_ADMIN_USER_NAME}` the
+`ce:Get*` read actions or accept the recurring noise is recorded as an open
+question on the Phase 3-prep completion page. Sub-phase 3A still awaits its
+go decision.

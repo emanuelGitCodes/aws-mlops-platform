@@ -96,15 +96,18 @@ the boundary.
   [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md)
   and the
   [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
-- **Phase 3-prep: implemented; deployment pending CI.** Six all-false
-  `security.services` enablement flags, an empty flag-gated
-  `Mlops-Dev-SecurityMonitoring` stack, and the Phase 3 execution-policy
-  extension (lifecycle actions plus scoped Config service-linked-role
-  statements) are in the repository. One flag flips per sub-phase
-  (3A Access Analyzer → 3B GuardDuty → 3C Config → 3D Security Hub →
+- **Phase 3-prep: complete.** Six all-false `security.services` enablement
+  flags, an empty flag-gated `Mlops-Dev-SecurityMonitoring` stack
+  (`CREATE_COMPLETE`, metadata only), and execution policy `v7` with the
+  Phase 3 lifecycle actions plus scoped Config service-linked-role statements
+  are live and hash-verified (`v6` retained for rollback). One flag flips per
+  sub-phase (3A Access Analyzer → 3B GuardDuty → 3C Config → 3D Security Hub →
   3E account S3 Block Public Access → 3F EventBridge alert routing), each with
   its own commit, named deploy, and verification. See the
-  [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
+  [implementation](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md)
+  and
+  [completion](../sources/aws-security-hardening-phase-3-prep-completion-july-14-2026.md)
+  records.
 - **Phases 3A–9: not started.** No Phase 3 threat-detection service,
   API-authentication change, WAF, or identity change is deployed yet.
 
@@ -123,10 +126,10 @@ the boundary.
 
 ### Next checkpoint
 
-Pass hosted CI for the Phase 3-prep commit, rotate the execution policy to
-`v7` (keeping `v6` for rollback), deploy only the empty
-`Mlops-Dev-SecurityMonitoring` shell, and record the completion. Sub-phase 3A
-(IAM Access Analyzer) requires its own go decision afterward.
+Sub-phase 3A: after an explicit go decision, flip `access_analyzer: true`,
+add the free account external-access analyzer with its tests, review a
+`--no-change-set` diff, deploy only `Mlops-Dev-SecurityMonitoring`, and
+verify zero unexplained public or cross-account findings.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

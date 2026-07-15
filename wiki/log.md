@@ -1190,3 +1190,42 @@ Phase 2 observation is closed as a documented go. Commit Phase 3-prep, require
 hosted CI, rotate the execution policy to `v7` (delete non-default `v2`, keep
 `v6` for rollback), deploy only the empty shell stack, and record completion.
 Sub-phase 3A needs a separate go decision.
+
+## [2026-07-14] ingest | Phase 3-prep deployment completion
+
+### Objective
+
+Complete Phase 3-prep: hosted CI gate, execution-policy rotation to `v7`,
+deployment of the empty `Mlops-Dev-SecurityMonitoring` shell, and live
+verification that no Phase 3 service was enabled.
+
+### Identity and environment
+
+Account `${AWS_ACCOUNT_ID}`, `us-east-1`. Policy rotation with `${AWS_ADMIN_USER_NAME}` under
+explicit operator approval; deployment with `${MLOPS_DEPLOYER_USER_NAME}`.
+
+### Commands and results
+
+- GitHub Actions run 29381999521 (`c11e96b`): `validate` and `secret-scan`
+  passed.
+- `delete-policy-version v2` then `create-policy-version` → `v7` default;
+  live `v7` canonical SHA-256 `<redacted>` matches the repository; `v6`
+  retained; attachment still only the CDK CloudFormation execution role.
+- `cdk deploy Mlops-Dev-SecurityMonitoring` → `CREATE_COMPLETE` in 6.6 s with
+  exactly one `AWS::CDK::Metadata` resource.
+- Post-deploy reads: zero analyzers, zero Config recorders,
+  `SubscriptionRequiredException` for GuardDuty/Security Hub, no account
+  public-access-block configuration.
+- `/predict` → HTTP 200, `churn_probability` 0.3656342029571533, `churn`
+  false (identical to the Phase 2D record).
+
+### Interpretation
+
+The shell deploy ran before the rotation; that ordering was acceptable only
+because a metadata-only template exercises no new permission. All later
+sub-phases now have their permissions pre-granted and their stack in place.
+
+### Decision and next checkpoint
+
+Phase 3-prep is complete. Sub-phase 3A (IAM Access Analyzer) requires a
+separate go decision.

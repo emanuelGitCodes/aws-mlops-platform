@@ -14,7 +14,7 @@ security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]
   services:            # Phase 3 enablement flags; one flips true per sub-phase
-    access_analyzer: false
+    access_analyzer: true
     guardduty: false
     config_recorder: false
     security_hub: false

@@ -2,8 +2,8 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-07-12"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+updated: "2026-07-18"
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -108,8 +108,16 @@ the boundary.
   and
   [completion](../sources/aws-security-hardening-phase-3-prep-completion-july-14-2026.md)
   records.
-- **Phases 3A–9: not started.** No Phase 3 threat-detection service,
-  API-authentication change, WAF, or identity change is deployed yet.
+- **Phase 3A: implemented locally; deployment pending.** Dev now synthesizes
+  one account external-access analyzer with no archive rules or paid analyzer
+  configuration; production and all later Phase 3 flags remain disabled. Lint,
+  52 tests, dependency audit, and eight-stack synthesis pass. Live pre-state,
+  hosted CI, named-stack diff/deployment, initial scan, and finding review are
+  still required. See the
+  [implementation record](../sources/aws-security-hardening-phase-3a-implementation-july-18-2026.md).
+- **Phases 3B–9: not started.** No GuardDuty, Config, Security Hub,
+  account-level S3 blocking, Phase 3 alert routing, API-authentication change,
+  WAF, or identity change is deployed by this checkpoint.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -126,10 +134,11 @@ the boundary.
 
 ### Next checkpoint
 
-Sub-phase 3A: after an explicit go decision, flip `access_analyzer: true`,
-add the free account external-access analyzer with its tests, review a
-`--no-change-set` diff, deploy only `Mlops-Dev-SecurityMonitoring`, and
-verify zero unexplained public or cross-account findings.
+Sub-phase 3A deployment: restore temporary AWS credentials, re-run the
+read-only service inventory, require hosted CI, review a `--no-change-set`
+SecurityMonitoring-only diff, deploy only that stack, and verify an active
+analyzer with a completed initial scan and zero unexplained public or
+cross-account findings. Stop before GuardDuty.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

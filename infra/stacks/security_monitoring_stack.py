@@ -1,6 +1,7 @@
 """Phase 3 threat detection and configuration monitoring, one flag-gated service at a time."""
 
-from aws_cdk import Stack
+from aws_cdk import Stack, Tags
+from aws_cdk import aws_accessanalyzer as accessanalyzer
 from aws_cdk import aws_kms as kms
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
@@ -46,3 +47,17 @@ class SecurityMonitoringStack(Stack):
         if non_boolean:
             raise ValueError(f"Phase 3 service flags must be booleans: {non_boolean}")
         self.services = services
+
+        if services["access_analyzer"]:
+            analyzer = accessanalyzer.CfnAnalyzer(
+                self,
+                "ExternalAccessAnalyzer",
+                analyzer_name=f"mlops-{self.env_name}-external-access",
+                type="ACCOUNT",
+            )
+            for key, value in (
+                ("Project", "aws-mlops-platform"),
+                ("Environment", self.env_name),
+                ("SecurityPhase", "3A"),
+            ):
+                Tags.of(analyzer).add(key, value)

@@ -1356,3 +1356,61 @@ Makefile's `uv run --locked` targets dropping dev extras.
 
 `make lint` equivalent (ruff check + format) and the full unit suite pass
 post-append; wiki lint re-run after this entry.
+
+## [2026-07-18] implement | AWS security hardening Phase 3A
+
+### Objective
+
+Implement only the dev account external-access analyzer, preserve the Phase 3
+one-service rollback boundary, and stop before GuardDuty or any live deploy.
+
+### Scope
+
+The existing SecurityMonitoring stack and dev service flag, focused CDK
+assertions, guarded named-stack Make targets, the Phase 3A implementation
+record, and the maintained roadmap. The immutable phased plan and Phase 1
+source page remain unchanged.
+
+### Identity and environment
+
+Repository branch `issue/3-phase-3`, base `de345a8`, target Region
+`us-east-1`. The configured AWS session had no credentials. A temporary-login
+flow was cancelled before authorization; no AWS resource read or mutation is
+claimed.
+
+### Commands and results
+
+- Search confirmed no analyzer implementation existed outside the prepared
+  flag and shell stack.
+- Recreated the untracked virtual environment because its `pytest` script
+  referenced a different checkout.
+- `make lint`: passed; 47 files formatted.
+- `make test`: 52 passed.
+- `make security`: 108-package lock check passed, no known dependency
+  vulnerabilities, and all eight dev stacks synthesized with cdk-nag.
+- Named-stack Make targets passed dry-run inspection.
+- The SecurityMonitoring template contains the `ACCOUNT` analyzer plus CDK
+  metadata only, with the exact dev name and tags and no archive or paid
+  analyzer configuration.
+
+### Interpretation
+
+The implementation extends the existing Phase 3 shell rather than creating a
+parallel stack or helper. It changes no IAM fingerprint, application interface,
+data path, or production flag. External-access analysis is the no-additional-
+charge analyzer type; automatic archiving is intentionally deferred until
+findings have been reviewed.
+
+### Decision and next checkpoint
+
+Commit the isolated implementation and require hosted CI. When temporary AWS
+credentials are available, re-run the full read-only Phase 3 inventory. Stop
+on an existing analyzer or other unexplained service state; otherwise review a
+no-change-set diff, deploy only `Mlops-Dev-SecurityMonitoring`, verify the
+initial findings, and create a separate completion record. Do not begin 3B.
+
+### Verification
+
+Repository lint, unit, lock, dependency-audit, synthesis, exact template, and
+dry-run command checks passed before this log entry. Wiki index and lint are
+rerun after all documentation changes.

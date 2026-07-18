@@ -6,26 +6,15 @@ don't need pip/Docker.
 
 import hashlib
 import json
-import pathlib
 
 import aws_cdk as cdk
 import pytest
-import yaml
 from aws_cdk.assertions import Match, Template
 
-from infra.security_checks import ACKNOWLEDGEMENTS, apply_security_checks
-from infra.stacks.data_stack import DataStack
-from infra.stacks.ingestion_stack import IngestionStack
-from infra.stacks.monitoring_stack import MonitoringStack
-from infra.stacks.registry_stack import RegistryStack
-from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
-from infra.stacks.security_stack import SecurityStack
-from infra.stacks.serving_stack import ServingStack
-from infra.stacks.training_stack import TrainingStack
+from infra.app import build_app, load_config
+from infra.security_checks import ACKNOWLEDGEMENTS
 
-CONFIG = yaml.safe_load(
-    (pathlib.Path(__file__).parents[2] / "infra" / "config" / "dev.yaml").read_text()
-)
+CONFIG = load_config("dev")
 
 
 @pytest.fixture(scope="module")
@@ -37,56 +26,7 @@ def stack_constructs() -> dict:
             "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
         }
     )
-    security = SecurityStack(app, "TestSecurity", config=CONFIG)
-    security_monitoring = SecurityMonitoringStack(
-        app,
-        "TestSecurityMonitoring",
-        alert_topic=security.alert_topic,
-        access_log_bucket=security.access_log_bucket,
-        audit_key=security.audit_key,
-        config=CONFIG,
-    )
-    data = DataStack(
-        app,
-        "TestData",
-        access_log_bucket=security.access_log_bucket,
-        alert_topic=security.alert_topic,
-        config=CONFIG,
-    )
-    ingestion = IngestionStack(
-        app,
-        "TestIngestion",
-        raw_bucket=data.raw_bucket,
-        curated_bucket=data.curated_bucket,
-        config=CONFIG,
-    )
-    registry = RegistryStack(app, "TestRegistry", config=CONFIG)
-    training = TrainingStack(
-        app,
-        "TestTraining",
-        curated_bucket=data.curated_bucket,
-        artifacts_bucket=data.artifacts_bucket,
-        config=CONFIG,
-    )
-    serving = ServingStack(
-        app,
-        "TestServing",
-        artifacts_bucket=data.artifacts_bucket,
-        package_group_name=registry.package_group_name,
-        config=CONFIG,
-    )
-    monitoring = MonitoringStack(app, "TestMonitoring", config=CONFIG)
-    stacks = {
-        "security": security,
-        "security_monitoring": security_monitoring,
-        "data": data,
-        "ingestion": ingestion,
-        "registry": registry,
-        "training": training,
-        "serving": serving,
-        "monitoring": monitoring,
-    }
-    apply_security_checks(app, stacks)
+    stacks = build_app(app, CONFIG, "Test")
     app.synth()
     return stacks
 
@@ -153,7 +93,7 @@ def test_buckets_are_locked_down(stacks):
     assert all(
         set(bucket["LoggingConfiguration"]["DestinationBucketName"]) == {"Fn::ImportValue"}
         and bucket["LoggingConfiguration"]["DestinationBucketName"]["Fn::ImportValue"].startswith(
-            "TestSecurity:"
+            "Test-Security:"
         )
         for bucket in buckets
     )
@@ -179,7 +119,7 @@ def test_buckets_are_locked_down(stacks):
     assert rendered_calls.count('\\"NotificationType\\":\\"ACTUAL\\"') == 6
     assert rendered_calls.count('\\"ThresholdType\\":\\"PERCENTAGE\\"') == 6
     assert rendered_calls.count('\\"SubscriptionType\\":\\"SNS\\"') == 3
-    assert rendered_calls.count("TestSecurity:") == 3
+    assert rendered_calls.count("Test-Security:") == 3
 
     provider_policies = [
         resource["Properties"]["PolicyDocument"]
@@ -753,11 +693,11 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
         "security_monitoring": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
-        "ingestion": "6af42bd809ed5eaa65a19802ba43e8f0a49ece99ca0677631106d7ad6ac515b1",
+        "ingestion": "bfa13d3f2b0fa9b7ae49f81dfd29907f683ecca6347e1cc4327834f094702f41",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-        "training": "50fdc90cdba074ca7631fae914e3db8aca36aaa4769202c46f9900ae0f4f208e",
-        "serving": "328918c0afed63f269823e274edac9b0d200b58154624f6b127fc1386b485952",
-        "monitoring": "df4b29739738a1c9144ad38b844336ea4b9729340e1a6f01955efc337e675fc6",
+        "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
+        "serving": "c3f8089244512e2866a5648c556a434b6d77403d5b8340f3de0e44b388d22989",
+        "monitoring": "10990e799b97ab9b8f63102cf5e8363c2de9dd883cf36d08f6f3f0aa0a980c3c",
     }
 
     stacks["training"].has_resource_properties(

@@ -1,15 +1,11 @@
 import csv
 import io
 import json
-import os
 from unittest import mock
 
-os.environ.setdefault("CURATED_BUCKET", "test-curated")
+from tests.unit.conftest import VALID, import_with_stubbed_boto3
 
-with mock.patch("boto3.client"):
-    from src.ingestion import validate_handler
-
-from tests.unit.test_schema import VALID
+validate_handler = import_with_stubbed_boto3("src.ingestion.validate_handler")
 
 
 def test_validate_rows_splits_good_and_bad():

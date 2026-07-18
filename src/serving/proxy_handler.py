@@ -11,7 +11,13 @@ import os
 import boto3
 from pydantic import ValidationError
 
-from src.common.schema import FEATURE_COLUMNS, CustomerRecord
+from src.common.events import log_event
+from src.common.features import DEFAULT_THRESHOLD
+from src.common.schema import (
+    FEATURE_COLUMNS,
+    CustomerRecord,
+    format_validation_error,
+)
 from src.pipeline.preprocess import encode_features
 
 runtime = boto3.client("sagemaker-runtime")
@@ -36,9 +42,7 @@ def handler(event, context):
     try:
         record = CustomerRecord.model_validate(payload)
     except ValidationError as e:
-        first = e.errors()[0]
-        loc = ".".join(str(x) for x in first["loc"])
-        return _response(422, {"error": f"{loc}: {first['msg']}"})
+        return _response(422, {"error": format_validation_error(e)})
 
     features = encode_features({c: getattr(record, c) for c in FEATURE_COLUMNS})
     csv_line = ",".join(str(v) for v in features)
@@ -49,14 +53,6 @@ def handler(event, context):
         Body=csv_line,
     )
     score = float(result["Body"].read().decode().strip())
-    prediction = {"churn_probability": score, "churn": score >= 0.5}
-    print(
-        json.dumps(
-            {
-                "event": "inference_response",
-                "endpoint": ENDPOINT_NAME,
-                **prediction,
-            }
-        )
-    )
+    prediction = {"churn_probability": score, "churn": score >= DEFAULT_THRESHOLD}
+    log_event("inference_response", endpoint=ENDPOINT_NAME, **prediction)
     return _response(200, prediction)

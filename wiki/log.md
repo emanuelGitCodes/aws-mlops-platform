@@ -1268,3 +1268,91 @@ The exact CIS filter stays unchanged. Whether to grant `${AWS_ADMIN_USER_NAME}` 
 question on the Phase 3-prep completion page. Sub-phase 3A still awaits its
 go decision.
 
+
+## [2026-07-18] maintain | Secret-scan pull-request permissions
+
+### Objective
+
+Fix the `secret-scan` CI job, which failed on the repository's first pull
+request while passing on every push event.
+
+### Scope
+
+`.github/workflows/ci.yml`, `secret-scan` job only. No AWS change.
+
+### Commands and results
+
+- gitleaks-action v3 behaves differently by event type: on `push` it scans
+  the checked-out history directly, but on `pull_request` it first calls
+  `GET /repos/{repo}/pulls/{n}/commits` to determine the commit range.
+- The workflow-level `permissions: contents: read` token cannot call that
+  endpoint; the job failed pre-scan with `403 Resource not accessible by
+  integration`, and the response header `x-accepted-github-permissions:
+  pull_requests=read` named the missing permission.
+- Fix (commit `eeb4235`): a job-level block on `secret-scan` granting
+  `contents: read` plus `pull-requests: read`. The `validate` job keeps the
+  tighter workflow default.
+- The pull request re-ran green: `validate` and `secret-scan` both passed
+  with no leaks.
+
+### Interpretation
+
+Event-dependent code paths in third-party actions can hide permission gaps:
+every push-event run since Phase 1 passed without exercising the PR API. Job
+level is the right scope for the extra read grant — it keeps the
+least-privilege default for the rest of the workflow.
+
+### Decision and next checkpoint
+
+CI gates are healthy for both push and pull-request events. Sub-phase 3A
+(IAM Access Analyzer) still awaits its go decision.
+
+## [2026-07-18] maintain | Repo-wide code deduplication
+
+### Objective
+
+Eliminate every duplicate or near-duplicate code site found in a full audit
+of `src/`, `scripts/`, `infra/`, and `tests/unit/` (18 sites, full scope
+including "same shape" patterns).
+
+### Scope
+
+Commit `20800b5` on branch `dedupe-shared-helpers` (PR #1, draft). 27 files;
+three new modules: `src/common/events.py` (`log_event`),
+`infra/stacks/shared.py` (`platform_lambda`, `sagemaker_execution_role`,
+`sagemaker_event_rule`), `tests/unit/conftest.py` (`VALID`, `REPO_ROOT`,
+boto3-stubbed import helper).
+
+### Commands and results
+
+- Baseline `make synth` templates snapshotted, re-synthesized after the
+  refactor, and diffed: identical except the two SageMaker IAM policy ARNs
+  (proxy `InvokeEndpoint`, retrain `StartPipelineExecution`) now render
+  `Ref: AWS::Partition` via `format_arn` instead of the literal `arn:aws:`.
+  All other differences were asset-hash noise. Read-only comparison.
+- `ruff check`/`format` clean; 51/51 unit tests pass;
+  `python scripts/wiki.py lint` healthy; both operational scripts smoke-run.
+
+### Interpretation
+
+Two findings were latent bugs, not style: `wiki.py rebuild_index` duplicated
+`_render_index` (which `lint` compares against, so a one-sided edit would
+break lint permanently), and the serving proxy hardcoded the 0.5 churn
+threshold that evaluation asserts via `DEFAULT_THRESHOLD` — the production
+decision rule could have silently diverged from the evaluated contract.
+Lambda log retention now derives from config `log_retention_days` instead of
+a hardcoded constant.
+
+### Decision and next checkpoint
+
+`test_iam_policy_baseline_has_not_changed` fingerprints were deliberately
+refreshed (partition token plus the test app's `Test-` stack prefixes
+changing export strings); the test did its job of forcing review.
+`data_stack._bucket()` intentionally remains separate from the security
+buckets. Next: review/merge PR #1; a separate session is fixing the
+Makefile's `uv run --locked` targets dropping dev extras.
+
+### Verification
+
+`make lint` equivalent (ruff check + format) and the full unit suite pass
+post-append; wiki lint re-run after this entry.

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from scripts.wiki import Wiki, WikiError, main
+from tests.unit.conftest import REPO_ROOT
 
 
 def test_add_source_is_copy_once_and_scaffolds_page(tmp_path: Path):
@@ -87,6 +88,5 @@ def test_successful_lint_does_not_append_to_log(tmp_path: Path):
 
 
 def test_repo_wiki_is_healthy():
-    repo_root = Path(__file__).resolve().parents[2]
-    errors = Wiki(repo_root / "wiki").lint()
+    errors = Wiki(REPO_ROOT / "wiki").lint()
     assert errors == []

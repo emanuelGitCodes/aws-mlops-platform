@@ -186,30 +186,7 @@ class Wiki:
         """Build the content-oriented catalog from page frontmatter."""
 
         self.root.mkdir(parents=True, exist_ok=True)
-        grouped: dict[str, list[tuple[Path, dict[str, object], str]]] = {}
-        for page in self._metadata_pages():
-            page_type = str(page[1].get("type", "other"))
-            grouped.setdefault(_display_type(page_type), []).append(page)
-
-        lines = [
-            "# Wiki index",
-            "",
-            INDEX_MARKER,
-            "",
-            "This is the content map. Read it first, then follow the most relevant links.",
-            "",
-        ]
-        for category in sorted(grouped, key=lambda value: (value != "Overview", value.lower())):
-            lines.extend([f"## {category}", ""])
-            for path, metadata, body in sorted(
-                grouped[category], key=lambda item: str(item[1].get("title", item[0].stem)).lower()
-            ):
-                relative = path.relative_to(self.root).as_posix()
-                title = str(metadata.get("title", path.stem))
-                summary = str(metadata.get("summary", _first_paragraph(body)))
-                lines.append(f"- [{title}]({relative}) — {summary}")
-            lines.append("")
-        self.index_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        self.index_path.write_text(self._render_index(), encoding="utf-8")
 
     def add_source(self, source: Path, *, title: str | None = None) -> tuple[Path, Path]:
         """Copy one source exactly once and create a page awaiting synthesis."""

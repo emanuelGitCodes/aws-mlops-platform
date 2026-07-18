@@ -7,9 +7,10 @@ resources. The stack owns the IAM the pipeline runs as.
 """
 
 from aws_cdk import CfnOutput, Stack
-from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
+
+from infra.stacks.shared import sagemaker_execution_role
 
 
 class TrainingStack(Stack):
@@ -25,14 +26,7 @@ class TrainingStack(Stack):
     ):
         super().__init__(scope, construct_id, **kwargs)
 
-        self.pipeline_role = iam.Role(
-            self,
-            "PipelineExecutionRole",
-            assumed_by=iam.ServicePrincipal("sagemaker.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess")
-            ],
-        )
+        self.pipeline_role = sagemaker_execution_role(self, "PipelineExecutionRole")
         curated_bucket.grant_read(self.pipeline_role)
         artifacts_bucket.grant_read_write(self.pipeline_role)
 

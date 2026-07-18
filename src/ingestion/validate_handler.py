@@ -14,7 +14,7 @@ import urllib.parse
 import boto3
 from pydantic import ValidationError
 
-from src.common.schema import CustomerRecord
+from src.common.schema import CustomerRecord, format_validation_error
 
 s3 = boto3.client("s3")
 
@@ -29,8 +29,7 @@ def validate_rows(rows: list[dict]) -> tuple[list[dict], list[dict]]:
             CustomerRecord.model_validate(row)
             valid.append(row)
         except ValidationError as e:
-            first = e.errors()[0]
-            row["reason"] = f"{'.'.join(str(x) for x in first['loc'])}: {first['msg']}"
+            row["reason"] = format_validation_error(e)
             rejected.append(row)
     return valid, rejected
 

@@ -1,10 +1,8 @@
-import os
 from unittest import mock
 
-os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
-os.environ.setdefault("EXECUTION_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
-with mock.patch("boto3.client"):
-    from src.serving import deploy_handler
+from tests.unit.conftest import import_with_stubbed_boto3
+
+deploy_handler = import_with_stubbed_boto3("src.serving.deploy_handler")
 
 APPROVAL_EVENT = {
     "detail": {

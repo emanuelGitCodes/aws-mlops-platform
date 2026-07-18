@@ -145,50 +145,60 @@ class SecurityStack(Stack):
                 },
             )
         )
+
+        def _alert_service_statement(
+            sid: str, service: str, source_arn: str, actions: list[str], resources: list[str]
+        ) -> iam.PolicyStatement:
+            """Grant an alerting service scoped by this account and source ARN."""
+            return iam.PolicyStatement(
+                sid=sid,
+                principals=[iam.ServicePrincipal(service)],
+                actions=actions,
+                resources=resources,
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": self.account},
+                    "ArnLike": {"aws:SourceArn": source_arn},
+                },
+            )
+
         for sid, service, source_arn in (
             ("AllowCloudWatchEncryptedAlerts", "cloudwatch.amazonaws.com", alarm_arn),
             ("AllowBudgetsEncryptedAlerts", "budgets.amazonaws.com", budget_arn),
         ):
             audit_key.add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid=sid,
-                    principals=[iam.ServicePrincipal(service)],
+                _alert_service_statement(
+                    sid,
+                    service,
+                    source_arn,
                     actions=["kms:Decrypt", "kms:GenerateDataKey*"],
                     resources=["*"],
-                    conditions={
-                        "StringEquals": {"aws:SourceAccount": self.account},
-                        "ArnLike": {"aws:SourceArn": source_arn},
-                    },
                 )
             )
 
-        access_log_bucket = s3.Bucket(
-            self,
-            "AccessLogBucket",
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            enforce_ssl=True,
-            minimum_tls_version=1.2,
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
-            removal_policy=RemovalPolicy.RETAIN,
-            versioned=True,
-        )
+        def _hardened_bucket(bucket_id: str, **overrides) -> s3.Bucket:
+            """Retained, versioned, TLS-enforced private bucket."""
+            props: dict = {
+                "block_public_access": s3.BlockPublicAccess.BLOCK_ALL,
+                "encryption": s3.BucketEncryption.S3_MANAGED,
+                "enforce_ssl": True,
+                "minimum_tls_version": 1.2,
+                "object_ownership": s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+                "removal_policy": RemovalPolicy.RETAIN,
+                "versioned": True,
+            }
+            props.update(overrides)
+            return s3.Bucket(self, bucket_id, **props)
+
+        access_log_bucket = _hardened_bucket("AccessLogBucket")
         self.access_log_bucket = access_log_bucket
 
-        audit_bucket = s3.Bucket(
-            self,
+        audit_bucket = _hardened_bucket(
             "AuditBucket",
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             bucket_key_enabled=True,
             encryption=s3.BucketEncryption.KMS,
             encryption_key=audit_key,
-            enforce_ssl=True,
-            minimum_tls_version=1.2,
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
-            removal_policy=RemovalPolicy.RETAIN,
             server_access_logs_bucket=access_log_bucket,
             server_access_logs_prefix="cloudtrail/",
-            versioned=True,
         )
         self.audit_bucket = audit_bucket
 
@@ -313,15 +323,12 @@ class SecurityStack(Stack):
             ("AllowBudgetsPublish", "budgets.amazonaws.com", budget_arn),
         ):
             alert_topic.add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid=sid,
-                    principals=[iam.ServicePrincipal(service)],
+                _alert_service_statement(
+                    sid,
+                    service,
+                    source_arn,
                     actions=["sns:Publish"],
                     resources=[alert_topic.topic_arn],
-                    conditions={
-                        "StringEquals": {"aws:SourceAccount": self.account},
-                        "ArnLike": {"aws:SourceArn": source_arn},
-                    },
                 )
             )
 

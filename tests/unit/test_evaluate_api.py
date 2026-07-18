@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from scripts import evaluate_api
-from tests.unit.test_schema import VALID
+from tests.unit.conftest import VALID
 
 
 def _fixture(label: int, row_id: int) -> dict:

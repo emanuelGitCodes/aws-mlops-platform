@@ -28,3 +28,6 @@ FEATURE_COLUMNS = [
     "TotalCharges",
 ]
 LABEL_COLUMN = "Churn"
+
+# Decision rule shared by serving and evaluation: churn iff score >= threshold.
+DEFAULT_THRESHOLD = 0.5

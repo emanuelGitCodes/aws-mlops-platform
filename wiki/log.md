@@ -1608,3 +1608,70 @@ completion record and stop before Phase 3C.
 Repository lint, unit, lock, dependency-audit, synthesis, exact detector and
 policy assertions, IAM fingerprints, unrelated-template comparison, dry-run
 guards, live stop gate, and sensitive-value review passed before this entry.
+
+## [2026-07-18] failure | Phase 3B first deployment rollback
+
+### Objective
+
+Complete the foundational GuardDuty rollout after hosted gates, while changing
+only the SecurityMonitoring stack and preserving a verified policy rollback.
+
+### Scope
+
+Draft pull request 5, the CloudFormation execution policy,
+`Mlops-Dev-SecurityMonitoring`, GuardDuty, Phase 3A Access Analyzer, the six
+security alarms, the existing budget, and one normal `/predict` request. AWS
+Config and every later phase remained out of scope.
+
+### Identity and environment
+
+The restricted deployment path performed the named diff and deployment. The
+separate audit path performed service, finding, alarm, and CloudTrail reads; an
+administrative path performed only the approved policy rotation/rollback and
+reads unavailable to the auditor. No identity name, local profile, account
+identifier, generated identifier, endpoint, or credential is recorded.
+
+### Commands and results
+
+- Hosted `validate` and `secret-scan` passed for the implementation commit.
+- Oldest non-default policy `v4` was deleted; verified `v9` became default with
+  `v8` retained and one-role/zero-user/zero-group attachment scope unchanged.
+- The named no-change-set diff showed exactly one detector addition.
+- CloudFormation sent the exact expected `CreateDetector` request: enabled,
+  15-minute publishing, exact Phase 3B tags, no legacy data sources, and all
+  six optional features disabled. GuardDuty returned HTTP 403
+  `SubscriptionRequiredException` before any service-linked-role call.
+- The stack automatically reached `UPDATE_ROLLBACK_COMPLETE` with only the
+  Phase 3A analyzer and metadata. No detector or GuardDuty role exists.
+- The execution policy was rolled back to verified default `v8`; `v9` was
+  deleted. Versions `v5`–`v8` remain with the intended attachment boundary.
+- Access Analyzer remains active with zero findings; later Phase 3 services
+  remain absent. The `$20` budget and 50/80/100 alerts are unchanged.
+- `/predict` returned HTTP 200 and remained threshold-consistent. The expected
+  IAM-policy-change alarm returned naturally to `OK`, leaving all six alarms
+  `OK` without a state override.
+
+### Interpretation
+
+The failure is not an execution-role `AccessDenied`: GuardDuty itself rejected
+the exact CloudFormation create request because the account is in a
+never-enabled subscription state. The exact AWS prerequisite is unresolved.
+Manually creating the detector would bypass the approved CloudFormation
+ownership and rollback contract.
+
+### Decision and next checkpoint
+
+Phase 3B remains incomplete and pull request 5 stays draft. Do not begin Phase
+3C. Determine an AWS-supported first-subscription path that preserves
+CloudFormation ownership and explicit disabling of every default-on paid
+feature. If manual subscription is required, stop for a separate ownership and
+rollback decision. Any retry repeats the complete pre-state, policy, diff,
+deployment, finding, cost, alarm, budget, Access Analyzer, and application
+checks.
+
+### Verification
+
+Terminal rollback, stable stack resources, no detector/role, exact delayed
+CloudTrail request, verified policy rollback, attachment scope, analyzer and
+later-service state, budget alerts, six alarm recovery, `/predict`, wiki lint,
+and sensitive-value scans passed before this entry.

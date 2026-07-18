@@ -2,7 +2,7 @@
 
 ## Gate from Phase 2A
 
-GitHub Actions run 9 for commit `6af507b` completed successfully in 57 seconds.
+GitHub Actions run 9 for commit `89e3daa` completed successfully in 57 seconds.
 Both `validate` and `secret-scan` passed, and the Gitleaks summary reported no
 leaks. This evidence authorized the Phase 2B implementation checkpoint.
 

@@ -2,7 +2,7 @@
 
 ## Gate from Phase 2C
 
-GitHub Actions run 13 for Phase 2C closeout commit `8e4639f` passed `validate`
+GitHub Actions run 13 for Phase 2C closeout commit `ce87620` passed `validate`
 and `secret-scan` with no leaks. Phase 2D implementation was authorized.
 
 ## Implemented scope

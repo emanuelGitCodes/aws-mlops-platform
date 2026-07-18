@@ -1206,7 +1206,7 @@ explicit operator approval; deployment with `${MLOPS_DEPLOYER_USER_NAME}`.
 
 ### Commands and results
 
-- GitHub Actions run 29381999521 (`c11e96b`): `validate` and `secret-scan`
+- GitHub Actions run 29381999521 (`dbe6578`): `validate` and `secret-scan`
   passed.
 - `delete-policy-version v2` then `create-policy-version` → `v7` default;
   live `v7` canonical SHA-256 `<redacted>` matches the repository; `v6`

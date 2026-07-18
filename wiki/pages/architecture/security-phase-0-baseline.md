@@ -78,7 +78,7 @@ update its consumer relationship in a separately reviewed change.
 
 The rollback hierarchy is:
 
-1. Compare against commit `1a2aea9` while preserving the pre-existing README
+1. Compare against commit `3d59056` while preserving the pre-existing README
    worktree change.
 2. Re-export the live processed CloudFormation template and compare its recorded
    SHA-256 fingerprint.

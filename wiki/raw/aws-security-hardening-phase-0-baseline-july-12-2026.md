@@ -18,7 +18,7 @@ profile was used only for `cdk diff --no-change-set`.
 
 ## Repository checkpoint
 
-- Baseline commit: `1a2aea9` (`Document phased AWS security hardening roadmap`).
+- Baseline commit: `3d59056` (`Document phased AWS security hardening roadmap`).
 - The worktree already contained an uncommitted `README.md` architecture update
   from the preceding documentation task. Phase 0 preserved it and did not include
   it in the security baseline change set.

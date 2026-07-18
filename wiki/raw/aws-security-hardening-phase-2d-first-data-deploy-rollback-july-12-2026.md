@@ -2,7 +2,7 @@
 
 ## Attempt
 
-After corrective commit `3f9a0c1` passed GitHub Actions run 15, the scoped
+After corrective commit `2216a30` passed GitHub Actions run 15, the scoped
 Security prerequisite deployment completed successfully. Its only live resource
 change was the conditioned `AllowDataBucketAccessLogs` statement.
 

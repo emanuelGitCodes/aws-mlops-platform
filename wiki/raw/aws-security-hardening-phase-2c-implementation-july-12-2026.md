@@ -2,7 +2,7 @@
 
 ## Gate from Phase 2B
 
-GitHub Actions run 11 for closeout commit `6e8cfce` passed `validate` and
+GitHub Actions run 11 for closeout commit `6e11405` passed `validate` and
 `secret-scan`, with no leaks. The deployed Phase 2B audit and alert foundation
 therefore authorized the Phase 2C detection implementation.
 

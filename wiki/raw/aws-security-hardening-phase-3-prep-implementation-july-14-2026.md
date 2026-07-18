@@ -2,7 +2,7 @@
 
 ## Gate from Phase 2D
 
-The Phase 2D completion record (commit `d436594`) required at least 24 hours of
+The Phase 2D completion record (commit `b7d1294`) required at least 24 hours of
 observation before Phase 3. Phase 2D deployment finished 2026-07-13 02:11 UTC;
 the window has elapsed. Phase 3 sub-phases are executed strictly one at a time:
 3-prep authorizes only the scaffold and deployer-policy preparation, with no

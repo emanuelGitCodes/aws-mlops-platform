@@ -2,7 +2,7 @@
 
 ## Hosted gate
 
-GitHub Actions run 29381999521 for commit `c11e96b` passed `validate` and
+GitHub Actions run 29381999521 for commit `dbe6578` passed `validate` and
 `secret-scan` with no leaks.
 
 ## Execution-policy rotation

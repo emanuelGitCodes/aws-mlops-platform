@@ -11,7 +11,7 @@ summary: "Execution policy v7 is live and hash-verified, the empty SecurityMonit
 ## Confirmed
 
 The immutable completion record captures the green hosted CI gate for commit
-`c11e96b`, the operator-approved rotation of the CloudFormation execution
+`dbe6578`, the operator-approved rotation of the CloudFormation execution
 policy to `v7` (live canonical hash matches the repository; `v6` kept for
 rollback; attachment scope unchanged), the `CREATE_COMPLETE` metadata-only
 `Mlops-Dev-SecurityMonitoring` deployment, re-verified disabled state of all

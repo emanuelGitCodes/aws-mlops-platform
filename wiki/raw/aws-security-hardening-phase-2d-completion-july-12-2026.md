@@ -2,7 +2,7 @@
 
 ## Hosted gate and deployments
 
-Corrective commit `d87ea90` passed GitHub Actions run 16: `validate` and
+Corrective commit `0deb381` passed GitHub Actions run 16: `validate` and
 `secret-scan` succeeded with no leaks.
 
 The named `Mlops-Dev-Data` retry completed at 2026-07-13 02:11:40 UTC. CDK

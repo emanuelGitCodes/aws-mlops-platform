@@ -119,9 +119,15 @@ the boundary.
   [implementation record](../sources/aws-security-hardening-phase-3a-implementation-july-18-2026.md),
   [first deployment rollback](../sources/aws-security-hardening-phase-3a-first-deployment-rollback-july-18-2026.md),
   and [completion record](../sources/aws-security-hardening-phase-3a-completion-july-18-2026.md).
-- **Phases 3B–9: not started.** No GuardDuty, Config, Security Hub,
-  account-level S3 blocking, Phase 3 alert routing, API-authentication change,
-  WAF, or identity change is deployed by this checkpoint.
+- **Phase 3B: implemented, not deployed.** The dev-only foundational GuardDuty
+  detector is locally validated with 15-minute publishing and every current
+  optional paid feature explicitly disabled, including `AI_ANALYST`. The live
+  pre-state is clean, but hosted gates, execution-policy `v9`, named diff and
+  deploy, finding/cost review, and completion acceptance remain required. See
+  the [implementation record](../sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md).
+- **Phases 3C–9: not started.** No Config, Security Hub, account-level S3
+  blocking, Phase 3 alert routing, API-authentication change, WAF, or identity
+  change is deployed by this checkpoint.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -138,11 +144,12 @@ the boundary.
 
 ### Next checkpoint
 
-Sub-phase 3A deployment: restore temporary AWS credentials, re-run the
-read-only service inventory, require hosted CI, review a `--no-change-set`
-SecurityMonitoring-only diff, deploy only that stack, and verify an active
-analyzer with a completed initial scan and zero unexplained public or
-cross-account findings. Stop before GuardDuty.
+Sub-phase 3B rollout: require green hosted validation and secret scanning,
+rotate the CloudFormation execution policy from `v8` to verified default `v9`,
+review a `--no-change-set` SecurityMonitoring-only diff, and deploy only that
+stack. Verify the detector, every optional feature, all findings, trial and
+usage state, alarms, budget, Access Analyzer, and `/predict`; then stop before
+AWS Config.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

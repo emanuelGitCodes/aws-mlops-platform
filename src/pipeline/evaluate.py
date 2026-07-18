@@ -23,10 +23,12 @@ from sklearn.metrics import (
     roc_curve,
 )
 
+from src.common.events import log_event
+from src.common.features import DEFAULT_THRESHOLD
+
 MODEL_DIR = "/opt/ml/processing/model"
 TEST_DIR = "/opt/ml/processing/test"
 OUTPUT_DIR = "/opt/ml/processing/evaluation"
-DEFAULT_THRESHOLD = 0.5
 
 
 def _safe_divide(numerator: float, denominator: float) -> float:
@@ -246,19 +248,13 @@ def main():
     labels, features = _load_test_data(TEST_DIR)
     scores = [float(score) for score in booster.predict(xgb.DMatrix(features))]
     metrics = write_evaluation_artifacts(labels, scores, OUTPUT_DIR)
-    print(
-        json.dumps(
-            {
-                "event": "challenger_evaluation",
-                "challenger_model_artifact": args.challenger_model_artifact,
-                "challenger_test_auc": round(metrics["auc"], 4),
-                "champion_model_package_arn": args.champion_model_package_arn,
-                "champion_test_auc": args.champion_test_auc,
-                "promotion_decision": "register"
-                if metrics["auc"] > args.champion_test_auc
-                else "reject",
-            }
-        )
+    log_event(
+        "challenger_evaluation",
+        challenger_model_artifact=args.challenger_model_artifact,
+        challenger_test_auc=round(metrics["auc"], 4),
+        champion_model_package_arn=args.champion_model_package_arn,
+        champion_test_auc=args.champion_test_auc,
+        promotion_decision="register" if metrics["auc"] > args.champion_test_auc else "reject",
     )
 
 

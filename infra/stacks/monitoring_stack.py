@@ -8,12 +8,11 @@ CloudFormation). This stack owns the alarm wiring and the dashboard.
 
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_cloudwatch as cw
-from aws_cdk import aws_events as events
-from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
-from aws_cdk import aws_logs as logs
 from constructs import Construct
+
+from infra.stacks.shared import platform_lambda, sagemaker_event_rule
 
 
 class MonitoringStack(Stack):
@@ -25,13 +24,12 @@ class MonitoringStack(Stack):
 
         # Model Monitor emits a CloudWatch event / metric on violations; we key the
         # loop off the monitoring-schedule status change event.
-        retrain_fn = lambda_.Function(
+        retrain_fn = platform_lambda(
             self,
             "RetrainTriggerFn",
-            runtime=lambda_.Runtime.PYTHON_3_12,
+            config=config,
             handler="index.handler",
             timeout=Duration.minutes(1),
-            log_retention=logs.RetentionDays.TWO_WEEKS,
             environment={"PIPELINE_NAME": pipeline_name},
             code=lambda_.Code.from_inline(
                 "import boto3, os, json\n"
@@ -51,72 +49,56 @@ class MonitoringStack(Stack):
             iam.PolicyStatement(
                 actions=["sagemaker:StartPipelineExecution"],
                 resources=[
-                    f"arn:aws:sagemaker:{self.region}:{self.account}:pipeline/{pipeline_name}"
+                    self.format_arn(
+                        service="sagemaker",
+                        resource="pipeline",
+                        resource_name=pipeline_name,
+                    )
                 ],
             )
         )
 
-        events.Rule(
+        sagemaker_event_rule(
             self,
             "DriftViolationRule",
-            event_pattern=events.EventPattern(
-                source=["aws.sagemaker"],
-                detail_type=["SageMaker Model Monitor Execution Status Change"],
-                detail={
-                    "MonitoringScheduleName": [{"prefix": endpoint_name}],
-                    "MonitoringExecutionStatus": ["CompletedWithViolations"],
-                },
-            ),
-            targets=[targets.LambdaFunction(retrain_fn)],
+            detail_type="SageMaker Model Monitor Execution Status Change",
+            detail={
+                "MonitoringScheduleName": [{"prefix": endpoint_name}],
+                "MonitoringExecutionStatus": ["CompletedWithViolations"],
+            },
+            handler=retrain_fn,
         )
 
         # Operator dashboard.
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}
+
+        def _sm_metric(metric_name: str, statistic: str, **kwargs) -> cw.Metric:
+            return cw.Metric(
+                namespace="AWS/SageMaker",
+                metric_name=metric_name,
+                dimensions_map=dims,
+                statistic=statistic,
+                **kwargs,
+            )
+
         dashboard = cw.Dashboard(self, "OpsDashboard", dashboard_name=f"mlops-{config['env_name']}")
         dashboard.add_widgets(
             cw.GraphWidget(
                 title="Invocations",
-                left=[
-                    cw.Metric(
-                        namespace="AWS/SageMaker",
-                        metric_name="Invocations",
-                        dimensions_map=dims,
-                        statistic="Sum",
-                    )
-                ],
+                left=[_sm_metric("Invocations", "Sum")],
             ),
             cw.GraphWidget(
                 title="Latency (incl. cold starts)",
                 left=[
-                    cw.Metric(
-                        namespace="AWS/SageMaker",
-                        metric_name="ModelLatency",
-                        dimensions_map=dims,
-                        statistic="p90",
-                    ),
-                    cw.Metric(
-                        namespace="AWS/SageMaker",
-                        metric_name="OverheadLatency",
-                        dimensions_map=dims,
-                        statistic="p90",
-                    ),
+                    _sm_metric("ModelLatency", "p90"),
+                    _sm_metric("OverheadLatency", "p90"),
                 ],
             ),
             cw.GraphWidget(
                 title="Errors",
                 left=[
-                    cw.Metric(
-                        namespace="AWS/SageMaker",
-                        metric_name="Invocation4XXErrors",
-                        dimensions_map=dims,
-                        statistic="Sum",
-                    ),
-                    cw.Metric(
-                        namespace="AWS/SageMaker",
-                        metric_name="Invocation5XXErrors",
-                        dimensions_map=dims,
-                        statistic="Sum",
-                    ),
+                    _sm_metric("Invocation4XXErrors", "Sum"),
+                    _sm_metric("Invocation5XXErrors", "Sum"),
                 ],
             ),
         )
@@ -124,13 +106,7 @@ class MonitoringStack(Stack):
         cw.Alarm(
             self,
             "Endpoint5xxAlarm",
-            metric=cw.Metric(
-                namespace="AWS/SageMaker",
-                metric_name="Invocation5XXErrors",
-                dimensions_map=dims,
-                statistic="Sum",
-                period=Duration.minutes(5),
-            ),
+            metric=_sm_metric("Invocation5XXErrors", "Sum", period=Duration.minutes(5)),
             threshold=5,
             evaluation_periods=1,
         )

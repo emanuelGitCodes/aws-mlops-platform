@@ -5,11 +5,12 @@ package in our group flips to Approved. Creates a Model + EndpointConfig for
 the new package and points the endpoint at it (create if first deploy).
 """
 
-import json
 import os
 import time
 
 import boto3
+
+from src.common.events import log_event
 
 sm = boto3.client("sagemaker")
 
@@ -61,16 +62,12 @@ def handler(event, context):
 
     package = sm.describe_model_package(ModelPackageName=package_arn)
     test_auc = package.get("CustomerMetadataProperties", {}).get("test_auc")
-    print(
-        json.dumps(
-            {
-                "event": "approved_challenger_deployed",
-                "action": action,
-                "endpoint": ENDPOINT_NAME,
-                "model_package_arn": package_arn,
-                "test_auc": test_auc,
-            }
-        )
+    log_event(
+        "approved_challenger_deployed",
+        action=action,
+        endpoint=ENDPOINT_NAME,
+        model_package_arn=package_arn,
+        test_auc=test_auc,
     )
     return {
         "endpoint": ENDPOINT_NAME,

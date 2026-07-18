@@ -3,14 +3,12 @@
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
-from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_lambda_event_sources as event_sources
-from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
-from infra.stacks.lambda_code import src_code
+from infra.stacks.shared import platform_lambda
 
 
 class IngestionStack(Stack):
@@ -45,16 +43,14 @@ class IngestionStack(Stack):
             targets=[targets.SqsQueue(queue)],
         )
 
-        validate_fn = lambda_.Function(
+        validate_fn = platform_lambda(
             self,
             "ValidateFn",
-            runtime=lambda_.Runtime.PYTHON_3_12,
+            config=config,
             handler="src.ingestion.validate_handler.handler",
-            code=src_code(),
             timeout=Duration.minutes(4),
             memory_size=512,
             environment={"CURATED_BUCKET": curated_bucket.bucket_name},
-            log_retention=logs.RetentionDays.TWO_WEEKS,
         )
         validate_fn.add_event_source(event_sources.SqsEventSource(queue, batch_size=1))
 

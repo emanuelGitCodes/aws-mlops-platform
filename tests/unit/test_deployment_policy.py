@@ -1,14 +1,10 @@
 """Regression tests for the CDK CloudFormation execution boundary."""
 
 import json
-import pathlib
 
-POLICY_PATH = (
-    pathlib.Path(__file__).parents[2]
-    / "infra"
-    / "policies"
-    / "mlops-cloudformation-execution-policy.json"
-)
+from tests.unit.conftest import REPO_ROOT
+
+POLICY_PATH = REPO_ROOT / "infra" / "policies" / "mlops-cloudformation-execution-policy.json"
 
 
 def _statement(document, sid):

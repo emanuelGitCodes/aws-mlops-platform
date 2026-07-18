@@ -5,9 +5,16 @@ flags drift and the retrain loop visibly fires.
 """
 
 import argparse
-import json
 import random
-import urllib.request
+import sys
+from pathlib import Path
+
+# Allow the documented ``python scripts/send_drift_traffic.py`` command to
+# import the repository package without requiring PYTHONPATH first.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.evaluate_api import post_prediction
+from src.common.schema import FEATURE_COLUMNS, CustomerRecord
 
 BASE = {
     "gender": "Female",
@@ -39,6 +46,10 @@ def main():
     p.add_argument("-n", type=int, default=200)
     args = p.parse_args()
 
+    # Fail loudly if the demo record ever drifts from the shared schema.
+    CustomerRecord.model_validate(BASE)
+    assert set(BASE) == set(FEATURE_COLUMNS)
+
     rng = random.Random(7)
     for i in range(args.n):
         rec = dict(BASE)
@@ -46,13 +57,7 @@ def main():
         rec["tenure"] = rng.randint(120, 200)
         rec["MonthlyCharges"] = round(rng.uniform(300, 500), 2)
         rec["TotalCharges"] = round(rec["tenure"] * rec["MonthlyCharges"], 2)
-        req = urllib.request.Request(
-            args.url,
-            data=json.dumps(rec).encode(),
-            headers={"Content-Type": "application/json", "x-api-key": args.api_key},
-        )
-        with urllib.request.urlopen(req) as resp:
-            body = json.loads(resp.read())
+        body = post_prediction(args.url, args.api_key, rec)
         if i % 50 == 0:
             print(i, body)
 

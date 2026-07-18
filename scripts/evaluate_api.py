@@ -25,7 +25,8 @@ import boto3
 # repository package without requiring callers to set PYTHONPATH first.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.pipeline.evaluate import DEFAULT_THRESHOLD, calculate_classification_metrics
+from src.common.features import DEFAULT_THRESHOLD
+from src.pipeline.evaluate import calculate_classification_metrics
 
 
 class ApiEvaluationError(RuntimeError):
@@ -94,17 +95,22 @@ def select_records(records: list[dict], limit: int, all_records: bool) -> list[d
     return sorted(selected, key=lambda item: item["row_id"])
 
 
-def invoke_prediction(api_url: str, api_key: str, record: dict, timeout: float = 15.0) -> dict:
-    """Call /predict and validate its probability and thresholded-class response."""
+def post_prediction(api_url: str, api_key: str, record: dict, timeout: float = 15.0) -> dict:
+    """POST one record to /predict and return the parsed JSON response."""
     request = urllib.request.Request(
         api_url,
         data=json.dumps(record).encode(),
         headers={"Content-Type": "application/json", "x-api-key": api_key},
         method="POST",
     )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read())
+
+
+def invoke_prediction(api_url: str, api_key: str, record: dict, timeout: float = 15.0) -> dict:
+    """Call /predict and validate its probability and thresholded-class response."""
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            payload = json.loads(response.read())
+        payload = post_prediction(api_url, api_key, record, timeout=timeout)
     except urllib.error.HTTPError as error:
         raise ApiEvaluationError(f"API returned HTTP {error.code}") from error
     except (OSError, json.JSONDecodeError) as error:

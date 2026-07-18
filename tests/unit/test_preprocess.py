@@ -7,7 +7,7 @@ from src.pipeline.preprocess import (
     split_records,
     write_preprocessed_splits,
 )
-from tests.unit.test_schema import VALID
+from tests.unit.conftest import VALID
 
 
 def test_encode_features_length_and_numeric():

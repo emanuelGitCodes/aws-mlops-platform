@@ -5,13 +5,24 @@ serving proxy Lambda (inference requests). Single source of truth so the
 training data contract and the API contract can't drift apart.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
 
-__all__ = ["CustomerRecord", "FEATURE_COLUMNS", "LABEL_COLUMN"]
+__all__ = [
+    "CustomerRecord",
+    "FEATURE_COLUMNS",
+    "LABEL_COLUMN",
+    "format_validation_error",
+]
 
 YES_NO = {"Yes", "No"}
+
+
+def format_validation_error(exc: ValidationError) -> str:
+    """Render the first validation failure as ``<field.path>: <message>``."""
+    first = exc.errors()[0]
+    return f"{'.'.join(str(x) for x in first['loc'])}: {first['msg']}"
 
 
 class CustomerRecord(BaseModel):

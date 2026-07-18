@@ -2,28 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.common.schema import FEATURE_COLUMNS, CustomerRecord
-
-VALID = {
-    "gender": "Female",
-    "SeniorCitizen": 0,
-    "Partner": "Yes",
-    "Dependents": "No",
-    "tenure": 12,
-    "PhoneService": "Yes",
-    "MultipleLines": "No",
-    "InternetService": "DSL",
-    "OnlineSecurity": "No",
-    "OnlineBackup": "Yes",
-    "DeviceProtection": "No",
-    "TechSupport": "No",
-    "StreamingTV": "No",
-    "StreamingMovies": "No",
-    "Contract": "Month-to-month",
-    "PaperlessBilling": "Yes",
-    "PaymentMethod": "Electronic check",
-    "MonthlyCharges": 53.85,
-    "TotalCharges": 646.2,
-}
+from tests.unit.conftest import VALID
 
 
 def test_valid_record_without_label():

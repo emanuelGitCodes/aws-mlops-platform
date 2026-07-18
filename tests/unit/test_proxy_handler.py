@@ -1,14 +1,10 @@
 import io
 import json
-import os
 from unittest import mock
 
-os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
+from tests.unit.conftest import VALID, import_with_stubbed_boto3
 
-with mock.patch("boto3.client"):
-    from src.serving import proxy_handler
-
-from tests.unit.test_schema import VALID
+proxy_handler = import_with_stubbed_boto3("src.serving.proxy_handler")
 
 
 def _event(body) -> dict:

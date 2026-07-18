@@ -1414,3 +1414,61 @@ initial findings, and create a separate completion record. Do not begin 3B.
 Repository lint, unit, lock, dependency-audit, synthesis, exact template, and
 dry-run command checks passed before this log entry. Wiki index and lint are
 rerun after all documentation changes.
+## [2026-07-18] query | Phase 3A deployment rollback execution policy service-linked role
+
+Found 29 matching page(s).
+
+## [2026-07-18] failure | Phase 3A first deployment rollback
+
+### Objective
+
+Deploy only the Phase 3A account external-access analyzer after green hosted
+CI, a reviewed named diff, and a clean live pre-state.
+
+### Scope
+
+The `Mlops-Dev-SecurityMonitoring` stack, the CloudFormation execution policy,
+and read-only Access Analyzer inventory. GuardDuty and every later Phase 3
+service remained outside the attempt.
+
+### Identity and environment
+
+A restricted deployment identity used the existing CDK bootstrap path. A
+separate read-only security auditor verified live state. No IAM user name,
+local profile name, account identifier, ARN containing an account identifier,
+or credential is recorded.
+
+### Commands and results
+
+- Both hosted validation jobs passed for the Phase 3A implementation commit.
+- The guarded named diff showed exactly one analyzer addition.
+- Read-only pre-state showed a healthy metadata-only SecurityMonitoring stack,
+  zero account analyzers, and later Phase 3 services disabled.
+- The named deployment failed because the CloudFormation execution role was
+  denied `iam:CreateServiceLinkedRole` for
+  `AWSServiceRoleForAccessAnalyzer`.
+- CloudFormation reached `UPDATE_ROLLBACK_COMPLETE`; the stable stack contains
+  only CDK metadata, and the account again reports zero analyzers.
+
+### Interpretation
+
+The prepared execution policy granted the analyzer lifecycle actions but not
+the indirect IAM action needed when Access Analyzer creates its service-linked
+role. This permission belongs on the CloudFormation execution role, not on the
+deployment or auditor identities.
+
+### Decision and next checkpoint
+
+Add one exact-resource, exact-service-principal
+`iam:CreateServiceLinkedRole` statement and lock it with a unit test. After
+local and hosted gates pass, an administrator must install and verify the new
+live policy version. Review a fresh named diff before retrying only the
+SecurityMonitoring stack. Do not manually create or delete the analyzer or
+service-linked role, and do not begin Phase 3B.
+
+### Verification
+
+Rollback status, stable stack resources, and zero-analyzer state were rechecked
+with the read-only auditor before the correction was written. The new raw
+record is append-only; the prior Phase 3A implementation record remains
+unchanged.

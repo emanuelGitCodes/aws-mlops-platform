@@ -49,6 +49,21 @@ def test_phase_3_execution_policy_actions_are_recorded():
     assert required <= service_actions
 
 
+def test_access_analyzer_service_linked_role_stays_scoped():
+    document = json.loads(POLICY_PATH.read_text())
+    slr_arn = (
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/"
+        "access-analyzer.amazonaws.com/AWSServiceRoleForAccessAnalyzer"
+    )
+
+    create = _statement(document, "AccessAnalyzerServiceLinkedRole")
+    assert create["Action"] == "iam:CreateServiceLinkedRole"
+    assert create["Resource"] == slr_arn
+    assert create["Condition"] == {
+        "StringEquals": {"iam:AWSServiceName": "access-analyzer.amazonaws.com"}
+    }
+
+
 def test_config_service_linked_role_stays_scoped():
     document = json.loads(POLICY_PATH.read_text())
     slr_arn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-linked-role/config.amazonaws.com/*"

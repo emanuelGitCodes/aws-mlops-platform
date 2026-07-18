@@ -1306,3 +1306,53 @@ least-privilege default for the rest of the workflow.
 
 CI gates are healthy for both push and pull-request events. Sub-phase 3A
 (IAM Access Analyzer) still awaits its go decision.
+
+## [2026-07-18] maintain | Repo-wide code deduplication
+
+### Objective
+
+Eliminate every duplicate or near-duplicate code site found in a full audit
+of `src/`, `scripts/`, `infra/`, and `tests/unit/` (18 sites, full scope
+including "same shape" patterns).
+
+### Scope
+
+Commit `20800b5` on branch `dedupe-shared-helpers` (PR #1, draft). 27 files;
+three new modules: `src/common/events.py` (`log_event`),
+`infra/stacks/shared.py` (`platform_lambda`, `sagemaker_execution_role`,
+`sagemaker_event_rule`), `tests/unit/conftest.py` (`VALID`, `REPO_ROOT`,
+boto3-stubbed import helper).
+
+### Commands and results
+
+- Baseline `make synth` templates snapshotted, re-synthesized after the
+  refactor, and diffed: identical except the two SageMaker IAM policy ARNs
+  (proxy `InvokeEndpoint`, retrain `StartPipelineExecution`) now render
+  `Ref: AWS::Partition` via `format_arn` instead of the literal `arn:aws:`.
+  All other differences were asset-hash noise. Read-only comparison.
+- `ruff check`/`format` clean; 51/51 unit tests pass;
+  `python scripts/wiki.py lint` healthy; both operational scripts smoke-run.
+
+### Interpretation
+
+Two findings were latent bugs, not style: `wiki.py rebuild_index` duplicated
+`_render_index` (which `lint` compares against, so a one-sided edit would
+break lint permanently), and the serving proxy hardcoded the 0.5 churn
+threshold that evaluation asserts via `DEFAULT_THRESHOLD` — the production
+decision rule could have silently diverged from the evaluated contract.
+Lambda log retention now derives from config `log_retention_days` instead of
+a hardcoded constant.
+
+### Decision and next checkpoint
+
+`test_iam_policy_baseline_has_not_changed` fingerprints were deliberately
+refreshed (partition token plus the test app's `Test-` stack prefixes
+changing export strings); the test did its job of forcing review.
+`data_stack._bucket()` intentionally remains separate from the security
+buckets. Next: review/merge PR #1; a separate session is fixing the
+Makefile's `uv run --locked` targets dropping dev extras.
+
+### Verification
+
+`make lint` equivalent (ruff check + format) and the full unit suite pass
+post-append; wiki lint re-run after this entry.

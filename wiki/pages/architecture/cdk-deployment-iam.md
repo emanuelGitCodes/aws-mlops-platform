@@ -2,7 +2,7 @@
 type: architecture
 title: CDK deployment identity and bootstrap boundary
 created: "2026-07-10"
-updated: "2026-07-12"
+updated: "2026-07-15"
 sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
 summary: "A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy."
 ---
@@ -126,6 +126,24 @@ This setup separates three trust boundaries that are easy to confuse:
 The deployment identity is therefore a control-plane identity, not an application runtime identity. An interview explanation should mention both the permission granted and the permission deliberately absent: the user can assume the deploy path, but cannot directly call the application services or inspect IAM groups.
 
 The ingestion path follows the same failure-isolation principle. S3 emits an event to EventBridge, EventBridge places it on SQS, and the validation Lambda consumes one message at a time. SQS provides buffering and retry behavior; after the configured receive limit, the message moves to the DLQ for inspection instead of blocking the rest of the queue.
+
+## Applying the execution policy
+
+The repository copy of the execution policy
+(`infra/policies/mlops-cloudformation-execution-policy.json`) parameterizes
+account-specific values such as `${AWS_ACCOUNT_ID}` using the `.env.example`
+placeholder convention. Before creating a new IAM policy version, substitute
+the placeholders from a populated local `.env`, for example:
+
+```bash
+set -a && source .env && set +a
+envsubst < infra/policies/mlops-cloudformation-execution-policy.json > /tmp/policy.json
+aws iam create-policy-version --policy-arn <policy-arn> \
+  --policy-document file:///tmp/policy.json --set-as-default
+```
+
+Any hash comparison between the live document and the repository applies to
+the substituted output, not the raw parameterized file.
 
 ## Tensions or open questions
 

@@ -1356,3 +1356,187 @@ Makefile's `uv run --locked` targets dropping dev extras.
 
 `make lint` equivalent (ruff check + format) and the full unit suite pass
 post-append; wiki lint re-run after this entry.
+
+## [2026-07-18] implement | AWS security hardening Phase 3A
+
+### Objective
+
+Implement only the dev account external-access analyzer, preserve the Phase 3
+one-service rollback boundary, and stop before GuardDuty or any live deploy.
+
+### Scope
+
+The existing SecurityMonitoring stack and dev service flag, focused CDK
+assertions, guarded named-stack Make targets, the Phase 3A implementation
+record, and the maintained roadmap. The immutable phased plan and Phase 1
+source page remain unchanged.
+
+### Identity and environment
+
+Repository branch `issue/3-phase-3`, base `de345a8`, target Region
+`us-east-1`. The configured AWS session had no credentials. A temporary-login
+flow was cancelled before authorization; no AWS resource read or mutation is
+claimed.
+
+### Commands and results
+
+- Search confirmed no analyzer implementation existed outside the prepared
+  flag and shell stack.
+- Recreated the untracked virtual environment because its `pytest` script
+  referenced a different checkout.
+- `make lint`: passed; 47 files formatted.
+- `make test`: 52 passed.
+- `make security`: 108-package lock check passed, no known dependency
+  vulnerabilities, and all eight dev stacks synthesized with cdk-nag.
+- Named-stack Make targets passed dry-run inspection.
+- The SecurityMonitoring template contains the `ACCOUNT` analyzer plus CDK
+  metadata only, with the exact dev name and tags and no archive or paid
+  analyzer configuration.
+
+### Interpretation
+
+The implementation extends the existing Phase 3 shell rather than creating a
+parallel stack or helper. It changes no IAM fingerprint, application interface,
+data path, or production flag. External-access analysis is the no-additional-
+charge analyzer type; automatic archiving is intentionally deferred until
+findings have been reviewed.
+
+### Decision and next checkpoint
+
+Commit the isolated implementation and require hosted CI. When temporary AWS
+credentials are available, re-run the full read-only Phase 3 inventory. Stop
+on an existing analyzer or other unexplained service state; otherwise review a
+no-change-set diff, deploy only `Mlops-Dev-SecurityMonitoring`, verify the
+initial findings, and create a separate completion record. Do not begin 3B.
+
+### Verification
+
+Repository lint, unit, lock, dependency-audit, synthesis, exact template, and
+dry-run command checks passed before this log entry. Wiki index and lint are
+rerun after all documentation changes.
+## [2026-07-18] query | Phase 3A deployment rollback execution policy service-linked role
+
+Found 29 matching page(s).
+
+## [2026-07-18] failure | Phase 3A first deployment rollback
+
+### Objective
+
+Deploy only the Phase 3A account external-access analyzer after green hosted
+CI, a reviewed named diff, and a clean live pre-state.
+
+### Scope
+
+The `Mlops-Dev-SecurityMonitoring` stack, the CloudFormation execution policy,
+and read-only Access Analyzer inventory. GuardDuty and every later Phase 3
+service remained outside the attempt.
+
+### Identity and environment
+
+A restricted deployment identity used the existing CDK bootstrap path. A
+separate read-only security auditor verified live state. No IAM user name,
+local profile name, account identifier, ARN containing an account identifier,
+or credential is recorded.
+
+### Commands and results
+
+- Both hosted validation jobs passed for the Phase 3A implementation commit.
+- The guarded named diff showed exactly one analyzer addition.
+- Read-only pre-state showed a healthy metadata-only SecurityMonitoring stack,
+  zero account analyzers, and later Phase 3 services disabled.
+- The named deployment failed because the CloudFormation execution role was
+  denied `iam:CreateServiceLinkedRole` for
+  `AWSServiceRoleForAccessAnalyzer`.
+- CloudFormation reached `UPDATE_ROLLBACK_COMPLETE`; the stable stack contains
+  only CDK metadata, and the account again reports zero analyzers.
+
+### Interpretation
+
+The prepared execution policy granted the analyzer lifecycle actions but not
+the indirect IAM action needed when Access Analyzer creates its service-linked
+role. This permission belongs on the CloudFormation execution role, not on the
+deployment or auditor identities.
+
+### Decision and next checkpoint
+
+Add one exact-resource, exact-service-principal
+`iam:CreateServiceLinkedRole` statement and lock it with a unit test. After
+local and hosted gates pass, an administrator must install and verify the new
+live policy version. Review a fresh named diff before retrying only the
+SecurityMonitoring stack. Do not manually create or delete the analyzer or
+service-linked role, and do not begin Phase 3B.
+
+### Verification
+
+Rollback status, stable stack resources, and zero-analyzer state were rechecked
+with the read-only auditor before the correction was written. The new raw
+record is append-only; the prior Phase 3A implementation record remains
+unchanged.
+
+## [2026-07-18] complete | AWS security hardening Phase 3A
+
+### Objective
+
+Complete the dev account external-access analyzer rollout, review every active
+finding, verify application and alarm health, and stop before GuardDuty.
+
+### Scope
+
+The CloudFormation execution policy, `Mlops-Dev-SecurityMonitoring`, IAM Access
+Analyzer, the six Phase 2 security alarms, the existing cost budget, and one
+normal `/predict` request. No application stack, data path, runtime IAM role,
+or later Phase 3 service was changed.
+
+### Identity and environment
+
+The restricted deployment path performed the named diff and deployment. A
+separate read-only security identity performed inventory and finding review;
+an administrative identity performed only the approved attachment correction,
+managed-policy rotation, and read paths unavailable to the auditor. No
+identity name, local profile name, account identifier, generated resource
+identifier, endpoint, or credential is recorded.
+
+### Commands and results
+
+- The implementation and correction commits passed hosted validation and
+  secret scanning in draft pull request 4, which remains unmerged.
+- The unexpected execution-policy attachment was removed from one verified
+  zero-member group while preserving the group and its other policy.
+- The oldest non-default policy version was removed; corrected `v8` is default,
+  canonical comparison matches the repository, `v7` remains for rollback, and
+  the execution policy is attached to one role and zero users or groups.
+- The named diff showed one analyzer addition. The named deployment reached
+  `UPDATE_COMPLETE` with the analyzer plus CDK metadata only.
+- The analyzer is `ACTIVE`, has a populated latest-resource analysis timestamp,
+  and has the exact expected tags, no paid configuration, no archive rules,
+  and zero active public, cross-account, or error findings.
+- GuardDuty, Config, Security Hub, account S3 Block Public Access, and Phase 3
+  EventBridge alert routing remain disabled or absent.
+- `/predict` returned HTTP 200 and preserved its probability/Boolean threshold
+  contract. The existing `$20` budget remains at `$0` calculated actual spend
+  with 50%, 80%, and 100% notifications.
+- Three approved IAM policy changes and six known read-only denials were
+  attributed from the audit trail: one scoped CloudFormation discovery call,
+  one AWS service-linked discovery call, the previously recorded three-call
+  Cost Explorer console pattern, and one auditor log-content read. All six
+  alarms returned to `OK` naturally without a state override.
+
+### Interpretation
+
+The analyzer now establishes a zero-finding external-access baseline at no
+additional charge. The rollout did not enable paid internal or unused-access
+analysis and did not hide findings through archive rules. The service-linked
+role permission belongs exclusively to the CloudFormation execution role.
+
+### Decision and next checkpoint
+
+Phase 3A is complete. Keep the pull request draft and unmerged. Roll back the
+analyzer only by reverting the Phase 3A implementation and redeploying the
+named stack; do not delete it manually. Phase 3B requires a separate review.
+
+### Verification
+
+Local lint, 53 tests, lock check, dependency audit, eight-stack synthesis, wiki
+lint, hosted validation, hosted secret scan, named diff, named deploy, live
+analyzer/finding inventory, later-service inventory, policy comparison, alarm
+recovery, budget state, and `/predict` health all passed.

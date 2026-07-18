@@ -1,6 +1,9 @@
-.PHONY: install lock-check lint test audit synth security deploy destroy wiki-init wiki-index wiki-search wiki-ingest wiki-lint
+.PHONY: install lock-check lint test audit synth security check-stack \
+	diff-stack deploy-stack deploy destroy wiki-init wiki-index wiki-search \
+	wiki-ingest wiki-lint
 
 ENV ?= dev
+CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
 
 install:
 	uv sync --locked --extra dev
@@ -19,15 +22,27 @@ audit:
 	uv run --locked pip-audit --skip-editable
 
 synth:
-	cd infra && uv run --locked npx aws-cdk@2.1130.0 synth -c env=$(ENV) --no-lookups
+	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups
 
 security: lock-check audit synth
 
+check-stack:
+	@test -n "$(STACK)" || \
+		(echo "STACK is required, for example STACK=Mlops-Dev-SecurityMonitoring" >&2; exit 2)
+
+diff-stack: check-stack
+	cd infra && $(CDK_CLI) diff "$(STACK)" -c env=$(ENV) \
+		--no-lookups --no-change-set
+
+deploy-stack: check-stack
+	cd infra && $(CDK_CLI) deploy "$(STACK)" -c env=$(ENV) \
+		--no-lookups --require-approval never
+
 deploy:
-	cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=$(ENV) --require-approval never
+	cd infra && $(CDK_CLI) deploy --all -c env=$(ENV) --require-approval never
 
 destroy:
-	cd infra && uv run --locked npx aws-cdk@2.1130.0 destroy --all -c env=$(ENV)
+	cd infra && $(CDK_CLI) destroy --all -c env=$(ENV)
 
 wiki-init:
 	python3 scripts/wiki.py init

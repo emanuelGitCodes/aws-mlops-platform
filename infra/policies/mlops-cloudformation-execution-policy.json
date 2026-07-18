@@ -189,6 +189,17 @@
       "Resource": "*"
     },
     {
+      "Sid": "AccessAnalyzerServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/access-analyzer.amazonaws.com/AWSServiceRoleForAccessAnalyzer",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "access-analyzer.amazonaws.com"
+        }
+      }
+    },
+    {
       "Sid": "ConfigServiceLinkedRole",
       "Effect": "Allow",
       "Action": "iam:CreateServiceLinkedRole",

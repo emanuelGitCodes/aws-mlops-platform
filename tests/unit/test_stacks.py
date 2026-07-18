@@ -13,6 +13,7 @@ from aws_cdk.assertions import Match, Template
 
 from infra.app import build_app, load_config
 from infra.security_checks import ACKNOWLEDGEMENTS
+from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
 
 CONFIG = load_config("dev")
 
@@ -624,10 +625,55 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         ), metadata_key
 
 
-def test_security_monitoring_stays_a_disabled_shell(stacks):
-    """Phase 3-prep: every service flag is false and the stack deploys no resources."""
-    assert set(CONFIG["security"]["services"].values()) == {False}
-    resources = stacks["security_monitoring"].to_json().get("Resources", {})
+def test_security_monitoring_enables_only_phase_3a_access_analyzer(stacks):
+    """Dev enables one free external-access analyzer and no later Phase 3 service."""
+    services = CONFIG["security"]["services"]
+    assert services["access_analyzer"] is True
+    assert {name for name, enabled in services.items() if enabled} == {"access_analyzer"}
+
+    template = stacks["security_monitoring"]
+    template.resource_count_is("AWS::AccessAnalyzer::Analyzer", 1)
+    template.has_resource_properties(
+        "AWS::AccessAnalyzer::Analyzer",
+        {
+            "AnalyzerName": "mlops-dev-external-access",
+            "Type": "ACCOUNT",
+        },
+    )
+    analyzer_properties = next(
+        resource["Properties"]
+        for resource in template.to_json()["Resources"].values()
+        if resource["Type"] == "AWS::AccessAnalyzer::Analyzer"
+    )
+    assert set(analyzer_properties) == {"AnalyzerName", "Tags", "Type"}
+    assert {tag["Key"]: tag["Value"] for tag in analyzer_properties["Tags"]} == {
+        "Project": "aws-mlops-platform",
+        "Environment": "dev",
+        "SecurityPhase": "3A",
+    }
+
+
+def test_prod_security_monitoring_stays_a_disabled_shell():
+    """Production remains unchanged until its separately approved rollout."""
+    config = load_config("prod")
+    assert set(config["security"]["services"].values()) == {False}
+
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    stack = SecurityMonitoringStack(
+        app,
+        "Test-Prod-SecurityMonitoring",
+        alert_topic=None,
+        access_log_bucket=None,
+        audit_key=None,
+        config=config,
+    )
+    app.synth()
+    resources = Template.from_stack(stack).to_json().get("Resources", {})
     assert set(resources) <= {"CDKMetadata"}
 
 

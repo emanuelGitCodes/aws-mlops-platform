@@ -1472,3 +1472,71 @@ Rollback status, stable stack resources, and zero-analyzer state were rechecked
 with the read-only auditor before the correction was written. The new raw
 record is append-only; the prior Phase 3A implementation record remains
 unchanged.
+
+## [2026-07-18] complete | AWS security hardening Phase 3A
+
+### Objective
+
+Complete the dev account external-access analyzer rollout, review every active
+finding, verify application and alarm health, and stop before GuardDuty.
+
+### Scope
+
+The CloudFormation execution policy, `Mlops-Dev-SecurityMonitoring`, IAM Access
+Analyzer, the six Phase 2 security alarms, the existing cost budget, and one
+normal `/predict` request. No application stack, data path, runtime IAM role,
+or later Phase 3 service was changed.
+
+### Identity and environment
+
+The restricted deployment path performed the named diff and deployment. A
+separate read-only security identity performed inventory and finding review;
+an administrative identity performed only the approved attachment correction,
+managed-policy rotation, and read paths unavailable to the auditor. No
+identity name, local profile name, account identifier, generated resource
+identifier, endpoint, or credential is recorded.
+
+### Commands and results
+
+- The implementation and correction commits passed hosted validation and
+  secret scanning in draft pull request 4, which remains unmerged.
+- The unexpected execution-policy attachment was removed from one verified
+  zero-member group while preserving the group and its other policy.
+- The oldest non-default policy version was removed; corrected `v8` is default,
+  canonical comparison matches the repository, `v7` remains for rollback, and
+  the execution policy is attached to one role and zero users or groups.
+- The named diff showed one analyzer addition. The named deployment reached
+  `UPDATE_COMPLETE` with the analyzer plus CDK metadata only.
+- The analyzer is `ACTIVE`, has a populated latest-resource analysis timestamp,
+  and has the exact expected tags, no paid configuration, no archive rules,
+  and zero active public, cross-account, or error findings.
+- GuardDuty, Config, Security Hub, account S3 Block Public Access, and Phase 3
+  EventBridge alert routing remain disabled or absent.
+- `/predict` returned HTTP 200 and preserved its probability/Boolean threshold
+  contract. The existing `$20` budget remains at `$0` calculated actual spend
+  with 50%, 80%, and 100% notifications.
+- Three approved IAM policy changes and six known read-only denials were
+  attributed from the audit trail: one scoped CloudFormation discovery call,
+  one AWS service-linked discovery call, the previously recorded three-call
+  Cost Explorer console pattern, and one auditor log-content read. All six
+  alarms returned to `OK` naturally without a state override.
+
+### Interpretation
+
+The analyzer now establishes a zero-finding external-access baseline at no
+additional charge. The rollout did not enable paid internal or unused-access
+analysis and did not hide findings through archive rules. The service-linked
+role permission belongs exclusively to the CloudFormation execution role.
+
+### Decision and next checkpoint
+
+Phase 3A is complete. Keep the pull request draft and unmerged. Roll back the
+analyzer only by reverting the Phase 3A implementation and redeploying the
+named stack; do not delete it manually. Phase 3B requires a separate review.
+
+### Verification
+
+Local lint, 53 tests, lock check, dependency audit, eight-stack synthesis, wiki
+lint, hosted validation, hosted secret scan, named diff, named deploy, live
+analyzer/finding inventory, later-service inventory, policy comparison, alarm
+recovery, budget state, and `/predict` health all passed.

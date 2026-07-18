@@ -108,17 +108,17 @@ the boundary.
   and
   [completion](../sources/aws-security-hardening-phase-3-prep-completion-july-14-2026.md)
   records.
-- **Phase 3A: correction pending after clean rollback.** Dev synthesizes one
-  account external-access analyzer with no archive rules or paid analyzer
-  configuration; production and all later Phase 3 flags remain disabled. The
-  implementation passed hosted CI and the named diff contained only the
-  analyzer. The first deployment exposed a missing scoped
-  `iam:CreateServiceLinkedRole` permission and rolled back completely to the
-  metadata-only stack with zero analyzers. The corrected execution policy must
-  pass gates, be installed as a new verified live version, and receive a fresh
-  named diff before retry. See the
-  [implementation record](../sources/aws-security-hardening-phase-3a-implementation-july-18-2026.md)
-  and [first deployment rollback](../sources/aws-security-hardening-phase-3a-first-deployment-rollback-july-18-2026.md).
+- **Phase 3A: complete.** The dev account external-access analyzer is active
+  with no archive rules or paid configuration. Its initial resource analysis
+  completed with zero active public, cross-account, or error findings. The
+  corrected execution policy is live as verified default `v8`, with `v7`
+  retained for rollback and only the intended role attached. The named deploy,
+  later-service checks, six security alarms, `/predict`, and the existing `$20`
+  budget all passed. Production and all later Phase 3 flags remain disabled.
+  See the
+  [implementation record](../sources/aws-security-hardening-phase-3a-implementation-july-18-2026.md),
+  [first deployment rollback](../sources/aws-security-hardening-phase-3a-first-deployment-rollback-july-18-2026.md),
+  and [completion record](../sources/aws-security-hardening-phase-3a-completion-july-18-2026.md).
 - **Phases 3B–9: not started.** No GuardDuty, Config, Security Hub,
   account-level S3 blocking, Phase 3 alert routing, API-authentication change,
   WAF, or identity change is deployed by this checkpoint.

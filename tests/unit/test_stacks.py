@@ -625,14 +625,13 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         ), metadata_key
 
 
-def test_security_monitoring_enables_only_phase_3a_and_3b(stacks):
-    """Dev enables only the accepted analyzer and foundational GuardDuty."""
+def test_security_monitoring_enables_only_phase_3a(stacks):
+    """Dev enables only the accepted analyzer; 3B GuardDuty is deferred (Free plan)."""
     services = CONFIG["security"]["services"]
     assert services["access_analyzer"] is True
-    assert services["guardduty"] is True
+    assert services["guardduty"] is False
     assert {name for name, enabled in services.items() if enabled} == {
         "access_analyzer",
-        "guardduty",
     }
 
     template = stacks["security_monitoring"]
@@ -655,6 +654,36 @@ def test_security_monitoring_enables_only_phase_3a_and_3b(stacks):
         "Environment": "dev",
         "SecurityPhase": "3A",
     }
+
+    guardduty_types = {
+        resource["Type"]
+        for resource in template.to_json()["Resources"].values()
+        if resource["Type"].startswith("AWS::GuardDuty::")
+    }
+    assert guardduty_types == set()
+
+
+def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
+    """The flag-gated detector keeps its exact Phase 3B shape for the future retry."""
+    config = load_config("dev")
+    config["security"]["services"]["guardduty"] = True
+
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    stack = SecurityMonitoringStack(
+        app,
+        "Test-SecurityMonitoring-GuardDutyRetry",
+        alert_topic=None,
+        access_log_bucket=None,
+        audit_key=None,
+        config=config,
+    )
+    app.synth()
+    template = Template.from_stack(stack)
 
     template.resource_count_is("AWS::GuardDuty::Detector", 1)
     detector_properties = next(

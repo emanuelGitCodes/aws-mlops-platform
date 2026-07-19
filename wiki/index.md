@@ -33,6 +33,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Sources
 
+- [AWS Free-plan account service limits — July 18, 2026](pages/sources/aws-free-plan-account-service-limits-july-18-2026.md) — The dev account is confirmed on the AWS Free account plan, which blocks GuardDuty and Security Hub at the billing level and resolves the Phase 3B SubscriptionRequiredException rollback.
 - [AWS security hardening Phase 0 baseline — July 12, 2026](pages/sources/aws-security-hardening-phase-0-baseline-july-12-2026.md) — Read-only evidence for the pre-hardening AWS state, live application checkpoints, rollback surfaces, and the Data-stack export blocker.
 - [AWS security hardening Phase 1 completion — July 12, 2026](pages/sources/aws-security-hardening-phase-1-completion-july-12-2026.md) — All Phase 1 repository-security gates pass locally without an AWS deployment; the uncommitted diff is ready for final human review.
 - [AWS security hardening Phase 1 implementation — July 12, 2026](pages/sources/aws-security-hardening-phase-1-implementation-july-12-2026.md) — Phase 1 repository and CI guardrails are implemented locally and await human review plus network-backed CI validation.
@@ -54,4 +55,5 @@ This is the content map. Read it first, then follow the most relevant links.
 - [AWS security hardening Phase 3B implementation — July 18, 2026](pages/sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md) — Phase 3B is implemented and locally validated as one foundational GuardDuty detector with every current optional paid feature explicitly disabled; hosted gates, policy rotation, deployment, and live verification remain pending.
 - [Evaluation report rollout — July 11, 2026](pages/sources/evaluation-report-rollout-july-11-2026.md) — Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution.
 - [MLOps deployment and pipeline troubleshooting summary — July 10, 2026](pages/sources/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md) — Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session.
+- [Phase 3 plan revision under the AWS Free plan — July 19, 2026](pages/sources/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md) — Phase 3 is reordered for the Free plan: 3E BPA next, then gated 3C Config and partial 3F routing, with 3B GuardDuty and 3D Security Hub deferred behind an explicit paid-plan upgrade gate.
 - [Phased AWS security hardening plan — July 12, 2026](pages/sources/phased-aws-security-hardening-plan-july-12-2026.md) — Evidence and implementation checkpoints for the approved phase-by-phase AWS security-hardening roadmap.

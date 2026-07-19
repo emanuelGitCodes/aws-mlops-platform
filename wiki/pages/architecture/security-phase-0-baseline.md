@@ -2,8 +2,8 @@
 type: architecture
 title: AWS security hardening Phase 0 baseline
 created: "2026-07-12"
-updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../../src/pipeline/pipeline.py"]
+updated: "2026-07-18"
+sources: ["../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../../src/pipeline/pipeline.py"]
 summary: "The pre-hardening dev baseline is captured: runtime paths work, security gaps are measured, and the Data-stack export rollback blocks an all-stack deploy."
 ---
 # AWS security hardening Phase 0 baseline
@@ -66,6 +66,13 @@ documents, resource identifiers, and recovery commands are preserved in the
 [immutable Phase 0 source](../sources/aws-security-hardening-phase-0-baseline-july-12-2026.md).
 
 ## Synthesis
+
+The baseline probes that returned `SubscriptionRequiredException` for
+GuardDuty and Security Hub were later explained on July 18: the account is on
+the AWS Free account plan, which blocks those paid-only services at the
+billing level (reads included), while AWS Config — which answered its
+describe call normally — is plausibly inside the allowed set. See
+[AWS Free-plan account service limits](../sources/aws-free-plan-account-service-limits-july-18-2026.md).
 
 The platform is usable but not ready for a broad CDK deployment. Phase 0
 success means that the baseline is trustworthy and later regressions have a

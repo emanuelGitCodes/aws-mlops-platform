@@ -64,6 +64,21 @@ def test_access_analyzer_service_linked_role_stays_scoped():
     }
 
 
+def test_guardduty_service_linked_role_stays_scoped():
+    document = json.loads(POLICY_PATH.read_text())
+    slr_arn = (
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/"
+        "guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
+    )
+
+    create = _statement(document, "GuardDutyServiceLinkedRole")
+    assert create["Action"] == "iam:CreateServiceLinkedRole"
+    assert create["Resource"] == slr_arn
+    assert create["Condition"] == {
+        "StringEquals": {"iam:AWSServiceName": "guardduty.amazonaws.com"}
+    }
+
+
 def test_config_service_linked_role_stays_scoped():
     document = json.loads(POLICY_PATH.read_text())
     slr_arn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-linked-role/config.amazonaws.com/*"

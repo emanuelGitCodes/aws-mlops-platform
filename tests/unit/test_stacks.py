@@ -625,11 +625,15 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         ), metadata_key
 
 
-def test_security_monitoring_enables_only_phase_3a_access_analyzer(stacks):
-    """Dev enables one free external-access analyzer and no later Phase 3 service."""
+def test_security_monitoring_enables_only_phase_3a_and_3b(stacks):
+    """Dev enables only the accepted analyzer and foundational GuardDuty."""
     services = CONFIG["security"]["services"]
     assert services["access_analyzer"] is True
-    assert {name for name, enabled in services.items() if enabled} == {"access_analyzer"}
+    assert services["guardduty"] is True
+    assert {name for name, enabled in services.items() if enabled} == {
+        "access_analyzer",
+        "guardduty",
+    }
 
     template = stacks["security_monitoring"]
     template.resource_count_is("AWS::AccessAnalyzer::Analyzer", 1)
@@ -651,6 +655,44 @@ def test_security_monitoring_enables_only_phase_3a_access_analyzer(stacks):
         "Environment": "dev",
         "SecurityPhase": "3A",
     }
+
+    template.resource_count_is("AWS::GuardDuty::Detector", 1)
+    detector_properties = next(
+        resource["Properties"]
+        for resource in template.to_json()["Resources"].values()
+        if resource["Type"] == "AWS::GuardDuty::Detector"
+    )
+    assert set(detector_properties) == {
+        "Enable",
+        "Features",
+        "FindingPublishingFrequency",
+        "Tags",
+    }
+    assert detector_properties["Enable"] is True
+    assert detector_properties["FindingPublishingFrequency"] == "FIFTEEN_MINUTES"
+    assert detector_properties["Features"] == [
+        {"Name": name, "Status": "DISABLED"}
+        for name in (
+            "S3_DATA_EVENTS",
+            "EKS_AUDIT_LOGS",
+            "EBS_MALWARE_PROTECTION",
+            "RDS_LOGIN_EVENTS",
+            "LAMBDA_NETWORK_LOGS",
+            "AI_ANALYST",
+        )
+    ]
+    assert {tag["Key"]: tag["Value"] for tag in detector_properties["Tags"]} == {
+        "Project": "aws-mlops-platform",
+        "Environment": "dev",
+        "SecurityPhase": "3B",
+    }
+
+    guardduty_types = {
+        resource["Type"]
+        for resource in template.to_json()["Resources"].values()
+        if resource["Type"].startswith("AWS::GuardDuty::")
+    }
+    assert guardduty_types == {"AWS::GuardDuty::Detector"}
 
 
 def test_prod_security_monitoring_stays_a_disabled_shell():

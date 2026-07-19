@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-18"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -119,9 +119,18 @@ the boundary.
   [implementation record](../sources/aws-security-hardening-phase-3a-implementation-july-18-2026.md),
   [first deployment rollback](../sources/aws-security-hardening-phase-3a-first-deployment-rollback-july-18-2026.md),
   and [completion record](../sources/aws-security-hardening-phase-3a-completion-july-18-2026.md).
-- **Phases 3B–9: not started.** No GuardDuty, Config, Security Hub,
-  account-level S3 blocking, Phase 3 alert routing, API-authentication change,
-  WAF, or identity change is deployed by this checkpoint.
+- **Phase 3B: implemented; first deployment rolled back.** The dev-only
+  foundational GuardDuty detector is locally validated with 15-minute
+  publishing and every current optional paid feature explicitly disabled,
+  including `AI_ANALYST`. Hosted gates passed and the named diff was exact, but
+  the GuardDuty provider returned `SubscriptionRequiredException`. The stack,
+  detector/role state, and execution policy rolled back cleanly; Phase 3B is
+  incomplete. See the
+  [implementation record](../sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md)
+  and [first deployment rollback](../sources/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md).
+- **Phases 3C–9: not started.** No Config, Security Hub, account-level S3
+  blocking, Phase 3 alert routing, API-authentication change, WAF, or identity
+  change is deployed by this checkpoint.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -138,11 +147,13 @@ the boundary.
 
 ### Next checkpoint
 
-Sub-phase 3A deployment: restore temporary AWS credentials, re-run the
-read-only service inventory, require hosted CI, review a `--no-change-set`
-SecurityMonitoring-only diff, deploy only that stack, and verify an active
-analyzer with a completed initial scan and zero unexplained public or
-cross-account findings. Stop before GuardDuty.
+Sub-phase 3B recovery: establish why the GuardDuty CloudFormation provider
+cannot create the first detector from the account's never-enabled subscription
+state. Do not manually create the detector or role. Once an AWS-supported path
+preserves CloudFormation ownership and explicit paid-feature controls, repeat
+the pre-state gate, policy rotation, named diff and deploy, then complete
+finding, trial/usage, alarm, budget, Access Analyzer, and `/predict`
+verification. Stop before AWS Config.
 
 Related runtime and human authority boundaries are documented in
 [AWS resource and permission boundaries](permissions.md) and

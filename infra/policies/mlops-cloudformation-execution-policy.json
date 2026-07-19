@@ -200,17 +200,6 @@
       }
     },
     {
-      "Sid": "GuardDutyServiceLinkedRole",
-      "Effect": "Allow",
-      "Action": "iam:CreateServiceLinkedRole",
-      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
-      "Condition": {
-        "StringEquals": {
-          "iam:AWSServiceName": "guardduty.amazonaws.com"
-        }
-      }
-    },
-    {
       "Sid": "ConfigServiceLinkedRole",
       "Effect": "Allow",
       "Action": "iam:CreateServiceLinkedRole",

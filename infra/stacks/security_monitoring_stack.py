@@ -2,7 +2,6 @@
 
 from aws_cdk import Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
-from aws_cdk import aws_guardduty as guardduty
 from aws_cdk import aws_kms as kms
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
@@ -15,15 +14,6 @@ PHASE_3_SERVICE_FLAGS = (
     "security_hub",
     "account_bpa",
     "eventbridge_alerts",
-)
-
-GUARDDUTY_DISABLED_FEATURES = (
-    "S3_DATA_EVENTS",
-    "EKS_AUDIT_LOGS",
-    "EBS_MALWARE_PROTECTION",
-    "RDS_LOGIN_EVENTS",
-    "LAMBDA_NETWORK_LOGS",
-    "AI_ANALYST",
 )
 
 
@@ -71,24 +61,3 @@ class SecurityMonitoringStack(Stack):
                 ("SecurityPhase", "3A"),
             ):
                 Tags.of(analyzer).add(key, value)
-
-        if services["guardduty"]:
-            detector = guardduty.CfnDetector(
-                self,
-                "FoundationalDetector",
-                enable=True,
-                finding_publishing_frequency="FIFTEEN_MINUTES",
-                features=[
-                    guardduty.CfnDetector.CFNFeatureConfigurationProperty(
-                        name=name,
-                        status="DISABLED",
-                    )
-                    for name in GUARDDUTY_DISABLED_FEATURES
-                ],
-            )
-            for key, value in (
-                ("Project", "aws-mlops-platform"),
-                ("Environment", self.env_name),
-                ("SecurityPhase", "3B"),
-            ):
-                Tags.of(detector).add(key, value)

@@ -1,5 +1,7 @@
 """Buckets + budget tripwire. Stable stack — never torn down with serving/training."""
 
+from typing import Any
+
 from aws_cdk import RemovalPolicy, Stack
 from aws_cdk import aws_budgets as budgets
 from aws_cdk import aws_iam as iam
@@ -7,6 +9,8 @@ from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from aws_cdk import custom_resources as cr
 from constructs import Construct
+
+from infra.stacks.shared import PlatformConfig
 
 
 def _bucket(
@@ -45,9 +49,9 @@ class DataStack(Stack):
         *,
         access_log_bucket: s3.IBucket,
         alert_topic: sns.ITopic,
-        config: dict,
-        **kwargs,
-    ):
+        config: PlatformConfig,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.raw_bucket = _bucket(

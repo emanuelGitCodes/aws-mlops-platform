@@ -10,6 +10,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+from typing import Any
 
 import jsii
 from aws_cdk import BundlingOptions, DockerImage, ILocalBundling
@@ -21,7 +22,7 @@ _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 @jsii.implements(ILocalBundling)
 class _LocalPipBundling:
-    def try_bundle(self, output_dir: str, *, image, **kwargs) -> bool:
+    def try_bundle(self, output_dir: str, *, image: DockerImage, **kwargs: Any) -> bool:
         try:
             subprocess.run(
                 [

@@ -46,7 +46,7 @@ def slugify(value: str) -> str:
     return slug or "untitled"
 
 
-def _parse_scalar(value: str):
+def _parse_scalar(value: str) -> str | list[str]:
     value = value.strip()
     if value.startswith("[") and value.endswith("]"):
         try:
@@ -58,9 +58,12 @@ def _parse_scalar(value: str):
         return parsed
     if len(value) >= 2 and value[0] == value[-1] == '"':
         try:
-            return json.loads(value)
+            unquoted = json.loads(value)
         except json.JSONDecodeError as exc:
             raise WikiError(f"invalid frontmatter string: {value}") from exc
+        if not isinstance(unquoted, str):
+            raise WikiError(f"frontmatter string expected: {value}")
+        return unquoted
     return value
 
 
@@ -124,7 +127,7 @@ def _display_type(page_type: str) -> str:
 class Wiki:
     """Operations rooted at one wiki directory."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path) -> None:
         self.root = root.resolve()
 
     @property
@@ -207,7 +210,7 @@ class Wiki:
 
         shutil.copy2(source, destination)
         today = date.today().isoformat()
-        metadata = {
+        metadata: dict[str, object] = {
             "type": "source",
             "title": source_title,
             "created": today,

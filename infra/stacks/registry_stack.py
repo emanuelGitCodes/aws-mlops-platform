@@ -1,12 +1,18 @@
 """Model Package Group. Stable stack — holds model lineage across redeploys."""
 
+from typing import Any
+
 from aws_cdk import Stack
 from aws_cdk import aws_sagemaker as sagemaker
 from constructs import Construct
 
+from infra.stacks.shared import PlatformConfig
+
 
 class RegistryStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, *, config: dict, **kwargs):
+    def __init__(
+        self, scope: Construct, construct_id: str, *, config: PlatformConfig, **kwargs: Any
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.package_group_name = config["model_package_group"]

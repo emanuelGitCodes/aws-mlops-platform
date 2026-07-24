@@ -65,7 +65,7 @@ class CustomerRecord(BaseModel):
 
     @field_validator("TotalCharges", mode="before")
     @classmethod
-    def _blank_total(cls, v):
+    def _blank_total(cls, v: object) -> object:
         # The public Telco CSV has blank TotalCharges for tenure-0 customers.
         if isinstance(v, str) and not v.strip():
             return 0.0

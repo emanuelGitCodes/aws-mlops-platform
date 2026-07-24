@@ -5,6 +5,11 @@ shape used by the promotion gate.  The same ProcessingStep also emits a richer
 per-execution report: metrics JSON, prediction CSV, and diagnostic PNG charts.
 """
 
+# This module runs inside the SageMaker FrameworkProcessor managed image,
+# whose Python is older than the 3.12 the rest of the repo targets. Deferring
+# annotation evaluation keeps modern syntax here from being a runtime error.
+from __future__ import annotations
+
 import argparse
 import csv
 import json
@@ -229,7 +234,7 @@ def _load_test_data(test_dir: str) -> tuple[list[int], list[list[float]]]:
     return labels, features
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--champion-model-package-arn", default="none")
     parser.add_argument("--champion-test-auc", type=float, default=0.5)

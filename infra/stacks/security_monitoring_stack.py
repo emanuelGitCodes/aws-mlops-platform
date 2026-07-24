@@ -1,5 +1,7 @@
 """Phase 3 threat detection and configuration monitoring, one flag-gated service at a time."""
 
+from typing import Any
+
 from aws_cdk import Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
 from aws_cdk import aws_guardduty as guardduty
@@ -7,6 +9,8 @@ from aws_cdk import aws_kms as kms
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from constructs import Construct
+
+from infra.stacks.shared import PlatformConfig
 
 PHASE_3_SERVICE_FLAGS = (
     "access_analyzer",
@@ -38,9 +42,9 @@ class SecurityMonitoringStack(Stack):
         alert_topic: sns.ITopic,
         access_log_bucket: s3.IBucket,
         audit_key: kms.IKey,
-        config: dict,
-        **kwargs,
-    ):
+        config: PlatformConfig,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.env_name = config["env_name"]

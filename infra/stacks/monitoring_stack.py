@@ -6,17 +6,21 @@ The Model Monitor baseline + schedule are created by `scripts/setup_monitor.py`
 CloudFormation). This stack owns the alarm wiring and the dashboard.
 """
 
+from typing import Any
+
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_cloudwatch as cw
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
-from infra.stacks.shared import platform_lambda, sagemaker_event_rule
+from infra.stacks.shared import PlatformConfig, platform_lambda, sagemaker_event_rule
 
 
 class MonitoringStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, *, config: dict, **kwargs):
+    def __init__(
+        self, scope: Construct, construct_id: str, *, config: PlatformConfig, **kwargs: Any
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         endpoint_name = config["endpoint_name"]
@@ -72,7 +76,7 @@ class MonitoringStack(Stack):
         # Operator dashboard.
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}
 
-        def _sm_metric(metric_name: str, statistic: str, **kwargs) -> cw.Metric:
+        def _sm_metric(metric_name: str, statistic: str, **kwargs: Any) -> cw.Metric:
             return cw.Metric(
                 namespace="AWS/SageMaker",
                 metric_name=metric_name,

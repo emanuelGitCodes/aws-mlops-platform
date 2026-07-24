@@ -8,11 +8,17 @@ As a SageMaker ProcessingStep this runs as a script: reads curated CSVs from
 expected format) to /opt/ml/processing/{train,validation,test}.
 """
 
+# This module runs inside the SageMaker FrameworkProcessor managed image,
+# whose Python is older than the 3.12 the rest of the repo targets. Deferring
+# annotation evaluation keeps modern syntax here from being a runtime error.
+from __future__ import annotations
+
 import csv
 import glob
 import json
 import pathlib
 import random
+from typing import Any
 
 from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
 
@@ -91,9 +97,9 @@ def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -
             f.write("\n")
 
 
-def main():
+def main() -> None:
     input_dir = "/opt/ml/processing/input"
-    records = []
+    records: list[dict[str, Any]] = []
     for path in glob.glob(f"{input_dir}/*.csv"):
         with open(path) as f:
             records.extend(csv.DictReader(f))

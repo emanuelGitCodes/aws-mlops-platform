@@ -1,6 +1,6 @@
 .PHONY: install lock-check lint typecheck test audit synth security check-stack \
-	diff-stack deploy-stack deploy destroy wiki-init wiki-index wiki-search \
-	wiki-ingest wiki-lint
+	diff-stack deploy-stack deploy destroy verify-deploy wiki-init wiki-index \
+	wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -46,6 +46,12 @@ deploy:
 
 destroy:
 	cd infra && $(CDK_CLI) destroy --all -c env=$(ENV)
+
+# What a deployment actually changed. Stack status does not answer this:
+# UPDATE_COMPLETE is reported even when no resource was touched.
+verify-deploy:
+	uv run --locked --extra dev python scripts/verify_deployment.py \
+		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")
 
 wiki-init:
 	python3 scripts/wiki.py init

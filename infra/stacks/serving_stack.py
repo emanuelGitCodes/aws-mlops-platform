@@ -1,6 +1,8 @@
 """Serving: API Gateway -> proxy Lambda -> serverless endpoint, plus the
 registry-approval -> endpoint-update automation."""
 
+from typing import Any
+
 from aws_cdk import CfnOutput, Duration, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_iam as iam
@@ -9,6 +11,7 @@ from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
 from infra.stacks.shared import (
+    PlatformConfig,
     platform_lambda,
     sagemaker_event_rule,
     sagemaker_execution_role,
@@ -23,9 +26,9 @@ class ServingStack(Stack):
         *,
         artifacts_bucket: s3.IBucket,
         package_group_name: str,
-        config: dict,
-        **kwargs,
-    ):
+        config: PlatformConfig,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         endpoint_name = config["endpoint_name"]

@@ -13,7 +13,11 @@ from aws_cdk.assertions import Match, Template
 
 from infra.app import build_app, load_config
 from infra.security_checks import ACKNOWLEDGEMENTS
-from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
+from infra.stacks.security_monitoring_stack import (
+    IMPLEMENTED_SERVICE_FLAGS,
+    PHASE_3_SERVICE_FLAGS,
+    SecurityMonitoringStack,
+)
 
 CONFIG = load_config("dev")
 
@@ -722,6 +726,45 @@ def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
         if resource["Type"].startswith("AWS::GuardDuty::")
     }
     assert guardduty_types == {"AWS::GuardDuty::Detector"}
+
+
+@pytest.mark.parametrize(
+    "flag",
+    sorted(set(PHASE_3_SERVICE_FLAGS) - IMPLEMENTED_SERVICE_FLAGS),
+)
+def test_enabling_an_unimplemented_service_flag_fails_loudly(flag):
+    """A flag with no CDK behind it must raise, not deploy nothing silently.
+
+    Without this, flipping e.g. account_bpa to true would synth and deploy
+    cleanly while creating no resource at all -- the security service would
+    look enabled and not be.
+    """
+    config = load_config("dev")
+    config["security"]["services"][flag] = True
+
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    with pytest.raises(ValueError, match="no stack implementation") as excinfo:
+        SecurityMonitoringStack(
+            app,
+            # Stack ids must match /^[A-Za-z][A-Za-z0-9-]*$/, so drop the
+            # underscores rather than letting CDK reject the name first.
+            f"Test-SecurityMonitoring-Unimplemented-{flag.replace('_', '-')}",
+            alert_topic=None,
+            access_log_bucket=None,
+            audit_key=None,
+            config=config,
+        )
+    assert flag in str(excinfo.value)
+
+
+def test_implemented_service_flags_are_a_subset_of_the_declared_contract():
+    """Catches a typo in IMPLEMENTED_SERVICE_FLAGS that would disable the guard."""
+    assert IMPLEMENTED_SERVICE_FLAGS <= set(PHASE_3_SERVICE_FLAGS)
 
 
 def test_prod_security_monitoring_stays_a_disabled_shell():

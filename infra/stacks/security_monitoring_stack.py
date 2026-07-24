@@ -1,5 +1,7 @@
 """Phase 3 threat detection and configuration monitoring, one flag-gated service at a time."""
 
+from typing import Any
+
 from aws_cdk import Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
 from aws_cdk import aws_guardduty as guardduty
@@ -7,6 +9,8 @@ from aws_cdk import aws_kms as kms
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from constructs import Construct
+
+from infra.stacks.shared import PlatformConfig
 
 PHASE_3_SERVICE_FLAGS = (
     "access_analyzer",
@@ -16,6 +20,14 @@ PHASE_3_SERVICE_FLAGS = (
     "account_bpa",
     "eventbridge_alerts",
 )
+
+# The subset of PHASE_3_SERVICE_FLAGS this stack actually builds resources for.
+# The rest are declared in config so the flag contract stays stable across
+# sub-phases, but have no CDK behind them yet. Enabling one of those must fail
+# loudly: a silent no-op deploy would look like a security service was turned
+# on when nothing was created. Add a flag here in the same change that
+# implements its sub-phase.
+IMPLEMENTED_SERVICE_FLAGS = frozenset({"access_analyzer", "guardduty"})
 
 GUARDDUTY_DISABLED_FEATURES = (
     "S3_DATA_EVENTS",
@@ -38,9 +50,9 @@ class SecurityMonitoringStack(Stack):
         alert_topic: sns.ITopic,
         access_log_bucket: s3.IBucket,
         audit_key: kms.IKey,
-        config: dict,
-        **kwargs,
-    ):
+        config: PlatformConfig,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.env_name = config["env_name"]
@@ -56,6 +68,16 @@ class SecurityMonitoringStack(Stack):
         )
         if non_boolean:
             raise ValueError(f"Phase 3 service flags must be booleans: {non_boolean}")
+        unimplemented = sorted(
+            name
+            for name, enabled in services.items()
+            if enabled and name not in IMPLEMENTED_SERVICE_FLAGS
+        )
+        if unimplemented:
+            raise ValueError(
+                "Phase 3 service flags enabled with no stack implementation: "
+                f"{unimplemented}. Implement the sub-phase before enabling its flag."
+            )
         self.services = services
 
         if services["access_analyzer"]:

@@ -1,9 +1,16 @@
-"""Cross-stack CDK helpers.
+"""Cross-stack CDK helpers and the environment config contract.
 
 New module because these patterns repeat across several stacks and
 ``lambda_code.py`` is specific to the bundled Lambda asset; no other
 stack-shared module exists.
+
+The ``*Config`` TypedDicts below are the single source of truth for the
+shape of ``infra/config/{dev,prod}.yaml``. They are build-time only and
+deliberately separate from ``src/common/schema.py``, which is the runtime
+data contract shipped into Lambda.
 """
+
+from typing import Any, TypedDict
 
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
@@ -14,6 +21,58 @@ from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
 
+
+class ServerlessConfig(TypedDict):
+    """``serverless:`` — SageMaker serverless endpoint sizing."""
+
+    memory_mb: int
+    max_concurrency: int
+
+
+class MonitorConfig(TypedDict):
+    """``monitor:`` — Model Monitor scheduling."""
+
+    schedule_cron: str
+
+
+class SecurityServicesConfig(TypedDict):
+    """``security.services:`` — the six Phase 3 enablement flags.
+
+    ``SecurityMonitoringStack`` requires exactly these keys; keep in sync
+    with ``PHASE_3_SERVICE_FLAGS``.
+    """
+
+    access_analyzer: bool
+    guardduty: bool
+    config_recorder: bool
+    security_hub: bool
+    account_bpa: bool
+    eventbridge_alerts: bool
+
+
+class SecurityConfig(TypedDict):
+    """``security:`` — audit retention, budget alarms, and service flags."""
+
+    audit_log_retention_days: int
+    budget_thresholds: list[int]
+    services: SecurityServicesConfig
+
+
+class PlatformConfig(TypedDict):
+    """One environment's complete config, as loaded from YAML."""
+
+    env_name: str
+    model_package_group: str
+    model_approval_status: str
+    endpoint_name: str
+    pipeline_name: str
+    serverless: ServerlessConfig
+    monitor: MonitorConfig
+    budget_usd: int
+    log_retention_days: int
+    security: SecurityConfig
+
+
 _LOG_RETENTION = {
     7: logs.RetentionDays.ONE_WEEK,
     14: logs.RetentionDays.TWO_WEEKS,
@@ -22,7 +81,7 @@ _LOG_RETENTION = {
 }
 
 
-def log_retention(config: dict) -> logs.RetentionDays:
+def log_retention(config: PlatformConfig) -> logs.RetentionDays:
     """Map the environment's ``log_retention_days`` to a RetentionDays value."""
     days = config["log_retention_days"]
     if days not in _LOG_RETENTION:
@@ -34,9 +93,9 @@ def platform_lambda(
     scope: Construct,
     construct_id: str,
     *,
-    config: dict,
+    config: PlatformConfig,
     code: lambda_.Code | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> lambda_.Function:
     """Lambda with platform defaults: Python 3.12, config-driven log retention,
     and the shared src/ asset unless other code is supplied."""
@@ -68,7 +127,7 @@ def sagemaker_event_rule(
     construct_id: str,
     *,
     detail_type: str,
-    detail: dict,
+    detail: dict[str, Any],
     handler: lambda_.IFunction,
 ) -> events.Rule:
     """EventBridge rule on an aws.sagemaker event that invokes a Lambda."""

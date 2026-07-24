@@ -20,6 +20,9 @@ dev = [
     "matplotlib>=3.7,<4",
     "cdk-nag==3.0.1",
     "pip-audit>=2.10,<3",
+    "mypy>=1.11,<2",
+    "boto3-stubs[s3,sagemaker,sagemaker-runtime]>=1.34",
+    "types-PyYAML>=6",
 ]
 pipeline = [
     "sagemaker>=2.220,<3",
@@ -34,7 +37,40 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
+select = ["E", "F", "I", "W", "UP", "B", "ANN"]
+# ANN401: **kwargs: Any is the honest annotation for CDK/jsii passthrough.
+ignore = ["ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+# tests/ is outside mypy's `files` list; annotations there are not enforced.
+"tests/**" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "infra", "scripts"]
+# scripts/ has no __init__.py, so without an explicit base mypy resolves
+# scripts/evaluate_api.py as both `evaluate_api` and `scripts.evaluate_api`.
+mypy_path = "."
+explicit_package_bases = true
+# cdk.out holds synthesized assets, including Lambda bundles with vendored
+# third-party packages. It is build output, never source.
+exclude = "^infra/cdk\\.out/"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+plugins = ["pydantic.mypy"]
+
+# Runtime-only dependencies of the SageMaker ProcessingStep containers, none of
+# which ship stubs: sagemaker and sklearn come from the `pipeline` extra (not
+# synced in CI), and xgboost is provided by the managed training image and is
+# deliberately imported inside evaluate.main() rather than declared here.
+[[tool.mypy.overrides]]
+module = ["sagemaker.*", "sklearn.*", "xgboost.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]

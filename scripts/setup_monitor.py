@@ -13,7 +13,7 @@ from sagemaker.model_monitor import CronExpressionGenerator, DefaultModelMonitor
 from sagemaker.model_monitor.dataset_format import DatasetFormat
 
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--endpoint", required=True)
     p.add_argument("--role-arn", required=True)

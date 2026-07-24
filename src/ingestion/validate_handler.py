@@ -10,6 +10,7 @@ import io
 import json
 import os
 import urllib.parse
+from typing import Any
 
 import boto3
 from pydantic import ValidationError
@@ -21,9 +22,12 @@ s3 = boto3.client("s3")
 CURATED_BUCKET = os.environ["CURATED_BUCKET"]
 
 
-def validate_rows(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+def validate_rows(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split rows into (valid, rejected-with-reason)."""
-    valid, rejected = [], []
+    valid: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     for row in rows:
         try:
             CustomerRecord.model_validate(row)
@@ -34,7 +38,7 @@ def validate_rows(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     return valid, rejected
 
 
-def _write_csv(bucket: str, key: str, rows: list[dict]) -> None:
+def _write_csv(bucket: str, key: str, rows: list[dict[str, Any]]) -> None:
     if not rows:
         return
     buf = io.StringIO()
@@ -44,8 +48,8 @@ def _write_csv(bucket: str, key: str, rows: list[dict]) -> None:
     s3.put_object(Bucket=bucket, Key=key, Body=buf.getvalue().encode())
 
 
-def handler(event, context):
-    results = []
+def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
+    results: list[dict[str, Any]] = []
     for record in event["Records"]:
         detail = json.loads(record["body"])["detail"]
         bucket = detail["bucket"]["name"]

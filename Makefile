@@ -1,4 +1,4 @@
-.PHONY: install lock-check lint test audit synth security check-stack \
+.PHONY: install lock-check lint typecheck test audit synth security check-stack \
 	diff-stack deploy-stack deploy destroy wiki-init wiki-index wiki-search \
 	wiki-ingest wiki-lint
 
@@ -14,6 +14,9 @@ lock-check:
 lint:
 	uv run --locked ruff check .
 	uv run --locked ruff format --check .
+
+typecheck:
+	uv run --locked --extra dev mypy
 
 test:
 	uv run --locked pytest tests/unit -q

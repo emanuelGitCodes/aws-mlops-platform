@@ -6,11 +6,13 @@ because SageMaker Pipelines are versioned documents, not CloudFormation-native
 resources. The stack owns the IAM the pipeline runs as.
 """
 
+from typing import Any
+
 from aws_cdk import CfnOutput, Stack
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
-from infra.stacks.shared import sagemaker_execution_role
+from infra.stacks.shared import PlatformConfig, sagemaker_execution_role
 
 
 class TrainingStack(Stack):
@@ -21,9 +23,9 @@ class TrainingStack(Stack):
         *,
         curated_bucket: s3.IBucket,
         artifacts_bucket: s3.IBucket,
-        config: dict,
-        **kwargs,
-    ):
+        config: PlatformConfig,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.pipeline_role = sagemaker_execution_role(self, "PipelineExecutionRole")

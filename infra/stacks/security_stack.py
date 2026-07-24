@@ -1,6 +1,17 @@
 """Phase 2 audit foundation, CIS metric detections, and alert delivery."""
 
-from aws_cdk import ArnFormat, CfnOutput, CfnParameter, Duration, RemovalPolicy, Stack, Tags
+from typing import Any
+
+from aws_cdk import (
+    ArnFormat,
+    CfnOutput,
+    CfnParameter,
+    CfnResource,
+    Duration,
+    RemovalPolicy,
+    Stack,
+    Tags,
+)
 from aws_cdk import aws_cloudtrail as cloudtrail
 from aws_cdk import aws_cloudwatch as cloudwatch
 from aws_cdk import aws_cloudwatch_actions as cloudwatch_actions
@@ -10,7 +21,9 @@ from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
-from constructs import Construct
+from constructs import Construct, IConstruct
+
+from infra.stacks.shared import PlatformConfig
 
 SECURITY_DETECTIONS = (
     (
@@ -62,10 +75,25 @@ SECURITY_DETECTIONS = (
 )
 
 
+def _default_cfn_resource(construct: IConstruct) -> CfnResource:
+    """Narrow a construct's L1 child for ``CfnResource.add_dependency``.
+
+    ``node.default_child`` is typed ``IConstruct | None``, so passing it
+    straight to ``add_dependency`` would fail at synth time rather than
+    here if a construct ever stops exposing an L1 child.
+    """
+    resource = construct.node.default_child
+    if not isinstance(resource, CfnResource):
+        raise TypeError(f"{construct.node.path} has no CfnResource default child")
+    return resource
+
+
 class SecurityStack(Stack):
     """Durable audit storage and alert transport for the dev account."""
 
-    def __init__(self, scope: Construct, construct_id: str, *, config: dict, **kwargs):
+    def __init__(
+        self, scope: Construct, construct_id: str, *, config: PlatformConfig, **kwargs: Any
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         env_name = config["env_name"]
@@ -175,9 +203,9 @@ class SecurityStack(Stack):
                 )
             )
 
-        def _hardened_bucket(bucket_id: str, **overrides) -> s3.Bucket:
+        def _hardened_bucket(bucket_id: str, **overrides: Any) -> s3.Bucket:
             """Retained, versioned, TLS-enforced private bucket."""
-            props: dict = {
+            props: dict[str, Any] = {
                 "block_public_access": s3.BlockPublicAccess.BLOCK_ALL,
                 "encryption": s3.BucketEncryption.S3_MANAGED,
                 "enforce_ssl": True,
@@ -290,9 +318,9 @@ class SecurityStack(Stack):
             s3_bucket_name=audit_bucket.bucket_name,
             trail_name=trail_name,
         )
-        trail.add_dependency(audit_bucket.node.find_child("Policy").node.default_child)
-        trail.add_dependency(audit_log_group.node.default_child)
-        trail.add_dependency(trail_role.node.default_child)
+        trail.add_dependency(_default_cfn_resource(audit_bucket.node.find_child("Policy")))
+        trail.add_dependency(_default_cfn_resource(audit_log_group))
+        trail.add_dependency(_default_cfn_resource(trail_role))
         self.trail = trail
 
         for key, value in (

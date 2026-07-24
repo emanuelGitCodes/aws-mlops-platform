@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import aws_cdk as cdk
 from cdk_nag import AwsSolutionsChecks
+from constructs import IConstruct
 
 
 @dataclass(frozen=True)
@@ -293,7 +294,7 @@ ACKNOWLEDGEMENTS = (
 )
 
 
-def _construct_at(stack: cdk.Stack, relative_path: str):
+def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
     expected = f"{stack.node.path}/{relative_path}"
     matches = [construct for construct in stack.node.find_all() if construct.node.path == expected]
     if len(matches) != 1:

@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.evaluate_api import post_prediction
 from src.common.schema import FEATURE_COLUMNS, CustomerRecord
 
-BASE = {
+BASE: dict[str, object] = {
     "gender": "Female",
     "SeniorCitizen": 0,
     "Partner": "Yes",
@@ -39,7 +39,7 @@ BASE = {
 }
 
 
-def main():
+def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--url", required=True)
     p.add_argument("--api-key", required=True)
@@ -54,9 +54,11 @@ def main():
     for i in range(args.n):
         rec = dict(BASE)
         # Deliberately shifted vs. training distribution: extreme tenure + charges.
-        rec["tenure"] = rng.randint(120, 200)
-        rec["MonthlyCharges"] = round(rng.uniform(300, 500), 2)
-        rec["TotalCharges"] = round(rec["tenure"] * rec["MonthlyCharges"], 2)
+        tenure = rng.randint(120, 200)
+        monthly_charges = round(rng.uniform(300, 500), 2)
+        rec["tenure"] = tenure
+        rec["MonthlyCharges"] = monthly_charges
+        rec["TotalCharges"] = round(tenure * monthly_charges, 2)
         body = post_prediction(args.url, args.api_key, rec)
         if i % 50 == 0:
             print(i, body)

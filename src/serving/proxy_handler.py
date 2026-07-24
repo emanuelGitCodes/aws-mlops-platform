@@ -7,6 +7,7 @@ probability. No inference logic lives here.
 
 import json
 import os
+from typing import Any
 
 import boto3
 from pydantic import ValidationError
@@ -25,7 +26,7 @@ runtime = boto3.client("sagemaker-runtime")
 ENDPOINT_NAME = os.environ["ENDPOINT_NAME"]
 
 
-def _response(status: int, body: dict) -> dict:
+def _response(status: int, body: dict[str, Any]) -> dict[str, Any]:
     return {
         "statusCode": status,
         "headers": {"Content-Type": "application/json"},
@@ -33,7 +34,7 @@ def _response(status: int, body: dict) -> dict:
     }
 
 
-def handler(event, context):
+def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     try:
         payload = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:

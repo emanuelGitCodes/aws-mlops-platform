@@ -1777,3 +1777,264 @@ or workload access patterns. Stop for 3E's go/no-go before 3C. Phases 3B and
 `make lint` passed (47 files), 14 stack tests passed, wiki index rebuilt,
 wiki lint and focused wiki tests, sensitive-value scan, and
 `git diff --check` run before handoff.
+
+## [2026-07-24] implement | Static type checking across src, infra, and scripts
+
+### Objective
+
+Move the repository from decorative annotations to verified ones: annotate
+every function in the non-test trees, then add a blocking gate so the
+coverage cannot rot.
+
+### Scope
+
+- Tooling: `pyproject.toml` (`[tool.mypy]`, ruff `ANN`, three dev
+  dependencies), `uv.lock`, a `make typecheck` target, and a `Type check`
+  step in the CI validate job.
+- Code: all of `src/`, `infra/`, and `scripts/` — 33 source files.
+- Documentation: the Conventions section and commands table of `CLAUDE.md`
+  and `AGENTS.md`, kept in sync.
+- Deliberately excluded: `tests/`, via ruff `per-file-ignores` and omission
+  from mypy's `files` list.
+- GitHub issue 8; branch `issue/8-static-typing`; three commits, one per
+  phase.
+
+### Identity and environment
+
+Local repository work only. No AWS API call, deployment, or policy change
+occurred. `make synth` ran against `env=dev` with `--no-lookups`, which
+reaches no account.
+
+### Commands and results
+
+All read-only or local. `make typecheck` opened at 31 errors in 22 files
+and closed at zero. `make lint`, `make test` (55), `make security`, the 14
+`test_stacks.py` fingerprint guards, and `scripts/wiki.py lint` all pass.
+
+Two adversarial checks confirmed the gate bites rather than merely existing:
+a temporary unannotated function failed ruff with ANN001/ANN202 and mypy
+with `no-untyped-def`; a temporary `config["serverless"]["memory"]` failed
+mypy with `TypedDict "ServerlessConfig" has no key "memory"` and the
+suggestion `Did you mean "memory_mb"?`.
+
+### Interpretation
+
+Typing the environment config was the change that made the gate worth
+having. `infra/config/{dev,prod}.yaml` have a fixed shape, so
+`PlatformConfig` and its nested TypedDicts now live in
+`infra/stacks/shared.py`, and `load_config` is the single boundary where
+`yaml.safe_load`'s `Any` is narrowed. Config-key typos are now build-time
+errors in all eight stacks. These are build-time types and stay out of
+`src/common/`, which remains the runtime contract shipped into Lambda.
+
+mypy found five real defects that annotation work alone would have missed.
+The sharpest was `security_stack.py` passing `node.default_child`, typed
+`IConstruct | None`, straight into `add_dependency` three times — a latent
+synth-time failure, now narrowed by a local helper that raises with a clear
+message. `send_drift_traffic.py` multiplied two `object`-typed dict values.
+`wiki.py:_parse_scalar` returned an unnarrowed `json.loads` result, and two
+functions returned `Any` from a signature declaring `dict`.
+
+The known Python-version trap was respected rather than rediscovered.
+`src/pipeline/` executes in the SageMaker `FrameworkProcessor` managed image
+on an older Python than the 3.12 targeted elsewhere — the same mismatch that
+cost a pipeline execution on July 11. All three pipeline modules now carry
+`from __future__ import annotations` so annotations never evaluate there,
+and the tree still contains no PEP 604 unions.
+
+Following the deduplication precedent, synthesized output was snapshotted
+before and after. All eight CloudFormation templates are byte-identical once
+the Lambda asset content hash is normalized; the asset hash itself moves
+because the bundle contains `src/`, and diffing the bundled source shows
+annotation additions only. No IAM or acknowledgement baseline needed
+refreshing.
+
+### Decision and next checkpoint
+
+`strict = true` was deliberately not set: it enables `disallow_any_generics`,
+which fails on every `**kwargs` passthrough into jsii-generated CDK
+constructs for noise disproportionate to the value. `ANN401` is ignored for
+the same reason.
+
+`tests/` is left unannotated — roughly 51 mostly-mechanical additions, plus
+genuine design work on the pytest fixture types in the 831-line
+`test_stacks.py`. That is a reasonable follow-up phase but has much lower
+value per unit of effort. The next checkpoint is hosted CI on the pull
+request for issue 8, confirming the new blocking step passes in an
+environment that syncs only the `dev` extra.
+
+### Verification
+
+`make lint` (47 files), `make typecheck` (33 files, zero errors), `make test`
+(55 passed), `make security`, 14 stack fingerprint tests, `make wiki-lint`,
+sensitive-value scan, and `git diff --check` run before handoff.
+
+## [2026-07-24] implement | Phase 3 flag guard; deferred-stack state verified
+
+### Objective
+
+Close a silent-failure gap in the Phase 3 service flag contract, and
+establish the true state of the rolled-back security monitoring stack before
+deciding whether any corrective action was warranted.
+
+### Scope
+
+- `infra/stacks/security_monitoring_stack.py` (new `IMPLEMENTED_SERVICE_FLAGS`
+  constant and validation branch) and `tests/unit/test_stacks.py` (a
+  parametrized guard test plus a subset assertion).
+- Read-only inspection of the deployed `Mlops-Dev-SecurityMonitoring` stack.
+- This page's roadmap: a new stable-interface bullet.
+- Draft pull request 9 on branch `issue/8-static-typing`, which also carries
+  the static typing work recorded in the preceding entry.
+
+### Identity and environment
+
+Dev account, `us-east-1`, using the least-privilege `mlops-security-auditor`
+profile. Every AWS call was read-only: `describe-stacks`,
+`describe-stack-events`, `describe-stack-resources`, `get-template`, and
+`accessanalyzer list-analyzers`. No deployment, no drift detection run, no
+policy change, and no service enablement. `list-change-sets` returned
+AccessDenied for the auditor identity, which is the expected least-privilege
+boundary rather than a fault.
+
+### Commands and results
+
+`make lint`, `make typecheck`, and `make test` all pass; the unit suite grew
+from 55 to 60. `make synth` output for the security monitoring stack is
+byte-identical to before the guard, confirming the new branch is inert at
+synthesis while dev enables only implemented flags.
+
+Read-only inspection found the stack holding exactly two resources,
+`CDKMetadata` and `ExternalAccessAnalyzer`, both in a complete state, with no
+GuardDuty resource present. Its deployed template is byte-identical to what
+the repository synthesizes today. The account analyzer reports `ACTIVE` in
+the Access Analyzer service. Stack drift status is `NOT_CHECKED`.
+
+### Interpretation
+
+The stack validated that config carried exactly the six
+`PHASE_3_SERVICE_FLAGS` and that each was a boolean, then built resources for
+only two of them. Enabling `config_recorder`, `security_hub`, `account_bpa`,
+or `eventbridge_alerts` would have synthesized and deployed cleanly while
+creating nothing. For a security control that is the worst available failure
+mode: the flag reads as enabled in configuration while the service does not
+exist in the account. The guard converts that into an immediate error naming
+the offending flag.
+
+The guard deliberately does not implement 3C, 3D, 3E, or 3F. Writing them now
+would jump the revised execution order, and each sub-phase owns its own gate
+sequence. GuardDuty standby is untouched: the flag-gated detector and the
+contract-locking test still hold the exact 3B shape for the eventual retry.
+
+The deferred stack needs no repair. Its `UPDATE_ROLLBACK_COMPLETE` status is a
+marker left by the July 18 GuardDuty subscription rejection, not a broken
+deployment — Phase 3A is genuinely live, and the deployed template already
+matches the repository. An earlier assumption that a redeploy would clear the
+status was wrong and is corrected here: because the deployed template is
+identical to the synthesized one, a deploy produces an empty change set,
+CloudFormation reports that no updates are to be performed, and the status is
+left untouched. Only a deploy carrying a real template change to this stack
+moves it back to `UPDATE_COMPLETE`. Unlike `UPDATE_ROLLBACK_FAILED`, the
+current state accepts updates and needs no rollback continuation.
+
+### Decision and next checkpoint
+
+No corrective AWS action was taken and none is recommended. Forcing a
+cosmetic template change purely to clear the console status would put noise
+in the template for no functional gain; the status resolves on its own at the
+next sub-phase deployment. Sub-phase 3E remains the next mutating work under
+the standard gate sequence, unchanged by this entry.
+
+The immediate checkpoint is hosted CI on pull request 9, which exercises the
+new blocking type-check step for the first time in an environment that syncs
+only the `dev` extra. A flag joins `IMPLEMENTED_SERVICE_FLAGS` in the same
+change that implements its sub-phase.
+
+### Verification
+
+`make lint` (47 files), `make typecheck` (33 files, zero errors), `make test`
+(60 passed, up from 55), security monitoring template diffed byte-identical
+against the pre-change synthesis, wiki index rebuilt, `make wiki-lint`,
+sensitive-value scan, and `git diff --check` run before handoff.
+
+## [2026-07-24] verify | CI gate green; auditor denials found to trip the CIS alarm
+
+### Objective
+
+Close the checkpoint named in the preceding entry by confirming the new
+blocking type-check step passes in hosted CI, and account for three
+same-day firings of the Phase 2 unauthorized-API-calls detection.
+
+### Scope
+
+- GitHub Actions run 19 on pull request 9, branch `issue/8-static-typing`.
+- The `mlops-dev-security-unauthorized-api-calls` CloudWatch alarm and the
+  `SECURITY_DETECTIONS` metric filter in `infra/stacks/security_stack.py`.
+- No code changed. Finding captured as issue 10.
+
+### Identity and environment
+
+Dev account, `us-east-1`, `mlops-security-auditor` profile, read-only.
+Escalation to the break-glass admin identity was considered for CloudTrail
+attribution and deliberately declined: routine investigation does not
+justify break-glass use.
+
+### Commands and results
+
+CI run 19 succeeded in 2m20s. Both jobs passed, including the new type-check
+step, in an environment that syncs only the `dev` extra — the condition the
+previous entry flagged as unverified. Gitleaks reported no leaks.
+
+`describe-alarm-history` showed the detection firing three times on
+2026-07-24 — 13:13, 15:19, and 16:02 EDT — each auto-resolving after roughly
+five minutes, plus one on 2026-07-23 at 01:30. An attempt to attribute them
+via `logs:FilterLogEvents` against the audit log group was denied for the
+auditor identity.
+
+### Interpretation
+
+This entry corrects the preceding one. That entry recorded the
+`cloudformation:ListChangeSets` AccessDenied as "the expected least-privilege
+boundary rather than a fault," which is true but materially incomplete: the
+denial also matches the CIS detection's filter,
+`{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}`,
+and therefore trips the alarm. The 16:02 firing evaluated a datapoint at
+19:57 UTC, the window that investigation ran in, and is attributable to it.
+The read-only investigation recorded in the previous entry was not
+side-effect free, and describing it as purely read-only understated its
+consequences.
+
+The failed attempt to diagnose the noise demonstrated the loop directly: the
+diagnostic call was itself denied and itself matched the filter. Two related
+weaknesses follow. The detection cannot distinguish a correctly-scoped
+identity being correctly refused from genuine reconnaissance, and the
+security auditor cannot read the audit trail it exists to audit, so it cannot
+self-diagnose an alarm it caused.
+
+A control that alarms on its own auditor doing its job trains its recipient
+to ignore it, which is the mechanism by which real detections get missed.
+The remaining three firings are unattributed and stay that way under the
+no-escalation decision.
+
+### Decision and next checkpoint
+
+The detection is left unchanged. `SECURITY_DETECTIONS` is a Phase 2 control
+and this page's roadmap treats those as stable interfaces, so any adjustment
+belongs in its own gated sub-phase with a reviewed diff, a scoped dev
+deployment, an observation window, and its own log entry — not a drive-by
+edit made while investigating something else.
+
+Issue 10 records the evidence and four candidate remedies: narrowing the
+filter, granting the auditor read access to the audit log, widening the
+alarm threshold or evaluation window, and routing low-value events to a
+queue rather than email. Raising the threshold and granting auditor log
+access are complementary and neither reduces detection coverage; narrowing
+the filter does, because genuine reconnaissance also appears as denied
+`List*` calls. Sub-phase 3E remains the next mutating work and is unaffected.
+
+### Verification
+
+CI run 19 green on both jobs; alarm history read read-only; no mutating AWS
+call, no IAM or detection change, and no break-glass credential used. Wiki
+index rebuilt, `make wiki-lint`, sensitive-value scan, and `git diff --check`
+run before handoff.

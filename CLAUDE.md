@@ -18,6 +18,7 @@ Use the Makefile targets — do not invent your own invocations.
 |---|---|
 | `make install` | `uv sync --locked --extra dev` |
 | `make lint` | ruff check + format check |
+| `make typecheck` | mypy over `src/`, `infra/`, `scripts/` |
 | `make test` | pytest `tests/unit` |
 | `make synth` | CDK synth (`npx aws-cdk@2.1130.0`, `ENV=dev` default) |
 | `make security` | lock-check + pip-audit + synth |
@@ -75,7 +76,19 @@ required workflow, not suggestions.
 ## Conventions
 
 - Line length: target 80–90 characters (ruff's hard limit is 100, but
-  stay under 90). Python 3.12; ruff rules E, F, I, W, UP, B.
+  stay under 90). Python 3.12; ruff rules E, F, I, W, UP, B, ANN.
+- **Every function in `src/`, `infra/`, and `scripts/` must be fully
+  annotated** — parameters and return. Enforced by `make typecheck`
+  (mypy, `disallow_untyped_defs`) and ruff's ANN rules, both blocking in
+  CI. Prefer builtin generics and PEP 604 unions (`list[dict[str, Any]]`,
+  `str | None`); never `typing.List`/`typing.Optional`. Parameterize
+  generics — bare `dict` is as good as unannotated. `tests/` is exempt.
+- The shape of `infra/config/*.yaml` is defined once, as `PlatformConfig`
+  in `infra/stacks/shared.py`. Thread that type through; do not re-type a
+  config parameter as a bare `dict`.
+- `src/pipeline/` runs in the SageMaker managed image on an **older Python
+  than 3.12**. Those modules keep `from __future__ import annotations` and
+  must not use PEP 604 unions in runtime-evaluated positions.
 - Tests go in `tests/unit/` and mirror the source module they cover; run
   with `make test`.
 - Never commit account-specific literals (account IDs, ARNs, endpoints).

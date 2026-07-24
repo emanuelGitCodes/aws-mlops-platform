@@ -18,6 +18,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import boto3
 
@@ -61,7 +62,7 @@ def resolve_fixture_s3_uri(pipeline_execution_arn: str, region: str | None = Non
     raise ApiEvaluationError("pipeline execution does not have an api_test preprocessing output")
 
 
-def load_fixture(s3_uri: str, region: str | None = None) -> list[dict]:
+def load_fixture(s3_uri: str, region: str | None = None) -> list[dict[str, Any]]:
     """Load the JSON Lines test fixture from S3."""
     bucket, prefix = parse_s3_uri(s3_uri)
     key = prefix if prefix.endswith(".jsonl") else f"{prefix}/api_test.jsonl"
@@ -72,14 +73,16 @@ def load_fixture(s3_uri: str, region: str | None = None) -> list[dict]:
     return records
 
 
-def select_records(records: list[dict], limit: int, all_records: bool) -> list[dict]:
+def select_records(
+    records: list[dict[str, Any]], limit: int, all_records: bool
+) -> list[dict[str, Any]]:
     """Select a reproducible, class-balanced subset unless the full set is requested."""
     if all_records or limit >= len(records):
         return records
     if limit < 2:
         raise ValueError("limit must be at least 2 so both classes can be evaluated")
 
-    by_label = {0: [], 1: []}
+    by_label: dict[int, list[dict[str, Any]]] = {0: [], 1: []}
     for record in records:
         by_label[record["label"]].append(record)
     if not by_label[0] or not by_label[1] or limit == 1:
@@ -95,7 +98,9 @@ def select_records(records: list[dict], limit: int, all_records: bool) -> list[d
     return sorted(selected, key=lambda item: item["row_id"])
 
 
-def post_prediction(api_url: str, api_key: str, record: dict, timeout: float = 15.0) -> dict:
+def post_prediction(
+    api_url: str, api_key: str, record: dict[str, Any], timeout: float = 15.0
+) -> dict[str, Any]:
     """POST one record to /predict and return the parsed JSON response."""
     request = urllib.request.Request(
         api_url,
@@ -104,10 +109,13 @@ def post_prediction(api_url: str, api_key: str, record: dict, timeout: float = 1
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read())
+        body: dict[str, Any] = json.loads(response.read())
+    return body
 
 
-def invoke_prediction(api_url: str, api_key: str, record: dict, timeout: float = 15.0) -> dict:
+def invoke_prediction(
+    api_url: str, api_key: str, record: dict[str, Any], timeout: float = 15.0
+) -> dict[str, Any]:
     """Call /predict and validate its probability and thresholded-class response."""
     try:
         payload = post_prediction(api_url, api_key, record, timeout=timeout)
@@ -132,8 +140,12 @@ def invoke_prediction(api_url: str, api_key: str, record: dict, timeout: float =
 
 
 def evaluate_api_records(
-    records: list[dict], api_url: str, api_key: str, limit: int = 25, all_records: bool = False
-) -> dict:
+    records: list[dict[str, Any]],
+    api_url: str,
+    api_key: str,
+    limit: int = 25,
+    all_records: bool = False,
+) -> dict[str, Any]:
     """Call the deployed API and return quality metrics for the selected labeled records."""
     selected = select_records(records, limit=limit, all_records=all_records)
     labels, scores = [], []

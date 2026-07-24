@@ -3,6 +3,7 @@
 
 import pathlib
 import sys
+from typing import cast
 
 import aws_cdk as cdk
 import yaml
@@ -17,16 +18,22 @@ from infra.stacks.registry_stack import RegistryStack
 from infra.stacks.security_monitoring_stack import SecurityMonitoringStack
 from infra.stacks.security_stack import SecurityStack
 from infra.stacks.serving_stack import ServingStack
+from infra.stacks.shared import PlatformConfig
 from infra.stacks.training_stack import TrainingStack
 
 
-def load_config(env_name: str) -> dict:
-    """Load one environment's YAML config (the single config loader)."""
+def load_config(env_name: str) -> PlatformConfig:
+    """Load one environment's YAML config (the single config loader).
+
+    ``yaml.safe_load`` returns ``Any``; this is the single boundary where
+    that is narrowed to ``PlatformConfig``, so every downstream stack gets
+    real key and value checking.
+    """
     path = pathlib.Path(__file__).parent / "config" / f"{env_name}.yaml"
-    return yaml.safe_load(path.read_text())
+    return cast(PlatformConfig, yaml.safe_load(path.read_text()))
 
 
-def build_app(app: cdk.App, config: dict, prefix: str) -> dict[str, cdk.Stack]:
+def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cdk.Stack]:
     """Instantiate and wire every stack, then apply the security checks.
 
     Single source of the stack dependency graph, shared by the deploy

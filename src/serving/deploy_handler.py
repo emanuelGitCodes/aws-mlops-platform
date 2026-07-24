@@ -7,6 +7,7 @@ the new package and points the endpoint at it (create if first deploy).
 
 import os
 import time
+from typing import Any
 
 import boto3
 
@@ -20,7 +21,7 @@ MEMORY_MB = int(os.environ.get("MEMORY_MB", "2048"))
 MAX_CONCURRENCY = int(os.environ.get("MAX_CONCURRENCY", "5"))
 
 
-def handler(event, context):
+def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     detail = event["detail"]
     if detail.get("ModelApprovalStatus") != "Approved":
         return {"skipped": "not an approval"}

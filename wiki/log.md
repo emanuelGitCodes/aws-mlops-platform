@@ -2230,3 +2230,107 @@ next mutating security work and is unaffected.
 `make test` (70 passed), `make security`, one read-only run against the dev
 account reproducing the prior finding, wiki index rebuilt, `make wiki-lint`,
 sensitive-value scan, and `git diff --check` before handoff.
+## [2026-07-24] ingest | AWS security hardening Phase 3E implementation and deployment — July 24, 2026
+
+Registered immutable source `raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md`.
+
+
+## [2026-07-24] implement | AWS security hardening Phase 3E
+
+### Objective
+
+Enable account-level S3 Block Public Access in dev — the next mutating security
+work under the July 19 Free-plan revision, chosen first because it is free and
+subscription-independent and so cannot be blocked the way 3B was.
+
+### Scope
+
+- `infra/stacks/security_monitoring_stack.py` (`ACCOUNT_BPA_CONFIGURATION`, the
+  `account_bpa` branch, and the flag joining `IMPLEMENTED_SERVICE_FLAGS`),
+  `infra/config/dev.yaml`, `infra/security_checks.py`, `infra/app.py`, and
+  `tests/unit/test_stacks.py`.
+- The `Mlops-Dev-SecurityMonitoring` stack only. No other stack, no policy
+  version, no production change.
+- Pull request 13 on branch `feat/phase-3e-account-bpa`, commits `b45cae2` and
+  `f9e9749`.
+
+### Identity and environment
+
+Dev account, `us-east-1`. The pre-flight and all verification used the
+least-privilege `mlops-security-auditor` profile and were read-only. The single
+mutating step, `make deploy-stack`, used `mlops-deployer`.
+
+### Commands and results
+
+The read-only pre-flight passed on all six checks. The account still reported
+`NoSuchPublicAccessBlockConfiguration`. All six buckets, including the CDK
+bootstrap asset bucket, already had all four bucket-level settings, reported
+`IsPublic: false`, and used `BucketOwnerEnforced`. Every wildcard-principal
+bucket statement proved to be a TLS-enforcing Deny; the only non-account `Allow`
+statements are conditioned grants to `logging.s3.amazonaws.com` and
+`cloudtrail.amazonaws.com`, so both delivery paths are policy-based rather than
+ACL-based. CloudTrail was logging without error, access-log objects were landing
+the same day, and `/predict` returned HTTP 200.
+
+`make lint`, `make typecheck` (34 files), `make test` (71, up from 70), and
+`make security` all pass. Hosted CI passed on both commits. The named diff added
+four resources and modified nothing. `make deploy-stack` completed in 48.6
+seconds. `make verify-deploy SINCE=2026-07-24` lists exactly those four
+resources; the Serving, Ingestion, and Monitoring rows in that output belong to
+the earlier 20:47–20:48 UTC reconciliation deploy.
+
+Post-deploy: all four account settings `true`, analyzer still `ACTIVE`, six
+security alarms `OK`, every bucket still listable, `/predict` returning the
+unchanged `churn` / `churn_probability` contract, and `make diff-stack`
+reporting no differences.
+
+### Interpretation
+
+Account BPA was safe here precisely because it was redundant with what every
+bucket already enforced — which is why the pre-flight could predict a no-op for
+existing access paths. Its value is prospective, covering buckets this
+repository does not create and future bucket-level mistakes.
+
+Two things were got wrong first and are worth recording. The cdk-nag
+acknowledgements were registered unconditionally although their constructs exist
+only when the flag is true, and `_construct_at` deliberately raises on a path
+matching no construct. That would have left dev unable to synthesize its own
+revert, so the control could only have been removed by reverting the entire
+change; `Acknowledgement` now takes `requires_service`. Separately, an early
+draft granted `s3:GetAccountPublicAccessBlock`, which no call path uses — an
+unused grant on a wildcard resource, exactly the debt Phase 5 exists to remove —
+and it was dropped before deployment.
+
+`make synth ENV=prod` fails, but this was verified to predate Phase 3E: a
+serving acknowledgement hardcodes the dev deployment-stage name, and hosted CI
+synthesizes `env=dev` only, so nothing had surfaced it. It is tracked
+separately rather than folded into this phase.
+
+No execution-policy rotation was needed. The provider Lambda holds the
+account-level actions itself and CloudFormation never needs them, so live `v8`
+sufficed — sparing the last IAM version slot, avoiding an IAM-policy-change
+alarm, and leaving the deliberate GuardDuty-statement divergence intact for 3C.
+
+The pre-deployment risk that could not be closed by reading the repository —
+whether `nodejs24.x` bundles the s3-control client under
+`install_latest_aws_sdk=False` — was closed by the deployment itself reaching
+`CREATE_COMPLETE`, avoiding a fallback that would have made deploys depend on
+the npm registry at create time.
+
+### Decision and next checkpoint
+
+Two verifications are recorded as gaps rather than passes: `budgets:ViewBudget`
+is denied to the auditor, so the `$20` budget was confirmed only indirectly via
+the Data stack showing no resource change; and the CloudTrail provenance lookup
+for `PutAccountPublicAccessBlock` returned empty because lookup lags recent
+events. Both belong to the observation window, which also needs a fresh
+access-log object, CloudTrail delivery advancing again, alarms still `OK`,
+unchanged cost, and no new analyzer finding. Sub-phase 3C follows the go/no-go
+and must scope its own acknowledgements with `requires_service`.
+
+### Verification
+
+`make lint` (49 files), `make typecheck` (34 files, zero errors), `make test`
+(71 passed), `make security`, hosted CI on both commits, resource-level
+`make verify-deploy`, a post-deploy `make diff-stack` reporting no differences,
+wiki index rebuilt, `make wiki-lint`, and a sensitive-value scan before handoff.

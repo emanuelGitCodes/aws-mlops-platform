@@ -2049,12 +2049,18 @@ IAM statements that had been synthesized but never deployed.
 
 ### Scope
 
-Three of eight stacks: `Mlops-Dev-Ingestion` (ValidateFn code),
-`Mlops-Dev-Serving` (ProxyFn and DeployFn code, plus the ProxyFn role
-policy), and `Mlops-Dev-Monitoring` (RetrainTriggerFn role policy only).
-`Mlops-Dev-Security`, `Mlops-Dev-SecurityMonitoring`, `Mlops-Dev-Data`,
-`Mlops-Dev-Registry`, and `Mlops-Dev-Training` showed no differences and were
-not deployed.
+Three of eight stacks were deployed: `Mlops-Dev-Ingestion`,
+`Mlops-Dev-Serving`, and `Mlops-Dev-Monitoring`. `Mlops-Dev-Security`,
+`Mlops-Dev-SecurityMonitoring`, `Mlops-Dev-Data`, `Mlops-Dev-Registry`, and
+`Mlops-Dev-Training` showed no differences and were not deployed.
+
+What `cdk diff` predicted and what CloudFormation actually applied differ,
+and the distinction matters. The diff listed Lambda code assets for
+`ValidateFn`, `ProxyFn`, and `DeployFn` plus IAM policy edits on the `ProxyFn`
+and `RetrainTriggerFn` service roles. Resource-level stack events show only
+the three Lambda functions and `CDKMetadata` were actually updated. Neither
+IAM policy resource received an update event, so `Mlops-Dev-Monitoring`'s
+deployment changed nothing beyond CDK metadata.
 
 ### Identity and environment
 
@@ -2071,21 +2077,41 @@ reached `UPDATE_COMPLETE`, in 17s, 23s, and under a minute respectively.
 
 ### Interpretation
 
-This entry corrects a characterization made earlier in the session. The
-deployment was twice described as pushing "new Lambda code to Ingestion and
-Serving, annotations only." That was wrong in two respects: it also changed
-`Mlops-Dev-Monitoring`, which was not mentioned at all, and the change set
-included IAM policy modifications rather than code alone. Reviewing the diff
-before deploying is what surfaced the discrepancy, which is the argument for
-the operating rule requiring it.
+This entry corrects two characterizations made earlier in the session, both
+found by checking rather than by assertion.
 
-The IAM edits are permission-neutral. Both replace the literal
+The deployment was first described as pushing "new Lambda code to Ingestion
+and Serving, annotations only." That was wrong in two respects: the change
+set also covered `Mlops-Dev-Monitoring`, which went unmentioned, and it
+listed IAM policy edits rather than code alone. Reviewing the diff before
+deploying is what surfaced it, which is the argument for the operating rule
+requiring the review.
+
+The resulting report then over-claimed in the opposite direction, stating
+that the `ProxyFn` and `RetrainTriggerFn` role policies had been updated.
+Resource-level stack events show they were not. CloudFormation resolved
+`Ref: AWS::Partition` to `aws`, found the resulting policy documents
+byte-identical to the deployed ones, and skipped both resources. Reading the
+event log rather than trusting the stack-level `UPDATE_COMPLETE` is what
+caught this. A stack reaching `UPDATE_COMPLETE` says nothing about which of
+its resources actually changed.
+
+The IAM edits are permission-neutral, and CloudFormation's refusal to update
+those resources is independent evidence of it. Both replace the literal
 `arn:aws:sagemaker:` prefix with `arn:`, a `Ref` to `AWS::Partition`, and
 `:sagemaker:`. `AWS::Partition` resolves to `aws` in commercial regions, so
 the resolved ARN is unchanged and the actions, resources, and principals are
-identical. They originate in the July 18 deduplication pass, not in the
-typing work, and had been sitting undeployed because the affected stacks were
-last deployed on July 10 and 11.
+identical — which is precisely why no update was performed. The edits
+originate in the July 18 deduplication pass, not in the typing work, and had
+been sitting undeployed because the affected stacks were last deployed on
+July 10 and 11.
+
+A related trap is worth recording for future verification. The CloudFormation
+console's default stack list shows **Created time**, which never changes on an
+update; the July 10 through July 14 dates there are original creation
+timestamps and say nothing about recent deployments. `LastUpdatedTime` from
+`describe-stacks`, the per-stack Events tab, or the console's optional
+last-updated column are the fields that answer "was this deployed today."
 
 `Mlops-Dev-SecurityMonitoring` showed no differences and remains in
 `UPDATE_ROLLBACK_COMPLETE`, independently confirming the earlier conclusion
@@ -2118,9 +2144,11 @@ security work and is unaffected.
 
 ### Verification
 
-`cdk diff` reviewed pre-deployment; three stacks reported `UPDATE_COMPLETE`;
-post-deployment `describe-stacks` confirmed the remaining five stacks
-unchanged; the deployed asset hash matches the `S3Key` in the reviewed diff;
+`cdk diff` reviewed pre-deployment; three stacks reported `UPDATE_COMPLETE`
+with `LastUpdatedTime` on 2026-07-24 while the other five retained earlier
+timestamps; resource-level stack events confirmed exactly three Lambda
+functions and `CDKMetadata` were updated and no IAM policy resource was
+touched; the deployed asset hash matches the `S3Key` in the reviewed diff;
 the bundle imports cleanly under the Lambda runtime version; and live
 `/predict` requests returned 200, 422, and 200 on the success, schema-
 rejection, and blank-`TotalCharges` paths with an unchanged churn probability.

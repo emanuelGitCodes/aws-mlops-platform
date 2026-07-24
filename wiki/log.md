@@ -1956,3 +1956,85 @@ change that implements its sub-phase.
 (60 passed, up from 55), security monitoring template diffed byte-identical
 against the pre-change synthesis, wiki index rebuilt, `make wiki-lint`,
 sensitive-value scan, and `git diff --check` run before handoff.
+
+## [2026-07-24] verify | CI gate green; auditor denials found to trip the CIS alarm
+
+### Objective
+
+Close the checkpoint named in the preceding entry by confirming the new
+blocking type-check step passes in hosted CI, and account for three
+same-day firings of the Phase 2 unauthorized-API-calls detection.
+
+### Scope
+
+- GitHub Actions run 19 on pull request 9, branch `issue/8-static-typing`.
+- The `mlops-dev-security-unauthorized-api-calls` CloudWatch alarm and the
+  `SECURITY_DETECTIONS` metric filter in `infra/stacks/security_stack.py`.
+- No code changed. Finding captured as issue 10.
+
+### Identity and environment
+
+Dev account, `us-east-1`, `mlops-security-auditor` profile, read-only.
+Escalation to the break-glass admin identity was considered for CloudTrail
+attribution and deliberately declined: routine investigation does not
+justify break-glass use.
+
+### Commands and results
+
+CI run 19 succeeded in 2m20s. Both jobs passed, including the new type-check
+step, in an environment that syncs only the `dev` extra — the condition the
+previous entry flagged as unverified. Gitleaks reported no leaks.
+
+`describe-alarm-history` showed the detection firing three times on
+2026-07-24 — 13:13, 15:19, and 16:02 EDT — each auto-resolving after roughly
+five minutes, plus one on 2026-07-23 at 01:30. An attempt to attribute them
+via `logs:FilterLogEvents` against the audit log group was denied for the
+auditor identity.
+
+### Interpretation
+
+This entry corrects the preceding one. That entry recorded the
+`cloudformation:ListChangeSets` AccessDenied as "the expected least-privilege
+boundary rather than a fault," which is true but materially incomplete: the
+denial also matches the CIS detection's filter,
+`{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}`,
+and therefore trips the alarm. The 16:02 firing evaluated a datapoint at
+19:57 UTC, the window that investigation ran in, and is attributable to it.
+The read-only investigation recorded in the previous entry was not
+side-effect free, and describing it as purely read-only understated its
+consequences.
+
+The failed attempt to diagnose the noise demonstrated the loop directly: the
+diagnostic call was itself denied and itself matched the filter. Two related
+weaknesses follow. The detection cannot distinguish a correctly-scoped
+identity being correctly refused from genuine reconnaissance, and the
+security auditor cannot read the audit trail it exists to audit, so it cannot
+self-diagnose an alarm it caused.
+
+A control that alarms on its own auditor doing its job trains its recipient
+to ignore it, which is the mechanism by which real detections get missed.
+The remaining three firings are unattributed and stay that way under the
+no-escalation decision.
+
+### Decision and next checkpoint
+
+The detection is left unchanged. `SECURITY_DETECTIONS` is a Phase 2 control
+and this page's roadmap treats those as stable interfaces, so any adjustment
+belongs in its own gated sub-phase with a reviewed diff, a scoped dev
+deployment, an observation window, and its own log entry — not a drive-by
+edit made while investigating something else.
+
+Issue 10 records the evidence and four candidate remedies: narrowing the
+filter, granting the auditor read access to the audit log, widening the
+alarm threshold or evaluation window, and routing low-value events to a
+queue rather than email. Raising the threshold and granting auditor log
+access are complementary and neither reduces detection coverage; narrowing
+the filter does, because genuine reconnaissance also appears as denied
+`List*` calls. Sub-phase 3E remains the next mutating work and is unaffected.
+
+### Verification
+
+CI run 19 green on both jobs; alarm history read read-only; no mutating AWS
+call, no IAM or detection change, and no break-glass credential used. Wiki
+index rebuilt, `make wiki-lint`, sensitive-value scan, and `git diff --check`
+run before handoff.

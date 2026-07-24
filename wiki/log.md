@@ -1868,3 +1868,91 @@ environment that syncs only the `dev` extra.
 `make lint` (47 files), `make typecheck` (33 files, zero errors), `make test`
 (55 passed), `make security`, 14 stack fingerprint tests, `make wiki-lint`,
 sensitive-value scan, and `git diff --check` run before handoff.
+
+## [2026-07-24] implement | Phase 3 flag guard; deferred-stack state verified
+
+### Objective
+
+Close a silent-failure gap in the Phase 3 service flag contract, and
+establish the true state of the rolled-back security monitoring stack before
+deciding whether any corrective action was warranted.
+
+### Scope
+
+- `infra/stacks/security_monitoring_stack.py` (new `IMPLEMENTED_SERVICE_FLAGS`
+  constant and validation branch) and `tests/unit/test_stacks.py` (a
+  parametrized guard test plus a subset assertion).
+- Read-only inspection of the deployed `Mlops-Dev-SecurityMonitoring` stack.
+- This page's roadmap: a new stable-interface bullet.
+- Draft pull request 9 on branch `issue/8-static-typing`, which also carries
+  the static typing work recorded in the preceding entry.
+
+### Identity and environment
+
+Dev account, `us-east-1`, using the least-privilege `mlops-security-auditor`
+profile. Every AWS call was read-only: `describe-stacks`,
+`describe-stack-events`, `describe-stack-resources`, `get-template`, and
+`accessanalyzer list-analyzers`. No deployment, no drift detection run, no
+policy change, and no service enablement. `list-change-sets` returned
+AccessDenied for the auditor identity, which is the expected least-privilege
+boundary rather than a fault.
+
+### Commands and results
+
+`make lint`, `make typecheck`, and `make test` all pass; the unit suite grew
+from 55 to 60. `make synth` output for the security monitoring stack is
+byte-identical to before the guard, confirming the new branch is inert at
+synthesis while dev enables only implemented flags.
+
+Read-only inspection found the stack holding exactly two resources,
+`CDKMetadata` and `ExternalAccessAnalyzer`, both in a complete state, with no
+GuardDuty resource present. Its deployed template is byte-identical to what
+the repository synthesizes today. The account analyzer reports `ACTIVE` in
+the Access Analyzer service. Stack drift status is `NOT_CHECKED`.
+
+### Interpretation
+
+The stack validated that config carried exactly the six
+`PHASE_3_SERVICE_FLAGS` and that each was a boolean, then built resources for
+only two of them. Enabling `config_recorder`, `security_hub`, `account_bpa`,
+or `eventbridge_alerts` would have synthesized and deployed cleanly while
+creating nothing. For a security control that is the worst available failure
+mode: the flag reads as enabled in configuration while the service does not
+exist in the account. The guard converts that into an immediate error naming
+the offending flag.
+
+The guard deliberately does not implement 3C, 3D, 3E, or 3F. Writing them now
+would jump the revised execution order, and each sub-phase owns its own gate
+sequence. GuardDuty standby is untouched: the flag-gated detector and the
+contract-locking test still hold the exact 3B shape for the eventual retry.
+
+The deferred stack needs no repair. Its `UPDATE_ROLLBACK_COMPLETE` status is a
+marker left by the July 18 GuardDuty subscription rejection, not a broken
+deployment — Phase 3A is genuinely live, and the deployed template already
+matches the repository. An earlier assumption that a redeploy would clear the
+status was wrong and is corrected here: because the deployed template is
+identical to the synthesized one, a deploy produces an empty change set,
+CloudFormation reports that no updates are to be performed, and the status is
+left untouched. Only a deploy carrying a real template change to this stack
+moves it back to `UPDATE_COMPLETE`. Unlike `UPDATE_ROLLBACK_FAILED`, the
+current state accepts updates and needs no rollback continuation.
+
+### Decision and next checkpoint
+
+No corrective AWS action was taken and none is recommended. Forcing a
+cosmetic template change purely to clear the console status would put noise
+in the template for no functional gain; the status resolves on its own at the
+next sub-phase deployment. Sub-phase 3E remains the next mutating work under
+the standard gate sequence, unchanged by this entry.
+
+The immediate checkpoint is hosted CI on pull request 9, which exercises the
+new blocking type-check step for the first time in an environment that syncs
+only the `dev` extra. A flag joins `IMPLEMENTED_SERVICE_FLAGS` in the same
+change that implements its sub-phase.
+
+### Verification
+
+`make lint` (47 files), `make typecheck` (33 files, zero errors), `make test`
+(60 passed, up from 55), security monitoring template diffed byte-identical
+against the pre-change synthesis, wiki index rebuilt, `make wiki-lint`,
+sensitive-value scan, and `git diff --check` run before handoff.

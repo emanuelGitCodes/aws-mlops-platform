@@ -23,6 +23,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make synth` | CDK synth (`npx aws-cdk@2.1130.0`, `ENV=dev` default) |
 | `make security` | lock-check + pip-audit + synth |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
+| `make verify-deploy` | What a deploy actually changed, per resource |
 
 Always run Python through `uv run --locked ...`. Never use bare `python`
 or `pip` for project code.
@@ -39,7 +40,7 @@ Look here **before** writing anything new:
 | `src/pipeline/` | Preprocess, evaluate, and pipeline definition for SageMaker |
 | `infra/stacks/` | One CDK stack per file (data, ingestion, training, registry, serving, monitoring, security) |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
-| `scripts/` | Operational CLIs (`evaluate_api.py`, `wiki.py`, ...) |
+| `scripts/` | Operational CLIs (`evaluate_api.py`, `verify_deployment.py`, `wiki.py`, ...) |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` |
 | `wiki/` | Knowledge base — governed by `wiki/AGENTS.md`; follow it for any wiki work |
 
@@ -93,3 +94,25 @@ required workflow, not suggestions.
   with `make test`.
 - Never commit account-specific literals (account IDs, ARNs, endpoints).
   Use placeholders in code and docs; real values live only in `.env`.
+
+## Reporting what a deployment changed (mandatory)
+
+**Never state what a deployment changed based on a summary status.** A
+stack reaches `UPDATE_COMPLETE` even when CloudFormation resolved the
+template to a no-op and modified no resource at all. Asserting resource
+changes from stack status has already produced two incorrect reports.
+
+1. **Run `make verify-deploy SINCE=<YYYY-MM-DD>` after any deploy, and
+   report from its output.** It lists, per stack, the last-updated
+   timestamp and the resources that actually changed — and says so
+   explicitly when a stack changed nothing.
+2. **`cdk diff` is intent, not outcome.** CloudFormation resolves
+   intrinsics such as `Ref: AWS::Partition` and then skips resources whose
+   resolved form is unchanged. A diff hunk does **not** mean the resource
+   was modified.
+3. **In the console, the stack list's default `Created time` column never
+   changes on update.** It cannot tell you whether a stack was deployed
+   today. Use the `Updated time` column or the per-stack Events tab.
+
+The general rule: report at the granularity your evidence supports. If
+the claim is about resources, the evidence must be resource-level.

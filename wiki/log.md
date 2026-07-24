@@ -2038,3 +2038,79 @@ CI run 19 green on both jobs; alarm history read read-only; no mutating AWS
 call, no IAM or detection change, and no break-glass credential used. Wiki
 index rebuilt, `make wiki-lint`, sensitive-value scan, and `git diff --check`
 run before handoff.
+
+## [2026-07-24] implement | Deployment verification tool and reporting rule
+
+### Objective
+
+Prevent recurrence of a specific reporting failure: stating what a
+deployment changed on the basis of stack-level status, which twice in one
+session produced an incorrect account of the same deployment.
+
+### Scope
+
+- New `scripts/verify_deployment.py` and `tests/unit/test_verify_deployment.py`.
+- New `make verify-deploy` target; `cloudformation` added to the
+  `boto3-stubs` extras with `uv.lock` regenerated.
+- `CLAUDE.md` and `AGENTS.md`: a new mandatory reporting section, plus the
+  commands table and code map, kept in sync.
+- Pull request 12, branch `feat/verify-deployment`.
+
+### Identity and environment
+
+Local repository work, plus one read-only verification run against the dev
+account using the `mlops-security-auditor` profile in `us-east-1`. The tool
+calls only `describe_stacks` and `describe_stack_events`. No mutation.
+
+### Commands and results
+
+`make lint`, `make typecheck` (34 files), `make test` (70 passed, up from
+60), and `make security` all pass. Run against the live account with
+`SINCE=2026-07-24`, the tool reproduced the deployment finding exactly:
+`ValidateFn` for Ingestion, `ProxyFn` and `DeployFn` for Serving, and an
+explicit "no resources changed" for Monitoring.
+
+### Interpretation
+
+Documentation alone would not have prevented the original error, because a
+convention is guidance rather than a check. The durable fix is a command
+that makes the correct answer cheaper to obtain than the incorrect one, so
+the tooling is the substance here and the written rule points at it.
+
+Three distinct traps contributed and each is now recorded. Stack status is
+not resource change, since `UPDATE_COMPLETE` is reported even when nothing
+was touched. `cdk diff` states intent rather than outcome, because
+CloudFormation resolves intrinsics such as `Ref: AWS::Partition` and then
+skips resources whose resolved form is unchanged. And the console's default
+stack-list column is `Created time`, which never moves on update and
+therefore cannot answer whether a stack was deployed today.
+
+`CDKMetadata` is filtered from the tool's output by default. It changes on
+nearly every deployment, so including it would make every stack appear
+modified and recreate the same false signal in a new place.
+
+The tests encode the failure rather than only the feature: the
+metadata-only case is asserted directly, so the specific bug cannot
+regress silently. Failed resource states are surfaced rather than dropped,
+because a rolled-back resource is a change an operator must see.
+
+### Decision and next checkpoint
+
+Pure filtering is deliberately separated from the AWS calls so the logic is
+testable without stubbing boto3, and the tool remains read-only rather than
+attempting any remediation. It is not wired into CI, since it requires
+account credentials and answers an operational question rather than a
+repository one.
+
+Both this and the deployment record in pull request 12 and 11 append to the
+end of `wiki/log.md` from separate branches, so whichever merges second
+needs a trivial rebase keeping both entries in chronological order. Next
+checkpoint is review of those two pull requests. Sub-phase 3E remains the
+next mutating security work and is unaffected.
+
+### Verification
+
+`make lint` (49 files), `make typecheck` (34 files, zero errors),
+`make test` (70 passed), `make security`, one read-only run against the dev
+account reproducing the prior finding, wiki index rebuilt, `make wiki-lint`,
+sensitive-value scan, and `git diff --check` before handoff.

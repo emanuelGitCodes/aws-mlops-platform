@@ -2039,6 +2039,94 @@ call, no IAM or detection change, and no break-glass credential used. Wiki
 index rebuilt, `make wiki-lint`, sensitive-value scan, and `git diff --check`
 run before handoff.
 
+## [2026-07-24] deploy | Dev reconciled with main after the static typing merge
+
+### Objective
+
+Bring the dev account into line with `main` following the merge of pull
+request 9, applying the annotated Lambda bundle and the partition-agnostic
+IAM statements that had been synthesized but never deployed.
+
+### Scope
+
+Three of eight stacks: `Mlops-Dev-Ingestion` (ValidateFn code),
+`Mlops-Dev-Serving` (ProxyFn and DeployFn code, plus the ProxyFn role
+policy), and `Mlops-Dev-Monitoring` (RetrainTriggerFn role policy only).
+`Mlops-Dev-Security`, `Mlops-Dev-SecurityMonitoring`, `Mlops-Dev-Data`,
+`Mlops-Dev-Registry`, and `Mlops-Dev-Training` showed no differences and were
+not deployed.
+
+### Identity and environment
+
+Dev account, `us-east-1`, `mlops-deployer` profile, which assumes the CDK
+bootstrap roles as designed. Note that `.env` records `AWS_PROFILE=default`,
+but that profile currently has no credentials; the deploy identity documented
+in the CDK deployment page is the correct one and was used.
+
+### Commands and results
+
+`cdk diff -c env=dev --no-lookups --no-change-set` reviewed before any
+mutation, then `cdk deploy` scoped to the three changed stacks. All three
+reached `UPDATE_COMPLETE`, in 17s, 23s, and under a minute respectively.
+
+### Interpretation
+
+This entry corrects a characterization made earlier in the session. The
+deployment was twice described as pushing "new Lambda code to Ingestion and
+Serving, annotations only." That was wrong in two respects: it also changed
+`Mlops-Dev-Monitoring`, which was not mentioned at all, and the change set
+included IAM policy modifications rather than code alone. Reviewing the diff
+before deploying is what surfaced the discrepancy, which is the argument for
+the operating rule requiring it.
+
+The IAM edits are permission-neutral. Both replace the literal
+`arn:aws:sagemaker:` prefix with `arn:`, a `Ref` to `AWS::Partition`, and
+`:sagemaker:`. `AWS::Partition` resolves to `aws` in commercial regions, so
+the resolved ARN is unchanged and the actions, resources, and principals are
+identical. They originate in the July 18 deduplication pass, not in the
+typing work, and had been sitting undeployed because the affected stacks were
+last deployed on July 10 and 11.
+
+`Mlops-Dev-SecurityMonitoring` showed no differences and remains in
+`UPDATE_ROLLBACK_COMPLETE`, independently confirming the earlier conclusion
+that no ordinary deployment clears that status.
+
+### Decision and next checkpoint
+
+Verification proceeded in two stages. First, before any credential was
+available, the deployed Lambda bundle was imported directly from its
+published asset directory under Python 3.12, exercising the module-load path
+that carries the highest risk from this change, since `proxy_handler` imports
+`encode_features` from a pipeline module that gained
+`from __future__ import annotations`. All three handlers imported cleanly and
+`encode_features` returned the expected nineteen features.
+
+The live `/predict` confirmation followed once an API key was placed in the
+local `.env`. Note that `API_URL` remains empty there; the request URL was
+composed from the recorded gateway id and region rather than hardcoded. Three
+requests covered the paths this change touched most: a valid record returned
+HTTP 200, an invalid gender returned HTTP 422 with the expected
+`format_validation_error` message, and a blank `TotalCharges` at tenure zero
+returned HTTP 200, exercising the `_blank_total` pre-validator.
+
+The valid record scored `0.3656342029571533`, bit-identical to the
+probability recorded for the same canonical record before this work. Inference
+behaviour is therefore unchanged, which is the strongest available evidence
+that the annotations altered nothing at runtime. The observation window for
+these three stacks remains open. Sub-phase 3E remains the next mutating
+security work and is unaffected.
+
+### Verification
+
+`cdk diff` reviewed pre-deployment; three stacks reported `UPDATE_COMPLETE`;
+post-deployment `describe-stacks` confirmed the remaining five stacks
+unchanged; the deployed asset hash matches the `S3Key` in the reviewed diff;
+the bundle imports cleanly under the Lambda runtime version; and live
+`/predict` requests returned 200, 422, and 200 on the success, schema-
+rejection, and blank-`TotalCharges` paths with an unchanged churn probability.
+No IAM identity, detection, or service enablement was altered.
+
+
 ## [2026-07-24] implement | Deployment verification tool and reporting rule
 
 ### Objective

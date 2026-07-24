@@ -1777,3 +1777,94 @@ or workload access patterns. Stop for 3E's go/no-go before 3C. Phases 3B and
 `make lint` passed (47 files), 14 stack tests passed, wiki index rebuilt,
 wiki lint and focused wiki tests, sensitive-value scan, and
 `git diff --check` run before handoff.
+
+## [2026-07-24] implement | Static type checking across src, infra, and scripts
+
+### Objective
+
+Move the repository from decorative annotations to verified ones: annotate
+every function in the non-test trees, then add a blocking gate so the
+coverage cannot rot.
+
+### Scope
+
+- Tooling: `pyproject.toml` (`[tool.mypy]`, ruff `ANN`, three dev
+  dependencies), `uv.lock`, a `make typecheck` target, and a `Type check`
+  step in the CI validate job.
+- Code: all of `src/`, `infra/`, and `scripts/` — 33 source files.
+- Documentation: the Conventions section and commands table of `CLAUDE.md`
+  and `AGENTS.md`, kept in sync.
+- Deliberately excluded: `tests/`, via ruff `per-file-ignores` and omission
+  from mypy's `files` list.
+- GitHub issue 8; branch `issue/8-static-typing`; three commits, one per
+  phase.
+
+### Identity and environment
+
+Local repository work only. No AWS API call, deployment, or policy change
+occurred. `make synth` ran against `env=dev` with `--no-lookups`, which
+reaches no account.
+
+### Commands and results
+
+All read-only or local. `make typecheck` opened at 31 errors in 22 files
+and closed at zero. `make lint`, `make test` (55), `make security`, the 14
+`test_stacks.py` fingerprint guards, and `scripts/wiki.py lint` all pass.
+
+Two adversarial checks confirmed the gate bites rather than merely existing:
+a temporary unannotated function failed ruff with ANN001/ANN202 and mypy
+with `no-untyped-def`; a temporary `config["serverless"]["memory"]` failed
+mypy with `TypedDict "ServerlessConfig" has no key "memory"` and the
+suggestion `Did you mean "memory_mb"?`.
+
+### Interpretation
+
+Typing the environment config was the change that made the gate worth
+having. `infra/config/{dev,prod}.yaml` have a fixed shape, so
+`PlatformConfig` and its nested TypedDicts now live in
+`infra/stacks/shared.py`, and `load_config` is the single boundary where
+`yaml.safe_load`'s `Any` is narrowed. Config-key typos are now build-time
+errors in all eight stacks. These are build-time types and stay out of
+`src/common/`, which remains the runtime contract shipped into Lambda.
+
+mypy found five real defects that annotation work alone would have missed.
+The sharpest was `security_stack.py` passing `node.default_child`, typed
+`IConstruct | None`, straight into `add_dependency` three times — a latent
+synth-time failure, now narrowed by a local helper that raises with a clear
+message. `send_drift_traffic.py` multiplied two `object`-typed dict values.
+`wiki.py:_parse_scalar` returned an unnarrowed `json.loads` result, and two
+functions returned `Any` from a signature declaring `dict`.
+
+The known Python-version trap was respected rather than rediscovered.
+`src/pipeline/` executes in the SageMaker `FrameworkProcessor` managed image
+on an older Python than the 3.12 targeted elsewhere — the same mismatch that
+cost a pipeline execution on July 11. All three pipeline modules now carry
+`from __future__ import annotations` so annotations never evaluate there,
+and the tree still contains no PEP 604 unions.
+
+Following the deduplication precedent, synthesized output was snapshotted
+before and after. All eight CloudFormation templates are byte-identical once
+the Lambda asset content hash is normalized; the asset hash itself moves
+because the bundle contains `src/`, and diffing the bundled source shows
+annotation additions only. No IAM or acknowledgement baseline needed
+refreshing.
+
+### Decision and next checkpoint
+
+`strict = true` was deliberately not set: it enables `disallow_any_generics`,
+which fails on every `**kwargs` passthrough into jsii-generated CDK
+constructs for noise disproportionate to the value. `ANN401` is ignored for
+the same reason.
+
+`tests/` is left unannotated — roughly 51 mostly-mechanical additions, plus
+genuine design work on the pytest fixture types in the 831-line
+`test_stacks.py`. That is a reasonable follow-up phase but has much lower
+value per unit of effort. The next checkpoint is hosted CI on the pull
+request for issue 8, confirming the new blocking step passes in an
+environment that syncs only the `dev` extra.
+
+### Verification
+
+`make lint` (47 files), `make typecheck` (33 files, zero errors), `make test`
+(55 passed), `make security`, 14 stack fingerprint tests, `make wiki-lint`,
+sensitive-value scan, and `git diff --check` run before handoff.

@@ -629,13 +629,15 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         ), metadata_key
 
 
-def test_security_monitoring_enables_only_phase_3a(stacks):
-    """Dev enables only the accepted analyzer; 3B GuardDuty is deferred (Free plan)."""
+def test_security_monitoring_enables_only_phase_3a_and_3e(stacks):
+    """Dev enables the analyzer and account BPA; 3B GuardDuty is deferred (Free plan)."""
     services = CONFIG["security"]["services"]
     assert services["access_analyzer"] is True
+    assert services["account_bpa"] is True
     assert services["guardduty"] is False
     assert {name for name, enabled in services.items() if enabled} == {
         "access_analyzer",
+        "account_bpa",
     }
 
     template = stacks["security_monitoring"]
@@ -728,6 +730,77 @@ def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
     assert guardduty_types == {"AWS::GuardDuty::Detector"}
 
 
+def _account_bpa_call(template, key):
+    """Rebuild one SDK call from the custom resource, resolving the account Ref."""
+    resource = next(
+        value
+        for value in template.to_json()["Resources"].values()
+        if value["Type"] == "Custom::AWS"
+    )
+    parts = resource["Properties"][key]["Fn::Join"][1]
+    for part in parts:
+        # The only intrinsic in the payload must be the account pseudo-parameter;
+        # a literal account id must never reach the template.
+        assert isinstance(part, str) or part == {"Ref": "AWS::AccountId"}
+    rendered = "".join(part if isinstance(part, str) else "<ACCOUNT>" for part in parts)
+    return json.loads(rendered)
+
+
+def test_account_bpa_blocks_all_four_public_access_routes(stacks):
+    """Phase 3E sets every account-level switch and reverts to no config on delete."""
+    template = stacks["security_monitoring"]
+    template.resource_count_is("Custom::AWS", 1)
+
+    # Create and Update must be identical, or a later settings change would
+    # synthesize without ever reaching the account.
+    for key in ("Create", "Update"):
+        call = _account_bpa_call(template, key)
+        assert call["service"] == "S3Control"
+        assert call["action"] == "putPublicAccessBlock"
+        assert call["parameters"]["AccountId"] == "<ACCOUNT>"
+        assert call["parameters"]["PublicAccessBlockConfiguration"] == {
+            "BlockPublicAcls": True,
+            "IgnorePublicAcls": True,
+            "BlockPublicPolicy": True,
+            "RestrictPublicBuckets": True,
+        }
+        assert call["physicalResourceId"] == {"id": "mlops-dev-account-bpa"}
+
+    delete = _account_bpa_call(template, "Delete")
+    assert delete["service"] == "S3Control"
+    assert delete["action"] == "deletePublicAccessBlock"
+    assert delete["parameters"] == {"AccountId": "<ACCOUNT>"}
+
+    custom_resource = next(
+        value
+        for value in template.to_json()["Resources"].values()
+        if value["Type"] == "Custom::AWS"
+    )
+    assert custom_resource["Properties"]["InstallLatestAwsSdk"] is False
+
+    # The provider role must gain nothing beyond the three account-level actions.
+    template.has_resource_properties(
+        "AWS::IAM::Policy",
+        {
+            "PolicyDocument": Match.object_like(
+                {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "s3:GetAccountPublicAccessBlock",
+                                "s3:PutAccountPublicAccessBlock",
+                                "s3:DeleteAccountPublicAccessBlock",
+                            ],
+                            "Effect": "Allow",
+                            "Resource": "*",
+                        }
+                    ]
+                }
+            )
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "flag",
     sorted(set(PHASE_3_SERVICE_FLAGS) - IMPLEMENTED_SERVICE_FLAGS),
@@ -735,7 +808,7 @@ def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
 def test_enabling_an_unimplemented_service_flag_fails_loudly(flag):
     """A flag with no CDK behind it must raise, not deploy nothing silently.
 
-    Without this, flipping e.g. account_bpa to true would synth and deploy
+    Without this, flipping e.g. config_recorder to true would synth and deploy
     cleanly while creating no resource at all -- the security service would
     look enabled and not be.
     """
@@ -820,6 +893,9 @@ def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
                 wildcard_policies.append((stack_name, logical_id))
 
     assert wildcard_policies == [
+        # Phase 3E: the s3:*AccountPublicAccessBlock actions are account-level
+        # and AWS accepts only "*" as their resource.
+        ("security_monitoring", "AccountPublicAccessBlockCustomResourcePolicy3665E1EC"),
         (
             "ingestion",
             "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
@@ -851,7 +927,9 @@ def test_iam_policy_baseline_has_not_changed(stacks):
 
     assert fingerprints == {
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
-        "security_monitoring": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        # Phase 3E added the account-BPA custom resource provider role (basic
+        # Lambda execution only) and its three-action policy. Nothing else.
+        "security_monitoring": "a8471d40fa83a0c9ad1bee2b051bf4b2fe5f61491b08c43eb7cecba43a487825",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         "ingestion": "bfa13d3f2b0fa9b7ae49f81dfd29907f683ecca6347e1cc4327834f094702f41",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",

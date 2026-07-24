@@ -50,6 +50,21 @@ ACKNOWLEDGEMENTS = (
         "Phase 2 CloudTrail delivery requires the generated log-stream suffix under one group.",
     ),
     Acknowledgement(
+        "security_monitoring",
+        "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
+        LAMBDA_BASIC_POLICY,
+        "Phase 3E account-BPA provider; replace managed log policy during Phase 5 IAM work.",
+    ),
+    Acknowledgement(
+        "security_monitoring",
+        "AccountPublicAccessBlock/CustomResourcePolicy",
+        "AwsSolutions-IAM5[Resource::*]",
+        (
+            "Phase 3E account-level Block Public Access is not bucket-scoped; AWS accepts "
+            "only '*' as the resource for the s3:*AccountPublicAccessBlock actions."
+        ),
+    ),
+    Acknowledgement(
         "data",
         "BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role",
         LAMBDA_BASIC_POLICY,

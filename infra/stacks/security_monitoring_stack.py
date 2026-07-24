@@ -5,9 +5,11 @@ from typing import Any
 from aws_cdk import Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
 from aws_cdk import aws_guardduty as guardduty
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kms as kms
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
+from aws_cdk import custom_resources as cr
 from constructs import Construct
 
 from infra.stacks.shared import PlatformConfig
@@ -27,7 +29,18 @@ PHASE_3_SERVICE_FLAGS = (
 # loudly: a silent no-op deploy would look like a security service was turned
 # on when nothing was created. Add a flag here in the same change that
 # implements its sub-phase.
-IMPLEMENTED_SERVICE_FLAGS = frozenset({"access_analyzer", "guardduty"})
+IMPLEMENTED_SERVICE_FLAGS = frozenset({"access_analyzer", "guardduty", "account_bpa"})
+
+# Account-level Block Public Access is the backstop under every per-bucket
+# setting: it applies to buckets this repository does not create and survives a
+# bucket-level misconfiguration. All four settings move together; a partial
+# block would leave one public-exposure route open.
+ACCOUNT_BPA_CONFIGURATION = {
+    "BlockPublicAcls": True,
+    "IgnorePublicAcls": True,
+    "BlockPublicPolicy": True,
+    "RestrictPublicBuckets": True,
+}
 
 GUARDDUTY_DISABLED_FEATURES = (
     "S3_DATA_EVENTS",
@@ -114,3 +127,50 @@ class SecurityMonitoringStack(Stack):
                 ("SecurityPhase", "3B"),
             ):
                 Tags.of(detector).add(key, value)
+
+        if services["account_bpa"]:
+            # CloudFormation has no resource type for the account-level setting,
+            # so the S3 Control API is called directly and the account id stays a
+            # pseudo-parameter rather than a literal. The synthesized Custom::AWS
+            # resource is not taggable, so unlike the analyzer and the detector
+            # this one carries no tags.
+            bpa_resource_id = f"mlops-{self.env_name}-account-bpa"
+            put_account_bpa = cr.AwsSdkCall(
+                service="S3Control",
+                action="putPublicAccessBlock",
+                parameters={
+                    "AccountId": self.account,
+                    "PublicAccessBlockConfiguration": ACCOUNT_BPA_CONFIGURATION,
+                },
+                physical_resource_id=cr.PhysicalResourceId.of(bpa_resource_id),
+            )
+            cr.AwsCustomResource(
+                self,
+                "AccountPublicAccessBlock",
+                install_latest_aws_sdk=False,
+                on_create=put_account_bpa,
+                # Repeating the call on update stops a later change to the four
+                # settings from synthesizing without ever reaching the account.
+                on_update=put_account_bpa,
+                # Deleting restores the recorded pre-state (no account-level
+                # configuration), so a failed phase rolls back to where it began.
+                on_delete=cr.AwsSdkCall(
+                    service="S3Control",
+                    action="deletePublicAccessBlock",
+                    parameters={"AccountId": self.account},
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_statements(
+                    [
+                        iam.PolicyStatement(
+                            # The account-level actions are not bucket-scoped and
+                            # AWS accepts only "*" as their resource.
+                            actions=[
+                                "s3:GetAccountPublicAccessBlock",
+                                "s3:PutAccountPublicAccessBlock",
+                                "s3:DeleteAccountPublicAccessBlock",
+                            ],
+                            resources=["*"],
+                        )
+                    ]
+                ),
+            )

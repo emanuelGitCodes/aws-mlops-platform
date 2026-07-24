@@ -27,10 +27,13 @@ or groups. Access Analyzer, later-service absence, all six alarms, budget, and
 ## Synthesis
 
 The reported failure is a GuardDuty service-subscription boundary, not an IAM
-`AccessDenied`. Current evidence is insufficient to claim why the
-CloudFormation provider could not bootstrap the account's never-enabled state.
+`AccessDenied`. The cause was confirmed later the same day: the account is on
+the AWS Free account plan, which blocks paid-only services such as GuardDuty
+entirely, so the provider could never bootstrap the subscription. See
+[AWS Free-plan account service limits](aws-free-plan-account-service-limits-july-18-2026.md).
 Manually creating the detector would evade the approved ownership and rollback
-contract, so the draft PR remains open while the prerequisite is resolved.
+contract, so the draft PR remains open while the paid-plan upgrade decision is
+pending.
 
 Related pages:
 
@@ -40,7 +43,9 @@ Related pages:
 
 ## Tensions or open questions
 
-- Determine the AWS-supported first-subscription path that remains compatible
-  with CloudFormation ownership and explicit disabling of paid features.
+- ~~Determine the AWS-supported first-subscription path~~ — resolved July 18:
+  the account's AWS Free plan forbids GuardDuty; the remaining decision is the
+  paid-plan upgrade, recorded in
+  [AWS Free-plan account service limits](aws-free-plan-account-service-limits-july-18-2026.md).
 - Phase 3B has no completion record; findings, trial days, and usage estimates
   remain unavailable until a detector exists.

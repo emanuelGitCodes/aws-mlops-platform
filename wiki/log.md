@@ -1675,3 +1675,105 @@ Terminal rollback, stable stack resources, no detector/role, exact delayed
 CloudTrail request, verified policy rollback, attachment scope, analyzer and
 later-service state, budget alerts, six alarm recovery, `/predict`, wiki lint,
 and sensitive-value scans passed before this entry.
+## [2026-07-18] ingest | AWS Free-plan account service limits — July 18, 2026
+
+Registered immutable source `raw/aws-free-plan-account-service-limits-july-18-2026.md`.
+
+## [2026-07-18] update | Free-plan root cause for Phase 3B recorded
+
+### Objective
+
+Record the confirmed account-level explanation for the Phase 3B GuardDuty
+`SubscriptionRequiredException` rollback and its consequences for the
+remaining Phase 3 roadmap.
+
+### Scope
+
+- New immutable source `raw/aws-free-plan-account-service-limits-july-18-2026.md`
+  and its completed source page.
+- Updated pages: phased security hardening roadmap, Phase 0 baseline, and the
+  Phase 3B first-deployment-rollback source page.
+- Rebuilt index; no application code, configuration, or test changed.
+
+### Identity and environment
+
+Console observation only, viewed with the `${AWS_ADMIN_USER_NAME}` identity in
+account `${AWS_ACCOUNT_ID}`. No AWS mutation occurred; the AWS Config setup
+wizard was cancelled without creating resources.
+
+### Evidence and interpretation
+
+The Billing and Cost Management home page shows the account on the AWS Free
+account plan, with credits and a free-plan period remaining and an Upgrade
+plan action. The Free plan blocks paid-only services — including GuardDuty and
+Security Hub — at the billing level with `SubscriptionRequiredException`. This
+resolves the open question from the Phase 3B rollback record (the
+CloudFormation request was correct; the plan forbids the service) and
+retroactively explains the Phase 0 baseline probes, where GuardDuty and
+Security Hub failed read-only calls while AWS Config answered normally.
+
+### Decision and next checkpoint
+
+Phases 3B and 3D are hard-blocked pending a deliberate paid-plan upgrade
+decision; pull request 5 stays draft. Do not enable any Phase 3 service
+manually or through the console wizard. AWS Config availability on the Free
+plan is tested only through the gated flag-controlled CloudFormation path.
+After an explicit upgrade, Phase 3B repeats its full gate sequence.
+
+### Verification
+
+Wiki index rebuilt; wiki lint, focused wiki unit tests, sensitive-value scan
+of changed files, and `git diff --check` run before handoff.
+## [2026-07-19] ingest | Phase 3 plan revision under the AWS Free plan — July 19, 2026
+
+Registered immutable source `raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md`.
+
+## [2026-07-19] update | Phase 3 reordered for the Free plan; 3B made deploy-safe
+
+### Objective
+
+Amend the Phase 3 execution plan for the confirmed AWS Free account plan:
+defer the billing-blocked services behind an explicit upgrade gate, promote
+the free-compatible sub-phases, and make the Phase 3B branch deploy-safe.
+
+### Scope
+
+- New immutable source
+  `raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md` and its
+  completed source page.
+- Updated pages: phased security hardening roadmap and the Free-plan
+  service-limits source page; rebuilt index.
+- Repository: `infra/config/dev.yaml` (`guardduty: false` with deferral
+  comment) and `tests/unit/test_stacks.py` (dev asserts only the analyzer and
+  zero GuardDuty resources; a new config-override test locks the exact
+  detector contract for the future retry). The flag-gated stack code and the
+  execution-policy document are unchanged.
+
+### Identity and environment
+
+Local repository and wiki work only. No AWS API call, deployment, policy
+rotation, or service enablement occurred.
+
+### Interpretation
+
+The revised order is 3A (complete) → 3E account S3 Block Public Access →
+3C Config, whose gated deployment doubles as the Free-plan availability test
+with minimally scoped recording → partial 3F routing → explicit manual
+paid-plan upgrade gate → deferred 3B GuardDuty and 3D Security Hub with full
+gate sequences. The repository execution policy deliberately retains the
+GuardDuty actions while the live default remains `v8`; the next sub-phase's
+controlled rotation reconciles the divergence. Draft pull request 5 is
+repurposed to carry the deferral rather than a doomed retry.
+
+### Decision and next checkpoint
+
+The next mutating AWS work is sub-phase 3E under the standard gate sequence,
+after verifying account-level BPA cannot break the CDK bootstrap asset bucket
+or workload access patterns. Stop for 3E's go/no-go before 3C. Phases 3B and
+3D wait for the upgrade decision.
+
+### Verification
+
+`make lint` passed (47 files), 14 stack tests passed, wiki index rebuilt,
+wiki lint and focused wiki tests, sensitive-value scan, and
+`git diff --check` run before handoff.

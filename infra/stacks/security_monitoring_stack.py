@@ -21,6 +21,14 @@ PHASE_3_SERVICE_FLAGS = (
     "eventbridge_alerts",
 )
 
+# The subset of PHASE_3_SERVICE_FLAGS this stack actually builds resources for.
+# The rest are declared in config so the flag contract stays stable across
+# sub-phases, but have no CDK behind them yet. Enabling one of those must fail
+# loudly: a silent no-op deploy would look like a security service was turned
+# on when nothing was created. Add a flag here in the same change that
+# implements its sub-phase.
+IMPLEMENTED_SERVICE_FLAGS = frozenset({"access_analyzer", "guardduty"})
+
 GUARDDUTY_DISABLED_FEATURES = (
     "S3_DATA_EVENTS",
     "EKS_AUDIT_LOGS",
@@ -60,6 +68,16 @@ class SecurityMonitoringStack(Stack):
         )
         if non_boolean:
             raise ValueError(f"Phase 3 service flags must be booleans: {non_boolean}")
+        unimplemented = sorted(
+            name
+            for name, enabled in services.items()
+            if enabled and name not in IMPLEMENTED_SERVICE_FLAGS
+        )
+        if unimplemented:
+            raise ValueError(
+                "Phase 3 service flags enabled with no stack implementation: "
+                f"{unimplemented}. Implement the sub-phase before enabling its flag."
+            )
         self.services = services
 
         if services["access_analyzer"]:

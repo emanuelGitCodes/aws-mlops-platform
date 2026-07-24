@@ -162,10 +162,11 @@ class SecurityMonitoringStack(Stack):
                 policy=cr.AwsCustomResourcePolicy.from_statements(
                     [
                         iam.PolicyStatement(
-                            # The account-level actions are not bucket-scoped and
-                            # AWS accepts only "*" as their resource.
+                            # Only the two actions the calls above make: the
+                            # account-level actions are not bucket-scoped and AWS
+                            # accepts only "*" as their resource, so an unused
+                            # third grant would be wildcard debt for nothing.
                             actions=[
-                                "s3:GetAccountPublicAccessBlock",
                                 "s3:PutAccountPublicAccessBlock",
                                 "s3:DeleteAccountPublicAccessBlock",
                             ],

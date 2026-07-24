@@ -89,7 +89,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         "serving": serving,
         "monitoring": monitoring,
     }
-    apply_security_checks(app, stacks)
+    apply_security_checks(app, stacks, config)
     return stacks
 
 

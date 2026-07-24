@@ -11,6 +11,8 @@ import aws_cdk as cdk
 from cdk_nag import AwsSolutionsChecks
 from constructs import IConstruct
 
+from infra.stacks.shared import PlatformConfig
+
 
 @dataclass(frozen=True)
 class Acknowledgement:
@@ -18,6 +20,11 @@ class Acknowledgement:
     construct_path: str
     finding_id: str
     reason: str
+    # Phase 3 sub-phases are flag-gated, so their constructs exist only where the
+    # flag is enabled. Naming the flag here skips the acknowledgement everywhere
+    # else; leaving it None keeps the strict behavior, where a path that matches
+    # no construct fails synthesis and catches a stale acknowledgement.
+    requires_service: str | None = None
 
 
 LAMBDA_BASIC_POLICY = (
@@ -54,6 +61,7 @@ ACKNOWLEDGEMENTS = (
         "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
         LAMBDA_BASIC_POLICY,
         "Phase 3E account-BPA provider; replace managed log policy during Phase 5 IAM work.",
+        requires_service="account_bpa",
     ),
     Acknowledgement(
         "security_monitoring",
@@ -63,6 +71,7 @@ ACKNOWLEDGEMENTS = (
             "Phase 3E account-level Block Public Access is not bucket-scoped; AWS accepts "
             "only '*' as the resource for the s3:*AccountPublicAccessBlock actions."
         ),
+        requires_service="account_bpa",
     ),
     Acknowledgement(
         "data",
@@ -319,9 +328,16 @@ def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
     return matches[0]
 
 
-def apply_security_checks(app: cdk.App, stacks: dict[str, cdk.Stack]) -> None:
+def apply_security_checks(
+    app: cdk.App, stacks: dict[str, cdk.Stack], config: PlatformConfig
+) -> None:
     """Register exact existing acknowledgements, then fail on any new finding."""
+    # Collected by name, because a TypedDict cannot be indexed by a flag name
+    # that is only known at runtime.
+    enabled = {name for name, on in config["security"]["services"].items() if on}
     for acknowledgement in ACKNOWLEDGEMENTS:
+        if acknowledgement.requires_service and acknowledgement.requires_service not in enabled:
+            continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)
         target = construct.node.default_child or construct
         finding_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")

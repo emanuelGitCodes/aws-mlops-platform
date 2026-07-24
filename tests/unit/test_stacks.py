@@ -787,7 +787,6 @@ def test_account_bpa_blocks_all_four_public_access_routes(stacks):
                     "Statement": [
                         {
                             "Action": [
-                                "s3:GetAccountPublicAccessBlock",
                                 "s3:PutAccountPublicAccessBlock",
                                 "s3:DeleteAccountPublicAccessBlock",
                             ],
@@ -864,6 +863,30 @@ def test_prod_security_monitoring_stays_a_disabled_shell():
     assert set(resources) <= {"CDKMetadata"}
 
 
+def test_disabling_a_phase_3_flag_still_synthesizes():
+    """Turning a sub-phase back off must not break synthesis, or rollback is stuck.
+
+    Acknowledgements are matched to real constructs, so one naming a flag-gated
+    Phase 3 construct fails synthesis the moment that flag goes false -- which is
+    exactly the rollback path. Without requires_service, flipping account_bpa
+    back off would leave the environment unable to synthesize the revert.
+    """
+    config = load_config("dev")
+    config["security"]["services"]["account_bpa"] = False
+
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    stacks = build_app(app, config, "Test-Rollback")
+    app.synth()
+
+    resources = Template.from_stack(stacks["security_monitoring"]).to_json()["Resources"]
+    assert "Custom::AWS" not in {value["Type"] for value in resources.values()}
+
+
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
     """Phase 5 owns these two known roles; Phase 1 rejects a third attachment."""
     roles = []
@@ -929,7 +952,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
         # Phase 3E added the account-BPA custom resource provider role (basic
         # Lambda execution only) and its three-action policy. Nothing else.
-        "security_monitoring": "a8471d40fa83a0c9ad1bee2b051bf4b2fe5f61491b08c43eb7cecba43a487825",
+        "security_monitoring": "9e5660c56071f5d663e8b941a28ab57830ce3afb9e0852a142bd7e879919d496",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         "ingestion": "bfa13d3f2b0fa9b7ae49f81dfd29907f683ecca6347e1cc4327834f094702f41",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",

@@ -2334,3 +2334,18 @@ and must scope its own acknowledgements with `requires_service`.
 (71 passed), `make security`, hosted CI on both commits, resource-level
 `make verify-deploy`, a post-deploy `make diff-stack` reporting no differences,
 wiki index rebuilt, `make wiki-lint`, and a sensitive-value scan before handoff.
+
+## [2026-07-24] verify | Phase 3E provenance gap closed
+
+Re-ran the CloudTrail `lookup-events` query that returned empty immediately
+after the 3E deployment. It now returns a single `PutAccountPublicAccessBlock`
+event at the deployment timestamp, attributed to the CloudFormation-created
+provider role rather than any human identity — confirming the account-wide
+setting was applied through the gated path and not the console. The earlier
+empty result was lookup lag, not a negative finding, which is why it was
+recorded as a deferred gap rather than a failure.
+
+The `$20` budget remains the one verification the auditor identity cannot
+perform, since `budgets:ViewBudget` is denied to it. It stays open for the
+observation window; `verify-deploy` showing no resource change in the Data
+stack that owns the budget is indirect evidence only.

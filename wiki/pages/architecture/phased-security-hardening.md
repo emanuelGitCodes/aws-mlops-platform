@@ -182,8 +182,9 @@ the boundary.
 The 3E observation window is open; closing it needs a fresh access-log
 object delivered after the deployment, CloudTrail delivery advancing again,
 the six alarms still `OK`, unchanged daily cost, no new analyzer finding,
-and the two auditor-blocked verifications resolved — the `$20` budget and
-the CloudTrail provenance lookup for `PutAccountPublicAccessBlock`.
+and the one remaining auditor-blocked verification resolved, the `$20`
+budget. Provenance is already settled: CloudTrail attributes the single
+`PutAccountPublicAccessBlock` call to the provider role, not a human.
 
 Sub-phase 3C (AWS Config) follows the 3E go/no-go, and its gated deployment
 doubles as the Free-plan availability test with minimally scoped recording.

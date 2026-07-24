@@ -78,12 +78,15 @@ the maintained roadmap is the
 
 ## Tensions or open questions
 
-- Two verifications were blocked by the least-privilege auditor identity and are
-  gaps rather than passes: `budgets:ViewBudget` is denied, so the `$20` budget
-  was confirmed only indirectly through the Data stack showing no resource
-  change; and the CloudTrail `lookup-events` query meant to prove the call came
-  from the provider role rather than a human returned empty because lookup lags
-  recent events. Both should be resolved during the observation window.
+- The CloudTrail provenance gap is now closed. A re-run of `lookup-events` after
+  the initial lag returned a single `PutAccountPublicAccessBlock` event at the
+  deployment timestamp, attributed to the CloudFormation-created provider role
+  rather than to any human identity. The setting was therefore applied through
+  the gated path, not the console.
+- One verification remains blocked by the least-privilege auditor identity and
+  is a gap rather than a pass: `budgets:ViewBudget` is denied, so the `$20`
+  budget was confirmed only indirectly through the Data stack showing no
+  resource change in `verify-deploy`.
 - The observation window is open. The 3E go/no-go needs a fresh access-log
   object delivered after the deployment, CloudTrail delivery advancing again,
   the six alarms still `OK`, unchanged daily cost, and no new analyzer finding.

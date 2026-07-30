@@ -1,5 +1,6 @@
 """Phase 2 audit foundation, CIS metric detections, and alert delivery."""
 
+from dataclasses import dataclass
 from typing import Any
 
 from aws_cdk import (
@@ -25,19 +26,40 @@ from constructs import Construct, IConstruct
 
 from infra.stacks.shared import PlatformConfig
 
+
+@dataclass(frozen=True)
+class SecurityDetection:
+    """One CIS metric filter and the alarm evaluation applied to it."""
+
+    metric_name: str
+    alarm_slug: str
+    filter_pattern: str
+    # Defaults match the original Phase 2C contract: one five-minute
+    # datapoint at >= 1 pages immediately. None renders no
+    # DatapointsToAlarm property, keeping the other alarms
+    # byte-identical in the template.
+    evaluation_periods: int = 1
+    datapoints_to_alarm: int | None = None
+
+
 SECURITY_DETECTIONS = (
-    (
+    SecurityDetection(
         "RootUserActivity",
         "root-user-activity",
         '{$.userIdentity.type="Root" && $.userIdentity.invokedBy NOT EXISTS && '
         '$.eventType !="AwsServiceEvent"}',
     ),
-    (
+    SecurityDetection(
         "UnauthorizedApiCalls",
         "unauthorized-api-calls",
         '{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}',
+        # Phase 2E (issue 10): an isolated least-privilege denial must not
+        # page; a burst sustained across three consecutive five-minute
+        # datapoints still does. Threshold and filter are unchanged.
+        evaluation_periods=3,
+        datapoints_to_alarm=3,
     ),
-    (
+    SecurityDetection(
         "IamPolicyChanges",
         "iam-policy-changes",
         "{($.eventSource=iam.amazonaws.com) && "
@@ -50,20 +72,20 @@ SECURITY_DETECTIONS = (
         "($.eventName=AttachUserPolicy) || ($.eventName=DetachUserPolicy) || "
         "($.eventName=AttachGroupPolicy) || ($.eventName=DetachGroupPolicy))}",
     ),
-    (
+    SecurityDetection(
         "CloudTrailConfigurationChanges",
         "cloudtrail-configuration-changes",
         "{($.eventName=CreateTrail) || ($.eventName=UpdateTrail) || "
         "($.eventName=DeleteTrail) || ($.eventName=StartLogging) || "
         "($.eventName=StopLogging)}",
     ),
-    (
+    SecurityDetection(
         "KmsKeyDisableOrDeletion",
         "kms-key-disable-or-deletion",
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
     ),
-    (
+    SecurityDetection(
         "S3BucketPolicyChanges",
         "s3-bucket-policy-changes",
         "{($.eventSource=s3.amazonaws.com) && (($.eventName=PutBucketAcl) || "
@@ -360,28 +382,29 @@ class SecurityStack(Stack):
                 )
             )
 
-        for metric_name, alarm_slug, filter_pattern in SECURITY_DETECTIONS:
+        for detection in SECURITY_DETECTIONS:
             logs.MetricFilter(
                 self,
-                f"{metric_name}Filter",
+                f"{detection.metric_name}Filter",
                 default_value=0,
-                filter_pattern=logs.FilterPattern.literal(filter_pattern),
+                filter_pattern=logs.FilterPattern.literal(detection.filter_pattern),
                 log_group=audit_log_group,
-                metric_name=metric_name,
+                metric_name=detection.metric_name,
                 metric_namespace="MLOps/Security",
                 metric_value="1",
             )
             alarm = cloudwatch.Alarm(
                 self,
-                f"{metric_name}Alarm",
+                f"{detection.metric_name}Alarm",
                 actions_enabled=True,
-                alarm_name=f"mlops-{env_name}-security-{alarm_slug}",
+                alarm_name=f"mlops-{env_name}-security-{detection.alarm_slug}",
                 comparison_operator=(
                     cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD
                 ),
-                evaluation_periods=1,
+                datapoints_to_alarm=detection.datapoints_to_alarm,
+                evaluation_periods=detection.evaluation_periods,
                 metric=cloudwatch.Metric(
-                    metric_name=metric_name,
+                    metric_name=detection.metric_name,
                     namespace="MLOps/Security",
                     period=Duration.minutes(5),
                     statistic="Sum",

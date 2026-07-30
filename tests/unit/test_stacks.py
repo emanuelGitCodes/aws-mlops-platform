@@ -461,16 +461,33 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
     ]
     topic_ref = {"Ref": "SecurityAlertsTopic1CE4D100"}
     assert len(alarms) == 6
+    # Phase 2E (issue 10): only unauthorized-api-calls requires a sustained
+    # burst (3 of 3 five-minute datapoints); the other five page on the
+    # first event and must render no DatapointsToAlarm property at all.
+    expected_evaluation = {
+        "root-user-activity": (1, None),
+        "unauthorized-api-calls": (3, 3),
+        "iam-policy-changes": (1, None),
+        "cloudtrail-configuration-changes": (1, None),
+        "kms-key-disable-or-deletion": (1, None),
+        "s3-bucket-policy-changes": (1, None),
+    }
     for alarm in alarms:
+        slug = alarm["AlarmName"].split("-security-", 1)[1]
+        periods, datapoints = expected_evaluation[slug]
         assert alarm["ActionsEnabled"] is True
         assert alarm["AlarmActions"] == [topic_ref]
         assert alarm["ComparisonOperator"] == "GreaterThanOrEqualToThreshold"
-        assert alarm["EvaluationPeriods"] == 1
+        assert alarm["EvaluationPeriods"] == periods
+        assert alarm.get("DatapointsToAlarm") == datapoints
         assert alarm["Namespace"] == "MLOps/Security"
         assert alarm["Period"] == 300
         assert alarm["Statistic"] == "Sum"
         assert alarm["Threshold"] == 1
         assert alarm["TreatMissingData"] == "notBreaching"
+    assert {alarm["AlarmName"].split("-security-", 1)[1] for alarm in alarms} == set(
+        expected_evaluation
+    )
 
 
 def test_ingestion_wiring(stacks):

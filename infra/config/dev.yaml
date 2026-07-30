@@ -18,5 +18,5 @@ security:
     guardduty: false   # 3B deferred: AWS Free plan blocks GuardDuty until upgrade
     config_recorder: false
     security_hub: false
-    account_bpa: false
+    account_bpa: true
     eventbridge_alerts: false

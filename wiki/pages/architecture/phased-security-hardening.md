@@ -3,7 +3,7 @@ type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
 updated: "2026-07-24"
-sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+sources: ["../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -47,7 +47,7 @@ the boundary.
 | 0 | Read-only baseline and rollback preparation | Existing ingestion, pipeline, endpoint, and API behavior are recorded and unchanged. |
 | 1 | Repository and CI security guardrails | Tests, lint, synth, dependency scan, and secret scan pass without an AWS deployment. |
 | 2 | CloudTrail, audit storage, SNS email, security alarms, and budget alerts | Trail is logging and a controlled alarm reaches the confirmed email. |
-| 3 | Access Analyzer, account S3 blocking, Config, and partial alert routing now; GuardDuty and Security Hub deferred behind the paid-plan upgrade gate | Enable one service at a time; each is healthy and credit burn remains acceptable. Revised July 19 for the AWS Free plan. |
+| 3 | Access Analyzer and account S3 blocking done; Config and partial alert routing next; GuardDuty and Security Hub deferred behind the paid-plan upgrade gate | Enable one service at a time; each is healthy and credit burn remains acceptable. Revised July 19 for the AWS Free plan. |
 | 4A | Create the data KMS key and pre-grant roles | Every workload role passes controlled KMS access tests before bucket changes. |
 | 4B | Change bucket encryption defaults | Migrate artifacts, curated, then raw; verify each bucket before continuing. |
 | 4C | Re-encrypt existing objects and add lifecycle rules | Checksums, metadata, readability, key IDs, and retention are verified. |
@@ -138,11 +138,22 @@ the boundary.
   [Free-plan service limits](../sources/aws-free-plan-account-service-limits-july-18-2026.md),
   and the
   [Phase 3 plan revision](../sources/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md).
-- **Phases 3C–9: not started.** No Config, Security Hub, account-level S3
-  blocking, Phase 3 alert routing, API-authentication change, WAF, or identity
-  change is deployed by this checkpoint. Under the July 19 revision the
-  remaining Phase 3 execution order is 3E account S3 Block Public Access,
-  then 3C Config (whose gated deployment doubles as the Free-plan
+- **Phase 3E: complete; observation open.** Account-level S3 Block Public Access
+  is live in dev with all four settings true, where the pre-flight recorded
+  `NoSuchPublicAccessBlockConfiguration`. CloudFormation has no resource type for
+  the account-level setting, so it is set through the `AwsCustomResource` pattern
+  already proven by the Data stack's budget notifications, with `on_delete`
+  restoring the pre-state so a failed phase rolls back cleanly. The deploy
+  created four resources and modified nothing else; the analyzer, six alarms,
+  bucket readability, and `/predict` all verified unchanged, and a subsequent
+  diff reports none. No execution-policy rotation was needed, so the GuardDuty
+  divergence and the last IAM version slot both survive for 3C. The phase also
+  cleared the stack's leftover `UPDATE_ROLLBACK_COMPLETE` marker. See the
+  [implementation and deployment record](../sources/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md).
+- **Phases 3C, 3F, and 4–9: not started.** No Config, Security Hub, Phase 3
+  alert routing, KMS, API-authentication change, WAF, or identity change is
+  deployed by this checkpoint. Under the July 19 revision the remaining Phase 3
+  order is 3C Config (whose gated deployment doubles as the Free-plan
   availability test with minimally scoped recording), then partial 3F
   routing of Access Analyzer and Config events; full 3F follows the deferred
   services.
@@ -168,13 +179,21 @@ the boundary.
 
 ### Next checkpoint
 
-Sub-phase 3E (account-level S3 Block Public Access) is next under the
-July 19 revised order: prepare it with the standard gate sequence, first
-verifying that account-level BPA does not break the CDK bootstrap asset
-bucket or existing workload access patterns, then stop for its go/no-go
-before 3C. Do not manually create a GuardDuty detector or role, and do not
-complete the Config console wizard; Config availability on the Free plan is
-tested only through the gated flag-controlled CloudFormation path in 3C.
+The 3E observation window closed on 2026-07-30 with every criterion met:
+access-log objects delivered on 07-28 and 07-30 after the deployment,
+CloudTrail delivery advancing without error, the six security alarms still
+`OK`, the analyzer still `ACTIVE` with zero active findings, and the `$20`
+budget confirmed intact with its three 50/80/100 alerts unexceeded at
+`$0.00` actual spend. Provenance was already settled: CloudTrail attributes
+the single `PutAccountPublicAccessBlock` call to the provider role, not a
+human. Sub-phase 3E is therefore clear for its go decision.
+
+Sub-phase 3C (AWS Config) follows the 3E go/no-go, and its gated deployment
+doubles as the Free-plan availability test with minimally scoped recording.
+It must also scope its cdk-nag acknowledgements with `requires_service`, as
+3E established. Do not manually create a GuardDuty detector or role, and do
+not complete the Config console wizard; Config availability on the Free plan
+is tested only through the gated flag-controlled CloudFormation path.
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and
 deploy, and finding/trial/alarm/budget/`/predict` verification.

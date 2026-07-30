@@ -2,8 +2,8 @@
 type: architecture
 title: Phase 2 audit foundation
 created: "2026-07-12"
-updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
+updated: "2026-07-30"
+sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../infra/security_checks.py", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-kms-key-policy-for-cloudtrail.html", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path."
 ---
 # Phase 2 audit foundation
@@ -52,10 +52,32 @@ Security Hub/CIS metric filter and one alarm for root usage, unauthorized API
 calls, IAM policy changes, CloudTrail configuration changes, KMS disable or
 scheduled deletion, and S3 bucket-policy changes. Every filter writes to
 `MLOps/Security`; every five-minute alarm notifies the confirmed encrypted topic
-at `>= 1` and treats missing data as non-breaching.
+at `>= 1` and treats missing data as non-breaching. Since Phase 2E, five alarms
+still page on the first breaching datapoint, while `unauthorized-api-calls`
+requires three consecutive breaching five-minute datapoints
+(`EvaluationPeriods 3`, `DatapointsToAlarm 3`; threshold and filter unchanged).
 
 A controlled read-only IAM denial proved the entire chain through received
 email. See the [Phase 2C completion record](../sources/aws-security-hardening-phase-2c-completion-july-12-2026.md).
+
+### Phase 2E detection tuning and auditor audit-log access
+
+Phase 2E revised the detection contract through the standard gated sub-phase
+after the `unauthorized-api-calls` alarm proved to page on the security
+auditor's own correct least-privilege denials — ten fire/auto-resolve cycles
+in the three days before the change, every one an isolated five-minute
+datapoint. The revision moves only that alarm to a sustained-burst evaluation
+(3 of 3 five-minute datapoints) so an isolated denial no longer pages while
+denial bursts still do; no filter, threshold, or other alarm changed, and the
+deployment modified exactly one resource.
+
+The companion change granted the hand-managed auditor identity
+`logs:FilterLogEvents` on the audit log group plus `kms:Decrypt` on the audit
+key confined by the log-group encryption context, applied out-of-band with the
+admin identity because human identities stay out of CDK. The auditor can now
+attribute an alarm fire from the audit log instead of generating a fresh
+denial by trying. See the
+[Phase 2E implementation and deployment record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
 
 ### Phase 2D data and budget integration
 

@@ -2406,3 +2406,104 @@ scope its cdk-nag acknowledgements with `requires_service`, as 3E established.
 Console read of the budget and its three alerts, plus read-only re-checks of
 account BPA, alarms, analyzer findings, CloudTrail delivery, and access-log
 freshness. Wiki index rebuilt, `make wiki-lint`, and a sensitive-value scan.
+## [2026-07-30] ingest | AWS security hardening Phase 2E implementation and deployment — July 30, 2026
+
+Registered immutable source `raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md`.
+
+
+## [2026-07-30] implement | AWS security hardening Phase 2E
+
+### Objective
+
+Stop the `mlops-dev-security-unauthorized-api-calls` alarm paging on isolated
+least-privilege denials, and let the security auditor read the audit log it
+audits — options 3 and 2 of GitHub issue 10, the complementary,
+non-coverage-reducing pair. Option 1 (narrowing the filter) was rejected
+because genuine reconnaissance often looks exactly like denied `List*` calls.
+
+### Scope
+
+`infra/stacks/security_stack.py` (new frozen `SecurityDetection` dataclass;
+3-of-3 evaluation for `UnauthorizedApiCalls` only), `tests/unit/test_stacks.py`
+(per-alarm evaluation expectations), and `.env.example` (`AUDIT_KEY_ID`
+placeholder). The `Mlops-Dev-Security` stack only. Pull request 14 on branch
+`issue/10-unauthorized-api-calls-alarm-tuning`, commit `0028146`. The auditor
+grant is a hand-managed inline policy outside CDK; no other stack, no policy
+version rotation, no production change.
+
+### Identity and environment
+
+Dev account, `us-east-1`. The pre-flight and all verification used the
+least-privilege auditor profile, read-only. The two mutating steps were
+`make deploy-stack` with `${MLOPS_DEPLOYER_USER_NAME}` and one
+`iam put-user-policy` with `${AWS_ADMIN_USER_NAME}` — a deliberate recorded
+admin action, distinct from the break-glass escalation declined on 07-24.
+Budget reads also used `${AWS_ADMIN_USER_NAME}` because `budgets:ViewBudget`
+remains outside the auditor scope; that known denial was deliberately not
+re-triggered.
+
+### Commands and results
+
+Pre-flight (auditor, read-only): all six alarms at `EvaluationPeriods 1`,
+`Threshold 1.0`, `Period 300`, `OK`; alarm history showed ten
+fire/auto-resolve cycles for `unauthorized-api-calls` between 07-28 and
+07-30 — worse than the three 07-24 fires that opened the issue; trail
+logging with no delivery error. The denial baseline at 23:46:17 UTC
+(`logs:FilterLogEvents` → `AccessDeniedException`) emitted one matching
+event and tripped the still-live 1-of-1 alarm: the accepted, timestamped
+artifact demonstrating the loop being fixed.
+
+Gates: `make lint` (49 files), `make typecheck` (34 files, zero errors),
+`make test` (71 passed, IAM fingerprint baseline unmodified),
+`make security`. Reviewed `make diff-stack STACK=Mlops-Dev-Security`:
+exactly one modified resource — `UnauthorizedApiCallsAlarm`,
+`EvaluationPeriods 1→3`, `DatapointsToAlarm 3` added.
+
+Deploy at 23:49:42 UTC reached `UPDATE_COMPLETE`; resource-level
+`make verify-deploy SINCE=2026-07-30` attributed the update to the single
+resource `UnauthorizedApiCallsAlarmDEEEB676`; the post-deploy diff reported
+no differences. At 23:50:14 the alarm went `ALARM → OK` as the new 3-of-3
+evaluation absorbed the pre-flight artifact.
+
+Grant at 23:51:11 UTC: inline policy `mlops-dev-auditor-audit-log-read`
+(`logs:FilterLogEvents` on the audit log group; `kms:Decrypt` on
+`${AUDIT_KEY_ID}` confined by the log-group encryption context, required
+because the group is CMK-encrypted). The `PutUserPolicy` paged
+`IamPolicyChanges` exactly once at 23:52:21 — live proof of that detection.
+The auditor's `filter-log-events --limit 1` then succeeded, exercising both
+statements.
+
+Live checks: six alarms `OK`; the tuned alarm live-confirmed at 3-of-3; no
+unauthorized-api-calls fire after the deploy; `/predict` HTTP 200 with the
+unchanged `churn`/`churn_probability` contract; trail logging without error;
+the `$20.00` budget `${MONTHLY_BUDGET_NAME}` intact with 50/80/100 alerts.
+
+### Interpretation
+
+The tuning and the grant attack the two halves of the issue: an isolated
+denial can no longer page (the pre-flight artifact resolved 32 seconds after
+deploy), while a burst sustained across three consecutive five-minute
+datapoints still does; and the auditor can now attribute a fire from the
+audit log instead of generating a second denial by trying. Sequencing the
+grant after the deploy meant any stray denial around the grant window could
+no longer page. The one `IamPolicyChanges` page was predicted, timestamped,
+and doubles as a live detection test.
+
+### Decision and next checkpoint
+
+Phase 2E is implemented, deployed, and verified. The observation window is
+open and closes in a later session once the alarm has stayed silent on
+routine auditor activity with no missed sustained-burst detection, the six
+alarms remain healthy, the auditor read still works, and the budget is
+unchanged. Issue 10 and pull request 14 stay open until that closure. The
+Phase 2C detection contract remains a stable interface; Phase 2E is the
+precedent that revising one takes a full gated sub-phase.
+
+### Verification
+
+`make lint` (49 files), `make typecheck` (34 files, zero errors),
+`make test` (71 passed), `make security`, reviewed named diff, resource-level
+`make verify-deploy`, post-deploy no-difference diff, auditor read-back of
+the new policy and successful audit-log read, live alarm/endpoint/trail/
+budget checks, wiki index rebuilt, `make wiki-lint`, and a sensitive-value
+scan before handoff.

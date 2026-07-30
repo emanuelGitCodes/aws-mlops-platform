@@ -2,8 +2,8 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-07-24"
-sources: ["../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+updated: "2026-07-30"
+sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -96,6 +96,18 @@ the boundary.
   [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md)
   and the
   [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
+- **Phase 2E: complete; observation open.** The `unauthorized-api-calls`
+  alarm now requires three consecutive breaching five-minute datapoints
+  (`EvaluationPeriods 3`, `DatapointsToAlarm 3`) after ten isolated-denial
+  fire/auto-resolve cycles in three days — most from the security auditor's
+  own correct least-privilege denials (issue 10). The gated deployment
+  modified exactly one resource; filters, thresholds, and the other five
+  alarms are unchanged, and the IAM fingerprint baseline passed unmodified.
+  A companion out-of-band admin action granted the hand-managed auditor
+  `logs:FilterLogEvents` on the audit log group plus encryption-context-scoped
+  `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
+  `IamPolicyChanges` exactly once, live-proving that detection. See the
+  [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
 - **Phase 3-prep: complete.** Six all-false `security.services` enablement
   flags, an empty flag-gated `Mlops-Dev-SecurityMonitoring` stack
   (`CREATE_COMPLETE`, metadata only), and execution policy `v7` with the
@@ -176,6 +188,12 @@ the boundary.
   enabled in configuration while creating nothing in the account. A flag joins
   `IMPLEMENTED_SERVICE_FLAGS` in the same change that implements its
   sub-phase.
+- The Phase 2C detection contract is a stable interface, and Phase 2E is the
+  precedent for revising one: the change went through the full gated
+  sub-phase — pre-flight baseline, tests, reviewed named diff, scoped
+  deployment, resource-level verification, live checks, and an observation
+  window — rather than a drive-by edit, exactly as the 07-24 finding
+  required.
 
 ### Next checkpoint
 
@@ -187,6 +205,12 @@ budget confirmed intact with its three 50/80/100 alerts unexceeded at
 `$0.00` actual spend. Provenance was already settled: CloudTrail attributes
 the single `PutAccountPublicAccessBlock` call to the provider role, not a
 human. Sub-phase 3E is therefore clear for its go decision.
+
+The Phase 2E observation window opened on 2026-07-30. It closes in a later
+session once the `unauthorized-api-calls` alarm has stayed silent on routine
+auditor activity with no missed sustained-burst detection, the six alarms
+remain healthy, the auditor's audit-log read still works, and the `$20`
+budget is unchanged. Issue 10 stays open until that closure.
 
 Sub-phase 3C (AWS Config) follows the 3E go/no-go, and its gated deployment
 doubles as the Free-plan availability test with minimally scoped recording.

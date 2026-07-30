@@ -83,13 +83,18 @@ the maintained roadmap is the
   deployment timestamp, attributed to the CloudFormation-created provider role
   rather than to any human identity. The setting was therefore applied through
   the gated path, not the console.
-- One verification remains blocked by the least-privilege auditor identity and
-  is a gap rather than a pass: `budgets:ViewBudget` is denied, so the `$20`
-  budget was confirmed only indirectly through the Data stack showing no
-  resource change in `verify-deploy`.
-- The observation window is open. The 3E go/no-go needs a fresh access-log
-  object delivered after the deployment, CloudTrail delivery advancing again,
-  the six alarms still `OK`, unchanged daily cost, and no new analyzer finding.
+- Both verification gaps are now closed, and the observation window with them.
+  The budget was confirmed on 2026-07-30 from the Billing console under an
+  identity that holds `budgets:ViewBudget`, since the auditor profile does not:
+  `${MONTHLY_BUDGET_NAME}` is a `$20.00` monthly cost budget with exactly the
+  three 50/80/100 percent actual-cost alerts, all reporting not exceeded. Spend
+  was `$0.00` actual against a `$0.08` month-to-date forecast, which also settles
+  the unchanged-cost criterion — account BPA is a free control.
+- The remaining observation criteria were satisfied by elapsed evidence rather
+  than by a single check: access-log objects delivered on 2026-07-28 and
+  2026-07-30, well after the deployment; CloudTrail delivery advancing with no
+  error; the six security alarms still `OK`; and the analyzer still `ACTIVE`
+  with zero active findings.
 - The custom resource's physical id embeds the environment name while the
   setting it manages is account-wide, so a future prod rollout in the same
   account would put two CloudFormation resources in contention over one setting.

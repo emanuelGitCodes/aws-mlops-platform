@@ -2349,3 +2349,60 @@ The `$20` budget remains the one verification the auditor identity cannot
 perform, since `budgets:ViewBudget` is denied to it. It stays open for the
 observation window; `verify-deploy` showing no resource change in the Data
 stack that owns the budget is indirect evidence only.
+
+## [2026-07-30] verify | Phase 3E observation window closed
+
+### Objective
+
+Close the last open 3E verification — the `$20` budget — and confirm the
+remaining observation criteria after six days of elapsed evidence.
+
+### Identity and environment
+
+Dev account, `us-east-1`. The budget was read from the Billing and Cost
+Management console under an identity holding `budgets:ViewBudget`; the
+least-privilege `mlops-security-auditor` profile is denied that action, which is
+why the check could not be completed at deployment time. All other checks were
+read-only auditor calls.
+
+### Commands and results
+
+`${MONTHLY_BUDGET_NAME}` is a `$20.00` monthly cost budget starting 2026-07-01
+with no end date, health `Healthy`, and exactly three actual-cost alerts at 50%
+(`$10.00`), 80% (`$16.00`), and 100% (`$20.00`), all reporting not exceeded.
+Spend was `$0.00` actual with a `$0.08` month-to-date forecast. This matches
+`budget_usd: 20` and `budget_thresholds: [50, 80, 100]` in
+`infra/config/dev.yaml`, so the Phase 2D configuration is intact and untouched
+by 3E.
+
+Re-checked the same day: account BPA still reports all four settings `true`; the
+six `mlops-dev-security-*` alarms are `OK`; the analyzer is `ACTIVE` with zero
+active findings; CloudTrail is logging with no delivery error; and access-log
+objects were delivered on 2026-07-28 and 2026-07-30, both well after the
+2026-07-24 deployment.
+
+### Interpretation
+
+The near-zero spend is itself the evidence for the unchanged-cost criterion.
+Account-level Block Public Access carries no charge, so a 3E-attributable cost
+increase would have been a signal that something other than the intended control
+was created.
+
+The budget gap was never a fault in the phase, only a boundary of the identity
+used to verify it. Recording it as a gap rather than a pass was correct: the
+auditor cannot see budgets, and asserting the budget was fine on the strength of
+`verify-deploy` showing no change to the owning stack would have been an
+inference presented as an observation.
+
+### Decision and next checkpoint
+
+Every 3E observation criterion is met and the sub-phase is clear for its go
+decision. Pull request 13 remains open and unmerged, and the deployed dev state
+already matches it. Sub-phase 3C (AWS Config) follows the go decision and must
+scope its cdk-nag acknowledgements with `requires_service`, as 3E established.
+
+### Verification
+
+Console read of the budget and its three alerts, plus read-only re-checks of
+account BPA, alarms, analyzer findings, CloudTrail delivery, and access-log
+freshness. Wiki index rebuilt, `make wiki-lint`, and a sensitive-value scan.

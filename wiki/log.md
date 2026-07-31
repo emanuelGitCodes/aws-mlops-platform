@@ -2507,3 +2507,87 @@ precedent that revising one takes a full gated sub-phase.
 the new policy and successful audit-log read, live alarm/endpoint/trail/
 budget checks, wiki index rebuilt, `make wiki-lint`, and a sensitive-value
 scan before handoff.
+
+## [2026-07-30] implement | Prod synthesis unblocked; the cdk-nag gate covers both environments
+
+### Objective
+
+Make `make synth ENV=prod` succeed. It failed at `apply_security_checks`, so
+production had never synthesized and the documented dev → manual gate → prod
+promotion path could not have reached a prod deploy. Noted as a pre-existing
+"stage-name reason" in the Phase 3E record and not tracked by any issue.
+
+### Scope
+
+`infra/security_checks.py` (six environment-specific literals replaced with
+`{env}`/`{prefix}` tokens; new `_resolve` and `resolved_acknowledgements`;
+`apply_security_checks` takes the stack prefix), `infra/app.py` (new
+`stack_prefix`), `tests/unit/test_stacks.py` (both-environment build test and
+an unresolved-token guard), `Makefile` and `.github/workflows/ci.yml` (new
+`synth-all`), and the `CLAUDE.md`/`AGENTS.md` command tables. Branch
+`fix/prod-synth-env-scoped-acknowledgements`, commit `7537910`. No stack, no
+deployed resource, and no AWS call — synthesis only.
+
+### Identity and environment
+
+None. Every command was local and offline; `cdk synth --no-lookups` contacts
+no account. No profile was assumed.
+
+### Commands and results
+
+`make synth ENV=prod` raised `ValueError: security acknowledgement path
+'Mlops-Prod-Serving/ChurnApi/DeploymentStage.dev' matched 0 constructs`. The
+API stage is named from `config["env_name"]` in `serving_stack.py`, while the
+acknowledgement hardcoded `.dev`.
+
+That path proved to be one of six environment-specific literals. The other
+five are finding ids embedding the audit log group (`mlops-dev-audit`, itself
+built as `mlops-{env_name}-audit`) and four cross-stack export names
+(`Mlops-Dev-Data:ExportsOutput...`). Fixing only the construct path moves the
+failure from `_construct_at` to cdk-nag rather than removing it. After
+tokenising all six, both environments synthesized; dev resolves to
+byte-identical strings and was confirmed unchanged. The CDK export hashes
+(`RawBucket0C3EE094ArnD2F95F99`) are stable across stack names — established
+empirically by prod synth accepting them, not assumed.
+
+Each break was then reintroduced one at a time to test the test. Reverting the
+construct path failed `test_every_environment_builds_under_its_real_prefix`
+for `prod` and passed for `dev`, as intended. Reverting the five finding ids
+passed — and so did an `Annotations.from_stack(...).find_error(...)` assertion
+added to catch them. The CLI, by contrast, reported four `AwsSolutions-IAM5`
+errors and `Synthesis finished with errors`.
+
+### Interpretation
+
+cdk-nag reports unacknowledged findings through the CDK CLI validation report,
+not as construct annotations, so in-process `app.synth()` returns cleanly with
+five of the six literals wrong. The module docstring's promise that new
+findings "fail synthesis" holds only for the CLI. The `Annotations` assertion
+was removed rather than kept: an assertion that never fires is worse than none,
+because it manufactures exactly the confidence it fails to earn.
+
+The root cause of the defect surviving unnoticed is the gate, not the literal.
+CI synthesized `env=dev` only, and inlined the command instead of calling the
+Makefile target — which is how the CI gate and the documented gate drifted
+apart. An acknowledgement whose path or finding id embeds the environment can
+only ever fail for the environment it was written against.
+
+### Decision and next checkpoint
+
+`make synth-all` synthesizes both environments and is now what CI and
+`make security` run; `make security` is correspondingly slower, an accepted
+cost for closing a hole in the security gate. The both-environment test is
+documented as covering `construct_path` only, with `synth-all` named as the
+gate for `finding_id`, so the split is explicit rather than assumed.
+
+Prod is synthesizable but still unproven beyond synthesis: no prod stack has
+ever been deployed, and every Phase 3 service flag in `prod.yaml` stays false.
+This changes nothing about the Phase 2E observation window or the 3C gate.
+
+### Verification
+
+`make lint` (49 files), `make typecheck` (34 files, zero errors), `make test`
+(75 passed, up from 71), `make security` (lock-check, pip-audit clean, dev and
+prod synth). Anti-duplication check on `stack_prefix`, `_resolve`, and
+`resolved_acknowledgements` found no existing equivalents. Both failure modes
+were verified by reintroducing them; the diff was re-read before commit.

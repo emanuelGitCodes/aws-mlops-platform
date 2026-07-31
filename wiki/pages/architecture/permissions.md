@@ -2,8 +2,8 @@
 type: architecture
 title: AWS resource and permission boundaries
 created: "2026-07-10"
-updated: "2026-07-12"
-sources: ["../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md"]
+updated: "2026-07-30"
+sources: ["../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md"]
 summary: "Runtime roles are separated by component, while the phased hardening roadmap removes the remaining broad SageMaker policies one role at a time."
 ---
 # AWS resource and permission boundaries
@@ -24,6 +24,19 @@ summary: "Runtime roles are separated by component, while the phased hardening r
 The platform separates resource ownership from runtime authority. CDK defines durable resources and wiring, while each Lambda or SageMaker role is the narrow actor at one boundary. This is why the public API never receives direct `sagemaker:InvokeEndpoint` access and why the [ingestion path](data-and-ingestion.md) can fail independently of serving.
 
 These runtime boundaries are separate from the human deployment boundary. The `${MLOPS_DEPLOYER_USER_NAME}` identity assumes CDK bootstrap roles, while CloudFormation uses its own execution role to apply the templates. See [CDK deployment identity and bootstrap boundary](cdk-deployment-iam.md) for the control-plane flow and its verification checkpoints.
+
+A third human boundary is the read-only investigation identity,
+`${AWS_SECURITY_AUDITOR_USER_NAME}`. It performs pre-flight baselines and
+post-deploy verification without mutation rights, and since Phase 2E it also
+holds the hand-managed inline policy `mlops-dev-auditor-audit-log-read`:
+`logs:FilterLogEvents` on the `/aws/cloudtrail/mlops-dev-audit` log group plus
+`kms:Decrypt` on the audit key, confined by the log-group encryption context.
+This lets the auditor attribute a security-alarm fire from the audit trail
+instead of generating a fresh denial by trying. Like the identity itself, the
+policy is deliberately managed outside CDK — human identities stay out of the
+stacks — and any change to it is an explicit recorded `${AWS_ADMIN_USER_NAME}`
+action. `budgets:ViewBudget` remains outside the auditor scope. See the
+[Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
 
 The [phased security hardening roadmap](phased-security-hardening.md) preserves
 these component boundaries while replacing broad SageMaker managed policies.

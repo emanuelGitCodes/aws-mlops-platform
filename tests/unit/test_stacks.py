@@ -11,8 +11,8 @@ import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Match, Template
 
-from infra.app import build_app, load_config
-from infra.security_checks import ACKNOWLEDGEMENTS
+from infra.app import build_app, load_config, stack_prefix
+from infra.security_checks import resolved_acknowledgements
 from infra.stacks.security_monitoring_stack import (
     IMPLEMENTED_SERVICE_FLAGS,
     PHASE_3_SERVICE_FLAGS,
@@ -629,8 +629,9 @@ def test_registry_and_training(stacks):
 
 def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
     """Every accepted finding is attached to one real construct and a future phase."""
-    assert ACKNOWLEDGEMENTS
-    for acknowledgement in ACKNOWLEDGEMENTS:
+    acknowledgements = resolved_acknowledgements(CONFIG["env_name"], "Test")
+    assert acknowledgements
+    for acknowledgement in acknowledgements:
         stack = stack_constructs[acknowledgement.stack]
         expected_path = f"{stack.node.path}/{acknowledgement.construct_path}"
         matches = [node for node in stack.node.find_all() if node.node.path == expected_path]
@@ -644,6 +645,37 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
             and entry.data.get(metadata_key) == acknowledgement.reason
             for entry in target.node.metadata
         ), metadata_key
+
+
+@pytest.mark.parametrize("env_name", ["dev", "prod"])
+def test_every_environment_builds_under_its_real_prefix(env_name):
+    """Both environments must build under the stack prefix the app really uses.
+
+    `prod` was unbuildable because an acknowledgement hardcoded dev's stage
+    name, so the CI promotion path could never have reached a prod deploy.
+
+    Scope: this covers `construct_path`, which `_construct_at` fails on
+    loudly. It does NOT cover `finding_id` — cdk-nag reports unacknowledged
+    findings through the CLI validation report, and in-process `app.synth()`
+    returns cleanly even when five of them are wrong. `make synth-all` is the
+    gate for those, which is why CI must synth both environments.
+    """
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    build_app(app, load_config(env_name), stack_prefix(env_name))
+    app.synth()
+
+
+@pytest.mark.parametrize("env_name", ["dev", "prod"])
+def test_acknowledgements_leave_no_unresolved_tokens(env_name):
+    """A mistyped token would silently stop matching instead of failing loudly."""
+    for acknowledgement in resolved_acknowledgements(env_name, stack_prefix(env_name)):
+        assert "{" not in acknowledgement.construct_path, acknowledgement
+        assert "{" not in acknowledgement.finding_id, acknowledgement
 
 
 def test_security_monitoring_enables_only_phase_3a_and_3e(stacks):

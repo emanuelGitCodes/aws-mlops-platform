@@ -1,6 +1,6 @@
-.PHONY: install lock-check lint typecheck test audit synth security check-stack \
-	diff-stack deploy-stack deploy destroy verify-deploy wiki-init wiki-index \
-	wiki-search wiki-ingest wiki-lint
+.PHONY: install lock-check lint typecheck test audit synth synth-all security \
+	check-stack diff-stack deploy-stack deploy destroy verify-deploy wiki-init \
+	wiki-index wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -27,7 +27,14 @@ audit:
 synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups
 
-security: lock-check audit synth
+# The authoritative cdk-nag gate. An acknowledgement whose construct path or
+# finding id embeds the environment only fails for the environment it was
+# written against, so a dev-only synth let prod stay unbuildable unnoticed.
+synth-all:
+	$(MAKE) synth ENV=dev
+	$(MAKE) synth ENV=prod
+
+security: lock-check audit synth-all
 
 check-stack:
 	@test -n "$(STACK)" || \

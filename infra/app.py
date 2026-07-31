@@ -33,6 +33,15 @@ def load_config(env_name: str) -> PlatformConfig:
     return cast(PlatformConfig, yaml.safe_load(path.read_text()))
 
 
+def stack_prefix(env_name: str) -> str:
+    """Stack-name prefix for one environment.
+
+    Single source of the formula, shared by the deploy entrypoint and the
+    tests, so a test can never assert against a prefix the app never builds.
+    """
+    return f"Mlops-{env_name.capitalize()}"
+
+
 def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cdk.Stack]:
     """Instantiate and wire every stack, then apply the security checks.
 
@@ -89,14 +98,14 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         "serving": serving,
         "monitoring": monitoring,
     }
-    apply_security_checks(app, stacks, config)
+    apply_security_checks(app, stacks, config, prefix)
     return stacks
 
 
 def main() -> None:
     app = cdk.App()
     env_name = app.node.try_get_context("env") or "dev"
-    build_app(app, load_config(env_name), f"Mlops-{env_name.capitalize()}")
+    build_app(app, load_config(env_name), stack_prefix(env_name))
     app.synth()
 
 

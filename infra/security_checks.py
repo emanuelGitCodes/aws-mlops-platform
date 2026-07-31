@@ -5,13 +5,21 @@ or re-evaluates it. New resources and new findings therefore fail synthesis
 instead of inheriting a stack-wide suppression.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import aws_cdk as cdk
 from cdk_nag import AwsSolutionsChecks
 from constructs import IConstruct
 
 from infra.stacks.shared import PlatformConfig
+
+# Acknowledgement strings that name a deployment stage, the audit log group, or
+# a cross-stack export embed the environment, so they cannot be written as dev
+# literals shared by every environment. Write these tokens instead; they are
+# resolved per environment by `resolved_acknowledgements`. Plain `str.replace`
+# rather than `str.format`, so a brace in a future reason string is inert.
+ENV_TOKEN = "{env}"
+PREFIX_TOKEN = "{prefix}"
 
 
 @dataclass(frozen=True)
@@ -52,7 +60,7 @@ ACKNOWLEDGEMENTS = (
         "CloudTrailLogsRole/DefaultPolicy",
         (
             "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:logs:<AWS::Region>:"
-            "<AWS::AccountId>:log-group:/aws/cloudtrail/mlops-dev-audit:log-stream:*]"
+            "<AWS::AccountId>:log-group:/aws/cloudtrail/mlops-{env}-audit:log-stream:*]"
         ),
         "Phase 2 CloudTrail delivery requires the generated log-stream suffix under one group.",
     ),
@@ -130,8 +138,8 @@ ACKNOWLEDGEMENTS = (
             "Object access is limited to one imported bucket; replace with a Phase 5 policy.",
         )
         for resource in (
-            "Mlops-Dev-Data:ExportsOutputFnGetAttRawBucket0C3EE094ArnD2F95F99/*",
-            "Mlops-Dev-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
+            "{prefix}-Data:ExportsOutputFnGetAttRawBucket0C3EE094ArnD2F95F99/*",
+            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
         )
     ),
     Acknowledgement(
@@ -176,8 +184,8 @@ ACKNOWLEDGEMENTS = (
             "Object wildcard is limited to an imported workload bucket; replace in Phase 5.",
         )
         for resource in (
-            "Mlops-Dev-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
-            "Mlops-Dev-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*",
+            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
+            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*",
         )
     ),
     # Serving IAM debt and current API controls are removed in Phases 5-8.
@@ -205,7 +213,7 @@ ACKNOWLEDGEMENTS = (
     Acknowledgement(
         "serving",
         "ModelExecutionRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::Mlops-Dev-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*]",
+        "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*]",
         "Object wildcard is limited to artifacts; use a read-only model prefix in Phase 5.",
     ),
     *(
@@ -259,7 +267,7 @@ ACKNOWLEDGEMENTS = (
     *(
         Acknowledgement(
             "serving",
-            "ChurnApi/DeploymentStage.dev",
+            "ChurnApi/DeploymentStage.{env}",
             finding,
             reason,
         )
@@ -318,6 +326,26 @@ ACKNOWLEDGEMENTS = (
 )
 
 
+def _resolve(text: str, env_name: str, prefix: str) -> str:
+    return text.replace(ENV_TOKEN, env_name).replace(PREFIX_TOKEN, prefix)
+
+
+def resolved_acknowledgements(env_name: str, prefix: str) -> tuple[Acknowledgement, ...]:
+    """`ACKNOWLEDGEMENTS` with the environment and stack-prefix tokens filled in.
+
+    The single place tokens are resolved, shared by `apply_security_checks` and
+    the tests, so the two can never disagree about what a path resolves to.
+    """
+    return tuple(
+        replace(
+            acknowledgement,
+            construct_path=_resolve(acknowledgement.construct_path, env_name, prefix),
+            finding_id=_resolve(acknowledgement.finding_id, env_name, prefix),
+        )
+        for acknowledgement in ACKNOWLEDGEMENTS
+    )
+
+
 def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
     expected = f"{stack.node.path}/{relative_path}"
     matches = [construct for construct in stack.node.find_all() if construct.node.path == expected]
@@ -329,13 +357,13 @@ def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
 
 
 def apply_security_checks(
-    app: cdk.App, stacks: dict[str, cdk.Stack], config: PlatformConfig
+    app: cdk.App, stacks: dict[str, cdk.Stack], config: PlatformConfig, prefix: str
 ) -> None:
     """Register exact existing acknowledgements, then fail on any new finding."""
     # Collected by name, because a TypedDict cannot be indexed by a flag name
     # that is only known at runtime.
     enabled = {name for name, on in config["security"]["services"].items() if on}
-    for acknowledgement in ACKNOWLEDGEMENTS:
+    for acknowledgement in resolved_acknowledgements(config["env_name"], prefix):
         if acknowledgement.requires_service and acknowledgement.requires_service not in enabled:
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)

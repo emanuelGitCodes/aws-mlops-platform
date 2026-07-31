@@ -31,11 +31,8 @@ jobs:
           aws-region: us-east-1
       - name: Deploy
         run: cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=dev --require-approval never
-      - name: Smoke test
-        run: |
-          URL=$(aws cloudformation describe-stacks --stack-name Mlops-Dev-Serving \
-            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
-          echo "API: $URL"
+      - name: Smoke test the deployed API
+        run: make smoke ENV=dev
 
   deploy-prod:
     needs: deploy-dev
@@ -61,3 +58,5 @@ jobs:
           aws-region: us-east-1
       - name: Deploy
         run: cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=prod --require-approval never
+      - name: Smoke test the deployed API
+        run: make smoke ENV=prod

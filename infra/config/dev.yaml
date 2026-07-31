@@ -1,4 +1,7 @@
 env_name: dev
+# Unsuffixed because this group already holds deployed model lineage; renaming
+# it would replace the group. Every other environment must pick a distinct
+# name — see the note in prod.yaml.
 model_package_group: churn-model-group
 model_approval_status: Approved   # auto-approve challengers in dev
 endpoint_name: churn-serverless-dev

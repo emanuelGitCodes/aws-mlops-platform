@@ -10,8 +10,10 @@ from typing import Any
 
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_cloudwatch as cw
+from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_sns as sns
 from constructs import Construct
 
 from infra.stacks.shared import PlatformConfig, platform_lambda, sagemaker_event_rule
@@ -19,7 +21,13 @@ from infra.stacks.shared import PlatformConfig, platform_lambda, sagemaker_event
 
 class MonitoringStack(Stack):
     def __init__(
-        self, scope: Construct, construct_id: str, *, config: PlatformConfig, **kwargs: Any
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        alert_topic: sns.ITopic,
+        config: PlatformConfig,
+        **kwargs: Any,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -107,10 +115,14 @@ class MonitoringStack(Stack):
             ),
         )
 
-        cw.Alarm(
+        endpoint_5xx_alarm = cw.Alarm(
             self,
             "Endpoint5xxAlarm",
+            alarm_name=f"mlops-{config['env_name']}-endpoint-5xx",
             metric=_sm_metric("Invocation5XXErrors", "Sum", period=Duration.minutes(5)),
             threshold=5,
             evaluation_periods=1,
         )
+        # Without an action this alarm only changes colour in the console. It
+        # delivers to the same operator topic as the Phase 2 security alarms.
+        endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))

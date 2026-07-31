@@ -21,7 +21,8 @@ Use the Makefile targets — do not invent your own invocations.
 | `make typecheck` | mypy over `src/`, `infra/`, `scripts/` |
 | `make test` | pytest `tests/unit` |
 | `make synth` | CDK synth (`npx aws-cdk@2.1130.0`, `ENV=dev` default) |
-| `make security` | lock-check + pip-audit + synth |
+| `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
+| `make security` | lock-check + pip-audit + synth-all |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
 | `make verify-deploy` | What a deploy actually changed, per resource |
 

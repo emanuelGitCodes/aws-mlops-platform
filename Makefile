@@ -1,6 +1,6 @@
-.PHONY: install lock-check lint typecheck test audit synth security check-stack \
-	diff-stack deploy-stack deploy destroy verify-deploy wiki-init wiki-index \
-	wiki-search wiki-ingest wiki-lint
+.PHONY: install lock-check lint typecheck test audit synth synth-all security \
+	check-stack diff-stack deploy-stack deploy destroy verify-deploy smoke \
+	wiki-init wiki-index wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -27,7 +27,14 @@ audit:
 synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups
 
-security: lock-check audit synth
+# The authoritative cdk-nag gate. An acknowledgement whose construct path or
+# finding id embeds the environment only fails for the environment it was
+# written against, so a dev-only synth let prod stay unbuildable unnoticed.
+synth-all:
+	$(MAKE) synth ENV=dev
+	$(MAKE) synth ENV=prod
+
+security: lock-check audit synth-all
 
 check-stack:
 	@test -n "$(STACK)" || \
@@ -52,6 +59,32 @@ destroy:
 verify-deploy:
 	uv run --locked --extra dev python scripts/verify_deployment.py \
 		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")
+
+# Post-deploy check against the live API. tests/integration skips itself when
+# API_URL/API_KEY are unset, so every value is resolved and asserted here: a
+# missing output must fail the run, not silently reduce it to zero tests.
+smoke:
+	@set -eu; \
+	prefix=$$(uv run --locked --extra dev python -c \
+		'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))'); \
+	stack="$$prefix-Serving"; \
+	stack_output() { \
+		aws cloudformation describe-stacks --stack-name "$$stack" \
+			--query "Stacks[0].Outputs[?OutputKey=='$$1'].OutputValue" \
+			--output text; \
+	}; \
+	require() { \
+		test -n "$$2" -a "$$2" != "None" || \
+			{ echo "$$stack: no $$1" >&2; exit 1; }; \
+	}; \
+	url=$$(stack_output ApiUrl); require ApiUrl "$$url"; \
+	key_id=$$(stack_output ApiKeyId); require ApiKeyId "$$key_id"; \
+	api_key=$$(aws apigateway get-api-key --api-key "$$key_id" \
+		--include-value --query value --output text); \
+	require "value for API key $$key_id" "$$api_key"; \
+	echo "smoke testing $$url"; \
+	API_URL="$$url" API_KEY="$$api_key" \
+		uv run --locked --extra dev pytest tests/integration -q
 
 wiki-init:
 	python3 scripts/wiki.py init

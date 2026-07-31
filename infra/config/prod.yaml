@@ -1,5 +1,11 @@
 env_name: prod
-model_package_group: churn-model-group
+# Must differ from every other environment's group. Stacks are environment-
+# agnostic (no `env=cdk.Environment`), so dev and prod land in the same
+# account: a shared name means the second RegistryStack cannot create the
+# group, and both ServingStacks' approval rules match the same events — a
+# dev-auto-approved challenger would deploy itself to the prod endpoint.
+# Dev keeps the unsuffixed name because it already holds deployed lineage.
+model_package_group: churn-model-group-prod
 model_approval_status: PendingManualApproval
 endpoint_name: churn-serverless-prod
 pipeline_name: churn-training-pipeline-prod

@@ -124,3 +124,6 @@ class ServingStack(Stack):
 
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))
         CfnOutput(self, "EndpointName", value=endpoint_name)
+        # Id only — the key value is never a stack output. `make smoke` and
+        # operators resolve it with `apigateway get-api-key --include-value`.
+        CfnOutput(self, "ApiKeyId", value=key.key_id)

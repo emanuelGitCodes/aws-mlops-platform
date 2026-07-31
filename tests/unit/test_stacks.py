@@ -22,18 +22,27 @@ from infra.stacks.security_monitoring_stack import (
 CONFIG = load_config("dev")
 
 
-@pytest.fixture(scope="module")
-def stack_constructs() -> dict:
-    """All stacks built once; the construct tree can't change after first synth."""
+def synth_env(env_name: str, prefix: str) -> dict:
+    """Build and synth every stack for one environment.
+
+    The single place the test app context is configured, so a test can never
+    synthesize under different assumptions than the rest of the suite.
+    """
     app = cdk.App(
         context={
             "aws:cdk:bundling-stacks": [],
             "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
         }
     )
-    stacks = build_app(app, CONFIG, "Test")
+    stacks = build_app(app, load_config(env_name), prefix)
     app.synth()
     return stacks
+
+
+@pytest.fixture(scope="module")
+def stack_constructs() -> dict:
+    """All stacks built once; the construct tree can't change after first synth."""
+    return synth_env("dev", "Test")
 
 
 @pytest.fixture(scope="module")
@@ -619,12 +628,69 @@ def test_monitoring_drift_loop_wiring(stacks):
     template.resource_count_is("AWS::CloudWatch::Dashboard", 1)
     template.resource_count_is("AWS::CloudWatch::Alarm", 1)
 
+    # An alarm with no action only changes colour in the console. This one
+    # must page the same operator topic as the Phase 2 security alarms.
+    template.has_resource_properties(
+        "AWS::CloudWatch::Alarm",
+        {
+            "AlarmName": f"mlops-{CONFIG['env_name']}-endpoint-5xx",
+            "MetricName": "Invocation5XXErrors",
+            "AlarmActions": [{"Fn::ImportValue": Match.any_value()}],
+        },
+    )
+
 
 def test_registry_and_training(stacks):
     stacks["registry"].has_resource_properties(
         "AWS::SageMaker::ModelPackageGroup",
         {"ModelPackageGroupName": CONFIG["model_package_group"]},
     )
+
+
+def _registry_group_name(stacks: dict) -> str:
+    """The physical model package group name one environment synthesizes."""
+    resources = Template.from_stack(stacks["registry"]).find_resources(
+        "AWS::SageMaker::ModelPackageGroup"
+    )
+    assert len(resources) == 1
+    name: str = next(iter(resources.values()))["Properties"]["ModelPackageGroupName"]
+    return name
+
+
+def _approval_rule_patterns(stacks: dict) -> list[dict]:
+    """Every registry-approval EventBridge pattern in one environment's serving stack."""
+    rules = Template.from_stack(stacks["serving"]).find_resources("AWS::Events::Rule")
+    return [
+        rule["Properties"]["EventPattern"]
+        for rule in rules.values()
+        if "ModelPackageGroupName" in json.dumps(rule["Properties"]["EventPattern"])
+    ]
+
+
+def test_environments_never_share_a_model_package_group():
+    """Two environments must not resolve to the same physical registry group.
+
+    No stack sets `env=cdk.Environment`, so every environment deploys into
+    whatever account the credentials point at — in practice the same one.
+    A shared group name means the second RegistryStack cannot create the
+    group at all, and both ServingStacks' approval rules match identical
+    events: dev auto-approves challengers, so a dev retrain would deploy
+    itself onto the prod endpoint.
+    """
+    environments = {env: synth_env(env, stack_prefix(env)) for env in ("dev", "prod")}
+
+    group_names = {env: _registry_group_name(stacks) for env, stacks in environments.items()}
+    assert len(set(group_names.values())) == len(group_names), group_names
+
+    # The approval rules key off the group name, so distinct names must also
+    # leave no two environments listening to the same event.
+    patterns = [
+        json.dumps(pattern, sort_keys=True)
+        for stacks in environments.values()
+        for pattern in _approval_rule_patterns(stacks)
+    ]
+    assert len(patterns) == len(environments)
+    assert len(set(patterns)) == len(patterns), patterns
 
 
 def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
@@ -660,14 +726,7 @@ def test_every_environment_builds_under_its_real_prefix(env_name):
     returns cleanly even when five of them are wrong. `make synth-all` is the
     gate for those, which is why CI must synth both environments.
     """
-    app = cdk.App(
-        context={
-            "aws:cdk:bundling-stacks": [],
-            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
-        }
-    )
-    build_app(app, load_config(env_name), stack_prefix(env_name))
-    app.synth()
+    synth_env(env_name, stack_prefix(env_name))
 
 
 @pytest.mark.parametrize("env_name", ["dev", "prod"])

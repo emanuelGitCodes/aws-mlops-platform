@@ -86,7 +86,12 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         package_group_name=registry.package_group_name,
         config=config,
     )
-    monitoring = MonitoringStack(app, f"{prefix}-Monitoring", config=config)
+    monitoring = MonitoringStack(
+        app,
+        f"{prefix}-Monitoring",
+        alert_topic=security.alert_topic,
+        config=config,
+    )
 
     stacks = {
         "data": data,

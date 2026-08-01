@@ -2,118 +2,195 @@
 
 Agent instructions for this repository. Follow these exactly.
 
+This file is the single source. `CLAUDE.md` at the repo root is a symlink
+to it, so both paths always serve the same content — edit here, never
+there.
+
 ## Project overview
 
 Portfolio-grade MLOps reference platform on AWS: SageMaker Pipelines for
 training/evaluation, serverless inference behind API Gateway, and a
-drift-to-retrain loop, all defined in CDK. Python 3.12, dependencies managed
+drift→retrain loop — all defined in CDK. Python 3.12, dependencies managed
 with `uv`. The model (Telco churn, XGBoost) is deliberately simple; the
 engineering is the deliverable.
 
+Eight CDK stacks per environment, named `Mlops-<Env>-<Stack>` (the formula
+lives once in `stack_prefix()` in `infra/app.py`). Both environments deploy
+into the same account — stacks are environment-agnostic, with no
+`env=cdk.Environment` — which is why `dev.yaml` and `prod.yaml` must not
+share account-scoped names (model package group, budget).
+
 ## Commands
 
-Use the Makefile targets; do not invent your own invocations.
+Use the Makefile targets — do not invent your own invocations.
 
 | Command | What it does |
 |---|---|
-| `make install` | `uv sync --locked --extra dev` |
+| `make install` | `uv sync --locked --extra dev --extra pipeline` |
+| `make lock-check` | `uv lock --check` |
 | `make lint` | ruff check + format check |
-| `make typecheck` | mypy over `src/`, `infra/`, `scripts/` |
-| `make test` | pytest `tests/unit` |
+| `make typecheck` | mypy over `src/`, `infra/`, `scripts/` (both extras) |
+| `make test` | pytest `tests/unit` with coverage, enforced against the floor |
+| `make audit` | pip-audit over the locked dependencies |
 | `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
-| `make security` | lock-check + pip-audit + synth-all |
+| `make security` | lock-check + audit + synth-all |
+| `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
+| `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Single-stack diff/deploy |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
 | `make verify-deploy` | What a deploy actually changed, per resource |
+| `make smoke` | `tests/integration` against the deployed API (resolves URL + key from stack outputs) |
+| `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
+
+`ENV=dev|prod` selects the environment for every CDK target.
 
 Always run Python through `uv run --locked ...`. Never use bare `python`
 or `pip` for project code.
 
-## Code map: where things live
+## CI
+
+`.github/workflows/ci.yml` runs on every PR and push to `main`, and calls
+the Make targets rather than restating them: `install`, `lint`, `typecheck`,
+`test`, `wiki-lint`, `audit`, `synth-all` — plus a gitleaks scan of full
+history in a separate job. All are blocking.
+
+`.github/workflows/deploy.yml` is `workflow_dispatch` only: dev deploy +
+smoke, then a prod job gated on the GitHub `prod` environment's manual
+approval. Credentials come from OIDC role assumption; there are no
+long-lived AWS keys anywhere.
+
+## Code map — where things live
 
 Look here **before** writing anything new:
 
 | Path | Contents |
 |---|---|
-| `src/common/` | Shared code. `schema.py` (`CustomerRecord`), `features.py` (`FEATURE_COLUMNS`, `LABEL_COLUMN`). The **only** place for cross-module shared logic. |
+| `src/common/` | Shared code — the **only** place for cross-module shared logic. `features.py` owns the whole raw-value contract (`FEATURE_COLUMNS`, `LABEL_COLUMN`, `FEATURE_VOCABULARY`, encoding); `schema.py` is the Pydantic runtime contract (`CustomerRecord`); `events.py` is `log_event`, the one-JSON-line-per-event convention. |
 | `src/ingestion/` | Schema-validation Lambda (`validate_handler.py`) |
 | `src/serving/` | Endpoint-deploy Lambda (`deploy_handler.py`), inference proxy Lambda (`proxy_handler.py`) |
-| `src/pipeline/` | Preprocess, evaluate, and pipeline definition for SageMaker |
-| `infra/stacks/` | One CDK stack per file (data, ingestion, training, registry, serving, monitoring, security) |
+| `src/monitoring/` | Retrain Lambda (`retrain_handler.py`) — Model Monitor violation → new pipeline execution; the closing edge of the drift loop |
+| `src/pipeline/` | `preprocess.py`, `evaluate.py`, the pipeline definition (`pipeline.py`), and `evaluation_runtime/` (the FrameworkProcessor entrypoint) |
+| `infra/app.py` | CDK entrypoint. `load_config()`, `stack_prefix()`, `build_app()` — the single source of the config loader, the stack-name formula, and the dependency graph; the tests import all three. |
+| `infra/security_checks.py` | cdk-nag gate plus every acknowledgement, each bound to one construct and naming the phase that removes it |
+| `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
-| `scripts/` | Operational CLIs (`evaluate_api.py`, `verify_deployment.py`, `wiki.py`, ...) |
-| `tests/unit/` | Mirrors source modules as `test_<module>.py` |
-| `wiki/` | Knowledge base governed by `wiki/AGENTS.md`; follow it for any wiki work. |
+| `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `setup_monitor.py`, `send_drift_traffic.py`, `wiki.py` |
+| `tests/unit/` | Mirrors source modules as `test_<module>.py`; `conftest.py` holds the session-scoped synthesized CDK app and the shared sample record |
+| `tests/integration/` | `make smoke` only — skips itself unless `API_URL`/`API_KEY` are set |
+| `telco/` | `telco.csv`, the raw dataset |
+| `wiki/` | Knowledge base — governed by `wiki/AGENTS.md`; follow it for any wiki work |
 
 ## Anti-duplication rules (mandatory)
 
-This codebase must not accumulate duplicate code. These rules are a required
-workflow, not suggestions.
+This codebase must not accumulate duplicate code. These rules are a
+required workflow, not suggestions.
 
-1. **Search before you write.** Before creating any function, class, constant,
-   or helper, search the repo for an existing implementation by likely names
-   and by domain keywords. Example: before writing feature-encoding logic,
-   search for `encode`, `feature`, and `FEATURE_COLUMNS`. State what you found
-   (or confirmed absent) before adding new code.
-2. **Reuse > extend > write new.** In that order: call the existing function
-   as-is; if it covers about 80% of the need, extend it with a parameter or
-   branch; only write new code when nothing close exists. Never write a
-   near-copy of an existing function.
-3. **Single source of truth for shared logic.** Logic needed by two or more
-   modules belongs in `src/common/`; never copy-paste it between handlers,
-   pipeline steps, or stacks. Schema and feature definitions must only ever
-   come from `src/common/schema.py` and `src/common/features.py`.
+1. **Search before you write.** Before creating any function, class,
+   constant, or helper, search the repo for an existing implementation —
+   by likely names *and* by domain keywords. Example: before writing
+   feature-encoding logic, grep for `encode`, `feature`, and
+   `FEATURE_COLUMNS`. State what you found (or confirmed absent) before
+   adding new code.
+2. **Reuse > extend > write new.** In that order: call the existing
+   function as-is; if it covers ~80% of the need, extend it with a
+   parameter or branch; only write new code when nothing close exists.
+   Never write a near-copy of an existing function.
+3. **Single source of truth for shared logic.** Logic needed by two or
+   more modules belongs in `src/common/` — never copy-pasted between
+   handlers, pipeline steps, or stacks. Schema and feature definitions
+   must only ever come from `src/common/schema.py` and
+   `src/common/features.py`.
 4. **No new files for code that fits an existing module.** Creating a new
    utility module requires a stated reason why no existing module fits.
-5. **Pre-finish duplication check.** Before declaring a task done, re-read the
-   diff. For every new function or constant added, verify no existing
-   equivalent exists anywhere in the repo. If a duplicate slipped in,
-   consolidate before finishing.
-6. **Modify, don't fork.** When changing behavior, update the existing function
-   and its call sites. Do not leave the old path in place and add a parallel
-   `_v2`, `_new`, or `foo2` variant.
+   Existing new-module reasons are written into the module docstrings —
+   match that bar.
+5. **Pre-finish duplication check.** Before declaring a task done, re-read
+   your diff. For every new function or constant you added, verify no
+   existing equivalent exists anywhere in the repo. If a duplicate slipped
+   in, consolidate before finishing.
+6. **Modify, don't fork.** When changing behavior, update the existing
+   function and its call sites. Do not leave the old path in place and add
+   a parallel `_v2`/`_new`/`foo2` variant.
 
 ## Conventions
 
-- Line length: target 80-90 characters (ruff's hard limit is 100, but stay
-  under 90). Python 3.12; ruff rules E, F, I, W, UP, B, ANN.
+- Line length: target 80–90 characters (ruff's hard limit is 100, but
+  stay under 90). Python 3.12; ruff rules E, F, I, W, UP, B, ANN, with
+  only ANN401 ignored (`**kwargs: Any` is honest for CDK/jsii passthrough).
 - **Every function in `src/`, `infra/`, and `scripts/` must be fully
-  annotated** - parameters and return. Enforced by `make typecheck` (mypy,
-  `disallow_untyped_defs`) and ruff's ANN rules, both blocking in CI. Prefer
-  builtin generics and PEP 604 unions (`list[dict[str, Any]]`, `str | None`);
-  never `typing.List`/`typing.Optional`. Parameterize generics - bare `dict`
-  is as good as unannotated. `tests/` is exempt.
-- The shape of `infra/config/*.yaml` is defined once, as `PlatformConfig` in
-  `infra/stacks/shared.py`. Thread that type through; do not re-type a config
-  parameter as a bare `dict`.
+  annotated** — parameters and return. Enforced by `make typecheck`
+  (mypy, `disallow_untyped_defs`) and ruff's ANN rules, both blocking in
+  CI. Prefer builtin generics and PEP 604 unions (`list[dict[str, Any]]`,
+  `str | None`); never `typing.List`/`typing.Optional`. Parameterize
+  generics — bare `dict` is as good as unannotated. `tests/` is exempt
+  from ANN and from mypy's `files` list.
+- The shape of `infra/config/*.yaml` is defined once, as `PlatformConfig`
+  in `infra/stacks/shared.py`. Thread that type through; do not re-type a
+  config parameter as a bare `dict`. `load_config()` in `infra/app.py` is
+  the one boundary where `yaml.safe_load`'s `Any` is narrowed.
 - `src/pipeline/` runs in the SageMaker managed image on an **older Python
   than 3.12**. Those modules keep `from __future__ import annotations` and
   must not use PEP 604 unions in runtime-evaluated positions.
-- Tests go in `tests/unit/` and mirror the source module they cover; run with
-  `make test`.
-- Never commit account-specific literals (account IDs, ARNs, endpoints). Use
-  placeholders in code and docs; real values live only in `.env`.
+- Tests go in `tests/unit/` and mirror the source module they cover; run
+  with `make test`. Coverage is measured on every run and enforced against
+  `fail_under` in `pyproject.toml` (currently **88**). That floor is a
+  ratchet: raise it when a phase lands, never lower it to make a red run
+  green.
+- `infra/cdk.out/` is build output, never source. It holds synthesized
+  Lambda bundles with vendored third-party packages, and is excluded from
+  mypy and from coverage — keep it out of any new tooling config too.
+- Never commit account-specific literals (account IDs, ARNs, endpoints).
+  Use placeholders in code and docs; real values live only in `.env`.
 
 ## Reporting what a deployment changed (mandatory)
 
-**Never state what a deployment changed based on a summary status.** A stack
-reaches `UPDATE_COMPLETE` even when CloudFormation resolved the template to a
-no-op and modified no resource at all. Asserting resource changes from stack
-status has already produced two incorrect reports.
+**Never state what a deployment changed based on a summary status.** A
+stack reaches `UPDATE_COMPLETE` even when CloudFormation resolved the
+template to a no-op and modified no resource at all. Asserting resource
+changes from stack status has already produced two incorrect reports.
 
-1. **Run `make verify-deploy SINCE=<YYYY-MM-DD>` after any deploy, and report
-   from its output.** It lists, per stack, the last-updated timestamp and the
-   resources that actually changed - and says so explicitly when a stack
-   changed nothing. Use a profile that can enumerate stacks:
-   `AWS_PROFILE=mlops-security-auditor`. The deploy identity
-   (`mlops-deployer`) lacks `cloudformation:ListStacks` and fails here with
-   AccessDenied - deploying and verifying are different identities.
-2. **`cdk diff` is intent, not outcome.** CloudFormation resolves intrinsics
-   such as `Ref: AWS::Partition` and then skips resources whose resolved form
-   is unchanged. A diff hunk does **not** mean the resource was modified.
+1. **Run `make verify-deploy SINCE=<YYYY-MM-DD>` after any deploy, and
+   report from its output.** It lists, per stack, the last-updated
+   timestamp and the resources that actually changed — and says so
+   explicitly when a stack changed nothing. Use a profile that can
+   enumerate stacks: `AWS_PROFILE=mlops-security-auditor`. The deploy
+   identity (`mlops-deployer`) lacks `cloudformation:ListStacks` and fails
+   here with AccessDenied — deploying and verifying are different
+   identities.
+2. **`cdk diff` is intent, not outcome.** CloudFormation resolves
+   intrinsics such as `Ref: AWS::Partition` and then skips resources whose
+   resolved form is unchanged. A diff hunk does **not** mean the resource
+   was modified.
 3. **In the console, the stack list's default `Created time` column never
-   changes on update.** It cannot tell you whether a stack was deployed today.
-   Use the `Updated time` column or the per-stack Events tab.
+   changes on update.** It cannot tell you whether a stack was deployed
+   today. Use the `Updated time` column or the per-stack Events tab.
 
-The general rule: report at the granularity your evidence supports. If the
-claim is about resources, the evidence must be resource-level.
+The general rule: report at the granularity your evidence supports. If
+the claim is about resources, the evidence must be resource-level.
+
+## How to work and respond
+
+- **Be brief.** Keep responses focused and concise. Keep disclaimers and
+  caveats short, and spend most of the response on the main answer. When
+  asked to explain something, give a high-level summary unless an in-depth
+  explanation is specifically requested.
+- **Narrate lightly.** Before your first tool call, say in one sentence
+  what you're about to do. While working, give a brief update only when
+  you find something important or change direction. When you finish, lead
+  with the outcome: the first sentence answers "what happened" or "what
+  did you find," with supporting detail after it.
+- **Match the scope asked.** Make routine judgment calls yourself; check
+  in only when different readings of the request would lead to materially
+  different work. If the request seems mistaken or a better approach
+  exists, say so in a sentence and continue with the task as asked rather
+  than quietly narrowing, widening, or transforming it. Finish the whole
+  task, and stop short of actions clearly beyond what was asked.
+- **Delegate rarely.** Use a subagent only for large, genuinely
+  independent and parallelizable work — a wide multi-file investigation,
+  say. Do not delegate what you can finish yourself in a handful of tool
+  calls, and never use a subagent to verify or double-check your own work.
+  If one subagent can do it, use one; keep spawn counts low.
+- **Correct only what matters.** Correct an earlier statement when the
+  error would change the user's code, conclusions, or decisions. State the
+  correction plainly and briefly, then continue. For slips that change
+  nothing, make the fix and move on without noting it.

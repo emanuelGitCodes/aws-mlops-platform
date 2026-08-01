@@ -1,25 +1,40 @@
-"""Create the Model Monitor baseline + hourly schedule for the live endpoint.
+"""Create the Model Monitor baseline + schedule for the live endpoint.
 
 Run once after the endpoint exists (SDK-driven; monitoring schedules need a
 live endpoint and a baselining job, so this isn't plain CloudFormation):
 
-    python scripts/setup_monitor.py --endpoint churn-serverless-dev \
+    python scripts/setup_monitor.py --env dev --endpoint churn-serverless-dev \
         --role-arn <pipeline-role-arn> --artifacts-bucket <bucket> --curated-bucket <bucket>
+
+The schedule comes from ``monitor.schedule_cron`` in ``infra/config/<env>.yaml``.
+It previously did not: this script hardcoded an hourly expression, so the
+config key was inert and editing it changed nothing.
 """
 
 import argparse
+import sys
+from pathlib import Path
 
-from sagemaker.model_monitor import CronExpressionGenerator, DefaultModelMonitor
+from sagemaker.model_monitor import DefaultModelMonitor
 from sagemaker.model_monitor.dataset_format import DatasetFormat
+
+# Allow the documented ``python scripts/setup_monitor.py`` command to import the
+# repository package without requiring callers to set PYTHONPATH first.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from infra.app import load_config
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
+    p.add_argument("--env", default="dev", help="config environment: dev or prod")
     p.add_argument("--endpoint", required=True)
     p.add_argument("--role-arn", required=True)
     p.add_argument("--artifacts-bucket", required=True)
     p.add_argument("--curated-bucket", required=True)
     args = p.parse_args()
+
+    schedule_cron = load_config(args.env)["monitor"]["schedule_cron"]
 
     monitor = DefaultModelMonitor(
         role=args.role_arn,
@@ -42,9 +57,9 @@ def main() -> None:
         output_s3_uri=f"s3://{args.artifacts_bucket}/monitor/reports",
         statistics=monitor.baseline_statistics(),
         constraints=monitor.suggested_constraints(),
-        schedule_cron_expression=CronExpressionGenerator.hourly(),
+        schedule_cron_expression=schedule_cron,
     )
-    print(f"monitoring schedule created: {args.endpoint}-data-quality")
+    print(f"monitoring schedule created: {args.endpoint}-data-quality ({schedule_cron})")
 
 
 if __name__ == "__main__":

@@ -58,3 +58,17 @@ def test_schema_violation_returns_422_with_field():
 def test_missing_body_returns_422():
     resp = proxy_handler.handler({"body": None}, None)
     assert resp["statusCode"] == 422
+
+
+def test_unknown_category_returns_422_not_a_500():
+    """An unknown category is a client error, not an unhandled encoder crash.
+
+    This used to escape validation as a bare `str`, raise KeyError inside
+    `encode_features`, and surface to the caller as a 502 from API Gateway.
+    """
+    with mock.patch.object(proxy_handler, "runtime") as runtime:
+        resp = proxy_handler.handler(_event({**VALID, "Contract": "Three year"}), None)
+
+    assert resp["statusCode"] == 422
+    assert "Contract" in json.loads(resp["body"])["error"]
+    runtime.invoke_endpoint.assert_not_called()

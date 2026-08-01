@@ -1,8 +1,8 @@
 import json
 
+from src.common.features import encode_features
 from src.common.schema import FEATURE_COLUMNS
 from src.pipeline.preprocess import (
-    encode_features,
     encode_labeled_row,
     split_records,
     write_preprocessed_splits,

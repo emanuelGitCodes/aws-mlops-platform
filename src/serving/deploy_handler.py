@@ -20,6 +20,24 @@ EXECUTION_ROLE_ARN = os.environ["EXECUTION_ROLE_ARN"]
 MEMORY_MB = int(os.environ.get("MEMORY_MB", "2048"))
 MAX_CONCURRENCY = int(os.environ.get("MAX_CONCURRENCY", "5"))
 
+# SageMaker has no modelled not-found error for DescribeEndpoint.
+_NOT_FOUND_CODES = {"ValidationException", "ResourceNotFound"}
+
+
+def _is_endpoint_not_found(error: Exception) -> bool:
+    """True only for "this endpoint does not exist yet".
+
+    SageMaker reports a missing endpoint as a ValidationException rather than a
+    modelled not-found error, so the message has to be read too. If AWS ever
+    rewords it we re-raise instead of guessing -- a loud failure on a first
+    deploy is safer than silently taking the create branch for another reason.
+    """
+    details = (getattr(error, "response", None) or {}).get("Error", {})
+    return (
+        details.get("Code") in _NOT_FOUND_CODES
+        and "could not find" in str(details.get("Message", "")).lower()
+    )
+
 
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     detail = event["detail"]
@@ -53,13 +71,20 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         ],
     )
 
+    # Only "the endpoint does not exist yet" may fall through to create. Catching
+    # every ClientError turned an AccessDenied or a throttle into a spurious
+    # create_endpoint, which then failed with an error describing the wrong
+    # problem. `update_endpoint` stays outside the try for the same reason.
     try:
         sm.describe_endpoint(EndpointName=ENDPOINT_NAME)
-        sm.update_endpoint(EndpointName=ENDPOINT_NAME, EndpointConfigName=config_name)
-        action = "updated"
-    except sm.exceptions.ClientError:
+    except sm.exceptions.ClientError as error:
+        if not _is_endpoint_not_found(error):
+            raise
         sm.create_endpoint(EndpointName=ENDPOINT_NAME, EndpointConfigName=config_name)
         action = "created"
+    else:
+        sm.update_endpoint(EndpointName=ENDPOINT_NAME, EndpointConfigName=config_name)
+        action = "updated"
 
     package = sm.describe_model_package(ModelPackageName=package_arn)
     test_auc = package.get("CustomerMetadataProperties", {}).get("test_auc")

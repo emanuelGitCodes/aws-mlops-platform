@@ -5,9 +5,14 @@ serving proxy Lambda (inference requests). Single source of truth so the
 training data contract and the API contract can't drift apart.
 """
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
 
-from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN
+from src.common.features import (
+    FEATURE_COLUMNS,
+    FEATURE_VOCABULARY,
+    LABEL_COLUMN,
+    YES_NO,
+)
 
 __all__ = [
     "CustomerRecord",
@@ -15,8 +20,6 @@ __all__ = [
     "LABEL_COLUMN",
     "format_validation_error",
 ]
-
-YES_NO = {"Yes", "No"}
 
 
 def format_validation_error(exc: ValidationError) -> str:
@@ -49,18 +52,17 @@ class CustomerRecord(BaseModel):
     TotalCharges: float = Field(ge=0)
     Churn: str | None = None
 
-    @field_validator("gender")
+    # Every categorical column at once, checked against the same vocabulary the
+    # encoder uses. Previously only gender and four Yes/No columns were checked,
+    # so the other ten reached `encode_features` unvalidated and raised KeyError
+    # there -- a 502 from the API instead of a 422, and a dead preprocessing job
+    # when such a row reached the curated bucket.
+    @field_validator(*FEATURE_VOCABULARY)
     @classmethod
-    def _gender(cls, v: str) -> str:
-        if v not in {"Male", "Female"}:
-            raise ValueError(f"invalid gender: {v}")
-        return v
-
-    @field_validator("Partner", "Dependents", "PhoneService", "PaperlessBilling")
-    @classmethod
-    def _yes_no(cls, v: str) -> str:
-        if v not in YES_NO:
-            raise ValueError(f"expected Yes/No, got: {v}")
+    def _known_category(cls, v: str, info: ValidationInfo) -> str:
+        allowed = FEATURE_VOCABULARY[str(info.field_name)]
+        if v not in allowed:
+            raise ValueError(f"expected one of {sorted(allowed)}, got: {v}")
         return v
 
     @field_validator("TotalCharges", mode="before")

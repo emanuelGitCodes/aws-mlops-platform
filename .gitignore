@@ -8,3 +8,4 @@ cdk.out/
 *.egg-info/
 .env
 data/
+telco/

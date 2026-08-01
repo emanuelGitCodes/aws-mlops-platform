@@ -13,13 +13,12 @@ import boto3
 from pydantic import ValidationError
 
 from src.common.events import log_event
-from src.common.features import DEFAULT_THRESHOLD
+from src.common.features import DEFAULT_THRESHOLD, encode_features
 from src.common.schema import (
     FEATURE_COLUMNS,
     CustomerRecord,
     format_validation_error,
 )
-from src.pipeline.preprocess import encode_features
 
 runtime = boto3.client("sagemaker-runtime")
 

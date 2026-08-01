@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from tests.unit.conftest import import_with_stubbed_boto3
 
 deploy_handler = import_with_stubbed_boto3("src.serving.deploy_handler")
@@ -13,15 +15,23 @@ APPROVAL_EVENT = {
 
 
 class _ClientError(Exception):
-    pass
+    """Stands in for botocore's ClientError, which carries a `response` dict."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.response = {"Error": {"Code": code, "Message": message}}
 
 
-def _mock_sm(endpoint_exists: bool) -> mock.Mock:
+# What SageMaker actually returns for a DescribeEndpoint on a missing endpoint.
+ENDPOINT_MISSING = _ClientError("ValidationException", 'Could not find endpoint "test-endpoint".')
+
+
+def _mock_sm(endpoint_exists: bool, describe_error: Exception = ENDPOINT_MISSING) -> mock.Mock:
     sm = mock.Mock()
     sm.exceptions.ClientError = _ClientError
     sm.describe_model_package.return_value = {"CustomerMetadataProperties": {"test_auc": "0.8398"}}
     if not endpoint_exists:
-        sm.describe_endpoint.side_effect = _ClientError("not found")
+        sm.describe_endpoint.side_effect = describe_error
     return sm
 
 
@@ -59,4 +69,37 @@ def test_subsequent_approval_updates_endpoint():
 
     assert result["action"] == "updated"
     sm.update_endpoint.assert_called_once()
+    sm.create_endpoint.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _ClientError("AccessDeniedException", "not authorized: sagemaker:DescribeEndpoint"),
+        _ClientError("ThrottlingException", "Rate exceeded"),
+        _ClientError("ValidationException", "1 validation error detected"),
+    ],
+)
+def test_describe_failure_is_not_mistaken_for_a_missing_endpoint(error):
+    """Only "could not find" may create. Anything else must surface as itself.
+
+    Catching every ClientError meant a denied or throttled DescribeEndpoint
+    fell through to CreateEndpoint, which then failed reporting the wrong
+    problem -- and, on a live endpoint, hid the real permissions fault.
+    """
+    sm = _mock_sm(endpoint_exists=False, describe_error=error)
+    with mock.patch.object(deploy_handler, "sm", sm), pytest.raises(_ClientError):
+        deploy_handler.handler(APPROVAL_EVENT, None)
+
+    sm.create_endpoint.assert_not_called()
+    sm.update_endpoint.assert_not_called()
+
+
+def test_update_failure_does_not_fall_through_to_create():
+    """A failed update on an existing endpoint must not try to create it."""
+    sm = _mock_sm(endpoint_exists=True)
+    sm.update_endpoint.side_effect = _ClientError("ValidationException", "Could not find endpoint")
+    with mock.patch.object(deploy_handler, "sm", sm), pytest.raises(_ClientError):
+        deploy_handler.handler(APPROVAL_EVENT, None)
+
     sm.create_endpoint.assert_not_called()

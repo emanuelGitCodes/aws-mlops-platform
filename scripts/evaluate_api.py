@@ -2,11 +2,12 @@
 
 Examples:
     API_URL=https://.../predict API_KEY=... \\
-      python scripts/evaluate_api.py --pipeline-execution-arn <arn>
+      uv run --locked --extra dev python scripts/evaluate_api.py \\
+      --pipeline-execution-arn <arn>
 
     API_URL=https://.../predict API_KEY=... \\
-      python scripts/evaluate_api.py --fixture-s3-uri s3://bucket/path/api_test/
-      --all
+      uv run --locked --extra dev python scripts/evaluate_api.py \\
+      --fixture-s3-uri s3://bucket/path/api_test/ --all
 """
 
 import argparse
@@ -22,8 +23,8 @@ from typing import Any
 
 import boto3
 
-# Allow the documented ``python scripts/evaluate_api.py`` command to import the
-# repository package without requiring callers to set PYTHONPATH first.
+# Allow the documented file-path invocation above to import the repository
+# package without requiring callers to set PYTHONPATH first.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.common.features import DEFAULT_THRESHOLD

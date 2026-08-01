@@ -49,6 +49,14 @@ LABEL_COLUMN = "Churn"
 # Decision rule shared by serving and evaluation: churn iff score >= threshold.
 DEFAULT_THRESHOLD = 0.5
 
+# Promotion gate, shared by the pipeline definition and the evaluation step.
+# With no approved package in the registry a challenger is compared against
+# this baseline, so the first model still has a bar to clear. Both values were
+# repeated as bare literals in pipeline.py and evaluate.py, which had to agree
+# for the gate and the report to tell the same story.
+NO_CHAMPION_ARN = "none"
+BASELINE_CHAMPION_AUC = 0.5
+
 YES_NO = frozenset({"Yes", "No"})
 NO_PHONE_SERVICE = "No phone service"
 NO_INTERNET_SERVICE = "No internet service"

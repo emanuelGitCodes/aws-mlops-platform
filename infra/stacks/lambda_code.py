@@ -7,6 +7,7 @@ src.common.schema the pipeline uses.
 """
 
 import pathlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,21 @@ from aws_cdk import aws_lambda as lambda_
 
 _RUNTIME_DEPS = ["pydantic==2.*"]
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+# The wheels must match the Lambda runtime, not the host building the asset --
+# installing the host's native wheels once produced a pydantic_core import
+# failure at runtime. Defined once and shared by both bundling paths below:
+# they were previously two hand-maintained spellings of the same command, one
+# as an argv list and one as a shell string, free to drift apart.
+_PIP_TARGET_FLAGS = [
+    "--platform",
+    "manylinux2014_x86_64",
+    "--implementation",
+    "cp",
+    "--python-version",
+    "3.12",
+    "--only-binary=:all:",
+]
 
 
 @jsii.implements(ILocalBundling)
@@ -32,13 +48,7 @@ class _LocalPipBundling:
                     "install",
                     "-q",
                     *_RUNTIME_DEPS,
-                    "--platform",
-                    "manylinux2014_x86_64",
-                    "--implementation",
-                    "cp",
-                    "--python-version",
-                    "3.12",
-                    "--only-binary=:all:",
+                    *_PIP_TARGET_FLAGS,
                     "-t",
                     output_dir,
                 ],
@@ -63,10 +73,8 @@ def src_code() -> lambda_.Code:
             command=[
                 "bash",
                 "-c",
-                f"pip install {' '.join(repr(d) for d in _RUNTIME_DEPS)}"
-                " --platform manylinux2014_x86_64 --implementation cp"
-                " --python-version 3.12 --only-binary=:all: -t /asset-output"
-                " && cp -r src /asset-output/",
+                f"pip install {shlex.join([*_RUNTIME_DEPS, *_PIP_TARGET_FLAGS])}"
+                " -t /asset-output && cp -r src /asset-output/",
             ],
             local=_LocalPipBundling(),
         ),

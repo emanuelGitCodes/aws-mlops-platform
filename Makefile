@@ -97,16 +97,16 @@ smoke:
 		uv run --locked --extra dev pytest tests/integration -q
 
 wiki-init:
-	python3 scripts/wiki.py init
+	uv run --locked python scripts/wiki.py init
 
 wiki-index:
-	python3 scripts/wiki.py index
+	uv run --locked python scripts/wiki.py index
 
 wiki-search:
-	python3 scripts/wiki.py search "$(Q)"
+	uv run --locked python scripts/wiki.py search "$(Q)"
 
 wiki-ingest:
-	python3 scripts/wiki.py add-source "$(SOURCE)" $(if $(TITLE),--title "$(TITLE)")
+	uv run --locked python scripts/wiki.py add-source "$(SOURCE)" $(if $(TITLE),--title "$(TITLE)")
 
 wiki-lint:
-	python3 scripts/wiki.py lint
+	uv run --locked python scripts/wiki.py lint

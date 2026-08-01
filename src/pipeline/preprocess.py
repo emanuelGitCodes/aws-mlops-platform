@@ -21,6 +21,7 @@ import pathlib
 import random
 from typing import Any
 
+from src.common.events import log_event
 from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN, encode_features
 
 
@@ -78,7 +79,7 @@ def main() -> None:
 
     splits = split_records(records)
     write_preprocessed_splits(splits, "/opt/ml/processing")
-    print({name: len(split) for name, split in splits.items()})
+    log_event("preprocess_complete", **{name: len(split) for name, split in splits.items()})
 
 
 if __name__ == "__main__":

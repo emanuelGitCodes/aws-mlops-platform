@@ -46,9 +46,13 @@ def main() -> None:
     p.add_argument("-n", type=int, default=200)
     args = p.parse_args()
 
-    # Fail loudly if the demo record ever drifts from the shared schema.
+    # Fail loudly if the demo record ever drifts from the shared schema. Not an
+    # `assert`: python -O strips those, and this is the only thing keeping the
+    # demo payload honest.
     CustomerRecord.model_validate(BASE)
-    assert set(BASE) == set(FEATURE_COLUMNS)
+    drift = set(BASE) ^ set(FEATURE_COLUMNS)
+    if drift:
+        raise SystemExit(f"demo record no longer matches FEATURE_COLUMNS: {sorted(drift)}")
 
     rng = random.Random(7)
     for i in range(args.n):

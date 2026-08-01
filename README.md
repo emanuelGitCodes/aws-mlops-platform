@@ -2,7 +2,7 @@
 
 A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
-`cdk deploy --all` creates the six infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, and API inference.
+`make deploy ENV=dev` creates the eight infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
 
 ## Architecture
 
@@ -45,26 +45,30 @@ flowchart TB
         RETRAIN -. StartPipelineExecution .-> PIPE
     end
 
-    subgraph Security["Approved phased security roadmap — not deployed yet"]
-        S1[Audit + detection] --> S2[Customer KMS + least privilege]
+    subgraph Security["Phased security hardening — 0-2 complete, 3 partial"]
+        S1[CloudTrail + audit KMS<br/>6 CIS alarms to SNS] --> S1B[Access Analyzer<br/>account S3 block<br/>GuardDuty deferred]
+        S1B --> S2[Data KMS + least privilege]
         S2 --> S3[IAM/SigV4 + TLS + API logs]
         S3 --> S4[AWS WAF + identity cleanup]
     end
 
-    S1 -. adds audit coverage .-> CW
+    S1 -->|adds audit coverage| CW
     S2 -. hardens storage .-> RAW
     S2 -. hardens runtime roles .-> PIPE
     S3 -. replaces API-key boundary .-> APIGW
     S4 -. protects .-> APIGW
 
     classDef planned fill:#fff4cc,stroke:#b7791f,stroke-dasharray:5 5,color:#1a202c
-    class MM,RETRAIN,S1,S2,S3,S4 planned
+    classDef done fill:#d5f5e3,stroke:#1e8449,color:#1a202c
+    class MM,RETRAIN,S2,S3,S4 planned
+    class S1,S1B done
 ```
 
-Solid runtime arrows describe the current dev data path. Dashed arrows and
-yellow nodes are deferred or approved future work. In particular, the retrain
-wiring exists, but built-in SageMaker Model Monitor capture is not active because
-serverless endpoints do not support `DataCaptureConfig`.
+Solid runtime arrows describe the current dev data path. Green nodes are
+delivered; dashed arrows and yellow nodes are deferred or approved future work.
+In particular, the retrain wiring exists, but built-in SageMaker Model Monitor
+capture is not active because serverless endpoints do not support
+`DataCaptureConfig`.
 
 ## Current operational loop
 
@@ -87,11 +91,13 @@ drift loop.
 
 | Path | What |
 |---|---|
-| `infra/` | CDK app: `Data`, `Ingestion`, `Training`, `Registry`, `Serving`, `Monitoring` stacks, split by lifecycle/blast radius |
-| `src/common/schema.py` | Single source of truth: pydantic schema shared by ingestion validation and the inference API |
+| `infra/` | CDK app: `Data`, `Ingestion`, `Training`, `Registry`, `Serving`, `Monitoring`, `Security`, `SecurityMonitoring` stacks, split by lifecycle/blast radius |
+| `infra/config/` | `dev.yaml` / `prod.yaml`; the shape is typed once as `PlatformConfig` in `infra/stacks/shared.py` |
+| `infra/security_checks.py` | cdk-nag gate: every acknowledgement is bound to one construct and names the phase that removes it |
+| `src/common/` | Single source of truth: `schema.py` (pydantic contract shared by ingestion and the inference API) and `features.py` (column order, accepted vocabulary, and encoding) |
 | `src/pipeline/` | SageMaker Pipeline definition + preprocess/evaluate scripts |
-| `src/ingestion/`, `src/serving/` | Lambda handlers (validate, proxy, endpoint deploy) |
-| `scripts/` | API evaluation plus optional monitor/drift utilities for a compatible capture architecture |
+| `src/ingestion/`, `src/serving/`, `src/monitoring/` | Lambda handlers (validate, proxy, endpoint deploy, drift retrain) |
+| `scripts/` | API evaluation, deployment verification, plus optional monitor/drift utilities for a compatible capture architecture |
 | `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
 | `.github/workflows/` | CI (lint/test/synth) and OIDC-federated deploy (dev → manual gate → prod) |
 
@@ -101,14 +107,17 @@ drift loop.
 cp .env.example .env         # fill in stack outputs after deploy; source with: set -a && source .env && set +a
 make install                 # deps
 make lint test               # local checks
-cd infra && cdk bootstrap    # once per account/region
-make deploy ENV=dev          # all six stacks
+make bootstrap ENV=dev       # once per account/region
+make deploy ENV=dev          # all eight stacks
 
 # 1. Ingest: drop the Telco CSV into the raw bucket -> validated rows land curated
 aws s3 cp telco.csv s3://<raw-bucket>/telco.csv
 
-# 2. Train: upsert + run the pipeline (registers the first champion)
-python src/pipeline/pipeline.py --pipeline-name churn-training-pipeline-dev \
+# 2. Train: upsert + run the pipeline (registers the first champion).
+# Module form (-m), not a file path: pipeline.py imports src.common.features,
+# which is only importable with the repository root on sys.path.
+uv run --locked --extra pipeline python -m src.pipeline.pipeline \
+  --pipeline-name churn-training-pipeline-dev \
   --role-arn <PipelineRoleArn output> --curated-bucket <curated> \
   --artifacts-bucket <artifacts> --model-package-group churn-model-group --start
 
@@ -141,13 +150,13 @@ class-balanced sample of 25 records; use `--all` for the full test split.
 ```bash
 API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
 API_KEY="$API_KEY" \
-python scripts/evaluate_api.py \
+uv run --locked --extra dev python scripts/evaluate_api.py \
   --pipeline-execution-arn <pipeline-execution-arn>
 
 # Full held-out test-set API evaluation (more endpoint invocations):
 API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
 API_KEY="$API_KEY" \
-python scripts/evaluate_api.py \
+uv run --locked --extra dev python scripts/evaluate_api.py \
   --pipeline-execution-arn <pipeline-execution-arn> --all
 ```
 
@@ -187,22 +196,37 @@ The helper is intentionally deterministic and does not call an LLM. It handles s
 Current dev baseline:
 
 - Raw, curated, and artifact buckets block public access, enforce TLS, use
-  AWS-managed SSE-KMS encryption, retain versions, and are not public.
+  AWS-managed SSE-KMS encryption, retain versions, and deliver server access
+  logs to a dedicated log bucket. Moving these three to a customer-managed key
+  is phase 4; the audit bucket already uses one.
 - Runtime responsibilities use separate validation, pipeline, proxy, deployment,
   and model roles. The proxy is scoped to invoke only the configured endpoint;
   the pipeline and model roles still use `AmazonSageMakerFullAccess` and are a
-  documented hardening gap.
+  documented hardening gap, acknowledged construct-by-construct in
+  `infra/security_checks.py` and scheduled for phase 5.
 - `/predict` currently requires an API key and is throttled, but the key is not
-  strong user authentication. The approved roadmap replaces it with IAM/SigV4.
-- CloudWatch currently covers endpoint operations. At the July 12 security
-  checkpoint, CloudTrail, GuardDuty, Security Hub, AWS Config, IAM Access
-  Analyzer, account-level S3 blocking, and WAF were not enabled.
+  strong user authentication. The approved roadmap replaces it with IAM/SigV4
+  in phase 6.
+- Audit and detection are deployed. A multi-region CloudTrail with log-file
+  validation writes to a retained, customer-managed-KMS-encrypted bucket and to
+  a 90-day CloudWatch log group; six CIS metric filters (root activity,
+  unauthorized API calls, IAM policy changes, trail changes, KMS key
+  disable/delete, bucket policy changes) alarm to an SNS topic. IAM Access
+  Analyzer and account-level S3 Block Public Access are enabled in dev via the
+  `security.services` flags. GuardDuty is deferred behind the AWS Free plan
+  upgrade gate; AWS Config, Security Hub, and WAF are not enabled.
 - Serverless inference has no configured provisioned concurrency, so endpoint
   compute has no standing instance while idle. S3, logs, and other retained AWS
-  resources still incur small ongoing charges. The monthly budget is `$20`.
+  resources still incur small ongoing charges. The monthly budget is `$20` and
+  alerts at 50/80/100%. Note it carries no `CostFilters`, so it measures
+  account-wide spend rather than one environment's.
 
-The approved [phased security hardening roadmap](wiki/pages/architecture/phased-security-hardening.md)
-adds repository guardrails first, then audit and detection, customer-managed
-KMS encryption, least-privilege IAM, IAM/SigV4 API authorization, TLS/logging,
-WAF, and operator-identity cleanup. Every phase has its own commit, deployment,
-verification, rollback point, and explicit stop before the next phase.
+The [phased security hardening roadmap](wiki/pages/architecture/phased-security-hardening.md)
+runs 0-9: baseline, repository guardrails, audit and detection, threat
+detection services, customer-managed KMS encryption, least-privilege IAM,
+IAM/SigV4 API authorization, TLS/logging, WAF, and operator-identity cleanup.
+Phases 0-2 are complete and phase 3 is partial (Access Analyzer and account S3
+blocking done; GuardDuty deferred behind the paid-plan gate; Config and
+Security Hub pending); 4-9 remain. Every phase has its own commit, deployment,
+verification, rollback point, and explicit stop before the next phase — the
+per-phase records live in `wiki/pages/sources/`.

@@ -1,6 +1,6 @@
 .PHONY: install lock-check lint typecheck test audit synth synth-all security \
-	check-stack diff-stack deploy-stack deploy destroy verify-deploy smoke \
-	wiki-init wiki-index wiki-search wiki-ingest wiki-lint
+	bootstrap check-stack diff-stack deploy-stack deploy destroy verify-deploy \
+	smoke wiki-init wiki-index wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -45,6 +45,12 @@ synth-all:
 	$(MAKE) synth ENV=prod
 
 security: lock-check audit synth-all
+
+# Once per account/region, before the first deploy. A target rather than a
+# documented `cdk bootstrap`, so the bootstrap runs the same pinned CLI
+# version as every other CDK invocation.
+bootstrap:
+	cd infra && $(CDK_CLI) bootstrap -c env=$(ENV)
 
 check-stack:
 	@test -n "$(STACK)" || \

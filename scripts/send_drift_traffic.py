@@ -1,7 +1,8 @@
 """Demo helper: hit the API with distribution-shifted traffic so Model Monitor
 flags drift and the retrain loop visibly fires.
 
-    python scripts/send_drift_traffic.py --url <api-url> --api-key <key> -n 200
+    uv run --locked --extra dev python scripts/send_drift_traffic.py \\
+        --url <api-url> --api-key <key> -n 200
 """
 
 import argparse
@@ -9,8 +10,8 @@ import random
 import sys
 from pathlib import Path
 
-# Allow the documented ``python scripts/send_drift_traffic.py`` command to
-# import the repository package without requiring PYTHONPATH first.
+# Allow the documented file-path invocation above to import the repository
+# package without requiring PYTHONPATH first.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.evaluate_api import post_prediction

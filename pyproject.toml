@@ -1,7 +1,7 @@
 [project]
 name = "aws-mlops-platform"
 version = "0.1.0"
-description = "Portfolio-grade MLOps reference platform on AWS: SageMaker Pipelines, serverless inference, and a closed drift->retrain loop, all in CDK."
+description = "Portfolio-grade MLOps reference platform on AWS: SageMaker Pipelines, serverless inference, and a drift->retrain loop, all in CDK."
 authors = [{ name = "Emanuel J. Cortes-Lugo" }]
 requires-python = ">=3.12"
 dependencies = [

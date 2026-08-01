@@ -15,8 +15,11 @@ The console has the same trap: the stack list's default **Created time**
 column never changes on update, so it cannot tell you whether a stack was
 deployed today. **Updated time** and the Events tab can.
 
-    uv run --locked python scripts/verify_deployment.py --prefix Mlops-Dev
-    uv run --locked python scripts/verify_deployment.py --since 2026-07-24
+Prefer ``make verify-deploy SINCE=<YYYY-MM-DD>``; these are the same call with
+the ``dev`` extra that supplies boto3:
+
+    uv run --locked --extra dev python scripts/verify_deployment.py --prefix Mlops-Dev
+    uv run --locked --extra dev python scripts/verify_deployment.py --since 2026-07-24
 """
 
 import argparse

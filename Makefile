@@ -72,6 +72,10 @@ destroy:
 
 # What a deployment actually changed. Stack status does not answer this:
 # UPDATE_COMPLETE is reported even when no resource was touched.
+#
+# Needs a profile with cloudformation:ListStacks -- mlops-security-auditor or
+# aws-admin, not mlops-deployer, which can deploy but cannot enumerate stacks:
+#     AWS_PROFILE=mlops-security-auditor make verify-deploy SINCE=2026-08-01
 verify-deploy:
 	uv run --locked --extra dev python scripts/verify_deployment.py \
 		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")

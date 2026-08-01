@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from tests.unit.conftest import ClientError as _ClientError
 from tests.unit.conftest import import_with_stubbed_boto3
 
 deploy_handler = import_with_stubbed_boto3("src.serving.deploy_handler")
@@ -12,14 +13,6 @@ APPROVAL_EVENT = {
         "ModelApprovalStatus": "Approved",
     }
 }
-
-
-class _ClientError(Exception):
-    """Stands in for botocore's ClientError, which carries a `response` dict."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(f"{code}: {message}")
-        self.response = {"Error": {"Code": code, "Message": message}}
 
 
 # What SageMaker actually returns for a DescribeEndpoint on a missing endpoint.

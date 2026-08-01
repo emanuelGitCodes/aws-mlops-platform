@@ -15,8 +15,16 @@ The console has the same trap: the stack list's default **Created time**
 column never changes on update, so it cannot tell you whether a stack was
 deployed today. **Updated time** and the Events tab can.
 
-Prefer ``make verify-deploy SINCE=<YYYY-MM-DD>``; these are the same call with
-the ``dev`` extra that supplies boto3:
+Run it with a profile that can enumerate stacks. ``describe_stacks`` with no
+``StackName`` is authorized as ``cloudformation:ListStacks``, which the deploy
+identity does not have: ``mlops-deployer`` can create the change set that
+updates a stack but cannot list stacks afterwards, so it fails here with
+AccessDenied. ``mlops-security-auditor`` is the read-only identity for exactly
+this, and ``aws-admin`` also works.
+
+Prefer ``AWS_PROFILE=mlops-security-auditor make verify-deploy
+SINCE=<YYYY-MM-DD>``; these are the same call with the ``dev`` extra that
+supplies boto3:
 
     uv run --locked --extra dev python scripts/verify_deployment.py --prefix Mlops-Dev
     uv run --locked --extra dev python scripts/verify_deployment.py --since 2026-07-24

@@ -21,6 +21,11 @@ from infra.stacks.shared import PlatformConfig
 ENV_TOKEN = "{env}"
 PREFIX_TOKEN = "{prefix}"
 
+# Enablement flag for the account-wide budget. It lives beside the Phase 3
+# service flags rather than inside them: `security.services` is validated as
+# exactly the six Phase 3 flags, and this is a Phase 2 resource.
+ACCOUNT_BUDGET_FLAG = "account_budget"
+
 
 @dataclass(frozen=True)
 class Acknowledgement:
@@ -28,11 +33,12 @@ class Acknowledgement:
     construct_path: str
     finding_id: str
     reason: str
-    # Phase 3 sub-phases are flag-gated, so their constructs exist only where the
-    # flag is enabled. Naming the flag here skips the acknowledgement everywhere
-    # else; leaving it None keeps the strict behavior, where a path that matches
-    # no construct fails synthesis and catches a stale acknowledgement.
-    requires_service: str | None = None
+    # Flag-gated constructs exist only where their flag is enabled -- the Phase 3
+    # sub-phases, and the account-scoped budget that only one environment owns.
+    # Naming the flag here skips the acknowledgement everywhere else; leaving it
+    # None keeps the strict behavior, where a path that matches no construct
+    # fails synthesis and catches a stale acknowledgement.
+    requires_flag: str | None = None
 
 
 LAMBDA_BASIC_POLICY = (
@@ -69,7 +75,7 @@ ACKNOWLEDGEMENTS = (
         "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
         LAMBDA_BASIC_POLICY,
         "Phase 3E account-BPA provider; replace managed log policy during Phase 5 IAM work.",
-        requires_service="account_bpa",
+        requires_flag="account_bpa",
     ),
     Acknowledgement(
         "security_monitoring",
@@ -79,7 +85,7 @@ ACKNOWLEDGEMENTS = (
             "Phase 3E account-level Block Public Access is not bucket-scoped; AWS accepts "
             "only '*' as the resource for the s3:*AccountPublicAccessBlock actions."
         ),
-        requires_service="account_bpa",
+        requires_flag="account_bpa",
     ),
     Acknowledgement(
         "data",
@@ -92,6 +98,7 @@ ACKNOWLEDGEMENTS = (
         "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
         LAMBDA_BASIC_POLICY,
         "Phase 2 budget API provider; replace managed log policy during Phase 5 IAM work.",
+        requires_flag=ACCOUNT_BUDGET_FLAG,
     ),
     # Ingestion: existing Lambda/queue findings remain visible until their named phase.
     Acknowledgement(
@@ -363,8 +370,14 @@ def apply_security_checks(
     # Collected by name, because a TypedDict cannot be indexed by a flag name
     # that is only known at runtime.
     enabled = {name for name, on in config["security"]["services"].items() if on}
+    # Indexed by literal because mypy requires one for a TypedDict; the constant
+    # names the same key, and a mismatch fails synthesis loudly rather than
+    # silently -- the acknowledgement would be skipped while its construct still
+    # exists, leaving an unacknowledged cdk-nag finding.
+    if config["security"]["account_budget"]:
+        enabled.add(ACCOUNT_BUDGET_FLAG)
     for acknowledgement in resolved_acknowledgements(config["env_name"], prefix):
-        if acknowledgement.requires_service and acknowledgement.requires_service not in enabled:
+        if acknowledgement.requires_flag and acknowledgement.requires_flag not in enabled:
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)
         target = construct.node.default_child or construct

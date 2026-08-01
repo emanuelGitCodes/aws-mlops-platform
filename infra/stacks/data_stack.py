@@ -74,6 +74,20 @@ class DataStack(Stack):
             access_log_prefix="artifacts/",
         )
 
+        if config["security"]["account_budget"]:
+            self._account_budget(config=config, alert_topic=alert_topic)
+
+    def _account_budget(self, *, config: PlatformConfig, alert_topic: sns.ITopic) -> None:
+        """The account-wide monthly budget and its threshold notifications.
+
+        Deliberately not scoped with ``CostFilters``. A tag filter is the only
+        way to scope a budget to one environment, and it reports zero until the
+        tag is activated as a cost allocation tag in Billing -- a manual step
+        with a 24-hour lag that CDK cannot perform. A budget that silently
+        matches nothing never alarms, which is a worse failure than a budget
+        that measures more than one environment. Owning it in exactly one
+        environment removes the duplicate without disarming the tripwire.
+        """
         monthly_budget = budgets.CfnBudget(
             self,
             "MonthlyBudget",

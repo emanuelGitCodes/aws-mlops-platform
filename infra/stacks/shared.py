@@ -55,6 +55,12 @@ class SecurityConfig(TypedDict):
 
     audit_log_retention_days: int
     budget_thresholds: list[int]
+    # AWS Budgets is account-scoped, and these stacks are environment-agnostic
+    # (no `env=cdk.Environment`), so dev and prod share one account. Exactly one
+    # environment may own the account budget; a second one re-measures the same
+    # dollars and alarms twice on them. Gated like the account-level Block
+    # Public Access flag, and for the same reason.
+    account_budget: bool
     services: SecurityServicesConfig
 
 

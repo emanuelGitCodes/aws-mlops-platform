@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 2D implementation — July 12, 2026"
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_data_stack.py"]
 summary: "Data logging and budget alerts pass synthesis with a required Security-policy prerequisite deployment and preserved rollback order."
 ---
 # AWS security hardening Phase 2D implementation — July 12, 2026

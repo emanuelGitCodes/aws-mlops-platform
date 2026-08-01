@@ -3,7 +3,7 @@ type: "source"
 title: "Phase 3 plan revision under the AWS Free plan — July 19, 2026"
 created: "2026-07-19"
 updated: "2026-07-19"
-sources: ["../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/config/dev.yaml", "../../../infra/stacks/security_monitoring_stack.py", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/config/dev.yaml", "../../../infra/stacks/security_monitoring_stack.py", "../../../tests/unit/test_security_monitoring_stack.py"]
 summary: "Phase 3 is reordered for the Free plan: 3E BPA next, then gated 3C Config and partial 3F routing, with 3B GuardDuty and 3D Security Hub deferred behind an explicit paid-plan upgrade gate."
 ---
 # Phase 3 plan revision under the AWS Free plan — July 19, 2026

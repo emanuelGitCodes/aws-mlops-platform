@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 2B implementation — July 12, 2026"
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/security_checks.py", "../../../infra/cdk.json", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/security_checks.py", "../../../infra/cdk.json", "../../../tests/unit/test_security_stack.py"]
 summary: "The isolated Security audit-foundation stack passes local tests and synthesis and awaits hosted CI and deployment."
 ---
 # AWS security hardening Phase 2B implementation — July 12, 2026

@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 2D budget preservation — July 12, 2026"
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2d-budget-preservation-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/aws-security-hardening-phase-2d-budget-preservation-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_data_stack.py"]
 summary: "The pre-deployment diff caught a budget replacement and the corrected implementation preserves the existing budget through scoped Budgets API calls."
 ---
 # AWS security hardening Phase 2D budget preservation — July 12, 2026

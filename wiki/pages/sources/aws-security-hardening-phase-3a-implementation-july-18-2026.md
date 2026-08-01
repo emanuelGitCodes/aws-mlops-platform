@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 3A implementation — July 18, 2026"
 created: "2026-07-18"
 updated: "2026-07-18"
-sources: ["../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_stacks.py", "https://aws.amazon.com/iam/access-analyzer/pricing/", "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-accessanalyzer-analyzer.html"]
+sources: ["../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py", "https://aws.amazon.com/iam/access-analyzer/pricing/", "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-accessanalyzer-analyzer.html"]
 summary: "Phase 3A is implemented and locally validated as one dev account external-access analyzer; live diff, deployment, and finding review remain pending credentials and hosted CI."
 ---
 # AWS security hardening Phase 3A implementation — July 18, 2026

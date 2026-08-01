@@ -64,10 +64,19 @@ class _LocalPipBundling:
         return True
 
 
+# An allowlist, not a denylist. The asset fingerprint is computed over the
+# source directory, so anything reachable here changes the Lambda code hash
+# even though bundling only ever copies `src/`. Under the old denylist a
+# README or Makefile edit redeployed all four functions, and every new
+# top-level file silently joined the fingerprint. `src/` is the only input
+# that belongs in it.
+_ASSET_CONTENT = ["*", "!src", "!src/**"]
+
+
 def src_code() -> lambda_.Code:
     return lambda_.Code.from_asset(
         str(_REPO_ROOT),
-        exclude=["infra", "tests", ".git", "cdk.out", ".venv", "*.egg-info", "data", "scripts"],
+        exclude=_ASSET_CONTENT,
         bundling=BundlingOptions(
             image=DockerImage.from_registry("public.ecr.aws/sam/build-python3.12"),
             command=[

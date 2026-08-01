@@ -29,8 +29,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEV_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
+      # Via the Make target: the CDK CLI version is pinned once, in the
+      # Makefile, rather than restated in every workflow that deploys.
       - name: Deploy
-        run: cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=dev --require-approval never
+        run: make deploy ENV=dev
       - name: Smoke test the deployed API
         run: make smoke ENV=dev
 
@@ -57,6 +59,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PROD_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
       - name: Deploy
-        run: cd infra && uv run --locked npx aws-cdk@2.1130.0 deploy --all -c env=prod --require-approval never
+        run: make deploy ENV=prod
       - name: Smoke test the deployed API
         run: make smoke ENV=prod

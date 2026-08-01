@@ -29,7 +29,11 @@ from sklearn.metrics import (
 )
 
 from src.common.events import log_event
-from src.common.features import DEFAULT_THRESHOLD
+from src.common.features import (
+    BASELINE_CHAMPION_AUC,
+    DEFAULT_THRESHOLD,
+    NO_CHAMPION_ARN,
+)
 
 MODEL_DIR = "/opt/ml/processing/model"
 TEST_DIR = "/opt/ml/processing/test"
@@ -236,8 +240,8 @@ def _load_test_data(test_dir: str) -> tuple[list[int], list[list[float]]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--champion-model-package-arn", default="none")
-    parser.add_argument("--champion-test-auc", type=float, default=0.5)
+    parser.add_argument("--champion-model-package-arn", default=NO_CHAMPION_ARN)
+    parser.add_argument("--champion-test-auc", type=float, default=BASELINE_CHAMPION_AUC)
     parser.add_argument("--challenger-model-artifact", default="unknown")
     args = parser.parse_args()
 

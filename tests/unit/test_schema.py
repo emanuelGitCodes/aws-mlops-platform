@@ -1,8 +1,11 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
+from src.common.features import encode_features
 from src.common.schema import FEATURE_COLUMNS, CustomerRecord
-from tests.unit.conftest import VALID
+from tests.unit.conftest import REPO_ROOT, VALID
 
 
 def test_valid_record_without_label():
@@ -61,3 +64,15 @@ def test_real_source_values_still_accepted(field, value):
 
 def test_feature_columns_match_model_fields():
     assert set(FEATURE_COLUMNS) <= set(CustomerRecord.model_fields)
+
+
+@pytest.mark.parametrize("path", sorted(REPO_ROOT.glob("sample*.json")), ids=lambda p: p.name)
+def test_committed_sample_payloads_stay_valid(path):
+    """Every sample payload in the repo must still validate and encode.
+
+    These are what a reader curls at the API, so a schema change that leaves
+    them behind is a broken example. Tightening the categorical vocabulary
+    could have invalidated them silently; this makes that a test failure.
+    """
+    record = CustomerRecord.model_validate(json.loads(path.read_text()))
+    encode_features({column: getattr(record, column) for column in FEATURE_COLUMNS})

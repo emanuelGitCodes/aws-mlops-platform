@@ -1,7 +1,7 @@
 """SageMaker Pipeline definition: preprocess -> train -> evaluate -> gate -> register.
 
 The champion AUC is resolved from the Model Registry when an execution starts
-(via the `ChampionAuc` pipeline parameter default, refreshed by `get_champion_auc`
+(via the `ChampionAuc` pipeline parameter default, refreshed by `get_champion`
 each time the pipeline is upserted/started by the EventBridge->Pipeline trigger
 or CI). A challenger is only registered if its test AUC beats the champion.
 """
@@ -17,6 +17,7 @@ from sagemaker.processing import FrameworkProcessor, ProcessingInput, Processing
 from sagemaker.sklearn.estimator import SKLearn
 from sagemaker.workflow.condition_step import ConditionStep
 from sagemaker.workflow.conditions import ConditionGreaterThan
+from sagemaker.workflow.entities import PipelineVariable
 from sagemaker.workflow.execution_variables import ExecutionVariables
 from sagemaker.workflow.functions import Join, JsonGet
 from sagemaker.workflow.model_step import ModelStep
@@ -25,6 +26,28 @@ from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
+
+from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
+
+# Sizing and tuning knobs, named so they are findable rather than buried four
+# call sites deep. Deliberately three constants and not one: processing,
+# training, and the instance types the registered model advertises for
+# inference are independent choices that currently share a value.
+PROCESSING_INSTANCE_TYPE = "ml.m5.large"
+TRAINING_INSTANCE_TYPE = "ml.m5.large"
+INFERENCE_INSTANCE_TYPES = ["ml.m5.large"]
+
+# Strings because SageMaker stringifies every hyperparameter value anyway. The
+# annotation is explicit because dict is invariant: a bare dict[str, str] does
+# not satisfy the SDK's dict[str, str | PipelineVariable].
+TRAINING_HYPERPARAMETERS: dict[str, str | PipelineVariable] = {
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "num_round": "200",
+    "max_depth": "5",
+    "eta": "0.2",
+    "early_stopping_rounds": "20",
+}
 
 
 def get_champion(model_package_group: str, region: str) -> tuple[str, float]:
@@ -38,17 +61,11 @@ def get_champion(model_package_group: str, region: str) -> tuple[str, float]:
         MaxResults=1,
     )["ModelPackageSummaryList"]
     if not packages:
-        return "none", 0.5
+        return NO_CHAMPION_ARN, BASELINE_CHAMPION_AUC
     arn = packages[0]["ModelPackageArn"]
-    desc = sm.describe_model_package(ModelPackageName=arn)
-    return (
-        arn,
-        float(
-            desc["CustomerMetadataProperties"].get("test_auc", 0.5)
-            if "CustomerMetadataProperties" in desc
-            else 0.5
-        ),
-    )
+    description = sm.describe_model_package(ModelPackageName=arn)
+    metadata = description.get("CustomerMetadataProperties", {})
+    return arn, float(metadata.get("test_auc", BASELINE_CHAMPION_AUC))
 
 
 def build_pipeline(
@@ -77,7 +94,7 @@ def build_pipeline(
         estimator_cls=SKLearn,
         framework_version="1.2-1",
         role=role_arn,
-        instance_type="ml.m5.large",
+        instance_type=PROCESSING_INSTANCE_TYPE,
         instance_count=1,
         sagemaker_session=session,
     )
@@ -104,20 +121,10 @@ def build_pipeline(
         image_uri=image_uri,
         role=role_arn,
         instance_count=1,
-        instance_type="ml.m5.large",
+        instance_type=TRAINING_INSTANCE_TYPE,
         output_path=f"s3://{artifacts_bucket}/training",
         sagemaker_session=session,
-        # Strings because that is what SageMaker puts in the training request
-        # either way -- it stringifies every hyperparameter value, so writing
-        # them as `200`/`0.2` only hid the conversion from the type checker.
-        hyperparameters={
-            "objective": "binary:logistic",
-            "eval_metric": "auc",
-            "num_round": "200",
-            "max_depth": "5",
-            "eta": "0.2",
-            "early_stopping_rounds": "20",
-        },
+        hyperparameters=TRAINING_HYPERPARAMETERS,
     )
     train = TrainingStep(
         name="Train",
@@ -145,7 +152,7 @@ def build_pipeline(
         estimator_cls=SKLearn,
         framework_version="1.2-1",
         role=role_arn,
-        instance_type="ml.m5.large",
+        instance_type=PROCESSING_INSTANCE_TYPE,
         instance_count=1,
         sagemaker_session=session,
     )
@@ -211,7 +218,7 @@ def build_pipeline(
         step_args=model.register(
             content_types=["text/csv"],
             response_types=["text/csv"],
-            inference_instances=["ml.m5.large"],
+            inference_instances=INFERENCE_INSTANCE_TYPES,
             model_package_group_name=model_package_group,
             approval_status=approval_status,
             model_metrics=ModelMetrics(

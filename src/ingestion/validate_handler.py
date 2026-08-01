@@ -15,6 +15,7 @@ from typing import Any
 import boto3
 from pydantic import ValidationError
 
+from src.common.events import log_event
 from src.common.schema import CustomerRecord, format_validation_error
 
 s3 = boto3.client("s3")
@@ -63,5 +64,5 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         _write_csv(CURATED_BUCKET, f"telco/{basename}", valid)
         _write_csv(CURATED_BUCKET, f"quarantine/{basename}", rejected)
         results.append({"key": key, "valid": len(valid), "rejected": len(rejected)})
-        print(json.dumps(results[-1]))
+        log_event("rows_validated", **results[-1])
     return {"processed": results}

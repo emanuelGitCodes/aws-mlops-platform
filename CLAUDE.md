@@ -20,7 +20,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make lint` | ruff check + format check |
 | `make typecheck` | mypy over `src/`, `infra/`, `scripts/` |
 | `make test` | pytest `tests/unit` |
-| `make synth` | CDK synth (`npx aws-cdk@2.1130.0`, `ENV=dev` default) |
+| `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
 | `make security` | lock-check + pip-audit + synth-all |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |

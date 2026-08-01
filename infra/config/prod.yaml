@@ -13,7 +13,16 @@ serverless:
   memory_mb: 3072
   max_concurrency: 20
 monitor:
+  # Hourly, matching dev. Reviewed 2026-08-01 and kept deliberately. Note each
+  # run is a SageMaker processing job on ml.m5.large, so a live hourly schedule
+  # is ~720 jobs/month and would dominate the bill below.
   schedule_cron: "cron(0 * ? * * *)"
+
+# The three values below match dev deliberately -- reviewed 2026-08-01, not an
+# untuned copy. The budget in particular is account-wide: CfnBudget is created
+# with no CostFilters, so this does not scope prod's spend, it re-measures the
+# whole account. Once prod is deployed, both environments' budgets alarm on the
+# same dollars at 50/80/100%.
 budget_usd: 20
 log_retention_days: 14
 security:

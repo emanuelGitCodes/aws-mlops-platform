@@ -2,6 +2,7 @@
 canonical valid sample record, and the repo root path."""
 
 import importlib
+import json
 import os
 import pathlib
 from unittest import mock
@@ -15,27 +16,11 @@ os.environ.setdefault("CURATED_BUCKET", "test-curated")
 os.environ.setdefault("PIPELINE_NAME", "test-pipeline")
 
 # One valid CustomerRecord payload, shared by every test module that needs it.
-VALID = {
-    "gender": "Female",
-    "SeniorCitizen": 0,
-    "Partner": "Yes",
-    "Dependents": "No",
-    "tenure": 12,
-    "PhoneService": "Yes",
-    "MultipleLines": "No",
-    "InternetService": "DSL",
-    "OnlineSecurity": "No",
-    "OnlineBackup": "Yes",
-    "DeviceProtection": "No",
-    "TechSupport": "No",
-    "StreamingTV": "No",
-    "StreamingMovies": "No",
-    "Contract": "Month-to-month",
-    "PaperlessBilling": "Yes",
-    "PaymentMethod": "Electronic check",
-    "MonthlyCharges": 53.85,
-    "TotalCharges": 646.2,
-}
+# Read from sample.json rather than restated here: the two were byte-identical
+# copies, so a schema change could be applied to the fixture while the payload
+# operators actually curl with went stale, or the reverse.
+SAMPLE_PATH = REPO_ROOT / "sample.json"
+VALID = json.loads(SAMPLE_PATH.read_text())
 
 
 def import_with_stubbed_boto3(module_name: str):

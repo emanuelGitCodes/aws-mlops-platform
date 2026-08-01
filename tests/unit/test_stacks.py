@@ -69,6 +69,9 @@ def test_buckets_are_locked_down(stacks):
             "VersioningConfiguration": {"Status": "Enabled"},
         },
     )
+    # Exactly one: AWS Budgets is account-scoped and dev and prod share an
+    # account, so a second budget anywhere re-measures the same dollars.
+    template.resource_count_is("AWS::Budgets::Budget", 1)
     template.has_resource_properties(
         "AWS::Budgets::Budget",
         {"Budget": Match.object_like({"BudgetLimit": {"Amount": CONFIG["budget_usd"]}})},
@@ -987,7 +990,7 @@ def test_disabling_a_phase_3_flag_still_synthesizes():
 
     Acknowledgements are matched to real constructs, so one naming a flag-gated
     Phase 3 construct fails synthesis the moment that flag goes false -- which is
-    exactly the rollback path. Without requires_service, flipping account_bpa
+    exactly the rollback path. Without requires_flag, flipping account_bpa
     back off would leave the environment unable to synthesize the revert.
     """
     config = load_config("dev")
@@ -1004,6 +1007,36 @@ def test_disabling_a_phase_3_flag_still_synthesizes():
 
     resources = Template.from_stack(stacks["security_monitoring"]).to_json()["Resources"]
     assert "Custom::AWS" not in {value["Type"] for value in resources.values()}
+
+
+def test_prod_creates_no_second_account_budget():
+    """AWS Budgets is account-scoped and both environments share one account.
+
+    A budget in each environment does not scope either one's spend: both
+    re-measure the whole account and alarm on the same dollars at every
+    threshold. Only the environment whose `account_budget` flag is true may
+    build one.
+    """
+    prod_config = load_config("prod")
+    assert prod_config["security"]["account_budget"] is False, (
+        "prod must not own the account budget while dev does"
+    )
+
+    prod = Template.from_stack(synth_env("prod", "Test-Prod-Budget")["data"])
+    prod.resource_count_is("AWS::Budgets::Budget", 0)
+    # The notification provider goes with it, or its acknowledgement would
+    # match no construct and fail prod synthesis.
+    prod.resource_count_is("Custom::AWS", 0)
+
+
+def test_exactly_one_environment_owns_the_account_budget():
+    """The invariant itself, not just today's two values.
+
+    Nothing in CDK can see both environments at once -- each synthesis loads one
+    config -- so this is the only place the "exactly one" rule is enforced.
+    """
+    owners = [env for env in ("dev", "prod") if load_config(env)["security"]["account_budget"]]
+    assert owners == ["dev"], f"expected dev to be the sole budget owner, got {owners}"
 
 
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):

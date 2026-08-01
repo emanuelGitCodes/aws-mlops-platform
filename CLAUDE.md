@@ -106,7 +106,11 @@ changes from stack status has already produced two incorrect reports.
 1. **Run `make verify-deploy SINCE=<YYYY-MM-DD>` after any deploy, and
    report from its output.** It lists, per stack, the last-updated
    timestamp and the resources that actually changed — and says so
-   explicitly when a stack changed nothing.
+   explicitly when a stack changed nothing. Use a profile that can
+   enumerate stacks: `AWS_PROFILE=mlops-security-auditor`. The deploy
+   identity (`mlops-deployer`) lacks `cloudformation:ListStacks` and fails
+   here with AccessDenied — deploying and verifying are different
+   identities.
 2. **`cdk diff` is intent, not outcome.** CloudFormation resolves
    intrinsics such as `Ref: AWS::Partition` and then skips resources whose
    resolved form is unchanged. A diff hunk does **not** mean the resource

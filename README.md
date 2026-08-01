@@ -218,8 +218,13 @@ Current dev baseline:
 - Serverless inference has no configured provisioned concurrency, so endpoint
   compute has no standing instance while idle. S3, logs, and other retained AWS
   resources still incur small ongoing charges. The monthly budget is `$20` and
-  alerts at 50/80/100%. Note it carries no `CostFilters`, so it measures
-  account-wide spend rather than one environment's.
+  alerts at 50/80/100%. It is account-scoped and owned by exactly one
+  environment (`security.account_budget`, true in dev only): AWS Budgets is an
+  account-level service, so a budget per environment would re-measure the same
+  dollars and alarm twice on them. Scoping a budget to one environment needs a
+  `CostFilters` tag filter, which reports zero until that tag is activated as a
+  cost allocation tag in Billing — a manual step, and a budget matching nothing
+  never alarms at all.
 
 The [phased security hardening roadmap](wiki/pages/architecture/phased-security-hardening.md)
 runs 0-9: baseline, repository guardrails, audit and detection, threat

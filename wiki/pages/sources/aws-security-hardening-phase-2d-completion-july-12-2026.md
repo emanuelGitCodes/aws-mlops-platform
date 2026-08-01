@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 2D completion — July 12, 2026"
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../tests/unit/test_data_stack.py"]
 summary: "Phase 2D is deployed and verified with preserved bucket and budget identities; Phase 2 now waits at its 24-hour observation checkpoint."
 ---
 # AWS security hardening Phase 2D completion — July 12, 2026

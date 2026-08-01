@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 3-prep implementation — July 14, 2026"
 created: "2026-07-14"
 updated: "2026-07-14"
-sources: ["../../raw/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../tests/unit/test_stacks.py", "../../../tests/unit/test_deployment_policy.py"]
+sources: ["../../raw/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../tests/unit/test_security_monitoring_stack.py", "../../../tests/unit/test_deployment_policy.py"]
 summary: "Phase 2 observation closes as a documented go; Phase 3 gains six enablement flags, an empty SecurityMonitoring stack, and pre-granted deployer permissions with no service enabled."
 ---
 # AWS security hardening Phase 3-prep implementation — July 14, 2026

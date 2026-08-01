@@ -3,7 +3,7 @@ type: source
 title: "AWS security hardening Phase 2C implementation — July 12, 2026"
 created: "2026-07-12"
 updated: "2026-07-12"
-sources: ["../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../tests/unit/test_stacks.py", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
+sources: ["../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../tests/unit/test_security_stack.py", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "Six exact Security Hub/CIS metric filters and five-minute SNS alarms pass local gates and await hosted CI and deployment."
 ---
 # AWS security hardening Phase 2C implementation — July 12, 2026

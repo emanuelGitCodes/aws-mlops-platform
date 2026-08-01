@@ -3,7 +3,7 @@ type: "source"
 title: "AWS security hardening Phase 3E implementation and deployment — July 24, 2026"
 created: "2026-07-24"
 updated: "2026-07-24"
-sources: ["../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/security_checks.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_stacks.py"]
+sources: ["../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/security_checks.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py"]
 summary: "Account-level S3 Block Public Access is live in dev via a flag-gated custom resource, with a clean pre-flight, a four-resource deploy, and resource-level verification."
 ---
 # AWS security hardening Phase 3E implementation and deployment — July 24, 2026

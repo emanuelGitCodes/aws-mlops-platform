@@ -37,6 +37,12 @@ jobs:
       - name: Unit tests
         run: make test
 
+      # The wiki is a maintained deliverable with its own health check, and
+      # `make wiki-lint` ran nowhere: a broken source link or an orphaned page
+      # could merge unnoticed.
+      - name: Lint the wiki
+        run: make wiki-lint
+
       - name: Audit Python dependencies
         run: make audit
 

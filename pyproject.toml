@@ -95,4 +95,4 @@ show_missing = true
 # The floor is the measured value at the time it was introduced, so coverage
 # can only be ratcheted up. Raise it when a phase lands; never lower it to make
 # a red run green.
-fail_under = 83
+fail_under = 88

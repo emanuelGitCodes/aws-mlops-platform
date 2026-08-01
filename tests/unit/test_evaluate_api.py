@@ -12,6 +12,115 @@ def _fixture(label: int, row_id: int) -> dict:
     return {"row_id": row_id, "record": VALID, "label": label}
 
 
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("s3://bucket/prefix/api_test", ("bucket", "prefix/api_test")),
+        ("s3://bucket/prefix/", ("bucket", "prefix")),
+        ("s3://bucket/a/b/api_test.jsonl", ("bucket", "a/b/api_test.jsonl")),
+    ],
+)
+def test_parse_s3_uri_splits_bucket_from_key(uri, expected):
+    assert evaluate_api.parse_s3_uri(uri) == expected
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "https://bucket/prefix",  # not an S3 URI at all
+        "s3://bucket",  # no key
+        "s3://bucket/",  # empty key
+        "s3:///prefix",  # no bucket
+        "",
+    ],
+)
+def test_parse_s3_uri_rejects_malformed_input(uri):
+    """A malformed URI must fail here, not as a confusing S3 404 later."""
+    with pytest.raises(ValueError, match="fixture S3 URI"):
+        evaluate_api.parse_s3_uri(uri)
+
+
+def _preprocess_page(outputs):
+    return [
+        {
+            "PipelineExecutionSteps": [
+                {"StepName": "Train", "Metadata": {}},
+                {
+                    "StepName": "Preprocess",
+                    "Metadata": {"ProcessingJob": {"Arn": "arn:aws:sagemaker:::job/prep-1"}},
+                },
+            ]
+        }
+    ], {"ProcessingOutputConfig": {"Outputs": outputs}}
+
+
+def _sagemaker_client(pages, job):
+    client = mock.Mock()
+    client.get_paginator.return_value.paginate.return_value = pages
+    client.describe_processing_job.return_value = job
+    return client
+
+
+def test_resolve_fixture_s3_uri_finds_the_api_test_output():
+    pages, job = _preprocess_page(
+        [
+            {"OutputName": "train", "S3Output": {"S3Uri": "s3://bucket/train"}},
+            {"OutputName": "api_test", "S3Output": {"S3Uri": "s3://bucket/api_test"}},
+        ]
+    )
+    client = _sagemaker_client(pages, job)
+    with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
+        assert evaluate_api.resolve_fixture_s3_uri("arn:execution") == "s3://bucket/api_test"
+
+    # Looked up by job name, not by the full ARN.
+    assert client.describe_processing_job.call_args.kwargs == {"ProcessingJobName": "prep-1"}
+
+
+def test_resolve_fixture_s3_uri_fails_when_the_execution_has_no_api_test_output():
+    """An execution predating the fixture output must say so, not return None."""
+    pages, job = _preprocess_page(
+        [{"OutputName": "train", "S3Output": {"S3Uri": "s3://bucket/train"}}]
+    )
+    client = _sagemaker_client(pages, job)
+    with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
+        with pytest.raises(evaluate_api.ApiEvaluationError, match="api_test"):
+            evaluate_api.resolve_fixture_s3_uri("arn:execution")
+
+
+def _s3_client_returning(payload: bytes):
+    client = mock.Mock()
+    client.get_object.return_value = {"Body": mock.Mock(read=mock.Mock(return_value=payload))}
+    return client
+
+
+def test_load_fixture_reads_jsonl_and_appends_the_default_filename():
+    payload = b'{"row_id": 0, "label": 1}\n\n{"row_id": 1, "label": 0}\n'
+    client = _s3_client_returning(payload)
+    with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
+        records = evaluate_api.load_fixture("s3://bucket/prefix")
+
+    assert [record["row_id"] for record in records] == [0, 1]
+    # A prefix gets the fixture filename appended; blank lines are skipped.
+    assert client.get_object.call_args.kwargs == {
+        "Bucket": "bucket",
+        "Key": "prefix/api_test.jsonl",
+    }
+
+
+def test_load_fixture_uses_an_explicit_jsonl_key_as_given():
+    client = _s3_client_returning(b'{"row_id": 0}\n')
+    with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
+        evaluate_api.load_fixture("s3://bucket/a/api_test.jsonl")
+    assert client.get_object.call_args.kwargs["Key"] == "a/api_test.jsonl"
+
+
+def test_load_fixture_rejects_an_empty_fixture():
+    """An empty fixture would otherwise report a perfect score over zero records."""
+    with mock.patch.object(evaluate_api.boto3, "client", return_value=_s3_client_returning(b"\n")):
+        with pytest.raises(evaluate_api.ApiEvaluationError, match="empty"):
+            evaluate_api.load_fixture("s3://bucket/prefix")
+
+
 def test_select_records_is_deterministic_and_class_balanced():
     records = [_fixture(index % 2, index) for index in range(20)]
 

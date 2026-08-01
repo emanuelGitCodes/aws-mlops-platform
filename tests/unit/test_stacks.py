@@ -18,6 +18,7 @@ from infra.stacks.security_monitoring_stack import (
     PHASE_3_SERVICE_FLAGS,
     SecurityMonitoringStack,
 )
+from src.monitoring.retrain_handler import VIOLATION_STATUS
 
 CONFIG = load_config("dev")
 
@@ -580,16 +581,26 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
 def test_monitoring_drift_loop_wiring(stacks):
     template = stacks["monitoring"]
 
+    # The rule's status and the handler's guard must agree. They cannot share a
+    # constant -- importing the handler during synth would run its env lookups
+    # -- so this is what keeps the two literals from drifting apart.
     template.has_resource_properties(
         "AWS::Events::Rule",
         {
             "EventPattern": Match.object_like(
-                {
-                    "detail": Match.object_like(
-                        {"MonitoringExecutionStatus": ["CompletedWithViolations"]}
-                    )
-                }
+                {"detail": Match.object_like({"MonitoringExecutionStatus": [VIOLATION_STATUS]})}
             )
+        },
+    )
+    assert VIOLATION_STATUS == "CompletedWithViolations"
+
+    # The handler is bundled source, not an inline string: that is what puts it
+    # in reach of ruff, mypy and pytest.
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "src.monitoring.retrain_handler.handler",
+            "Code": Match.object_like({"S3Key": Match.any_value()}),
         },
     )
     # retrain Lambda may only start the one pipeline

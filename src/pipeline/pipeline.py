@@ -107,13 +107,16 @@ def build_pipeline(
         instance_type="ml.m5.large",
         output_path=f"s3://{artifacts_bucket}/training",
         sagemaker_session=session,
+        # Strings because that is what SageMaker puts in the training request
+        # either way -- it stringifies every hyperparameter value, so writing
+        # them as `200`/`0.2` only hid the conversion from the type checker.
         hyperparameters={
             "objective": "binary:logistic",
             "eval_metric": "auc",
-            "num_round": 200,
-            "max_depth": 5,
-            "eta": 0.2,
-            "early_stopping_rounds": 20,
+            "num_round": "200",
+            "max_depth": "5",
+            "eta": "0.2",
+            "early_stopping_rounds": "20",
         },
     )
     train = TrainingStep(
@@ -231,7 +234,14 @@ def build_pipeline(
 
     gate = ConditionStep(
         name="BeatsChampion",
-        conditions=[ConditionGreaterThan(left=challenger_auc, right=champion_auc)],
+        conditions=[
+            # JsonGet is the documented way to gate on a property file, but the
+            # SDK's `left` hint omits it. Drop the ignore if the SDK adds it.
+            ConditionGreaterThan(
+                left=challenger_auc,  # type: ignore[arg-type]
+                right=champion_auc,
+            )
+        ],
         if_steps=[register],
         else_steps=[],
     )

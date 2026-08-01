@@ -23,21 +23,22 @@ jobs:
           enable-cache: true
 
       - name: Install locked dependencies
-        run: uv sync --locked --extra dev
+        run: make install
 
+      # Via the Make targets, so CI and a local run can never drift apart --
+      # the unit-test step in particular carries a coverage floor that only
+      # the target knows about.
       - name: Lint
-        run: |
-          uv run --locked ruff check .
-          uv run --locked ruff format --check .
+        run: make lint
 
       - name: Type check
-        run: uv run --locked --extra dev mypy
+        run: make typecheck
 
       - name: Unit tests
-        run: uv run --locked pytest tests/unit -q
+        run: make test
 
       - name: Audit Python dependencies
-        run: uv run --locked pip-audit --skip-editable
+        run: make audit
 
       - name: CDK security synthesis
         # Both environments: a dev-only synth cannot catch an acknowledgement

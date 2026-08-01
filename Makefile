@@ -5,8 +5,11 @@
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
 
+# The `pipeline` extra is needed by the tests, not just by the SageMaker
+# images: src/pipeline/pipeline.py imports the SageMaker SDK at module level,
+# and stubbing it would reduce the pipeline tests to asserting against mocks.
 install:
-	uv sync --locked --extra dev
+	uv sync --locked --extra dev --extra pipeline
 
 lock-check:
 	uv lock --check
@@ -15,11 +18,18 @@ lint:
 	uv run --locked ruff check .
 	uv run --locked ruff format --check .
 
+# Both extras, like `test`: with sagemaker absent, mypy falls back to the
+# ignore_missing_imports override and src/pipeline/ types as Any -- it would
+# pass without checking anything there.
 typecheck:
-	uv run --locked --extra dev mypy
+	uv run --locked --extra dev --extra pipeline mypy
 
+# Coverage is measured on every run and enforced against the floor in
+# pyproject (`fail_under`). Measuring without a floor is how 78% coverage sat
+# unnoticed with the pipeline definition at 0%.
 test:
-	uv run --locked pytest tests/unit -q
+	uv run --locked --extra dev --extra pipeline pytest tests/unit -q \
+		--cov --cov-report=term-missing
 
 audit:
 	uv run --locked pip-audit --skip-editable

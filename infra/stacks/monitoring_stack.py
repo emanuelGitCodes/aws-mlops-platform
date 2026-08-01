@@ -12,7 +12,6 @@ from aws_cdk import Duration, Stack
 from aws_cdk import aws_cloudwatch as cw
 from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_iam as iam
-from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_sns as sns
 from constructs import Construct
 
@@ -36,26 +35,15 @@ class MonitoringStack(Stack):
 
         # Model Monitor emits a CloudWatch event / metric on violations; we key the
         # loop off the monitoring-schedule status change event.
+        # The handler is real source in src/monitoring, not an inline string, so
+        # ruff, mypy and pytest all see it like every other handler.
         retrain_fn = platform_lambda(
             self,
             "RetrainTriggerFn",
             config=config,
-            handler="index.handler",
+            handler="src.monitoring.retrain_handler.handler",
             timeout=Duration.minutes(1),
             environment={"PIPELINE_NAME": pipeline_name},
-            code=lambda_.Code.from_inline(
-                "import boto3, os, json\n"
-                "def handler(event, context):\n"
-                "    status = event['detail'].get('MonitoringExecutionStatus')\n"
-                "    if status != 'CompletedWithViolations':\n"
-                "        return {'skipped': status}\n"
-                "    arn = boto3.client('sagemaker').start_pipeline_execution(\n"
-                "        PipelineName=os.environ['PIPELINE_NAME'],\n"
-                "        PipelineExecutionDescription='drift-triggered retrain',\n"
-                "    )['PipelineExecutionArn']\n"
-                "    print(json.dumps({'retrain_started': arn}))\n"
-                "    return {'retrain_started': arn}\n"
-            ),
         )
         retrain_fn.add_to_role_policy(
             iam.PolicyStatement(
@@ -76,6 +64,10 @@ class MonitoringStack(Stack):
             detail_type="SageMaker Model Monitor Execution Status Change",
             detail={
                 "MonitoringScheduleName": [{"prefix": endpoint_name}],
+                # Must equal retrain_handler.VIOLATION_STATUS. Deliberately a
+                # literal -- importing the handler here would run its
+                # module-level os.environ lookups during synth. test_stacks.py
+                # asserts the two agree.
                 "MonitoringExecutionStatus": ["CompletedWithViolations"],
             },
             handler=retrain_fn,

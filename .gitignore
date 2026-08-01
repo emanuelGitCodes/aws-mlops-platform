@@ -5,6 +5,8 @@ venv/
 cdk.out/
 .pytest_cache/
 .ruff_cache/
+.coverage
+.mypy_cache/
 *.egg-info/
 .env
 data/

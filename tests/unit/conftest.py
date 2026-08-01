@@ -12,6 +12,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
 os.environ.setdefault("EXECUTION_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
 os.environ.setdefault("CURATED_BUCKET", "test-curated")
+os.environ.setdefault("PIPELINE_NAME", "test-pipeline")
 
 # One valid CustomerRecord payload, shared by every test module that needs it.
 VALID = {

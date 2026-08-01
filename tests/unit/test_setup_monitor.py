@@ -4,19 +4,13 @@ from unittest import mock
 import pytest
 
 from infra.app import load_config
+from scripts import setup_monitor
 
-# `sagemaker` ships in the `pipeline` extra, which CI does not sync. Stub the
-# module tree this script imports so the test actually runs rather than
-# skipping: a test that never executes reports the same green as one that
-# passes. `setdefault` leaves a real installation alone.
-_sagemaker = mock.MagicMock()
-sys.modules.setdefault("sagemaker", _sagemaker)
-sys.modules.setdefault("sagemaker.model_monitor", _sagemaker.model_monitor)
-sys.modules.setdefault(
-    "sagemaker.model_monitor.dataset_format", _sagemaker.model_monitor.dataset_format
-)
-
-from scripts import setup_monitor  # noqa: E402
+# This module used to stub `sagemaker` into sys.modules, because the `pipeline`
+# extra was not synced. `make install` now syncs it (test_pipeline.py needs the
+# real SDK), and the stub actively broke that: a MagicMock registered under
+# "sagemaker" made `from sagemaker.inputs import ...` fail with
+# "'sagemaker' is not a package" in whichever module imported it second.
 
 ARGS = [
     "setup_monitor.py",

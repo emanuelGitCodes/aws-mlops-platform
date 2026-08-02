@@ -1,6 +1,6 @@
-.PHONY: install lock-check lint typecheck test audit synth synth-all security \
-	bootstrap check-stack diff-stack deploy-stack deploy destroy verify-deploy \
-	smoke wiki-init wiki-index wiki-search wiki-ingest wiki-lint
+.PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
+	security bootstrap check-stack diff-stack deploy-stack deploy destroy \
+	verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -30,6 +30,26 @@ typecheck:
 test:
 	uv run --locked --extra dev --extra pipeline pytest tests/unit -q \
 		--cov --cov-report=term-missing
+
+# AGENTS.md is the single source and CLAUDE.md is a symlink to it, so the two
+# cannot drift -- but only while the symlink survives. A checkout without
+# symlink support, or an agent that writes CLAUDE.md directly, replaces it with
+# a regular file, and the "change one, change both" rule silently becomes prose
+# again. Asserted against the git index rather than the working tree: the index
+# is what CI checks out and what a bad commit would carry.
+docs-sync:
+	@mode=$$(git ls-files -s CLAUDE.md | cut -d' ' -f1); \
+	if [ "$$mode" != "120000" ]; then \
+		echo "CLAUDE.md must be a symlink to AGENTS.md; git records mode '$$mode'" >&2; \
+		exit 1; \
+	fi; \
+	target=$$(git cat-file -p :CLAUDE.md); \
+	if [ "$$target" != "AGENTS.md" ]; then \
+		echo "CLAUDE.md points at '$$target', expected AGENTS.md" >&2; \
+		exit 1; \
+	fi; \
+	test -s AGENTS.md || { echo "AGENTS.md is missing or empty" >&2; exit 1; }; \
+	echo "docs-sync: CLAUDE.md -> AGENTS.md"
 
 audit:
 	uv run --locked pip-audit --skip-editable

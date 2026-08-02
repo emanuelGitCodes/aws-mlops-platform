@@ -37,6 +37,12 @@ jobs:
       - name: Unit tests
         run: make test
 
+      # AGENTS.md is the single source; CLAUDE.md is a symlink to it. The rule
+      # was prose only, and prose cannot stop a commit that replaces the
+      # symlink with a copy free to drift.
+      - name: Check the agent docs stay one file
+        run: make docs-sync
+
       # The wiki is a maintained deliverable with its own health check, and
       # `make wiki-lint` ran nowhere: a broken source link or an orphaned page
       # could merge unnoticed.

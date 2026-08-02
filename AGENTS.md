@@ -31,6 +31,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make lint` | ruff check + format check |
 | `make typecheck` | mypy over `src/`, `infra/`, `scripts/` (both extras) |
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
+| `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
 | `make audit` | pip-audit over the locked dependencies |
 | `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
@@ -51,8 +52,8 @@ or `pip` for project code.
 
 `.github/workflows/ci.yml` runs on every PR and push to `main`, and calls
 the Make targets rather than restating them: `install`, `lint`, `typecheck`,
-`test`, `wiki-lint`, `audit`, `synth-all` — plus a gitleaks scan of full
-history in a separate job. All are blocking.
+`test`, `docs-sync`, `wiki-lint`, `audit`, `synth-all` — plus a gitleaks scan
+of full history in a separate job. All are blocking.
 
 `.github/workflows/deploy.yml` is `workflow_dispatch` only: dev deploy +
 smoke, then a prod job gated on the GitHub `prod` environment's manual

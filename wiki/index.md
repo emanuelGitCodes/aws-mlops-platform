@@ -25,6 +25,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Decisions
 
+- [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.
 - [Platform design decisions](pages/decisions/platform-design.md) — The platform favors managed SageMaker lineage where it matters and small AWS primitives where simple event wiring is clearer.
 
 ## Filed answers

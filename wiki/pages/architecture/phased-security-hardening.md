@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-07-30"
+updated: "2026-08-02"
 sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -242,6 +242,11 @@ Related runtime and human authority boundaries are documented in
 - The account's AWS Free plan blocks GuardDuty and Security Hub until a
   paid-plan upgrade; that upgrade ends the cannot-be-charged guarantee and is
   an open billing decision, guarded by the Phase 2 budget alerts and alarms.
+  As of 2026-08-02 the GuardDuty half of that decision is no longer only a
+  billing block: measured against this account's own event volume the service
+  would cost about a dollar a month, and it is **approved in principle**,
+  waiting on a workload trigger rather than on price. See
+  [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md).
 - AWS Config availability on the Free plan is unproven until the gated 3C
   deployment attempts the first recorder create; its recording scope must
   stay minimal because configuration items consume the remaining credits.

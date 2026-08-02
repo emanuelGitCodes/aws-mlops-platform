@@ -163,7 +163,7 @@ def evaluate_api_records(
     }
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--fixture-s3-uri")
@@ -174,7 +174,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=25)
     parser.add_argument("--all", action="store_true", dest="all_records")
     parser.add_argument("--output", help="optional local JSON report path")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if not args.api_url or not args.api_key:
         parser.error("--api-url/API_URL and --api-key/API_KEY are required")
 

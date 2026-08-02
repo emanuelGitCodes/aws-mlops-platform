@@ -116,7 +116,13 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
+# `fail_under` is compared against the total rounded to `precision` digits. At
+# the default precision of 0 a floor of 92.4 is compared against a rounded 92
+# and fails, and -- worse in the other direction -- a real slide from 92.43 to
+# 91.5 still rounds to 92 and passes. Two digits makes the ratchet mean what
+# it says.
+precision = 2
 # The floor is the measured value at the time it was introduced, so coverage
 # can only be ratcheted up. Raise it when a phase lands; never lower it to make
 # a red run green.
-fail_under = 92
+fail_under = 92.4

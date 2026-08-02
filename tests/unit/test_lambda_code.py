@@ -10,12 +10,16 @@ new top-level file silently joined the fingerprint.
 
 import contextlib
 import pathlib
+import subprocess
+import sys
+from unittest import mock
 
 import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Template
 
 from infra.app import build_app, load_config
+from infra.stacks.lambda_code import _LocalPipBundling
 from tests.unit.conftest import REPO_ROOT
 
 PROBE_NAME = "_fingerprint_probe.tmp"
@@ -70,3 +74,54 @@ def test_the_probe_files_are_cleaned_up():
     """A leaked probe would silently poison every later asset comparison."""
     assert not (REPO_ROOT / PROBE_NAME).exists()
     assert not (REPO_ROOT / "src" / PROBE_NAME).exists()
+
+
+# `try_bundle` builds every Lambda package on the host, and returning False is
+# how it hands off to the Docker image. Neither branch was tested: a broken
+# local path would fall back silently and slowly, and a local path that stopped
+# cross-installing would ship the host's wheels -- which is how a pydantic_core
+# import failure reached the runtime once already.
+
+
+def _bundle(output_dir: pathlib.Path, pip_result=None):
+    """Run try_bundle with pip stubbed; returns (result, run mock, copytree mock)."""
+    with (
+        mock.patch("subprocess.run", side_effect=pip_result) as run,
+        mock.patch("shutil.copytree") as copytree,
+    ):
+        result = _LocalPipBundling().try_bundle(str(output_dir), image=mock.Mock())
+    return result, run, copytree
+
+
+def test_local_bundling_cross_installs_for_the_lambda_runtime(tmp_path):
+    """The wheels must match Lambda, not the machine running the synth."""
+    result, run, copytree = _bundle(tmp_path)
+
+    assert result is True
+    command = run.call_args.args[0]
+    assert command[:3] == [sys.executable, "-m", "pip"]
+    for flag in ("--platform", "manylinux2014_x86_64", "--only-binary=:all:", "3.12"):
+        assert flag in command, flag
+    assert command[-2:] == ["-t", str(tmp_path)]
+    assert any(dep.startswith("pydantic") for dep in command)
+    # check=True is what turns a failed install into the Docker fallback below.
+    assert run.call_args.kwargs["check"] is True
+    assert copytree.call_args.args[0] == REPO_ROOT / "src"
+
+
+def test_local_bundling_does_not_copy_pycache_into_the_package(tmp_path):
+    """Compiled bytecode from the host has no business in the deployed asset."""
+    _, _, copytree = _bundle(tmp_path)
+
+    ignore = copytree.call_args.kwargs["ignore"]
+    assert ignore("src", ["common", "__pycache__"]) == {"__pycache__"}
+
+
+def test_a_failed_local_install_falls_back_to_docker(tmp_path):
+    """Returning False is the handoff; raising would abort the synth instead."""
+    error = subprocess.CalledProcessError(1, "pip")
+    result, _, copytree = _bundle(tmp_path, pip_result=error)
+
+    assert result is False
+    # No half-populated output directory is left for CDK to zip.
+    copytree.assert_not_called()

@@ -76,6 +76,30 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
 pythonpath = ["."]
+# Deprecations are errors. They were previously invisible: the SageMaker SDK
+# has been announcing the v2->v3 TrainingStep change on every run, and it
+# scrolled past in CI for as long as it has existed. The SDK is held at
+# `sagemaker<3` while v3 ships, so each new deprecation is a v3 migration
+# blocker and needs to surface on the day it appears.
+#
+# Broad rather than scoped to sagemaker: the whole 120-package tree emits
+# exactly three warnings today, all from sagemaker, so this costs no false
+# positives and also covers pydantic, boto3, and the CDK. A transitive
+# deprecation arriving with a Dependabot bump *should* redden that PR.
+#
+# Later entries win: pytest applies these in order and each one prepends to
+# the warnings filter list, so every exception must sit below the `error`.
+# Exceptions follow the rule the security acknowledgements use -- narrow,
+# and naming what removes them -- so a new deprecation cannot inherit one.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+    # `TrainingStep` still takes `estimator=` while both `ProcessingStep`s
+    # already pass `step_args`. Delete this line together with that call site
+    # in src/pipeline/pipeline.py; `step_args` is also the v3 shape, so the
+    # fix is a prerequisite of the SDK upgrade rather than extra work.
+    "default:We are deprecating the instantiation of TrainingStep:DeprecationWarning",
+]
 
 # Coverage flags deliberately live in the `test` Make target rather than in
 # `addopts`: `make smoke` runs `pytest tests/integration` against a deployed

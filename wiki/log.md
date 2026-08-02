@@ -2706,3 +2706,81 @@ Read-only CloudWatch alarm, alarm-history, and metric reads; `FilterLogEvents`
 over the audit log group; budget and notification reads. The synthetic burst
 was read-only and non-mutating. Wiki index rebuilt, `make wiki-lint`, and a
 sensitive-value scan of the changed files.
+## [2026-08-02] query | guardduty cost free plan
+
+Found 25 matching page(s).
+
+
+## [2026-08-02] decide | GuardDuty approved at measured cost, deferred to an EC2 trigger
+
+### Objective
+
+Answer whether GuardDuty should be enabled at all, after published pricing
+commentary suggested it was expensive and raised the concern that this
+account's S3 buckets might already be scanned.
+
+### Scope
+
+`wiki/pages/decisions/phase-3-paid-security-services.md` (new),
+`wiki/pages/architecture/phased-security-hardening.md` (Phase 3 tension
+updated), `infra/stacks/security_monitoring_stack.py` and
+`infra/config/{dev,prod}.yaml` read as evidence. No code or AWS change.
+
+### Identity and environment
+
+Administrator profile, us-east-1, read-only throughout. The auditor profile
+cannot serve this question: it lacks `cloudwatch:GetMetricStatistics`, a gap
+already recorded during the Phase 2E closure.
+
+### Commands and results
+
+- `guardduty list-detectors` — `SubscriptionRequiredException`. The account
+  cannot call the service, so no detector exists and nothing is being scanned.
+- `cloudwatch get-metric-statistics` on `AWS/Logs IncomingLogEvents` for
+  `/aws/cloudtrail/mlops-dev-audit`, seven days to 2026-08-02: **59,628
+  events**, ~8,500/day, including a 17,895 day covering the Phase 2E synthetic
+  burst and that day's deployments.
+- Published rates read from the AWS GuardDuty and Elastic Load Balancing
+  pricing pages: $4.00 per million CloudTrail management events; VPC flow/DNS
+  $1.00/GB to 500 GB; S3 Protection $0.80/million; Malware Protection for S3
+  $0.09/GB plus $0.215/1,000 objects; ALB $0.0225/hour plus $0.008/LCU-hour.
+
+### Interpretation
+
+The premise behind the concern was wrong in three independent ways: the
+service is not subscribed, the flags are false in both environments, and the
+3B detector code explicitly disables `S3_DATA_EVENTS` and
+`EBS_MALWARE_PROTECTION`. Malware Protection for S3 is a separate opt-in that
+was never configured.
+
+The cost warnings are accurate in general and inapplicable here, because they
+are dominated by exactly the dimensions this design disables. Against ~260,000
+management events per month the service prices at **about $1/month**, with
+every other dimension at zero while the account has no VPC resources.
+
+The more useful finding is that the cheap control is also, today, a
+low-value one: foundational detections target EC2 and VPC workloads that do
+not exist yet, and the credential-anomaly coverage partly duplicates the
+deployed `unauthorized-api-calls` alarm.
+
+### Decision and next checkpoint
+
+GuardDuty is **approved in principle and deferred to a trigger** — a planned
+secondary website serving project data from EC2 behind a load balancer — not
+declined and not blocked. The flag-gated detector code stays inert and tested
+so the option is preserved. Deliberately left unchanged: the flags, the
+execution policy's retained GuardDuty actions, and sub-phase ordering; 3C
+remains next and is unaffected.
+
+Recorded for the trigger: re-price rather than reusing the $1 figure, because
+flow logs become billable; the ALB alone is ~$16.43/month before LCUs against
+a $20 budget, making the budget conversation a prerequisite for the website
+rather than a consequence of it; and the 30-day trial is per account, Region,
+and protection plan, so it burns from enablement. 3D Security Hub sits behind
+the same billing gate and its value is explicitly still open.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, and the changed files scanned for
+account-identifying literals — 12-digit numbers, `execute-api` hosts, and ARNs
+with a numeric account field.

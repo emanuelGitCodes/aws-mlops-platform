@@ -90,3 +90,119 @@ def test_successful_lint_does_not_append_to_log(tmp_path: Path):
 def test_repo_wiki_is_healthy():
     errors = Wiki(REPO_ROOT / "wiki").lint()
     assert errors == []
+
+
+# `main` is the dispatch behind `make wiki-lint`, a blocking CI gate. Only its
+# healthy-lint path was exercised, so a subcommand wired to the wrong method,
+# or an exit code that stopped distinguishing "wiki is broken" from "the
+# command itself failed", would have merged green.
+
+
+def _run(wiki: Wiki, *argv: str) -> int:
+    return main(["--wiki-root", str(wiki.root), *argv])
+
+
+def test_init_creates_the_wiki(tmp_path: Path, capsys):
+    wiki = Wiki(tmp_path / "wiki")
+
+    assert _run(wiki, "init") == 0
+
+    assert wiki.index_path.exists() and wiki.page_root.is_dir()
+    assert str(wiki.root) in capsys.readouterr().out
+
+
+def test_index_rebuilds_from_page_frontmatter(tmp_path: Path, capsys):
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+    _write_page(wiki, "indexed.md", title="Indexed", summary="Indexed page")
+
+    assert _run(wiki, "index") == 0
+
+    assert "Indexed" in wiki.index_path.read_text(encoding="utf-8")
+    assert str(wiki.index_path) in capsys.readouterr().out
+
+
+def test_add_source_registers_and_scaffolds(tmp_path: Path, capsys):
+    wiki = Wiki(tmp_path / "wiki")
+    source = tmp_path / "notes.md"
+    source.write_text("Notes about drift.\n", encoding="utf-8")
+
+    assert _run(wiki, "add-source", str(source), "--title", "Drift notes") == 0
+
+    out = capsys.readouterr().out
+    assert "Registered" in out and "scaffolded" in out
+    assert "ingest | Drift notes" in wiki.log_path.read_text(encoding="utf-8")
+
+
+def test_search_prints_ranked_hits_and_records_the_query(tmp_path: Path, capsys):
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+    _write_page(wiki, "drift.md", title="Drift", summary="Drift and retraining")
+    wiki.rebuild_index()
+
+    assert _run(wiki, "search", "drift") == 0
+
+    assert "drift.md" in capsys.readouterr().out
+    # A search is a recorded operation even though it changes no page.
+    assert "query | drift" in wiki.log_path.read_text(encoding="utf-8")
+
+
+def test_search_without_matches_says_so(tmp_path: Path, capsys):
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+
+    assert _run(wiki, "search", "nonexistent-term") == 0
+
+    assert "No matches." in capsys.readouterr().out
+
+
+def test_log_appends_the_named_operation(tmp_path: Path):
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+
+    assert _run(wiki, "log", "lint", "--title", "Manual", "--details", "checked by hand") == 0
+
+    log = wiki.log_path.read_text(encoding="utf-8")
+    assert "lint | Manual" in log and "checked by hand" in log
+
+
+def test_failing_lint_exits_1_and_prints_each_error(tmp_path: Path, capsys):
+    """Exit 1 is what makes `make wiki-lint` block; a broken wiki must not exit 0."""
+    wiki = Wiki(tmp_path / "wiki")
+    wiki.init()
+    _write_page(wiki, "broken.md", title="Broken", summary="Broken", sources="../../missing.md")
+
+    assert _run(wiki, "lint") == 1
+
+    assert "ERROR:" in capsys.readouterr().out
+
+
+def test_a_wiki_error_exits_2_not_1(tmp_path: Path, capsys):
+    """Exit 2 separates "the command failed" from lint's "the wiki is unhealthy"."""
+    wiki = Wiki(tmp_path / "wiki")
+
+    assert _run(wiki, "add-source", str(tmp_path / "absent.md")) == 2
+
+    assert "ERROR:" in capsys.readouterr().err
+
+
+def _write_page(
+    wiki: Wiki, name: str, *, title: str, summary: str, sources: str = "../../README.md"
+):
+    page = wiki.page_root / "concepts" / name
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        (
+            "---\n"
+            "type: concept\n"
+            f"title: {title}\n"
+            'created: "2026-07-10"\n'
+            'updated: "2026-07-10"\n'
+            f'sources: ["{sources}"]\n'
+            f'summary: "{summary}"\n'
+            "---\n"
+            f"# {title}\n\n{summary}\n"
+        ),
+        encoding="utf-8",
+    )
+    return page

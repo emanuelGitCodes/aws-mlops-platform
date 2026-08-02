@@ -162,3 +162,141 @@ def test_invoke_prediction_reports_http_failure():
     with mock.patch("urllib.request.urlopen", side_effect=error):
         with pytest.raises(evaluate_api.ApiEvaluationError, match="HTTP 503"):
             evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+
+
+def _responding(payload: dict):
+    response = mock.MagicMock()
+    response.read.return_value = json.dumps(payload).encode()
+    response.__enter__.return_value = response
+    return mock.patch("urllib.request.urlopen", return_value=response)
+
+
+def test_invoke_prediction_returns_score_and_class_on_a_valid_response():
+    with _responding({"churn_probability": 0.8, "churn": True}):
+        result = evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+
+    assert result == {"score": 0.8, "prediction": 1}
+
+
+def test_invoke_prediction_reports_a_transport_failure():
+    with mock.patch("urllib.request.urlopen", side_effect=OSError("connection reset")):
+        with pytest.raises(evaluate_api.ApiEvaluationError, match="request failed"):
+            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"churn_probability": "0.5", "churn": True}, "finite number"),
+        ({"churn_probability": True, "churn": True}, "finite number"),
+        ({"churn_probability": float("nan"), "churn": True}, "finite number"),
+        ({"churn_probability": 1.5, "churn": True}, "between 0 and 1"),
+        ({"churn_probability": 0.8, "churn": "yes"}, "must be a boolean"),
+    ],
+)
+def test_invoke_prediction_rejects_contract_violations(payload, expected):
+    """A bool is an int in Python, so `churn_probability: true` must not pass as a score."""
+    with _responding(payload):
+        with pytest.raises(evaluate_api.ApiEvaluationError, match=expected):
+            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+
+
+def test_select_records_requires_room_for_both_classes():
+    with pytest.raises(ValueError, match="at least 2"):
+        evaluate_api.select_records([_fixture(0, 0), _fixture(1, 1)], limit=1, all_records=False)
+
+
+def test_select_records_falls_back_to_a_plain_sample_for_one_class():
+    """With a single class present, balancing is impossible but sampling must still work."""
+    records = [_fixture(0, index) for index in range(10)]
+
+    selected = evaluate_api.select_records(records, limit=4, all_records=False)
+
+    assert len(selected) == 4
+    assert [record["row_id"] for record in selected] == sorted(
+        record["row_id"] for record in selected
+    )
+
+
+# `main` is the only path an operator actually runs, and none of it was
+# covered: a mis-wired argument or a report written without its fixture URI
+# would have shipped.
+
+REPORT = {"source": "deployed_api", "accuracy": 1.0}
+
+
+def test_main_evaluates_an_explicit_fixture_and_prints_the_report(capsys):
+    with (
+        mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]) as load,
+        mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+    ):
+        evaluate_api.main(
+            ["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p", "--api-key", "k"]
+        )
+
+    report = json.loads(capsys.readouterr().out)
+    # The URI is echoed into the report, so a saved run records what it read.
+    assert report["fixture_s3_uri"] == "s3://bucket/prefix"
+    assert load.call_args.args[0] == "s3://bucket/prefix"
+
+
+def test_main_resolves_the_fixture_from_a_pipeline_execution(capsys):
+    with (
+        # Split across lines, and kept split by the trailing comma: on one line
+        # this reads to gitleaks as `api...="<high-entropy string>"` and fails
+        # the secret scan on the patch target's own name.
+        mock.patch.object(
+            evaluate_api,
+            "resolve_fixture_s3_uri",
+            return_value="s3://bucket/resolved",
+        ) as resolve,
+        mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]),
+        mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+    ):
+        evaluate_api.main(
+            ["--pipeline-execution-arn", "arn:exec", "--api-url", "https://x/p", "--api-key", "k"]
+        )
+
+    assert resolve.call_args.args[0] == "arn:exec"
+    assert json.loads(capsys.readouterr().out)["fixture_s3_uri"] == "s3://bucket/resolved"
+
+
+def test_main_writes_the_report_when_output_is_given(tmp_path, capsys):
+    output = tmp_path / "report.json"
+    with (
+        mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]),
+        mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+    ):
+        evaluate_api.main(
+            [
+                "--fixture-s3-uri",
+                "s3://bucket/prefix",
+                "--api-url",
+                "https://x/p",
+                "--api-key",
+                "k",
+                "--output",
+                str(output),
+            ]
+        )
+
+    capsys.readouterr()
+    assert json.loads(output.read_text())["source"] == "deployed_api"
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--fixture-s3-uri", "s3://bucket/prefix"],  # no credentials at all
+        ["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p"],  # no key
+        ["--api-url", "https://x/p", "--api-key", "k"],  # no fixture source
+    ],
+)
+def test_main_refuses_to_run_without_a_complete_invocation(argv, monkeypatch):
+    """Missing credentials must fail here, not as an opaque 403 mid-evaluation."""
+    monkeypatch.delenv("API_URL", raising=False)
+    monkeypatch.delenv("API_KEY", raising=False)
+    with pytest.raises(SystemExit) as exit_info:
+        evaluate_api.main(argv)
+
+    assert exit_info.value.code == 2

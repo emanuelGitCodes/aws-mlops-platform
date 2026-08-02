@@ -12,6 +12,7 @@ data contract shipped into Lambda.
 
 from typing import Any, TypedDict
 
+from aws_cdk import RemovalPolicy
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
@@ -103,14 +104,33 @@ def platform_lambda(
     code: lambda_.Code | None = None,
     **kwargs: Any,
 ) -> lambda_.Function:
-    """Lambda with platform defaults: Python 3.12, config-driven log retention,
-    and the shared src/ asset unless other code is supplied."""
+    """Lambda with platform defaults: Python 3.12, an own log group at the
+    config's retention, and the shared src/ asset unless other code is supplied.
+
+    The group is explicit rather than `log_retention=`, which CDK deprecated and
+    removes in the next major. That prop also built a singleton provider Lambda
+    and role per stack whose `Resource: *` log policy carried six of the cdk-nag
+    acknowledgements; an owned `LogGroup` deletes all of it.
+
+    The name is CDK-generated, not `/aws/lambda/<function>`: the function name is
+    generated too, so naming the group after it is circular. Lambda still writes
+    to it because `AWSLambdaBasicExecutionRole` grants the log actions on `*`,
+    not on an `/aws/lambda/` prefix. `DESTROY` because these are application
+    logs, not the retained audit evidence in the Security stack -- and with a
+    generated name a retained group would be orphaned by the next deploy rather
+    than reused.
+    """
     return lambda_.Function(
         scope,
         construct_id,
         runtime=lambda_.Runtime.PYTHON_3_12,
         code=code if code is not None else src_code(),
-        log_retention=log_retention(config),
+        log_group=logs.LogGroup(
+            scope,
+            f"{construct_id}Logs",
+            retention=log_retention(config),
+            removal_policy=RemovalPolicy.DESTROY,
+        ),
         **kwargs,
     )
 

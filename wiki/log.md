@@ -1889,7 +1889,7 @@ deciding whether any corrective action was warranted.
 
 ### Identity and environment
 
-Dev account, `us-east-1`, using the least-privilege `mlops-security-auditor`
+Dev account, `us-east-1`, using the least-privilege `${AWS_SECURITY_AUDITOR_USER_NAME}`
 profile. Every AWS call was read-only: `describe-stacks`,
 `describe-stack-events`, `describe-stack-resources`, `get-template`, and
 `accessanalyzer list-analyzers`. No deployment, no drift detection run, no
@@ -1974,7 +1974,7 @@ same-day firings of the Phase 2 unauthorized-API-calls detection.
 
 ### Identity and environment
 
-Dev account, `us-east-1`, `mlops-security-auditor` profile, read-only.
+Dev account, `us-east-1`, `${AWS_SECURITY_AUDITOR_USER_NAME}` profile, read-only.
 Escalation to the break-glass admin identity was considered for CloudTrail
 attribution and deliberately declined: routine investigation does not
 justify break-glass use.
@@ -2064,7 +2064,7 @@ deployment changed nothing beyond CDK metadata.
 
 ### Identity and environment
 
-Dev account, `us-east-1`, `mlops-deployer` profile, which assumes the CDK
+Dev account, `us-east-1`, `${MLOPS_DEPLOYER_USER_NAME}` profile, which assumes the CDK
 bootstrap roles as designed. Note that `.env` records `AWS_PROFILE=default`,
 but that profile currently has no credentials; the deploy identity documented
 in the CDK deployment page is the correct one and was used.
@@ -2175,7 +2175,7 @@ session produced an incorrect account of the same deployment.
 ### Identity and environment
 
 Local repository work, plus one read-only verification run against the dev
-account using the `mlops-security-auditor` profile in `us-east-1`. The tool
+account using the `${AWS_SECURITY_AUDITOR_USER_NAME}` profile in `us-east-1`. The tool
 calls only `describe_stacks` and `describe_stack_events`. No mutation.
 
 ### Commands and results
@@ -2257,8 +2257,8 @@ subscription-independent and so cannot be blocked the way 3B was.
 ### Identity and environment
 
 Dev account, `us-east-1`. The pre-flight and all verification used the
-least-privilege `mlops-security-auditor` profile and were read-only. The single
-mutating step, `make deploy-stack`, used `mlops-deployer`.
+least-privilege `${AWS_SECURITY_AUDITOR_USER_NAME}` profile and were read-only. The single
+mutating step, `make deploy-stack`, used `${MLOPS_DEPLOYER_USER_NAME}`.
 
 ### Commands and results
 
@@ -2361,7 +2361,7 @@ remaining observation criteria after six days of elapsed evidence.
 
 Dev account, `us-east-1`. The budget was read from the Billing and Cost
 Management console under an identity holding `budgets:ViewBudget`; the
-least-privilege `mlops-security-auditor` profile is denied that action, which is
+least-privilege `${AWS_SECURITY_AUDITOR_USER_NAME}` profile is denied that action, which is
 why the check could not be completed at deployment time. All other checks were
 read-only auditor calls.
 
@@ -2591,3 +2591,118 @@ This changes nothing about the Phase 2E observation window or the 3C gate.
 prod synth). Anti-duplication check on `stack_prefix`, `_resolve`, and
 `resolved_acknowledgements` found no existing equivalents. Both failure modes
 were verified by reintroducing them; the diff was re-read before commit.
+
+## [2026-08-02] verify | Phase 2E observation window closed
+
+### Objective
+
+Close the Phase 2E observation window (issue 10) against live evidence, and
+settle the one criterion the window had never exercised: that the revised
+`unauthorized-api-calls` detection still pages on a genuine sustained burst.
+
+### Identity and environment
+
+Dev account, `us-east-1`. Read-only checks ran under
+`${AWS_SECURITY_AUDITOR_USER_NAME}`. Two reads required
+`${AWS_ADMIN_USER_NAME}`: the budget, because the auditor lacks
+`budgets:ViewBudget` (the gap recorded at 3E closure), and
+`cloudwatch:GetMetricStatistics`, a **second auditor gap discovered here** —
+the auditor can describe alarms and alarm history but cannot read the
+underlying metric. No mutating call was made to any stack.
+
+### Commands and results
+
+The window opened with the 2E deploy on 2026-07-30; the alarm configuration
+update is timestamped 2026-07-30T23:49:46Z. Closure checks ran from
+2026-08-02T02:15Z, about 50 hours of elapsed evidence.
+
+All five criteria pass:
+
+- **Silence on routine activity.** No `unauthorized-api-calls` fire between
+  2026-07-31T00:14:14Z and the synthetic test below. The audit log holds 114
+  denial events across that span — routine CloudFormation service reads,
+  auditor and deployer least-privilege denials, and console billing calls —
+  none of which paged.
+- **No missed sustained burst.** Bucketed at the alarm's own 300-second
+  period, the longest run of consecutive breaching periods in the window is
+  **2**. The 3-of-3 condition was never satisfied, so nothing that should
+  have fired failed to.
+- **Six alarms healthy.** All `mlops-dev-security-*` alarms `OK`.
+  `unauthorized-api-calls` reads `EvaluationPeriods=3 / DatapointsToAlarm=3`;
+  the other five remain `1` with no `DatapointsToAlarm`, byte-identical to the
+  pre-2E contract.
+- **Auditor audit-log read works.** `logs:FilterLogEvents` against the audit
+  log group returned 685 root-identity events and the 114 denial events, so
+  the out-of-band `audit-log-read` inline policy is functioning.
+- **Budget unchanged.** `${MONTHLY_BUDGET_NAME}` is a `$20.00` monthly cost
+  budget with exactly three actual-cost alerts at 50/80/100, all not
+  exceeded, `$0.00` actual spend.
+
+**Synthetic burst — deliberate control test, not an incident.** Between
+2026-08-02T02:30:50Z and 02:55:59Z, 73 read-only `cloudformation:ListExports`
+calls were issued as `${AWS_SECURITY_AUDITOR_USER_NAME}`, an action that
+identity is denied. Any future reader finding ~73 `AccessDenied` events from
+the auditor in that exact window is looking at this test. The metric shows six
+consecutive breaching periods (`02:30`–`02:55`: 11, 11, 15, 13, 20, 4), then
+`0` at `03:00`. The alarm fired at 02:42:14Z with reason `3 out of the last 3
+datapoints [14.0 (02:37), 12.0 (02:32), 4.0 (02:27)] were greater than or
+equal to the threshold (1.0)`, delivered an SNS email whose body matches that
+reason exactly, and self-cleared at ~03:03Z on the first `0.0` datapoint
+(`02:58`). Fire, page, and return were all observed.
+
+### Interpretation
+
+**The recorded "first live true positive" was misattributed and is corrected
+here.** The 2E implementation entry records the 2026-07-31T00:13:14Z fire as a
+3-of-3 true positive. The alarm history's own `oldState` block disproves it:
+one minute later, at 00:14:14Z, the three evaluated periods were
+`23:59=19, 00:04=0, 00:09=4` — only two breaching. The `00:04` datapoint had
+not yet been delivered when the alarm evaluated at 00:13:14Z, so CloudWatch
+reached further back to assemble three datapoints and picked up earlier
+breaching periods. When the `0` arrived the gap filled and the alarm cleared,
+producing the 60-second round trip. The underlying denials were still the
+Cost Explorer session already attributed; it is the *sustained-burst* framing
+that was wrong.
+
+That correction exposes a real limitation of the 2E design. Because CloudWatch
+looks back past missing datapoints, `3 of 3` does not strictly mean fifteen
+consecutive minutes: under sparse or lagging delivery it can be satisfied by
+three non-consecutive breaching periods, which is the isolated-denial paging
+that 2E exists to prevent. Today's test proves the control works on a genuine
+burst; it does not eliminate this edge. A `Fill` on the metric query would
+close it, but that is a detection-contract change and belongs in its own gated
+sub-phase, not in a closure.
+
+**Two out-of-band changes surfaced that no repository record mentions.** On
+2026-08-01 between 00:44:15Z and 03:37:09Z an MFA-authenticated root console
+session generated 685 events (billing, free-tier, Bedrock availability, IAM
+reads). Within it, root attached two AWS-managed policies to the
+`AWS-Administrators` group — `job-function/Billing` at 00:45:29Z and
+`CostOptimizationHubReadOnlyAccess` at 00:46:12Z — which is consistent with
+resolving the Cost Explorer denials seen on 07-31. Both the
+`root-user-activity` and `iam-policy-changes` alarms fired correctly on this
+activity; all four root-activity notifications were delivered by email. These
+were true positives on benign, operator-attributable work, and they are
+recorded here because the account state now differs from what any phase entry
+describes.
+
+The negative and positive halves of the 2E claim are now both evidenced: 114
+isolated denials over 50 hours paged nobody, and a deliberate sustained burst
+paged within twelve minutes.
+
+### Decision and next checkpoint
+
+Every Phase 2E closure criterion is met; the observation window is closed and
+issue 10 can be closed with it. Deliberately left unchanged: the missing-data
+look-back edge (deferred to its own sub-phase), the auditor's
+`budgets:ViewBudget` and newly found `cloudwatch:GetMetricStatistics` gaps
+(recorded, not granted), and the two root-initiated policy attachments, which
+are left in place as the operator's intent. Sub-phase 3C (AWS Config) is next
+and still gated on its own pre-flight.
+
+### Verification
+
+Read-only CloudWatch alarm, alarm-history, and metric reads; `FilterLogEvents`
+over the audit log group; budget and notification reads. The synthetic burst
+was read-only and non-mutating. Wiki index rebuilt, `make wiki-lint`, and a
+sensitive-value scan of the changed files.

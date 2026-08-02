@@ -107,12 +107,6 @@ ACKNOWLEDGEMENTS = (
         LAMBDA_BASIC_POLICY,
         "Existing validation Lambda; replace managed log policy during Phase 5 IAM work.",
     ),
-    Acknowledgement(
-        "ingestion",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole",
-        LAMBDA_BASIC_POLICY,
-        "CDK log-retention provider; remove with explicit log groups during Phase 7 logging work.",
-    ),
     *(
         Acknowledgement(
             "ingestion",
@@ -154,12 +148,6 @@ ACKNOWLEDGEMENTS = (
         "ValidateFn",
         "AwsSolutions::AwsSolutions-L1",
         "Python 3.12 matches the packaged native runtime; review runtime in Phase 7.",
-    ),
-    Acknowledgement(
-        "ingestion",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::*]",
-        "CDK log-retention provider manages generated log groups; remove in Phase 7.",
     ),
     # Training role: broad managed policy and generated S3 actions are Phase 5 debt.
     Acknowledgement(
@@ -234,21 +222,9 @@ ACKNOWLEDGEMENTS = (
     ),
     Acknowledgement(
         "serving",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole",
-        LAMBDA_BASIC_POLICY,
-        "CDK log-retention provider; remove with explicit log groups during Phase 7.",
-    ),
-    Acknowledgement(
-        "serving",
         "DeployFn/ServiceRole/DefaultPolicy",
         "AwsSolutions-IAM5[Resource::*]",
         "Known SageMaker deployment wildcard recorded in Phase 0; scope in Phase 5.",
-    ),
-    Acknowledgement(
-        "serving",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::*]",
-        "CDK log-retention provider manages generated log groups; remove in Phase 7.",
     ),
     *(
         Acknowledgement(
@@ -311,18 +287,6 @@ ACKNOWLEDGEMENTS = (
         "RetrainTriggerFn/ServiceRole",
         LAMBDA_BASIC_POLICY,
         "Existing retrain Lambda; replace managed log policy during Phase 5 IAM work.",
-    ),
-    Acknowledgement(
-        "monitoring",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole",
-        LAMBDA_BASIC_POLICY,
-        "CDK log-retention provider; remove with explicit log groups during Phase 7.",
-    ),
-    Acknowledgement(
-        "monitoring",
-        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a/ServiceRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::*]",
-        "CDK log-retention provider manages generated log groups; remove in Phase 7.",
     ),
     Acknowledgement(
         "monitoring",

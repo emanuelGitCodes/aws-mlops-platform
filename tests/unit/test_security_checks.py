@@ -109,19 +109,10 @@ def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
         # Phase 3E: the s3:*AccountPublicAccessBlock actions are account-level
         # and AWS accepts only "*" as their resource.
         ("security_monitoring", "AccountPublicAccessBlockCustomResourcePolicy3665E1EC"),
-        (
-            "ingestion",
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
-        ),
+        # Phase K removed the other three: the CDK log-retention provider's
+        # policy in ingestion, serving, and monitoring. `platform_lambda` now
+        # owns an explicit log group, so no provider is synthesized.
         ("serving", "DeployFnServiceRoleDefaultPolicy7D43372B"),
-        (
-            "serving",
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
-        ),
-        (
-            "monitoring",
-            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
-        ),
     ]
 
 
@@ -144,11 +135,15 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # Lambda execution only) and its three-action policy. Nothing else.
         "security_monitoring": "9e5660c56071f5d663e8b941a28ab57830ce3afb9e0852a142bd7e879919d496",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
-        "ingestion": "bfa13d3f2b0fa9b7ae49f81dfd29907f683ecca6347e1cc4327834f094702f41",
+        # Phase K rebaselined ingestion, serving, and monitoring. Reviewed
+        # delta, template-diffed against the pre-change synthesis: each stack
+        # loses exactly the CDK log-retention provider's role and its
+        # `Resource: *` policy. No role was added or otherwise modified.
+        "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
-        "serving": "c3f8089244512e2866a5648c556a434b6d77403d5b8340f3de0e44b388d22989",
-        "monitoring": "10990e799b97ab9b8f63102cf5e8363c2de9dd883cf36d08f6f3f0aa0a980c3c",
+        "serving": "eddbc68fe16166dc3a6252b38519979ebb2c003aa37df67ceffdca4a4f14f62e",
+        "monitoring": "cc859d169d0aea8460e12bc4adfb6131293ab5335b6eb0d092fd53a9260632b3",
     }
 
     stacks["training"].has_resource_properties(

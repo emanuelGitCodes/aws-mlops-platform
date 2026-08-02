@@ -206,11 +206,22 @@ budget confirmed intact with its three 50/80/100 alerts unexceeded at
 the single `PutAccountPublicAccessBlock` call to the provider role, not a
 human. Sub-phase 3E is therefore clear for its go decision.
 
-The Phase 2E observation window opened on 2026-07-30. It closes in a later
-session once the `unauthorized-api-calls` alarm has stayed silent on routine
-auditor activity with no missed sustained-burst detection, the six alarms
-remain healthy, the auditor's audit-log read still works, and the `$20`
-budget is unchanged. Issue 10 stays open until that closure.
+The Phase 2E observation window opened on 2026-07-30 and closed on
+2026-08-02 with every criterion met: no `unauthorized-api-calls` fire across
+114 isolated denial events in roughly 50 hours, a longest run of only two
+consecutive breaching periods so no sustained burst went undetected, the six
+alarms `OK`, the auditor's audit-log read working, and the `$20` budget
+intact at `$0.00` actual spend. The positive half of the claim was proven by
+a deliberate synthetic burst on 2026-08-02 (73 denied read-only calls,
+02:30:50Z–02:55:59Z) which fired the 3-of-3 alarm at 02:42:14Z, delivered its
+SNS email, and self-cleared at ~03:03Z.
+
+Two corrections came out of that closure. The 2026-07-31T00:13Z fire recorded
+as the first 3-of-3 true positive was a late-datapoint artifact, not a
+sustained burst — CloudWatch reached back past an undelivered datapoint to
+assemble three. Consequently `3 of 3` does not strictly mean fifteen
+consecutive minutes under lagging delivery; closing that edge with a metric
+`Fill` is a detection-contract change deferred to its own gated sub-phase.
 
 Sub-phase 3C (AWS Config) follows the 3E go/no-go, and its gated deployment
 doubles as the Free-plan availability test with minimally scoped recording.

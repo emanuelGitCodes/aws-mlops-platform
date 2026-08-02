@@ -353,6 +353,19 @@ def resolved_acknowledgements(env_name: str, prefix: str) -> tuple[Acknowledgeme
     )
 
 
+def acknowledgement_metadata_key(finding_id: str) -> str:
+    """The metadata key CDK ends up recording for `finding_id`.
+
+    The two registration paths namespace their keys differently, and the
+    difference is silent: a wrong key records fine and simply never matches a
+    finding. Derived in one place, shared by `apply_security_checks` and the
+    tests, so neither can drift from what is actually registered.
+    """
+    bare_id = finding_id.removeprefix("AwsSolutions::")
+    # Granular ids are keyed un-namespaced; plain rule ids keep the namespace.
+    return f"annotation::{bare_id}" if "::" in bare_id else finding_id
+
+
 def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
     expected = f"{stack.node.path}/{relative_path}"
     matches = [construct for construct in stack.node.find_all() if construct.node.path == expected]
@@ -381,19 +394,32 @@ def apply_security_checks(
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)
         target = construct.node.default_child or construct
-        finding_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
-        acknowledgment = cdk.Acknowledgment(
-            id=finding_id,
-            reason=acknowledgement.reason,
-        )
-        if "::" in finding_id:
-            # CDK 2.261 rejects granular cdk-nag IDs containing ARN/finding
-            # delimiters. This is the exact metadata emitted by acknowledge().
+        # A granular id carries its own `Action::`/`Resource::`/`Policy::`
+        # delimiter; a plain rule id carries only the leading namespace. The two
+        # take different registration paths and disagree about the namespace, so
+        # the distinction is drawn once, here.
+        bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
+        if "::" in bare_id:
+            # cdk-nag's granular ids embed ARNs, which `acknowledge()` rejects
+            # outright, so write the metadata it would have written. The key
+            # takes the *un-namespaced* id: a namespaced key stops matching
+            # silently, which is the same lapse the plain path suffered below.
             target.node.add_metadata(
                 cdk.Validations.ACKNOWLEDGED_RULES_METADATA_KEY,
-                {f"annotation::{finding_id}": acknowledgement.reason},
+                {acknowledgement_metadata_key(acknowledgement.finding_id): acknowledgement.reason},
             )
         else:
-            cdk.Validations.of(target).acknowledge(acknowledgment)
+            # Acknowledge under the id exactly as written -- namespace included.
+            # Stripping it used to work: 2.261 matched a bare `AwsSolutions-S1`,
+            # so the prefix looked redundant. 2.262 matches only the namespaced
+            # form and silently stops suppressing, which lapses every plain
+            # acknowledgement at once and reopens 13 findings. The namespaced
+            # form is accepted by both versions; the bare form is not.
+            cdk.Validations.of(target).acknowledge(
+                cdk.Acknowledgment(
+                    id=acknowledgement.finding_id,
+                    reason=acknowledgement.reason,
+                )
+            )
 
     cdk.Validations.of(app).add_plugins(AwsSolutionsChecks(app, verbose=True))

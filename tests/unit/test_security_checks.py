@@ -8,7 +8,7 @@ import pytest
 from aws_cdk.assertions import Match
 
 from infra.app import stack_prefix
-from infra.security_checks import resolved_acknowledgements
+from infra.security_checks import acknowledgement_metadata_key, resolved_acknowledgements
 from tests.unit.conftest import CONFIG, synth_env
 
 
@@ -23,13 +23,34 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
         assert len(matches) == 1, expected_path
         assert "Phase " in acknowledgement.reason
         target = matches[0].node.default_child or matches[0]
-        finding_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
-        metadata_key = f"annotation::{finding_id}"
+        metadata_key = acknowledgement_metadata_key(acknowledgement.finding_id)
         assert any(
             entry.type == cdk.Validations.ACKNOWLEDGED_RULES_METADATA_KEY
             and entry.data.get(metadata_key) == acknowledgement.reason
             for entry in target.node.metadata
         ), metadata_key
+
+
+def test_acknowledgement_keys_keep_the_namespace_cdk_matches_on():
+    """Plain rule ids stay namespaced; granular ids stay un-namespaced.
+
+    aws-cdk-lib 2.261 matched a plain `AwsSolutions-S1` as readily as the
+    namespaced form, so stripping the prefix looked redundant. 2.262 matches
+    only the namespaced form, and an unmatched key is recorded without
+    complaint -- so every plain acknowledgement lapsed at once, reopening 13
+    findings with no error to point at. Pin both shapes against that silence.
+    """
+    plain, granular = [], []
+    for acknowledgement in resolved_acknowledgements(CONFIG["env_name"], "Test"):
+        # Classify from the id itself, not from the derived key, so this does
+        # not simply restate acknowledgement_metadata_key back to itself.
+        bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
+        key = acknowledgement_metadata_key(acknowledgement.finding_id)
+        (granular if "::" in bare_id else plain).append(key)
+
+    assert plain and granular, "both id shapes must stay exercised"
+    assert all(key.startswith("AwsSolutions::AwsSolutions-") for key in plain), plain
+    assert all(key.startswith("annotation::AwsSolutions-") for key in granular), granular
 
 
 @pytest.mark.parametrize("env_name", ["dev", "prod"])

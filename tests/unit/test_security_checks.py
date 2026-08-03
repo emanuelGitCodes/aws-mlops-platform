@@ -123,7 +123,11 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         iam_resources = {
             logical_id: resource
             for logical_id, resource in template.to_json().get("Resources", {}).items()
-            if resource.get("Type") in {"AWS::IAM::Policy", "AWS::IAM::Role"}
+            # ServiceLinkedRole joined the set in Phase 3C, which added the
+            # first one: it is an IAM principal this repository creates, and it
+            # slipped past a baseline whose docstring claims to cover any role.
+            if resource.get("Type")
+            in {"AWS::IAM::Policy", "AWS::IAM::Role", "AWS::IAM::ServiceLinkedRole"}
         }
         fingerprints[stack_name] = hashlib.sha256(
             json.dumps(iam_resources, sort_keys=True, separators=(",", ":")).encode()
@@ -132,8 +136,11 @@ def test_iam_policy_baseline_has_not_changed(stacks):
     assert fingerprints == {
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
         # Phase 3E added the account-BPA custom resource provider role (basic
-        # Lambda execution only) and its three-action policy. Nothing else.
-        "security_monitoring": "9e5660c56071f5d663e8b941a28ab57830ce3afb9e0852a142bd7e879919d496",
+        # Lambda execution only) and its three-action policy. Phase 3C then
+        # added the Config service-linked role -- AWS owns its policy, so this
+        # repository cannot over-grant it -- and widened the fingerprint to
+        # cover AWS::IAM::ServiceLinkedRole, which is what moved this hash.
+        "security_monitoring": "9815f466b4c436c348c80a636d5099b644e77e52c2d0f5c8041df0f35d89a17a",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         # Phase K rebaselined ingestion, serving, and monitoring. Reviewed
         # delta, template-diffed against the pre-change synthesis: each stack

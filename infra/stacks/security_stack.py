@@ -24,7 +24,7 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct, IConstruct
 
-from infra.stacks.shared import PlatformConfig
+from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
 
 
 @dataclass(frozen=True)
@@ -319,6 +319,50 @@ class SecurityStack(Stack):
             ),
         ):
             audit_bucket.add_to_resource_policy(statement)
+
+        # Phase 3C delivers Config snapshots into this bucket, so the grants
+        # live here with the bucket and key rather than in SecurityMonitoring:
+        # that stack already consumes both, and writing back to them from there
+        # would close a dependency cycle. Gated on the same flag, so a disabled
+        # sub-phase adds no principal.
+        if config["security"]["services"]["config_recorder"]:
+            for statement in (
+                iam.PolicyStatement(
+                    sid="ConfigBucketAclCheck",
+                    principals=[iam.ServicePrincipal("config.amazonaws.com")],
+                    actions=["s3:GetBucketAcl", "s3:ListBucket"],
+                    resources=[audit_bucket.bucket_arn],
+                    conditions={"StringEquals": {"aws:SourceAccount": self.account}},
+                ),
+                iam.PolicyStatement(
+                    sid="ConfigSnapshotDelivery",
+                    principals=[iam.ServicePrincipal("config.amazonaws.com")],
+                    actions=["s3:PutObject"],
+                    resources=[
+                        f"{audit_bucket.bucket_arn}/{CONFIG_DELIVERY_PREFIX}"
+                        f"/AWSLogs/{self.account}/Config/*"
+                    ],
+                    conditions={
+                        "StringEquals": {
+                            "aws:SourceAccount": self.account,
+                            "s3:x-amz-acl": "bucket-owner-full-control",
+                        }
+                    },
+                ),
+            ):
+                audit_bucket.add_to_resource_policy(statement)
+
+            # The bucket is KMS-encrypted, so delivery fails with AccessDenied
+            # on the key rather than on the bucket without this.
+            audit_key.add_to_resource_policy(
+                iam.PolicyStatement(
+                    sid="AllowConfigSnapshotEncryption",
+                    principals=[iam.ServicePrincipal("config.amazonaws.com")],
+                    actions=["kms:GenerateDataKey", "kms:Decrypt"],
+                    resources=["*"],
+                    conditions={"StringEquals": {"aws:SourceAccount": self.account}},
+                )
+            )
 
         trail = cloudtrail.CfnTrail(
             self,

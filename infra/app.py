@@ -54,6 +54,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         f"{prefix}-SecurityMonitoring",
         alert_topic=security.alert_topic,
         access_log_bucket=security.access_log_bucket,
+        audit_bucket=security.audit_bucket,
         audit_key=security.audit_key,
         config=config,
     )

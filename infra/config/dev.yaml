@@ -24,7 +24,7 @@ security:
   services:            # Phase 3 enablement flags; one flips true per sub-phase
     access_analyzer: true
     guardduty: false   # 3B deferred: AWS Free plan blocks GuardDuty until upgrade
-    config_recorder: false
+    config_recorder: true    # 3C: enabled 2026-08-02; minimally scoped recorder
     security_hub: false
     account_bpa: true
     eventbridge_alerts: false

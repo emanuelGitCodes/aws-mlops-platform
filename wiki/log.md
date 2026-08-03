@@ -2784,3 +2784,100 @@ the same billing gate and its value is explicitly still open.
 Index rebuilt, `make wiki-lint` clean, and the changed files scanned for
 account-identifying literals — 12-digit numbers, `execute-api` hosts, and ARNs
 with a numeric account field.
+## [2026-08-02] ingest | AWS security hardening Phase 3C implementation and deployment — August 3, 2026
+
+Registered immutable source `raw/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md`.
+
+
+## [2026-08-03] implement | AWS security hardening Phase 3C — AWS Config
+
+### Objective
+
+Enable AWS Config in dev behind its flag, with recording scoped tightly enough
+that configuration items cannot burn the remaining credits, and use the gated
+deployment as the Free-plan availability test the roadmap left open.
+
+### Scope
+
+`infra/stacks/security_monitoring_stack.py` (recorder, delivery channel,
+service-linked role), `infra/stacks/security_stack.py` (audit bucket policy and
+KMS grants), `infra/stacks/shared.py` (`CONFIG_DELIVERY_PREFIX`),
+`infra/app.py`, `infra/config/dev.yaml`, the CloudFormation execution policy,
+and five test modules. Stacks touched: `Mlops-Dev-Security`,
+`Mlops-Dev-SecurityMonitoring`.
+
+### Identity and environment
+
+us-east-1. Administrator profile for the pre-flight reads, the two policy
+rotations, and `cancel-update-stack`; deployer profile for diffs and deploys;
+auditor profile for `verify-deploy`, alarms, and the audit log. Note the
+deployer lacks `cloudformation:CancelUpdateStack`, so stopping a hung update
+requires the administrator.
+
+### Commands and results
+
+- Pre-flight: `describe-configuration-recorders`, `describe-delivery-channels`,
+  and `describe-configuration-recorder-status` all returned empty lists. Config
+  answers where GuardDuty raises `SubscriptionRequiredException`, so it is
+  available on the Free plan.
+- Two `create-policy-version --set-as-default` calls landed as **v10** and
+  **v11** — numbering is monotonic, not slot-based, so v9 was never available.
+  `v5` and `v6` were deleted to free slots. Live `v11` diffs identical to the
+  `envsubst`-rendered repository document.
+- Three deployment attempts. The first two hung in `CREATE_IN_PROGRESS` and
+  were cancelled; both rolled back cleanly with zero residue. The third
+  succeeded 00:40:13Z–00:41:24Z, creating the service-linked role, delivery
+  channel, and recorder.
+- Verification: `mlops-dev-recorder` `recording=true`, `lastStatus=SUCCESS`,
+  ten resource types, `INCLUSION_BY_RESOURCE_TYPES`; `mlops-dev-delivery` to
+  the audit bucket under `config`, 24-hour frequency. `make verify-deploy
+  SINCE=2026-08-03` reports three created and two updated resources and nothing
+  else.
+
+### Interpretation
+
+Two of the three blocking defects were **pre-existing repository bugs**. Phase
+3-prep granted the Config service-linked role under
+`role/aws-service-linked-role/`, which is not an IAM path, and
+`test_config_service_linked_role_stays_scoped` asserted the same wrong string —
+the test was protecting the defect, not detecting it. Second, Config requires
+`iam:PassRole` on that role, which `PassOnlyApplicationRoles` never covered
+because it is scoped to `Mlops-Dev-*`.
+
+The third is a property of the service. The recorder and delivery channel are
+mutually dependent: `PutDeliveryChannel` fails until a recorder exists, and the
+recorder's creation calls `StartConfigurationRecorder`, which fails until a
+channel exists. Neither ordering works, and CloudFormation retries both errors
+rather than failing them — which is why each attempt hung rather than rolling
+back on its own. Declaring no dependency lets the retries converge.
+
+The rotation also closed the Phase K deploy-denial burst. The cause was a
+naming mismatch, not missing intent: `s3:GetBucket*` never authorized the
+CloudTrail event `GetBucketEncryption`, which is
+`s3:GetEncryptionConfiguration`. Measured — the final successful deployment
+produced **1** denial against Phase K's **105**.
+
+### Decision and next checkpoint
+
+3C is deployed and its observation window is open. Deliberately left
+unchanged: `config:ListConfigurationRecorders` stays ungranted (non-fatal, and
+not worth a third rotation and a third version deletion), prod stays at
+`config_recorder: false`, and no console wizard was used at any point.
+
+The window must show a delivered 24-hour snapshot under `config/`, a measured
+rather than projected cost per configuration item, the six alarms steady, and
+the `$20` budget intact. Partial 3F follows.
+
+Two constraints carry forward. IAM policy version pressure is now binding —
+four of five slots used, two historical versions already deleted — so
+re-adding the GuardDuty grants at the EC2 trigger will cost another deletion.
+And a gated deploy should be expected to page: this sub-phase produced six
+alarm emails, all true positives on its own work, because a troubleshooting
+session and an attacker probing permissions produce the same sustained trickle
+of `AccessDenied`.
+
+### Verification
+
+lint, mypy (36 files), 228 unit tests at 92.50% coverage, `synth-all` for both
+environments through cdk-nag, `docs-sync`, `make wiki-lint` at 40 pages, index
+rebuilt, and the changed files scanned for account-identifying literals.

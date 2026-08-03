@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-02"
+updated: "2026-08-03"
 sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -162,13 +162,28 @@ the boundary.
   divergence and the last IAM version slot both survive for 3C. The phase also
   cleared the stack's leftover `UPDATE_ROLLBACK_COMPLETE` marker. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md).
-- **Phases 3C, 3F, and 4–9: not started.** No Config, Security Hub, Phase 3
-  alert routing, KMS, API-authentication change, WAF, or identity change is
+- **Phase 3C: complete; observation open.** AWS Config is live in dev with a
+  ten-type recorder (`mlops-dev-recorder`, `recording=true`,
+  `lastStatus=SUCCESS`) delivering 24-hour snapshots into the existing audit
+  bucket under a `config/` prefix. The gated deployment doubled as the
+  Free-plan availability test and **passed**: the Config API answers where
+  GuardDuty still raises `SubscriptionRequiredException`. Recording is scoped
+  to the resource classes the Phase 2C detections already alarm on, because
+  Config bills per configuration item. Three defects were found on the way,
+  two of them pre-existing: the Phase 3-prep service-linked-role grant used
+  the non-existent `aws-service-linked-role` path (and its test pinned the
+  same wrong value), Config needs `iam:PassRole` on that role, and the
+  recorder and delivery channel are mutually dependent so neither may depend
+  on the other. The execution policy rotated twice and is live as `v11` with
+  the GuardDuty actions removed and the CloudFormation read-back grants added;
+  `v5` and `v6` were deleted to free version slots and `v8` remains the
+  rollback target. See the
+  [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
+- **Phases 3F and 4–9: not started.** No Security Hub, Phase 3 alert routing,
+  KMS data-key work, API-authentication change, WAF, or identity change is
   deployed by this checkpoint. Under the July 19 revision the remaining Phase 3
-  order is 3C Config (whose gated deployment doubles as the Free-plan
-  availability test with minimally scoped recording), then partial 3F
-  routing of Access Analyzer and Config events; full 3F follows the deferred
-  services.
+  work is partial 3F routing of Access Analyzer and Config events; full 3F
+  follows the deferred services.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -223,12 +238,21 @@ assemble three. Consequently `3 of 3` does not strictly mean fifteen
 consecutive minutes under lagging delivery; closing that edge with a metric
 `Fill` is a detection-contract change deferred to its own gated sub-phase.
 
-Sub-phase 3C (AWS Config) follows the 3E go/no-go, and its gated deployment
-doubles as the Free-plan availability test with minimally scoped recording.
-It must also scope its cdk-nag acknowledgements with `requires_service`, as
-3E established. Do not manually create a GuardDuty detector or role, and do
-not complete the Config console wizard; Config availability on the Free plan
-is tested only through the gated flag-controlled CloudFormation path.
+Sub-phase 3C closed on 2026-08-03: Config is available on the Free plan, the
+recorder is live and recording, and its observation window is now open. What
+it must still show is a delivered 24-hour snapshot in the audit bucket under
+`config/`, a measured rather than projected cost per configuration item, the
+six alarms steady, and the `$20` budget intact.
+
+Partial 3F (EventBridge routing of Access Analyzer and Config events) is next.
+Two constraints carry into it. First, **IAM policy version pressure is now
+binding**: four of five slots are used and two historical versions were
+deleted to get there, so any further grant must free a slot first — including
+the GuardDuty actions when the trigger in
+[paid Phase 3 security services](../decisions/phase-3-paid-security-services.md)
+arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
+alarms to fire during a gated deploy; 3C produced six such emails, all true
+positives on its own work.
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and
 deploy, and finding/trial/alarm/budget/`/predict` verification.

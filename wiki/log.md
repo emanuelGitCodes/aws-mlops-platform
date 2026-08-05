@@ -2881,3 +2881,76 @@ of `AccessDenied`.
 lint, mypy (36 files), 228 unit tests at 92.50% coverage, `synth-all` for both
 environments through cdk-nag, `docs-sync`, `make wiki-lint` at 40 pages, index
 rebuilt, and the changed files scanned for account-identifying literals.
+
+## [2026-08-05] verify | Phase 3C observation window closed
+
+### Objective
+
+Decide the go/no-go on sub-phase 3C by checking its four observation criteria:
+a delivered snapshot, a measured rather than projected cost, steady alarms, and
+an intact budget.
+
+### Scope
+
+Read-only against the deployed dev account, roughly 48 hours after the
+2026-08-03T00:41Z deployment. No code, configuration, or AWS change.
+
+### Identity and environment
+
+Administrator profile for the S3 listing, Config reads, Cost Explorer and
+budget — the auditor lacks `budgets:ViewBudget` and
+`cloudwatch:GetMetricStatistics`. Auditor profile for alarms and the audit log.
+
+### Commands and results
+
+- `s3api list-objects-v2` under `config/`: 53 objects. Two `ConfigSnapshot`
+  deliveries (2026-08-03, 2026-08-04) and a `ConfigWritabilityCheckFile`
+  refreshed 2026-08-04T23:47Z.
+- `ConfigHistory` by day: **2026-08-03** — 10 in-scope, **40 out-of-scope**;
+  **2026-08-04** — zero of either.
+- `describe-configuration-recorders`: unchanged — `allSupported=false`, ten
+  types, `INCLUSION_BY_RESOURCE_TYPES`. `describe-configuration-recorder-status`:
+  `recording=true`, `lastStatus=SUCCESS`. CloudTrail shows no
+  `PutConfigurationRecorder` after the deployment.
+- `ce get-cost-and-usage` filtered to AWS Config, daily 2026-08-01..04: `0` every
+  day. `describe-budgets`: `$20` limit, `$0.00` actual, `$1.156` forecast.
+- Six `mlops-dev-security-*` alarms `OK`; none fired in the 48 hours since the
+  deployment.
+
+### Interpretation
+
+The delivery criterion mattered most because it was the first thing to exercise
+the audit bucket policy and the `kms:GenerateDataKey` grant with a real write;
+a recorder reaching `SUCCESS` proves it is recording, not that it can deliver.
+Both now hold.
+
+The 40 out-of-scope objects looked at first like the recording scope being
+ignored. It is not: the recorder was never modified, and the objects appear only
+on the first day. **Config writes a one-time full-inventory baseline when a
+recorder first starts, regardless of the inclusion list**, then honours the list
+afterwards — which the zero-`ConfigHistory` second day confirms. The wiki record
+overstated the scoping and has been corrected.
+
+The measured `$0.00` is *lower* than the roughly 50 configuration items imply at
+$0.003 each, so it is billing lag or a posting threshold rather than a true
+zero. That does not move the decision, since the ceiling is cents, but the
+honest reading is "not yet posted".
+
+No alarm fired in 48 hours, which is consistent with the earlier finding that
+deploy activity pages and steady state does not.
+
+### Decision and next checkpoint
+
+**3C is a go and its observation window is closed.** Deliberately left
+unchanged: `config:ListConfigurationRecorders` stays ungranted, prod stays at
+`config_recorder: false`, and the recording scope stays at ten types. Re-read
+the Config line item at month end to replace the lagging `$0.00`.
+
+Partial 3F (EventBridge routing of Access Analyzer and Config events) is next,
+and inherits the binding IAM policy version pressure — four of five slots used,
+two historical versions already deleted.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, and the changed files scanned for
+account-identifying literals.

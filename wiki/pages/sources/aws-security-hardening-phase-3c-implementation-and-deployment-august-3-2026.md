@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3C implementation and deployment — August 3, 2026"
 created: "2026-08-03"
-updated: "2026-08-03"
+updated: "2026-08-05"
 sources: ["../../raw/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/config/dev.yaml", "../../../tests/unit/test_deployment_policy.py"]
 summary: "AWS Config is live in dev with a ten-type recorder delivering into the audit bucket, after a pre-flight proved Free-plan availability and three defects — two of them pre-existing — blocked the first attempts."
 ---
@@ -33,6 +33,26 @@ summary: "AWS Config is live in dev with a ten-type recorder delivering into the
   `envsubst`-rendered repository document. `v5` and `v6` were deleted to free
   version slots; `v7`, `v8`, and `v10` remain, with `v8` as the rollback
   target.
+- **Delivery is proven, 2026-08-05.** Two `ConfigSnapshot` objects (one on
+  2026-08-03, one on 2026-08-04) and a `ConfigWritabilityCheckFile` refreshed
+  2026-08-04T23:47Z are present under `config/AWSLogs/<account>/Config/`.
+  Because the audit bucket is KMS-encrypted, these are the first real writes to
+  exercise both the bucket policy and the `kms:GenerateDataKey` grant added in
+  the Security stack.
+- **Recording honours the inclusion list after an initial full-inventory
+  baseline.** On 2026-08-03 the recorder delivered 10 in-scope `ConfigHistory`
+  objects and **40 out-of-scope ones** covering types it was never configured
+  for — API Gateway, Athena, CloudWatch alarms, CodeDeploy, Access Analyzer and
+  others. On 2026-08-04 it delivered **zero** `ConfigHistory` objects of either
+  kind. The recorder itself was unchanged throughout: still
+  `allSupported=false` over exactly ten types with
+  `INCLUSION_BY_RESOURCE_TYPES`, and CloudTrail records no
+  `PutConfigurationRecorder` after the deployment.
+- **Cost is $0.00 through 2026-08-04** for AWS Config, read from Cost Explorer
+  daily granularity. The `$20` budget shows `$0.00` actual against a `$1.156`
+  forecast for the whole account, with no alert threshold crossed. All six
+  `mlops-dev-security-*` alarms `OK`, and `mlops-dev-recorder` still
+  `recording=true`, `lastStatus=SUCCESS`.
 
 ## Synthesis
 
@@ -71,9 +91,20 @@ otherwise announce itself.
 The recording scope is deliberately narrow. Config bills per configuration
 item, so an all-types recorder would pay to version resource classes no
 control in this platform reads, and would grow silently when the planned EC2
-work lands. The ten recorded types are the classes the Phase 2C detections
-already alarm on changes to, which makes Config the configuration *history*
-behind alarms that only report change events. Snapshots deliver into the
+work lands.
+
+That claim needs one qualification the observation window supplied. **The
+inclusion list governs ongoing recording, not initial discovery.** When a
+recorder starts for the first time, Config writes a one-time inventory across
+resource types it finds in the account regardless of the list — 40 such objects
+here, against 10 in-scope ones, all on the first day and none since. The effect
+is a bounded one-off charge rather than a recurring one, but a reader comparing
+the ten configured types against the delivered objects would otherwise conclude
+the scope was not being honoured. It is.
+
+The ten recorded types are the classes the Phase 2C detections already alarm
+on changes to, which makes Config the configuration *history* behind alarms
+that only report change events. Snapshots deliver into the
 audit bucket rather than a new one because they are the same evidence class as
 the trail's, inheriting its KMS key, versioning, and RETAIN policy. Those
 grants live in the Security stack, which owns the bucket and key; adding them
@@ -108,7 +139,11 @@ successful deployment produced **1** denial against Phase K's **105**.
   Re-adding the GuardDuty grants at the trigger described in
   [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md)
   will require deleting another version.
-- **No observation window has been opened yet.** Cost per configuration item is
-  projected from a published rate and 101 deployed resources, not yet measured
-  against a bill, and the first 24-hour snapshot had not been delivered when
-  this record was written.
+- **The observation window closed 2026-08-05 as a go**, roughly 48 hours after
+  the deployment, with all four criteria met: snapshots delivered, cost
+  measured, alarms steady, budget intact.
+- **The measured $0.00 is lower than the item count implies.** Roughly 50
+  configuration items at $0.003 works out to about $0.15, so the reading is
+  either billing lag or a posting threshold rather than a true zero. It does
+  not change the go decision — the ceiling is cents — but the honest figure is
+  "not yet posted", and it is worth re-reading at month end.

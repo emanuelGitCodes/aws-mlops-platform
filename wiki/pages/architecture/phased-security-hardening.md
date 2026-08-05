@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-03"
+updated: "2026-08-05"
 sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -162,7 +162,7 @@ the boundary.
   divergence and the last IAM version slot both survive for 3C. The phase also
   cleared the stack's leftover `UPDATE_ROLLBACK_COMPLETE` marker. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md).
-- **Phase 3C: complete; observation open.** AWS Config is live in dev with a
+- **Phase 3C: complete; observation closed.** AWS Config is live in dev with a
   ten-type recorder (`mlops-dev-recorder`, `recording=true`,
   `lastStatus=SUCCESS`) delivering 24-hour snapshots into the existing audit
   bucket under a `config/` prefix. The gated deployment doubled as the
@@ -238,11 +238,19 @@ assemble three. Consequently `3 of 3` does not strictly mean fifteen
 consecutive minutes under lagging delivery; closing that edge with a metric
 `Fill` is a detection-contract change deferred to its own gated sub-phase.
 
-Sub-phase 3C closed on 2026-08-03: Config is available on the Free plan, the
-recorder is live and recording, and its observation window is now open. What
-it must still show is a delivered 24-hour snapshot in the audit bucket under
-`config/`, a measured rather than projected cost per configuration item, the
-six alarms steady, and the `$20` budget intact.
+Sub-phase 3C's observation window **closed on 2026-08-05 as a go**, roughly 48
+hours after deployment, with all four criteria met: snapshots delivered on
+2026-08-03 and 2026-08-04 plus a refreshed writability check — the first real
+writes to exercise the audit bucket policy and its KMS grant — AWS Config cost
+at `$0.00` through 2026-08-04, the six alarms `OK`, and the `$20` budget intact
+at `$0.00` actual against a `$1.156` account-wide forecast.
+
+The window also corrected a claim. **The inclusion list governs ongoing
+recording, not initial discovery**: the recorder's first day delivered 40
+`ConfigHistory` objects for types it was never configured for, alongside 10
+in-scope ones, and none since. The recorder was never modified. The cost effect
+is a bounded one-off rather than a recurring one, but "minimally scoped" should
+not be read as "nothing outside the ten types was ever recorded".
 
 Partial 3F (EventBridge routing of Access Analyzer and Config events) is next.
 Two constraints carry into it. First, **IAM policy version pressure is now

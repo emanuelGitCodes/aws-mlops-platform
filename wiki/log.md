@@ -3170,3 +3170,81 @@ log policy.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+
+## [2026-08-05] verify | Phase 5A and 5B observation windows closed
+
+### Objective
+
+Decide the go/no-go on both open Phase 5 sub-phases at once, on the criterion
+each was still missing: a **natural** cold start of the serverless endpoint,
+unprompted by any deployment or forced endpoint update.
+
+### Scope
+
+Read-only against the deployed dev account, roughly 20 hours after the
+2026-08-05T02:49Z deployment, plus one `make smoke` run as the trigger. No code,
+configuration, or AWS change.
+
+### Identity and environment
+
+Administrator profile for the endpoint, log, alarm and Cost Explorer reads and
+the smoke run; auditor profile for the audit log.
+
+### Commands and results
+
+- Pre-state: `describe-log-streams` shows the newest endpoint stream last
+  active 2026-08-05T02:54:59Z — twenty hours idle, so the serverless endpoint
+  had scaled to zero and no container was warm.
+- `make smoke` at 22:57:31Z: 6 passed. A **new** log stream appears, created
+  22:57:39Z.
+- Audit log, 03:05Z to 22:57Z: 19 denial events, **all** by
+  `AWSServiceRoleForConfig` or `AWSServiceRoleForResourceExplorer` reaching
+  services they cannot read. None under the model or proxy execution role, and
+  `unauthorized-api-calls` did not re-fire.
+- Six `mlops-dev-security-*` alarms `OK`. `ce get-cost-and-usage` for
+  2026-08-01..05: a net **negative** total after credits, with SageMaker, Lambda,
+  API Gateway, CloudTrail and Config all at `0`.
+
+### Interpretation
+
+One check closed both windows, because both were short the same thing. The
+cold start is the only event that exercises a hosted model's execution role at
+all — image pull and artifact download — and the twenty-hour idle guaranteed it
+was genuinely cold rather than a warm container answering over a role nobody had
+tested. 5B's forced `UpdateEndpoint` proved the scope on a container SageMaker
+built during a deployment; this proves it on one built by ordinary traffic, with
+no operator action in the loop. For 5A the same run supplies what its record
+listed as explicitly missing: the proxy logging correctly over a period rather
+than in a single post-deploy smoke run.
+
+The nineteen denials are worth naming precisely, because a count that size looks
+like a finding and is not one. Every one belongs to an AWS service-linked role
+probing a service the account does not use — Phase 3C's recorder doing its job.
+They are also the same background rate that has been present since 3C, spread
+thinly enough that the Phase 2E three-datapoint rule never assembled a page from
+them, which is the behaviour 2E was revised to produce.
+
+### Decision and next checkpoint
+
+**5A and 5B are both a go, and both observation windows are closed.**
+Deliberately left unchanged: `least_privilege_logs` and `least_privilege` stay
+opt-in, the pipeline role keeps `AmazonSageMakerFullAccess` until 5D, and prod
+is untouched.
+
+Recorded but not acted on: **`mlops-dev-endpoint-5xx` leaves `TreatMissingData`
+unset**, so it defaults to `missing` and parks in `INSUFFICIENT_DATA` whenever
+the endpoint is idle — which, on a serverless endpoint, is most of the time. It
+went `INSUFFICIENT_DATA` at 03:12Z, twenty minutes after the deployment, when
+smoke traffic stopped; that is the alarm's normal idle state and not a symptom of
+5B. The six security alarms all set `notBreaching` instead. The gap is that the
+inference tripwire cannot currently distinguish "healthy and idle" from "not
+reporting". It is a detection-contract change, so under the Phase 2E precedent it
+belongs in its own gated sub-phase rather than a drive-by edit.
+
+5C (`DeployFn`) is next.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

@@ -2954,3 +2954,86 @@ two historical versions already deleted.
 
 Index rebuilt, `make wiki-lint` clean, and the changed files scanned for
 account-identifying literals.
+## [2026-08-04] ingest | AWS security hardening Phase 5A proxy execution role — August 5, 2026
+
+Registered immutable source `raw/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md`.
+
+
+## [2026-08-05] implement | AWS security hardening Phase 5A — proxy execution role
+
+### Objective
+
+Start Phase 5 by taking the first of four roles off `AWSLambdaBasicExecutionRole`,
+whose three log actions apply to `Resource: "*"` — every log group in the
+account, including the audit trail's.
+
+### Scope
+
+`infra/stacks/shared.py` (`platform_lambda` gains an opt-in
+`least_privilege_logs`), `infra/stacks/serving_stack.py` (only `ProxyFn` sets
+it), `infra/security_checks.py`, and two test modules. Stack touched:
+`Mlops-Dev-Serving`.
+
+### Identity and environment
+
+us-east-1. Deployer profile for the named diff and deploy, auditor for
+`verify-deploy` and alarms, administrator for the smoke run and the live role
+and log reads.
+
+### Commands and results
+
+- Pre-flight inventory: 46 acknowledgements, **25 naming Phase 5** — 15 CDK S3
+  grant wildcards, 7 managed log policies, 5 imported-bucket wildcards, 2
+  `AmazonSageMakerFullAccess`, 1 `Resource::*`.
+- Template diff against the pre-change synthesis: `ProxyFnServiceRole` and its
+  default policy removed, `ProxyFnRole` and its default policy added, nothing
+  else changed.
+- Deploy 2026-08-05T01:29Z: six resources, matching that diff exactly.
+- `make smoke`: 6 passed. `filter-log-events` on the proxy's group afterwards
+  returns the `inference_response` event and fresh `START RequestId` lines.
+  `iam list-attached-role-policies`: no rows. Six alarms `OK`.
+- Acknowledgements 46 → 45. Gates: 230 tests at 92.52%, lint, mypy, `synth-all`.
+
+### Interpretation
+
+The load-bearing check is the log event, not the HTTP 200. The new policy is
+what authorizes `PutLogEvents`, so too narrow a scope would have failed logging
+**silently** while `/predict` kept returning 200 — a platform that looks healthy
+and has stopped recording inference events.
+
+Phase K and 5A composed without being designed to. An owned `logs.LogGroup` is
+what makes `logs:CreateLogGroup` droppable rather than merely narrowable; had 5A
+come first, the role would still have needed group-creation rights against a
+generated `/aws/lambda/` name.
+
+The count fell 46 → 45, contrary to the prediction that `IAM4` would trade for
+`IAM5`. The reason deserves stating precisely: `grant_write` emits the group ARN
+as an `Fn::GetAtt`, and cdk-nag does not read an intrinsic as a literal
+wildcard. A log group's CloudFormation `Arn` **does** resolve with a `:*` stream
+suffix at deploy time, which is why `PutLogEvents` works. The wildcard is real;
+the gain is one log group instead of all of them.
+
+The gate proved itself: removing the generated role left the
+`ProxyFn/ServiceRole` acknowledgement matching zero constructs and failed
+synthesis rather than leaving a stale suppression in place.
+
+### Decision and next checkpoint
+
+5A is deployed; **its observation window is open** — the runtime evidence so far
+is a single smoke run, with nothing yet showing correct logging over a period or
+during an endpoint update. Deliberately left unchanged: `least_privilege_logs`
+stays opt-in, and the other three Lambdas keep the managed policy until their
+own change sets.
+
+Recorded but not acted on: three of the seven managed-log-policy
+acknowledgements sit on CDK-generated provider Lambdas whose roles this
+repository does not create, so their promised Phase 5 replacement will never
+arrive.
+
+5B (`ModelExecutionRole`) is next and is a step up in risk — a wrong scope there
+breaks inference rather than logging.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

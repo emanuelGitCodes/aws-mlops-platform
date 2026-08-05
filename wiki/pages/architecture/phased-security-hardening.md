@@ -179,7 +179,18 @@ the boundary.
   `v5` and `v6` were deleted to free version slots and `v8` remains the
   rollback target. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
-- **Phases 3F and 4–9: not started.** No Security Hub, Phase 3 alert routing,
+- **Phase 5: in progress; 5A complete, observation open.** The phase converts
+  four roles one at a time — proxy, model, deploy, then pipeline — and **5A has
+  taken the proxy off `AWSLambdaBasicExecutionRole`**, whose three log actions
+  applied to `Resource: "*"`. Its replacement role carries no managed policy and
+  grants writes to the function's own log group plus the single
+  `sagemaker:InvokeEndpoint` it already had. Deployed 2026-08-05T01:29Z as a
+  one-for-one role replacement; `/predict` and the proxy's log delivery both
+  verified live, and acknowledgements fell 46 → 45. `least_privilege_logs` is
+  opt-in so DeployFn, RetrainTriggerFn and ValidateFn keep the managed policy
+  until their own change sets. See the
+  [Phase 5A record](../sources/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md).
+- **Phases 3F, 4, 6–9: not started.** No Security Hub, Phase 3 alert routing,
   KMS data-key work, API-authentication change, WAF, or identity change is
   deployed by this checkpoint. Under the July 19 revision the remaining Phase 3
   work is partial 3F routing of Access Analyzer and Config events; full 3F
@@ -252,8 +263,15 @@ in-scope ones, and none since. The recorder was never modified. The cost effect
 is a bounded one-off rather than a recurring one, but "minimally scoped" should
 not be read as "nothing outside the ten types was ever recorded".
 
-Partial 3F (EventBridge routing of Access Analyzer and Config events) is next.
-Two constraints carry into it. First, **IAM policy version pressure is now
+Phase 5 is now open alongside it: 5A is deployed and its observation window has
+not yet closed, and 5B (`ModelExecutionRole`) is the next role. 5B is a step up
+in risk, because a wrong scope there breaks inference rather than logging and
+would not show up in a smoke test that only asserts `/predict` returns 200. 5D
+(`PipelineExecutionRole`) still cannot be signed off without a billable pipeline
+run.
+
+Partial 3F (EventBridge routing of Access Analyzer and Config events) remains
+queued. Two constraints carry into it. First, **IAM policy version pressure is now
 binding**: four of five slots are used and two historical versions were
 deleted to get there, so any further grant must free a slot first — including
 the GuardDuty actions when the trigger in

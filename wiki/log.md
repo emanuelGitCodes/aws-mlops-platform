@@ -3128,11 +3128,39 @@ before this change — no `src/` or `lambda_code.py` commit since the last merge
 and the hash is deterministic across synths — so the drift predates 5B and its
 provenance is unexplained.
 
-The `iam-policy-changes` alarm fired at 02:52:53Z and is a true positive on our
-own work: CloudTrail attributes `DetachRolePolicy` (02:49:55Z) and
-`PutRolePolicy` (02:50:12Z) to the CDK execution role. No `AccessDenied` appears
-under the model execution role at any point. The two `ListTagsForResource`
-denials in the window belong to the CDK execution role and predate this phase.
+The `iam-policy-changes` alarm fired at 02:52:53Z on a datapoint of 2.0 and is a
+true positive on our own work: CloudTrail attributes exactly two IAM mutations,
+`DetachRolePolicy` (02:49:55Z) and `PutRolePolicy` (02:50:12Z), to the CDK
+execution role. It self-cleared. For comparison, 5A's deploy fired the same
+alarm at 01:32:53Z on a datapoint of 3.0.
+
+**`unauthorized-api-calls` also fired, at 03:02:14Z, and it is a second live
+instance of the Phase 2E late-datapoint edge case** — not a burst, and nothing
+to do with the model role. The window holds exactly **three** denial events:
+`ListTagsForResource` at 02:49:47Z and 02:50:22Z by the CDK execution role,
+which lacks `iam:ListTagsForResource` and has produced these on every deploy,
+and one `frauddetector:GetOutcomes` at 03:00:39Z by `AWSServiceRoleForConfig`,
+which is Phase 3C's recorder reaching a service it cannot read. On the standard
+five-minute grid the metric reads 2.0 at 02:50Z and 1.0 at 03:00Z with zeros
+either side; the alarm assembled `1.0, 1.0, 1.0` across its own 02:47/02:52/02:57
+buckets and satisfied 3-of-3. Three isolated denials spread over eleven minutes
+paged as if sustained. This is exactly what the 3C closure recorded — `3 of 3`
+does not strictly mean fifteen consecutive minutes under lagging delivery — and
+it strengthens the case for the deferred metric-`Fill` sub-phase. It self-cleared
+at 03:03:14Z.
+
+**No `AccessDenied` appears under the model execution role at any point.**
+
+Console-side confirmations from the same window: the CloudFormation stack list's
+`Updated time` column shows only `Mlops-Dev-Serving` touched on 08-04/08-05,
+every other stack still on 08-01 or 08-02; the Lambda console shows exactly
+`DeployFn` and `ProxyFn` modified minutes ago and the other five untouched for
+days or weeks; SageMaker Models shows one new model created 02:51:31Z, which is
+the forced cold start building a container under the new role; and the
+`mlops-dev-endpoint-5xx` alarm — the repository's own inference-health tripwire —
+never left `OK`, with the API service view reporting 18 requests, 0 faults and
+100% availability. The 4xx count is the smoke suite's intentional
+invalid-payload cases.
 
 5C (`DeployFn`) is next: a Lambda role, so it returns to the 5A pattern, but its
 `Resource: "*"` SageMaker statement is the real target rather than the managed

@@ -184,32 +184,32 @@ ACKNOWLEDGEMENTS = (
         )
     ),
     # Serving IAM debt and current API controls are removed in Phases 5-8.
+    # Phase 5B removed the model role's `AmazonSageMakerFullAccess` and the five
+    # CDK S3 grant wildcards; what remains is the object wildcard under one
+    # prefix, which no policy can express without one.
     Acknowledgement(
         "serving",
-        "ModelExecutionRole",
-        SAGEMAKER_FULL_ACCESS,
-        "Known broad model role recorded in Phase 0; replace role policy in Phase 5.",
-    ),
-    *(
-        Acknowledgement(
-            "serving",
-            "ModelExecutionRole/DefaultPolicy",
-            f"AwsSolutions-IAM5[Action::{action}]",
-            "CDK S3 grant uses wildcard actions; replace model permissions in Phase 5.",
-        )
-        for action in (
-            "s3:GetObject*",
-            "s3:GetBucket*",
-            "s3:List*",
-            "s3:DeleteObject*",
-            "s3:Abort*",
-        )
+        "ModelExecutionRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket"
+            "2AAC5544ArnD57FAE19/training/*]"
+        ),
+        (
+            "Phase 5B scoped the model role to read-only GetObject under the training "
+            "prefix; the object wildcard is inherent to reading generated artifact keys."
+        ),
     ),
     Acknowledgement(
         "serving",
         "ModelExecutionRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*]",
-        "Object wildcard is limited to artifacts; use a read-only model prefix in Phase 5.",
+        (
+            "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:logs:<AWS::Region>:"
+            "<AWS::AccountId>:log-group:/aws/sagemaker/Endpoints/churn-serverless-{env}:*]"
+        ),
+        (
+            "Phase 5B endpoint logging: the suffix is the generated log-stream wildcard "
+            "under one SageMaker-owned group, which is what PutLogEvents requires."
+        ),
     ),
     Acknowledgement(
         "serving",

@@ -46,8 +46,9 @@ one policy change.
 
 ## Tensions or open questions
 
-- The training and model execution roles currently attach the AWS-managed
-  `AmazonSageMakerFullAccess` policy. Phase 5 replaces them with action- and
-  resource-scoped policies only after CloudTrail and alerting are available.
+- The training (pipeline) role still attaches the AWS-managed
+  `AmazonSageMakerFullAccess` policy; Phase 5D replaces it with action- and
+  resource-scoped statements, and needs a billable pipeline run to sign off.
+  Phase 5B already did this for the model execution role.
 - Phase 6 changes the serving access boundary from API-key identification to
   IAM/SigV4 authorization. The inference response contract does not change.

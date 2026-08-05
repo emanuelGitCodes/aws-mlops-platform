@@ -115,6 +115,19 @@ def test_preprocess_and_train_are_cached_but_evaluate_is_not(definition):
     assert "CacheConfig" not in _step(definition, "Evaluate")
 
 
+def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition):
+    """Phase 5B scoped the model execution role to one prefix of the artifacts
+    bucket, and `src/pipeline/` cannot import `infra` to share the constant --
+    it runs in the SageMaker image, where `infra` is not installed. Pin the two
+    together here, because a divergence surfaces as a broken container start on
+    the next deployment rather than as a synth or import error.
+    """
+    from infra.stacks.shared import MODEL_ARTIFACT_PREFIX
+
+    output = _step(definition, "Train")["Arguments"]["OutputDataConfig"]["S3OutputPath"]
+    assert output.endswith(f"/{MODEL_ARTIFACT_PREFIX}")
+
+
 def test_training_hyperparameters_reach_the_estimator(definition):
     hyperparameters = _step(definition, "Train")["Arguments"]["HyperParameters"]
     assert hyperparameters["objective"] == "binary:logistic"

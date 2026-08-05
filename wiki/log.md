@@ -3037,3 +3037,214 @@ breaks inference rather than logging.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+
+## [2026-08-05] implement | AWS security hardening Phase 5B — model execution role
+
+### Objective
+
+Take the second of Phase 5's four roles off its broad policy: the role the
+serverless endpoint's model container runs as, which carried
+`AmazonSageMakerFullAccess` plus a ten-action `grant_read_write` on the
+artifacts bucket — including `PutObject` and `DeleteObject*` — for a container
+whose whole job is to download one `model.tar.gz` and answer requests.
+
+### Scope
+
+`infra/stacks/shared.py` (`sagemaker_execution_role` gains an opt-in
+`least_privilege`; new `MODEL_ARTIFACT_PREFIX`), `infra/stacks/serving_stack.py`,
+`infra/security_checks.py`, three test modules, and the coverage floor. Stack
+touched: `Mlops-Dev-Serving`.
+
+### Identity and environment
+
+us-east-1. Deployer profile for the named diff and deploy, auditor for
+`verify-deploy`, CloudTrail and alarms, administrator for the smoke runs and the
+live role, endpoint, log and metric reads.
+
+### Commands and results
+
+- Pre-flight: 45 acknowledgements, 29 naming Phase 5, **7 of them on this one
+  role**. The deployed `AWS::SageMaker::Model` was confirmed to pin the role ARN.
+- Pre-flight evidence for what to grant: `describe-model-package` puts
+  `ModelDataUrl` under the training prefix; the container image lives in an
+  AWS-owned registry account, not ours; and `cloudtrail lookup-events` for
+  `GetAuthorizationToken`, `BatchGetImage` and `GetDownloadUrlForLayer` returns
+  **nothing in 90 days**, across many container starts.
+- Template diff against the pre-change synthesis: exactly two resources changed,
+  none added or removed — `ModelExecutionRole` loses `ManagedPolicyArns`, and its
+  default policy trades ten S3 actions for `s3:GetObject` under the training
+  prefix, `s3:ListBucket`, and four log actions on the endpoint's own group.
+- Deploy 2026-08-05T02:49Z. `verify-deploy` reports four resources in one stack:
+  the role, its policy, and both Lambdas' code.
+- Component check: `make smoke` 6 passed; model package flipped to
+  `PendingManualApproval` and back to `Approved` at 02:51:28Z; the endpoint went
+  `Updating` → `InService` at 02:54:39Z on a **new endpoint config**; `make smoke`
+  6 passed again.
+- Live reads: `list-attached-role-policies` returns no rows, the role's physical
+  id is unchanged, two new endpoint log streams were created at 02:54:07Z and
+  02:54:55Z, `MemoryUtilization` published a datapoint at 02:54Z, and
+  `Invocations` kept publishing.
+- Acknowledgements 45 → 40; the model role's seven become two. Gates: 232 tests
+  at 92.54% (floor raised 92.4 → 92.54), lint, mypy, `synth-all`.
+
+### Interpretation
+
+The load-bearing check is the forced endpoint update, not the HTTP 200. The role
+is used at **container start** — image pull and artifact download — so a warm
+endpoint answers `/predict` correctly over a role that would fail its next cold
+start. Re-approving the model package drives the existing registry → `DeployFn` →
+`UpdateEndpoint` path, which builds a new container from scratch and turns that
+silent failure mode into a visible one. It reached `InService`, so the scope
+holds.
+
+Unlike 5A the role is **updated in place, never replaced**. The deployed
+`AWS::SageMaker::Model` records the execution role ARN, so a new role construct
+would have left the running endpoint pointing at a deleted ARN — visible only at
+the next cold start, long after the deploy reported success.
+
+Two permissions were deliberately not granted, each with a check behind it. ECR:
+90 days of CloudTrail record no ECR call by any principal, and the image is
+first-party, so SageMaker pulls it with service credentials. `PutMetricData`:
+container metrics still published after the change, and granting it would have
+forced a `Resource: "*"` statement, since the action has no resource-level
+permissions. Both omissions were confirmed by the cold start rather than assumed.
+
+`grant_read_write` was the larger finding of the two. The managed policy is the
+headline, but the bucket grant is what let a hosted model **write to and delete
+from** the bucket its own artifacts come from. Serverless inference has no data
+capture, so nothing it runs ever writes back.
+
+### Decision and next checkpoint
+
+5B is deployed; **its observation window is open**, and 5A's is still open
+alongside it — 5B's endpoint update also supplied the endpoint-update evidence
+5A lacked. Deliberately left unchanged: `least_privilege` stays opt-in, the
+pipeline role keeps `AmazonSageMakerFullAccess` until 5D, prod is untouched.
+
+Recorded but not acted on: the deploy also updated both serving Lambdas' code.
+The bundled asset hash in the repository had drifted from the deployed one
+before this change — no `src/` or `lambda_code.py` commit since the last merge,
+and the hash is deterministic across synths — so the drift predates 5B and its
+provenance is unexplained.
+
+The `iam-policy-changes` alarm fired at 02:52:53Z on a datapoint of 2.0 and is a
+true positive on our own work: CloudTrail attributes exactly two IAM mutations,
+`DetachRolePolicy` (02:49:55Z) and `PutRolePolicy` (02:50:12Z), to the CDK
+execution role. It self-cleared. For comparison, 5A's deploy fired the same
+alarm at 01:32:53Z on a datapoint of 3.0.
+
+**`unauthorized-api-calls` also fired, at 03:02:14Z, and it is a second live
+instance of the Phase 2E late-datapoint edge case** — not a burst, and nothing
+to do with the model role. The window holds exactly **three** denial events:
+`ListTagsForResource` at 02:49:47Z and 02:50:22Z by the CDK execution role,
+which lacks `iam:ListTagsForResource` and has produced these on every deploy,
+and one `frauddetector:GetOutcomes` at 03:00:39Z by `AWSServiceRoleForConfig`,
+which is Phase 3C's recorder reaching a service it cannot read. On the standard
+five-minute grid the metric reads 2.0 at 02:50Z and 1.0 at 03:00Z with zeros
+either side; the alarm assembled `1.0, 1.0, 1.0` across its own 02:47/02:52/02:57
+buckets and satisfied 3-of-3. Three isolated denials spread over eleven minutes
+paged as if sustained. This is exactly what the 3C closure recorded — `3 of 3`
+does not strictly mean fifteen consecutive minutes under lagging delivery — and
+it strengthens the case for the deferred metric-`Fill` sub-phase. It self-cleared
+at 03:03:14Z.
+
+**No `AccessDenied` appears under the model execution role at any point.**
+
+Console-side confirmations from the same window: the CloudFormation stack list's
+`Updated time` column shows only `Mlops-Dev-Serving` touched on 08-04/08-05,
+every other stack still on 08-01 or 08-02; the Lambda console shows exactly
+`DeployFn` and `ProxyFn` modified minutes ago and the other five untouched for
+days or weeks; SageMaker Models shows one new model created 02:51:31Z, which is
+the forced cold start building a container under the new role; and the
+`mlops-dev-endpoint-5xx` alarm — the repository's own inference-health tripwire —
+never left `OK`, with the API service view reporting 18 requests, 0 faults and
+100% availability. The 4xx count is the smoke suite's intentional
+invalid-payload cases.
+
+5C (`DeployFn`) is next: a Lambda role, so it returns to the 5A pattern, but its
+`Resource: "*"` SageMaker statement is the real target rather than the managed
+log policy.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.
+
+
+## [2026-08-05] verify | Phase 5A and 5B observation windows closed
+
+### Objective
+
+Decide the go/no-go on both open Phase 5 sub-phases at once, on the criterion
+each was still missing: a **natural** cold start of the serverless endpoint,
+unprompted by any deployment or forced endpoint update.
+
+### Scope
+
+Read-only against the deployed dev account, roughly 20 hours after the
+2026-08-05T02:49Z deployment, plus one `make smoke` run as the trigger. No code,
+configuration, or AWS change.
+
+### Identity and environment
+
+Administrator profile for the endpoint, log, alarm and Cost Explorer reads and
+the smoke run; auditor profile for the audit log.
+
+### Commands and results
+
+- Pre-state: `describe-log-streams` shows the newest endpoint stream last
+  active 2026-08-05T02:54:59Z — twenty hours idle, so the serverless endpoint
+  had scaled to zero and no container was warm.
+- `make smoke` at 22:57:31Z: 6 passed. A **new** log stream appears, created
+  22:57:39Z.
+- Audit log, 03:05Z to 22:57Z: 19 denial events, **all** by
+  `AWSServiceRoleForConfig` or `AWSServiceRoleForResourceExplorer` reaching
+  services they cannot read. None under the model or proxy execution role, and
+  `unauthorized-api-calls` did not re-fire.
+- Six `mlops-dev-security-*` alarms `OK`. `ce get-cost-and-usage` for
+  2026-08-01..05: a net **negative** total after credits, with SageMaker, Lambda,
+  API Gateway, CloudTrail and Config all at `0`.
+
+### Interpretation
+
+One check closed both windows, because both were short the same thing. The
+cold start is the only event that exercises a hosted model's execution role at
+all — image pull and artifact download — and the twenty-hour idle guaranteed it
+was genuinely cold rather than a warm container answering over a role nobody had
+tested. 5B's forced `UpdateEndpoint` proved the scope on a container SageMaker
+built during a deployment; this proves it on one built by ordinary traffic, with
+no operator action in the loop. For 5A the same run supplies what its record
+listed as explicitly missing: the proxy logging correctly over a period rather
+than in a single post-deploy smoke run.
+
+The nineteen denials are worth naming precisely, because a count that size looks
+like a finding and is not one. Every one belongs to an AWS service-linked role
+probing a service the account does not use — Phase 3C's recorder doing its job.
+They are also the same background rate that has been present since 3C, spread
+thinly enough that the Phase 2E three-datapoint rule never assembled a page from
+them, which is the behaviour 2E was revised to produce.
+
+### Decision and next checkpoint
+
+**5A and 5B are both a go, and both observation windows are closed.**
+Deliberately left unchanged: `least_privilege_logs` and `least_privilege` stay
+opt-in, the pipeline role keeps `AmazonSageMakerFullAccess` until 5D, and prod
+is untouched.
+
+Recorded but not acted on: **`mlops-dev-endpoint-5xx` leaves `TreatMissingData`
+unset**, so it defaults to `missing` and parks in `INSUFFICIENT_DATA` whenever
+the endpoint is idle — which, on a serverless endpoint, is most of the time. It
+went `INSUFFICIENT_DATA` at 03:12Z, twenty minutes after the deployment, when
+smoke traffic stopped; that is the alarm's normal idle state and not a symptom of
+5B. The six security alarms all set `notBreaching` instead. The gap is that the
+inference tripwire cannot currently distinguish "healthy and idle" from "not
+reporting". It is a detection-contract change, so under the Phase 2E precedent it
+belongs in its own gated sub-phase rather than a drive-by edit.
+
+5C (`DeployFn`) is next.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

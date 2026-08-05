@@ -3,7 +3,7 @@ registry-approval -> endpoint-update automation."""
 
 from typing import Any
 
-from aws_cdk import CfnOutput, Duration, Stack
+from aws_cdk import ArnFormat, CfnOutput, Duration, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
@@ -11,6 +11,7 @@ from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
 from infra.stacks.shared import (
+    MODEL_ARTIFACT_PREFIX,
     PlatformConfig,
     platform_lambda,
     sagemaker_event_rule,
@@ -34,9 +35,53 @@ class ServingStack(Stack):
         endpoint_name = config["endpoint_name"]
         code = src_code()
 
-        # Role the endpoint's model container runs as.
-        model_exec_role = sagemaker_execution_role(self, "ModelExecutionRole")
-        artifacts_bucket.grant_read_write(model_exec_role)
+        # Role the endpoint's model container runs as. Phase 5B: no managed
+        # policy, and every permission below is one the container demonstrably
+        # uses at start-up. Updated in place, never replaced -- the deployed
+        # `AWS::SageMaker::Model` pins this role's ARN.
+        model_exec_role = sagemaker_execution_role(
+            self,
+            "ModelExecutionRole",
+            least_privilege=True,
+        )
+        # Read the one thing the container downloads: the training step's
+        # `model.tar.gz`. Replaces `grant_read_write`, which granted the write
+        # and delete actions a hosted model never performs -- serverless
+        # inference has no data capture, so nothing writes back.
+        model_exec_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:GetObject"],
+                resources=[
+                    artifacts_bucket.arn_for_objects(f"{MODEL_ARTIFACT_PREFIX}/*"),
+                ],
+            )
+        )
+        model_exec_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[artifacts_bucket.bucket_arn],
+            )
+        )
+        # Container start-up and inference logs. SageMaker owns this group, not
+        # CDK, so unlike the Phase 5A Lambda roles this one does need
+        # `CreateLogGroup` -- scoped to the single group it may create.
+        endpoint_log_group_arn = self.format_arn(
+            service="logs",
+            resource="log-group",
+            resource_name=f"/aws/sagemaker/Endpoints/{endpoint_name}",
+            arn_format=ArnFormat.COLON_RESOURCE_NAME,
+        )
+        model_exec_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogStreams",
+                ],
+                resources=[endpoint_log_group_arn, f"{endpoint_log_group_arn}:*"],
+            )
+        )
 
         # Registry approval -> update/create the serverless endpoint.
         deploy_fn = platform_lambda(

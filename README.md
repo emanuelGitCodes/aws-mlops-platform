@@ -200,10 +200,12 @@ Current dev baseline:
   logs to a dedicated log bucket. Moving these three to a customer-managed key
   is phase 4; the audit bucket already uses one.
 - Runtime responsibilities use separate validation, pipeline, proxy, deployment,
-  and model roles. The proxy is scoped to invoke only the configured endpoint;
-  the pipeline and model roles still use `AmazonSageMakerFullAccess` and are a
-  documented hardening gap, acknowledged construct-by-construct in
-  `infra/security_checks.py` and scheduled for phase 5.
+  and model roles. Phase 5 replaces the broad ones one at a time: the proxy is
+  scoped to invoke only the configured endpoint and write its own log group, and
+  the model role reads only the training prefix of the artifacts bucket. The
+  pipeline role still uses `AmazonSageMakerFullAccess` and is a documented
+  hardening gap, acknowledged construct-by-construct in
+  `infra/security_checks.py` and scheduled for phase 5D.
 - `/predict` currently requires an API key and is throttled, but the key is not
   strong user authentication. The approved roadmap replaces it with IAM/SigV4
   in phase 6.

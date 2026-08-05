@@ -78,7 +78,11 @@ def test_acknowledgements_leave_no_unresolved_tokens(env_name):
 
 
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
-    """Phase 5 owns these two known roles; Phase 1 rejects a third attachment."""
+    """Phase 5 owns this role; Phase 1 rejects any new attachment.
+
+    Phase 5B took the serving model role off the policy, leaving the pipeline
+    role as the last holder until 5D.
+    """
     roles = []
     for stack_name, template in stacks.items():
         for logical_id, resource in template.to_json().get("Resources", {}).items():
@@ -88,10 +92,7 @@ def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
             if any("AmazonSageMakerFullAccess" in str(policy) for policy in policies):
                 roles.append((stack_name, logical_id))
 
-    assert roles == [
-        ("training", "PipelineExecutionRoleF9B1F2D0"),
-        ("serving", "ModelExecutionRole3247A550"),
-    ]
+    assert roles == [("training", "PipelineExecutionRoleF9B1F2D0")]
 
 
 def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
@@ -149,11 +150,16 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
-        # Phase 5A rebaselined serving. Reviewed delta, template-diffed against
-        # the pre-change synthesis: the CDK-generated ProxyFn service role and
-        # its default policy are replaced one-for-one by an explicit role
-        # carrying no managed policy. Nothing else in the stack moved.
-        "serving": "3da81abdfdf1e2167a03266ebb92e8e57f784b5df5b3082ba274604272929502",
+        # Phase 5A, then 5B, rebaselined serving. Reviewed delta, template-diffed
+        # against the pre-change synthesis: 5A replaced the CDK-generated ProxyFn
+        # service role and its default policy one-for-one with an explicit role
+        # carrying no managed policy. 5B then changed exactly two resources and
+        # added or removed none -- `ModelExecutionRole` loses `ManagedPolicyArns`,
+        # and its default policy trades the ten-action `grant_read_write` for
+        # `s3:GetObject` under one prefix, `s3:ListBucket`, and the endpoint log
+        # group. No role was added, removed, or renamed: the deployed
+        # `AWS::SageMaker::Model` pins this role's ARN.
+        "serving": "a7cad9d99cc8cf7088f3b7a6a193b116d164650bcdb747b2ea09a01da2e23d74",
         "monitoring": "cc859d169d0aea8460e12bc4adfb6131293ab5335b6eb0d092fd53a9260632b3",
     }
 

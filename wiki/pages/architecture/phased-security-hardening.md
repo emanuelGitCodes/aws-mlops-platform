@@ -179,7 +179,26 @@ the boundary.
   `v5` and `v6` were deleted to free version slots and `v8` remains the
   rollback target. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
-- **Phase 5: in progress; 5A complete, observation open.** The phase converts
+- **Phase 5B: complete; observation closed as a go 2026-08-05.** The model
+  execution role is off
+  `AmazonSageMakerFullAccess` and off `grant_read_write`, which had let a hosted
+  model write to and delete from the bucket its own artifacts come from. It now
+  reads `s3:GetObject` under the training prefix, lists that one bucket, and
+  writes to the endpoint's own log group. Deployed 2026-08-05T02:49Z as an
+  **in-place** role update — the deployed `AWS::SageMaker::Model` pins the role
+  ARN, so a replacement would have stranded the endpoint at its next cold start.
+  The component check forced that cold start rather than trusting a warm
+  `/predict`: re-approving the model package drove the registry → `DeployFn` →
+  `UpdateEndpoint` path to `InService` on a new config, with fresh endpoint log
+  streams and container metrics after it. ECR and `cloudwatch:PutMetricData` were
+  deliberately not granted — 90 days of CloudTrail record no ECR call, the image
+  is first-party, and container metrics still publish — so the policy contains no
+  `Resource: "*"` at all. Acknowledgements fell 45 → 40. The window then closed
+  on a **natural** cold start: after twenty hours idle the endpoint scaled to
+  zero, and an ordinary smoke run built a fresh container that served correctly,
+  with no operator action in the loop.
+- **Phase 5: in progress; 5A complete, observation closed as a go 2026-08-05.**
+  The phase converts
   four roles one at a time — proxy, model, deploy, then pipeline — and **5A has
   taken the proxy off `AWSLambdaBasicExecutionRole`**, whose three log actions
   applied to `Resource: "*"`. Its replacement role carries no managed policy and
@@ -188,7 +207,9 @@ the boundary.
   one-for-one role replacement; `/predict` and the proxy's log delivery both
   verified live, and acknowledgements fell 46 → 45. `least_privilege_logs` is
   opt-in so DeployFn, RetrainTriggerFn and ValidateFn keep the managed policy
-  until their own change sets. See the
+  until their own change sets. Its window closed on 5B's evidence: the record's
+  one open gap was that nothing showed the proxy logging over a period or during
+  an endpoint update, and 5B supplied both. See the
   [Phase 5A record](../sources/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md).
 - **Phases 3F, 4, 6–9: not started.** No Security Hub, Phase 3 alert routing,
   KMS data-key work, API-authentication change, WAF, or identity change is
@@ -263,10 +284,35 @@ in-scope ones, and none since. The recorder was never modified. The cost effect
 is a bounded one-off rather than a recurring one, but "minimally scoped" should
 not be read as "nothing outside the ten types was ever recorded".
 
-Phase 5 is now open alongside it: 5A is deployed and its observation window has
-not yet closed, and 5B (`ModelExecutionRole`) is the next role. 5B is a step up
-in risk, because a wrong scope there breaks inference rather than logging and
-would not show up in a smoke test that only asserts `/predict` returns 200. 5D
+Phase 5 ran **two observation windows at once**, and both **closed on
+2026-08-05 as a go**. 5B was the step up in risk the 5A record predicted — a
+wrong scope there breaks inference rather than logging, invisibly to a smoke
+test that only asserts `/predict` returns 200 — and it was answered by forcing a
+cold container start through the registry-approval path instead of trusting the
+warm response. That same forced `UpdateEndpoint` supplied the endpoint-update
+evidence 5A's window was still missing.
+
+A single later check closed both, because both were short the same thing: a
+**natural** cold start. After twenty hours idle the serverless endpoint had
+scaled to zero, and an ordinary `make smoke` built a fresh container — new
+endpoint log stream, 6 passed — under the least-privilege role with no operator
+action in the loop. In the twenty hours since deployment no denial was recorded
+under either the model or the proxy role; the nineteen that were recorded all
+belong to AWS service-linked roles probing services the account does not use,
+and were spread thinly enough that the Phase 2E three-datapoint rule never
+assembled a page from them.
+
+That closure also recorded a gap it deliberately did not fix.
+**`mlops-dev-endpoint-5xx` leaves `TreatMissingData` unset**, so it defaults to
+`missing` and sits in `INSUFFICIENT_DATA` whenever the endpoint is idle — most of
+the time, on a serverless endpoint — while the six security alarms all set
+`notBreaching`. The inference tripwire therefore cannot distinguish "healthy and
+idle" from "not reporting". Changing it is a detection-contract change, so under
+the Phase 2E precedent it belongs in its own gated sub-phase.
+
+5C (`DeployFn`) is next. It returns to the 5A Lambda pattern, but the target is
+different: its `Resource: "*"` SageMaker statement, one of the two remaining
+literal wildcards in the repository, rather than the managed log policy. 5D
 (`PipelineExecutionRole`) still cannot be signed off without a billable pipeline
 run.
 

@@ -86,6 +86,8 @@ class ServingStack(Stack):
             self,
             "ProxyFn",
             config=config,
+            # Phase 5A: first role off the managed log policy.
+            least_privilege_logs=True,
             handler="src.serving.proxy_handler.handler",
             code=code,
             timeout=Duration.seconds(29),

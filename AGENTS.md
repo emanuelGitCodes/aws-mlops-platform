@@ -20,6 +20,35 @@ into the same account — stacks are environment-agnostic, with no
 `env=cdk.Environment` — which is why `dev.yaml` and `prod.yaml` must not
 share account-scoped names (model package group, budget).
 
+## Current status
+
+The platform runtime is built and deployed in dev; the live work is the
+phased security-hardening roadmap. **The wiki is the source of record** —
+`wiki/pages/architecture/phased-security-hardening.md` holds the phase map
+and the per-phase status. Read it before starting security work rather than
+trusting this summary, which is coarse by design.
+
+- Phases 0–2 are complete. Phase 3 is partial: the six enablement flags
+  under `security.services` in `infra/config/*.yaml` flip one per sub-phase,
+  and in dev `access_analyzer`, `config_recorder`, and `account_bpa` are
+  true. `guardduty` and `security_hub` are deferred behind the AWS Free-plan
+  upgrade gate. Prod stays all-false until a deliberate rollout.
+- Phase 5 (replace broad IAM one role at a time) is in progress. Its
+  mechanism is the opt-in `least_privilege_logs` kwarg on the Lambda helper
+  in `infra/stacks/shared.py`; every role still carrying the managed policy
+  keeps a `security_checks.py` acknowledgement naming Phase 5.
+- Phase 4 (KMS) and Phases 6–9 are not started.
+
+Two rules follow from the roadmap's operating rule and apply to any phase
+work you do:
+
+1. **One phase per change set.** Baseline, tests, synth, reviewed `cdk diff`,
+   its own commit, scoped dev deploy, live checks, observation window,
+   explicit go/no-go. Prod is not touched while a phase is being validated
+   in dev.
+2. **The wiki record ships with the phase.** Write the `wiki/log.md` entry
+   and any page updates when the phase lands — do not wait to be asked.
+
 ## Commands
 
 Use the Makefile targets — do not invent your own invocations.
@@ -75,9 +104,11 @@ Look here **before** writing anything new:
 | `infra/security_checks.py` | cdk-nag gate plus every acknowledgement, each bound to one construct and naming the phase that removes it |
 | `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
+| `infra/policies/` | `mlops-cloudformation-execution-policy.json` — the repository-owned CloudFormation execution policy, version-pinned and fingerprint-tested |
 | `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `setup_monitor.py`, `send_drift_traffic.py`, `wiki.py` |
-| `tests/unit/` | Mirrors source modules as `test_<module>.py`; `conftest.py` holds the session-scoped synthesized CDK app and the shared sample record |
+| `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL`/`API_KEY` are set |
+| `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |
 | `telco/` | `telco.csv`, the raw dataset |
 | `wiki/` | Knowledge base — governed by `wiki/AGENTS.md`; follow it for any wiki work |
 
@@ -134,7 +165,7 @@ required workflow, not suggestions.
   must not use PEP 604 unions in runtime-evaluated positions.
 - Tests go in `tests/unit/` and mirror the source module they cover; run
   with `make test`. Coverage is measured on every run and enforced against
-  `fail_under` in `pyproject.toml` (currently **88**). That floor is a
+  `fail_under` in `pyproject.toml` (currently **92.4**). That floor is a
   ratchet: raise it when a phase lands, never lower it to make a red run
   green.
 - `infra/cdk.out/` is build output, never source. It holds synthesized

@@ -70,7 +70,21 @@ class _LocalPipBundling:
 # README or Makefile edit redeployed all four functions, and every new
 # top-level file silently joined the fingerprint. `src/` is the only input
 # that belongs in it.
-_ASSET_CONTENT = ["*", "!src", "!src/**"]
+#
+# `__pycache__` is then excluded back out, because re-including `src/**` had
+# pulled it in: a `.pyc` header embeds the source file's mtime, so a test run
+# or a `git stash` moved the Lambda code hash with no source change at all.
+# Every deploy therefore updated all four functions and made `verify-deploy`
+# report code changes that were not code changes. Bundling already skips
+# `__pycache__` via `shutil.ignore_patterns`, so the shipped package is
+# unaffected -- this only stops the hash from moving on its own.
+_ASSET_CONTENT = [
+    "*",
+    "!src",
+    "!src/**",
+    "src/**/__pycache__",
+    "src/**/__pycache__/**",
+]
 
 
 def src_code() -> lambda_.Code:

@@ -125,3 +125,18 @@ def test_a_failed_local_install_falls_back_to_docker(tmp_path):
     assert result is False
     # No half-populated output directory is left for CDK to zip.
     copytree.assert_not_called()
+
+
+def test_compiled_bytecode_does_not_change_the_lambda_asset(baseline):
+    """A `.pyc` under src/ must not move the hash.
+
+    Re-including `src/**` pulled `__pycache__` into the fingerprint, and a
+    `.pyc` header embeds its source file's mtime -- so a test run or a
+    `git stash` changed the Lambda code hash with no source change, updating
+    all four functions on the next deploy. Bundling never copied these files,
+    which is what made it invisible.
+    """
+    probe = REPO_ROOT / "src" / "common" / "__pycache__" / f"{PROBE_NAME}.cpython-312.pyc"
+    probe.parent.mkdir(parents=True, exist_ok=True)
+    with _temporary_file(probe):
+        assert _serving_asset_key() == baseline

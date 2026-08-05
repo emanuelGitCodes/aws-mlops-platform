@@ -12,7 +12,7 @@ import sys
 from typing import Any
 
 import jsii
-from aws_cdk import BundlingOptions, DockerImage, ILocalBundling
+from aws_cdk import BundlingOptions, DockerImage, IgnoreMode, ILocalBundling
 from aws_cdk import aws_lambda as lambda_
 
 _RUNTIME_DEPS = ["pydantic==2.*"]
@@ -64,6 +64,11 @@ class _LocalPipBundling:
 # CDK fingerprints every included file in the source directory.
 # Bundling copies only `src/`.
 #
+# `IgnoreMode.GIT` gives the patterns below gitignore semantics. The default
+# `IgnoreMode.GLOB` leaves the leading `*` unable to match a dotfile, so `.git`
+# joins the fingerprint. `.git` is a file in a git worktree, and it holds an
+# absolute path, so each checkout gets its own Lambda code hash.
+#
 # Exclude `__pycache__` after re-including `src/**`.
 # A `.pyc` header contains the source modification time and changes the asset hash.
 _ASSET_CONTENT = [
@@ -79,6 +84,7 @@ def src_code() -> lambda_.Code:
     return lambda_.Code.from_asset(
         str(_REPO_ROOT),
         exclude=_ASSET_CONTENT,
+        ignore_mode=IgnoreMode.GIT,
         bundling=BundlingOptions(
             image=DockerImage.from_registry("public.ecr.aws/sam/build-python3.12"),
             command=[

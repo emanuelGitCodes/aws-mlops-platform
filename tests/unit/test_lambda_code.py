@@ -62,10 +62,21 @@ def test_a_change_under_src_does_change_the_lambda_asset(baseline):
         assert _serving_asset_key() != baseline
 
 
+def test_a_new_root_dotfile_does_not_change_the_lambda_asset(baseline):
+    """A root dotfile must stay out of the fingerprint.
+
+    `*` matches no dotfile under `IgnoreMode.GLOB`. `.git` is a file in a git
+    worktree, so a matched dotfile gives each checkout its own asset hash.
+    """
+    with _temporary_file(REPO_ROOT / f".{PROBE_NAME}"):
+        assert _serving_asset_key() == baseline
+
+
 def test_the_probe_files_are_cleaned_up():
     """Remove each temporary asset probe after its test."""
     assert not (REPO_ROOT / PROBE_NAME).exists()
     assert not (REPO_ROOT / "src" / PROBE_NAME).exists()
+    assert not (REPO_ROOT / f".{PROBE_NAME}").exists()
 
 
 # `try_bundle` returns false to use the Docker bundling image.

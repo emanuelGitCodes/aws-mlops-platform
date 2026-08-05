@@ -148,7 +148,7 @@ the substituted output, not the raw parameterized file.
 ## Tensions or open questions
 
 - `MLOpsCloudFormationExecutionPolicy` is scoped by service and action, but the current document uses `Resource: "*"` for many management actions because generated CloudFormation names are not all known before deployment. It is narrower than `AdministratorAccess`, but it is not complete resource-level least privilege.
-- The training and model execution roles still use AWS-managed `AmazonSageMakerFullAccess`. That runtime policy is a separate hardening task from the IAM user and CDK bootstrap work.
+- The training (pipeline) role still uses AWS-managed `AmazonSageMakerFullAccess`; Phase 5B removed it from the model execution role. That runtime policy is a separate hardening task from the IAM user and CDK bootstrap work.
 - A failed `cdk diff` or deployment should be diagnosed from the denied action and CloudFormation event, then the custom policy should be amended explicitly. Reattaching `AdministratorAccess` should remain a break-glass recovery step, not the normal fix.
 
 ## Related pages

@@ -179,6 +179,20 @@ the boundary.
   `v5` and `v6` were deleted to free version slots and `v8` remains the
   rollback target. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
+- **Phase 5B: complete; observation open.** The model execution role is off
+  `AmazonSageMakerFullAccess` and off `grant_read_write`, which had let a hosted
+  model write to and delete from the bucket its own artifacts come from. It now
+  reads `s3:GetObject` under the training prefix, lists that one bucket, and
+  writes to the endpoint's own log group. Deployed 2026-08-05T02:49Z as an
+  **in-place** role update — the deployed `AWS::SageMaker::Model` pins the role
+  ARN, so a replacement would have stranded the endpoint at its next cold start.
+  The component check forced that cold start rather than trusting a warm
+  `/predict`: re-approving the model package drove the registry → `DeployFn` →
+  `UpdateEndpoint` path to `InService` on a new config, with fresh endpoint log
+  streams and container metrics after it. ECR and `cloudwatch:PutMetricData` were
+  deliberately not granted — 90 days of CloudTrail record no ECR call, the image
+  is first-party, and container metrics still publish — so the policy contains no
+  `Resource: "*"` at all. Acknowledgements fell 45 → 40.
 - **Phase 5: in progress; 5A complete, observation open.** The phase converts
   four roles one at a time — proxy, model, deploy, then pipeline — and **5A has
   taken the proxy off `AWSLambdaBasicExecutionRole`**, whose three log actions
@@ -263,10 +277,18 @@ in-scope ones, and none since. The recorder was never modified. The cost effect
 is a bounded one-off rather than a recurring one, but "minimally scoped" should
 not be read as "nothing outside the ten types was ever recorded".
 
-Phase 5 is now open alongside it: 5A is deployed and its observation window has
-not yet closed, and 5B (`ModelExecutionRole`) is the next role. 5B is a step up
-in risk, because a wrong scope there breaks inference rather than logging and
-would not show up in a smoke test that only asserts `/predict` returns 200. 5D
+Phase 5 is now open alongside it, with **two observation windows running at
+once**: 5A and 5B are both deployed and neither has closed. 5B was the step up
+in risk the 5A record predicted — a wrong scope there breaks inference rather
+than logging, invisibly to a smoke test that only asserts `/predict` returns
+200 — and it was answered by forcing a cold container start through the
+registry-approval path instead of trusting the warm response. That same forced
+`UpdateEndpoint` supplied the endpoint-update evidence 5A's window was still
+missing.
+
+5C (`DeployFn`) is next. It returns to the 5A Lambda pattern, but the target is
+different: its `Resource: "*"` SageMaker statement, one of the two remaining
+literal wildcards in the repository, rather than the managed log policy. 5D
 (`PipelineExecutionRole`) still cannot be signed off without a billable pipeline
 run.
 

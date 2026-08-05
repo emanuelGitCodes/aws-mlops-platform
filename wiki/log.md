@@ -3037,3 +3037,108 @@ breaks inference rather than logging.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+
+## [2026-08-05] implement | AWS security hardening Phase 5B — model execution role
+
+### Objective
+
+Take the second of Phase 5's four roles off its broad policy: the role the
+serverless endpoint's model container runs as, which carried
+`AmazonSageMakerFullAccess` plus a ten-action `grant_read_write` on the
+artifacts bucket — including `PutObject` and `DeleteObject*` — for a container
+whose whole job is to download one `model.tar.gz` and answer requests.
+
+### Scope
+
+`infra/stacks/shared.py` (`sagemaker_execution_role` gains an opt-in
+`least_privilege`; new `MODEL_ARTIFACT_PREFIX`), `infra/stacks/serving_stack.py`,
+`infra/security_checks.py`, three test modules, and the coverage floor. Stack
+touched: `Mlops-Dev-Serving`.
+
+### Identity and environment
+
+us-east-1. Deployer profile for the named diff and deploy, auditor for
+`verify-deploy`, CloudTrail and alarms, administrator for the smoke runs and the
+live role, endpoint, log and metric reads.
+
+### Commands and results
+
+- Pre-flight: 45 acknowledgements, 29 naming Phase 5, **7 of them on this one
+  role**. The deployed `AWS::SageMaker::Model` was confirmed to pin the role ARN.
+- Pre-flight evidence for what to grant: `describe-model-package` puts
+  `ModelDataUrl` under the training prefix; the container image lives in an
+  AWS-owned registry account, not ours; and `cloudtrail lookup-events` for
+  `GetAuthorizationToken`, `BatchGetImage` and `GetDownloadUrlForLayer` returns
+  **nothing in 90 days**, across many container starts.
+- Template diff against the pre-change synthesis: exactly two resources changed,
+  none added or removed — `ModelExecutionRole` loses `ManagedPolicyArns`, and its
+  default policy trades ten S3 actions for `s3:GetObject` under the training
+  prefix, `s3:ListBucket`, and four log actions on the endpoint's own group.
+- Deploy 2026-08-05T02:49Z. `verify-deploy` reports four resources in one stack:
+  the role, its policy, and both Lambdas' code.
+- Component check: `make smoke` 6 passed; model package flipped to
+  `PendingManualApproval` and back to `Approved` at 02:51:28Z; the endpoint went
+  `Updating` → `InService` at 02:54:39Z on a **new endpoint config**; `make smoke`
+  6 passed again.
+- Live reads: `list-attached-role-policies` returns no rows, the role's physical
+  id is unchanged, two new endpoint log streams were created at 02:54:07Z and
+  02:54:55Z, `MemoryUtilization` published a datapoint at 02:54Z, and
+  `Invocations` kept publishing.
+- Acknowledgements 45 → 40; the model role's seven become two. Gates: 232 tests
+  at 92.54% (floor raised 92.4 → 92.54), lint, mypy, `synth-all`.
+
+### Interpretation
+
+The load-bearing check is the forced endpoint update, not the HTTP 200. The role
+is used at **container start** — image pull and artifact download — so a warm
+endpoint answers `/predict` correctly over a role that would fail its next cold
+start. Re-approving the model package drives the existing registry → `DeployFn` →
+`UpdateEndpoint` path, which builds a new container from scratch and turns that
+silent failure mode into a visible one. It reached `InService`, so the scope
+holds.
+
+Unlike 5A the role is **updated in place, never replaced**. The deployed
+`AWS::SageMaker::Model` records the execution role ARN, so a new role construct
+would have left the running endpoint pointing at a deleted ARN — visible only at
+the next cold start, long after the deploy reported success.
+
+Two permissions were deliberately not granted, each with a check behind it. ECR:
+90 days of CloudTrail record no ECR call by any principal, and the image is
+first-party, so SageMaker pulls it with service credentials. `PutMetricData`:
+container metrics still published after the change, and granting it would have
+forced a `Resource: "*"` statement, since the action has no resource-level
+permissions. Both omissions were confirmed by the cold start rather than assumed.
+
+`grant_read_write` was the larger finding of the two. The managed policy is the
+headline, but the bucket grant is what let a hosted model **write to and delete
+from** the bucket its own artifacts come from. Serverless inference has no data
+capture, so nothing it runs ever writes back.
+
+### Decision and next checkpoint
+
+5B is deployed; **its observation window is open**, and 5A's is still open
+alongside it — 5B's endpoint update also supplied the endpoint-update evidence
+5A lacked. Deliberately left unchanged: `least_privilege` stays opt-in, the
+pipeline role keeps `AmazonSageMakerFullAccess` until 5D, prod is untouched.
+
+Recorded but not acted on: the deploy also updated both serving Lambdas' code.
+The bundled asset hash in the repository had drifted from the deployed one
+before this change — no `src/` or `lambda_code.py` commit since the last merge,
+and the hash is deterministic across synths — so the drift predates 5B and its
+provenance is unexplained.
+
+The `iam-policy-changes` alarm fired at 02:52:53Z and is a true positive on our
+own work: CloudTrail attributes `DetachRolePolicy` (02:49:55Z) and
+`PutRolePolicy` (02:50:12Z) to the CDK execution role. No `AccessDenied` appears
+under the model execution role at any point. The two `ListTagsForResource`
+denials in the window belong to the CDK execution role and predate this phase.
+
+5C (`DeployFn`) is next: a Lambda role, so it returns to the 5A pattern, but its
+`Resource: "*"` SageMaker statement is the real target rather than the managed
+log policy.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

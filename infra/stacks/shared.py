@@ -87,6 +87,16 @@ class PlatformConfig(TypedDict):
 # than at synth.
 CONFIG_DELIVERY_PREFIX = "config"
 
+# Where the pipeline's training step writes `model.tar.gz`, and therefore the
+# only prefix of the artifacts bucket the model container ever reads. Shared for
+# the same reason as CONFIG_DELIVERY_PREFIX: `src/pipeline/pipeline.py` writes
+# it and the serving stack scopes the model role's `s3:GetObject` to it, and a
+# mismatch would break inference at the next container start rather than at
+# synth. `src/pipeline/` runs in the SageMaker image, where `infra` is not
+# installed, so it cannot import this -- `tests/unit/test_pipeline.py` pins the
+# two together instead.
+MODEL_ARTIFACT_PREFIX = "training"
+
 
 _LOG_RETENTION = {
     7: logs.RetentionDays.ONE_WEEK,
@@ -161,16 +171,31 @@ def platform_lambda(
     )
 
 
-def sagemaker_execution_role(scope: Construct, construct_id: str) -> iam.Role:
-    """Execution role SageMaker assumes (broad managed policy; acknowledged in
-    security_checks.py)."""
+def sagemaker_execution_role(
+    scope: Construct, construct_id: str, *, least_privilege: bool = False
+) -> iam.Role:
+    """Execution role SageMaker assumes.
+
+    Carries `AmazonSageMakerFullAccess` unless `least_privilege` is set, in
+    which case it carries no managed policy at all and the caller grants every
+    permission explicitly. Opt-in for the same reason as
+    `platform_lambda`'s `least_privilege_logs`: Phase 5 converts one role per
+    change set, each with its own live component check, and a default would
+    flip both roles at once.
+
+    Never pass `role_name`. The deployed `AWS::SageMaker::Model` pins this
+    role's ARN, so the role must be updated in place -- a replacement would
+    strand the running endpoint on a deleted ARN at its next cold start.
+    """
     return iam.Role(
         scope,
         construct_id,
         assumed_by=iam.ServicePrincipal("sagemaker.amazonaws.com"),
-        managed_policies=[
-            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess")
-        ],
+        managed_policies=(
+            None
+            if least_privilege
+            else [iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess")]
+        ),
     )
 
 

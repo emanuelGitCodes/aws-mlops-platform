@@ -212,6 +212,9 @@ def test_security_audit_foundation(stacks):
         "AllowRegionalCloudWatchLogsEncryption",
         "AllowCloudWatchEncryptedAlerts",
         "AllowBudgetsEncryptedAlerts",
+        # Phase 3C: Config cannot write snapshots into the KMS-encrypted audit
+        # bucket without this, and fails on the key rather than on the bucket.
+        "AllowConfigSnapshotEncryption",
     }
 
     topic_policy = next(

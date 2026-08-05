@@ -2,8 +2,9 @@
 
 from typing import Any
 
-from aws_cdk import Stack, Tags
+from aws_cdk import ArnFormat, Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
+from aws_cdk import aws_config as config_
 from aws_cdk import aws_guardduty as guardduty
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kms as kms
@@ -12,7 +13,7 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig
+from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
 
 PHASE_3_SERVICE_FLAGS = (
     "access_analyzer",
@@ -29,7 +30,28 @@ PHASE_3_SERVICE_FLAGS = (
 # loudly: a silent no-op deploy would look like a security service was turned
 # on when nothing was created. Add a flag here in the same change that
 # implements its sub-phase.
-IMPLEMENTED_SERVICE_FLAGS = frozenset({"access_analyzer", "guardduty", "account_bpa"})
+IMPLEMENTED_SERVICE_FLAGS = frozenset(
+    {"access_analyzer", "guardduty", "account_bpa", "config_recorder"}
+)
+
+# Phase 3C records configuration history for the resource classes the Phase 2C
+# detections already alarm on changes to, and nothing else. Config bills per
+# configuration item, so an all-types recorder would pay to version resources
+# no control here reads -- and would grow silently when EC2 arrives. Recording
+# is continuous: at $0.003 an item against ~100 resources the periodic rate
+# would cost more for less.
+CONFIG_RECORDED_TYPES = (
+    "AWS::CloudTrail::Trail",
+    "AWS::IAM::Group",
+    "AWS::IAM::Policy",
+    "AWS::IAM::Role",
+    "AWS::IAM::User",
+    "AWS::KMS::Key",
+    "AWS::Lambda::Function",
+    "AWS::S3::Bucket",
+    "AWS::SNS::Topic",
+    "AWS::SQS::Queue",
+)
 
 # Account-level Block Public Access is the backstop under every per-bucket
 # setting: it applies to buckets this repository does not create and survives a
@@ -62,6 +84,7 @@ class SecurityMonitoringStack(Stack):
         *,
         alert_topic: sns.ITopic,
         access_log_bucket: s3.IBucket,
+        audit_bucket: s3.IBucket,
         audit_key: kms.IKey,
         config: PlatformConfig,
         **kwargs: Any,
@@ -71,6 +94,7 @@ class SecurityMonitoringStack(Stack):
         self.env_name = config["env_name"]
         self.alert_topic = alert_topic
         self.access_log_bucket = access_log_bucket
+        self.audit_bucket = audit_bucket
         self.audit_key = audit_key
 
         services = config["security"]["services"]
@@ -173,5 +197,62 @@ class SecurityMonitoringStack(Stack):
                             resources=["*"],
                         )
                     ]
+                ),
+            )
+
+        if services["config_recorder"]:
+            # Config authorizes itself through the service-linked role, not a
+            # role this stack writes: AWS owns its policy, so the recorder
+            # cannot be granted more than the service needs. The execution
+            # policy was pre-granted the scoped CreateServiceLinkedRole in
+            # Phase 3-prep for exactly this.
+            service_linked_role = iam.CfnServiceLinkedRole(
+                self,
+                "ConfigServiceLinkedRole",
+                aws_service_name="config.amazonaws.com",
+            )
+            recorder = config_.CfnConfigurationRecorder(
+                self,
+                "ConfigurationRecorder",
+                name=f"mlops-{self.env_name}-recorder",
+                role_arn=self.format_arn(
+                    service="iam",
+                    region="",
+                    # `aws-service-role`, not `aws-service-linked-role`: the
+                    # latter is not a real IAM path. Phase 3-prep pre-granted
+                    # the wrong one, which would have failed this deploy on
+                    # CreateServiceLinkedRole; v10 corrects both statements.
+                    resource="role/aws-service-role/config.amazonaws.com",
+                    resource_name="AWSServiceRoleForConfig",
+                    arn_format=ArnFormat.SLASH_RESOURCE_NAME,
+                ),
+                recording_group=config_.CfnConfigurationRecorder.RecordingGroupProperty(
+                    all_supported=False,
+                    include_global_resource_types=False,
+                    resource_types=list(CONFIG_RECORDED_TYPES),
+                ),
+            )
+            recorder.add_dependency(service_linked_role)
+
+            # Deliberately NOT ordered against the recorder. The two are
+            # mutually dependent at the API: PutDeliveryChannel fails with
+            # NoAvailableConfigurationRecorderException until a recorder
+            # exists, and the recorder's own creation calls
+            # StartConfigurationRecorder, which fails with
+            # NoAvailableDeliveryChannelException until a channel exists.
+            # Ordering either way deadlocks -- both were tried, and because
+            # CloudFormation retries these two errors instead of failing, each
+            # attempt hung until it was cancelled rather than rolling back on
+            # its own. Left concurrent, the retries converge.
+            config_.CfnDeliveryChannel(
+                self,
+                "ConfigDeliveryChannel",
+                name=f"mlops-{self.env_name}-delivery",
+                s3_bucket_name=audit_bucket.bucket_name,
+                s3_key_prefix=CONFIG_DELIVERY_PREFIX,
+                config_snapshot_delivery_properties=(
+                    config_.CfnDeliveryChannel.ConfigSnapshotDeliveryPropertiesProperty(
+                        delivery_frequency="TwentyFour_Hours"
+                    )
                 ),
             )

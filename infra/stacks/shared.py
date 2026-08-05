@@ -80,6 +80,14 @@ class PlatformConfig(TypedDict):
     security: SecurityConfig
 
 
+# Phase 3C Config snapshots land under this prefix of the Security stack's
+# audit bucket. Shared because two stacks need the same string:
+# SecurityMonitoring sets it on the delivery channel, Security scopes the
+# bucket policy to it, and a mismatch would fail delivery at runtime rather
+# than at synth.
+CONFIG_DELIVERY_PREFIX = "config"
+
+
 _LOG_RETENTION = {
     7: logs.RetentionDays.ONE_WEEK,
     14: logs.RetentionDays.TWO_WEEKS,

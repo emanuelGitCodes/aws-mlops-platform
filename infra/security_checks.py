@@ -211,14 +211,11 @@ ACKNOWLEDGEMENTS = (
         "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*]",
         "Object wildcard is limited to artifacts; use a read-only model prefix in Phase 5.",
     ),
-    *(
-        Acknowledgement(
-            "serving",
-            role,
-            LAMBDA_BASIC_POLICY,
-            "Existing Lambda uses the standard log policy; replace it in Phase 5.",
-        )
-        for role in ("DeployFn/ServiceRole", "ProxyFn/ServiceRole")
+    Acknowledgement(
+        "serving",
+        "DeployFn/ServiceRole",
+        LAMBDA_BASIC_POLICY,
+        "Existing Lambda uses the standard log policy; replace it in Phase 5.",
     ),
     Acknowledgement(
         "serving",

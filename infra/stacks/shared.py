@@ -110,6 +110,7 @@ def platform_lambda(
     *,
     config: PlatformConfig,
     code: lambda_.Code | None = None,
+    least_privilege_logs: bool = False,
     **kwargs: Any,
 ) -> lambda_.Function:
     """Lambda with platform defaults: Python 3.12, an own log group at the
@@ -128,17 +129,34 @@ def platform_lambda(
     generated name a retained group would be orphaned by the next deploy rather
     than reused.
     """
+    log_group = logs.LogGroup(
+        scope,
+        f"{construct_id}Logs",
+        retention=log_retention(config),
+        removal_policy=RemovalPolicy.DESTROY,
+    )
+    role: iam.IRole | None = None
+    if least_privilege_logs:
+        # Phase 5 replaces `AWSLambdaBasicExecutionRole`, which grants the three
+        # log actions on `Resource: "*"` -- every log group in the account, not
+        # just this function's. Supplying a role stops CDK attaching it at all,
+        # and the only grant left is writing to the group created above. Opt-in
+        # rather than default because Phase 5 converts one role at a time, each
+        # with its own component check.
+        role = iam.Role(
+            scope,
+            f"{construct_id}Role",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description=f"{construct_id} execution role; writes only to its own log group",
+        )
+        log_group.grant_write(role)
     return lambda_.Function(
         scope,
         construct_id,
         runtime=lambda_.Runtime.PYTHON_3_12,
         code=code if code is not None else src_code(),
-        log_group=logs.LogGroup(
-            scope,
-            f"{construct_id}Logs",
-            retention=log_retention(config),
-            removal_policy=RemovalPolicy.DESTROY,
-        ),
+        log_group=log_group,
+        role=role,
         **kwargs,
     )
 

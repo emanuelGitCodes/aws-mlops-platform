@@ -149,7 +149,11 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
-        "serving": "eddbc68fe16166dc3a6252b38519979ebb2c003aa37df67ceffdca4a4f14f62e",
+        # Phase 5A rebaselined serving. Reviewed delta, template-diffed against
+        # the pre-change synthesis: the CDK-generated ProxyFn service role and
+        # its default policy are replaced one-for-one by an explicit role
+        # carrying no managed policy. Nothing else in the stack moved.
+        "serving": "3da81abdfdf1e2167a03266ebb92e8e57f784b5df5b3082ba274604272929502",
         "monitoring": "cc859d169d0aea8460e12bc4adfb6131293ab5335b6eb0d092fd53a9260632b3",
     }
 

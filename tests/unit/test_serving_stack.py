@@ -59,3 +59,40 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
             )
         },
     )
+
+
+def test_the_proxy_role_carries_no_managed_policy(stacks):
+    """Phase 5A: the proxy is the first role off `AWSLambdaBasicExecutionRole`.
+
+    That managed policy grants the three log actions on `Resource: "*"` -- every
+    log group in the account. The replacement grants writes to this function's
+    own group and nothing else, so a compromised proxy cannot write into, or
+    create, log groups belonging to the audit trail.
+    """
+    resources = stacks["serving"].to_json()["Resources"]
+    role_id, role = next(
+        (k, v)
+        for k, v in resources.items()
+        if v["Type"] == "AWS::IAM::Role" and k.startswith("ProxyFnRole")
+    )
+    assert "ManagedPolicyArns" not in role["Properties"]
+    assert role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]["Principal"] == {
+        "Service": "lambda.amazonaws.com"
+    }
+
+    policy = next(
+        v
+        for k, v in resources.items()
+        if v["Type"] == "AWS::IAM::Policy" and k.startswith("ProxyFnRoleDefaultPolicy")
+    )
+    statements = policy["Properties"]["PolicyDocument"]["Statement"]
+    actions = {
+        a
+        for s in statements
+        for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
+    }
+    # Exactly the two log actions plus the one business permission. Notably no
+    # logs:CreateLogGroup: CDK creates the group, so the function never needs it.
+    assert actions == {"logs:CreateLogStream", "logs:PutLogEvents", "sagemaker:InvokeEndpoint"}
+    for statement in statements:
+        assert statement["Resource"] != "*"

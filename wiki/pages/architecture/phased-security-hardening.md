@@ -2,8 +2,8 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-05"
-sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
+updated: "2026-08-06"
+sources: ["../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
 # Phased AWS security hardening roadmap
@@ -197,6 +197,29 @@ the boundary.
   on a **natural** cold start: after twenty hours idle the endpoint scaled to
   zero, and an ordinary smoke run built a fresh container that served correctly,
   with no operator action in the loop.
+- **Phase 5C: complete; deployed and component-checked 2026-08-06, observation
+  not opened.** The deploy role is off `AmazonSageMakerFullAccess`'s Lambda
+  equivalent — `AWSLambdaBasicExecutionRole` — and off the six-action
+  `Resource: "*"` SageMaker statement recorded in Phase 0, which let the role
+  that reacts to a registry approval point any endpoint in the account at any
+  model. Each action now names what `deploy_handler` builds: the endpoint's own
+  generated model and endpoint-config names, the one endpoint, and model
+  packages under this platform's own group. That last scoping is the one that
+  matters — the package ARN arrives in the EventBridge detail, so pinning it to
+  our group stops a crafted event walking the Lambda onto a foreign package.
+  **The repository's last real literal wildcard is gone**; only Phase 3E's
+  account-level Block Public Access remains, where AWS accepts nothing else.
+  Deployed 2026-08-05T23:58Z as a one-for-one role replacement, safe here
+  because nothing pins this role's ARN. The component check was a full
+  end-to-end run rather than a warm `/predict`, which exercises the proxy and
+  says nothing about this role: 1,200 new customer rows went raw → validate →
+  curated → preprocess → train → evaluate → register, the auto-approval fired
+  `DeployFn`, and it logged `approved_challenger_deployed` with no
+  `AccessDenied`. That run also settled the one scoping guess static analysis
+  could not: `CreateModel` needs **no** permission on the model package named in
+  `Containers[]`, so the deliberate omission was correct. Acknowledgements rose
+  40 → 41, two coarse entries traded for three naming exact ARNs. See the
+  [Phase 5C record](../sources/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md).
 - **Phase 5: in progress; 5A complete, observation closed as a go 2026-08-05.**
   The phase converts
   four roles one at a time — proxy, model, deploy, then pipeline — and **5A has
@@ -310,11 +333,23 @@ the time, on a serverless endpoint — while the six security alarms all set
 idle" from "not reporting". Changing it is a detection-contract change, so under
 the Phase 2E precedent it belongs in its own gated sub-phase.
 
-5C (`DeployFn`) is next. It returns to the 5A Lambda pattern, but the target is
-different: its `Resource: "*"` SageMaker statement, one of the two remaining
-literal wildcards in the repository, rather than the managed log policy. 5D
-(`PipelineExecutionRole`) still cannot be signed off without a billable pipeline
-run.
+5C (`DeployFn`) landed on 2026-08-06 and took both its managed log policy and
+its `Resource: "*"` SageMaker statement in one change set, leaving Phase 3E's
+account-level Block Public Access as the only literal wildcard the repository
+writes. **5D (`PipelineExecutionRole`) is now unblocked**: the billable pipeline
+run Phase 5 has required since the roadmap was written happened during 5C's
+component check and succeeded end to end, so the baseline 5D needs is on record.
+
+Three findings came out of 5C that belong to other change sets. The **bundled
+Lambda asset hash is not reproducible** — vendored `__pycache__/*.pyc` embed
+mtimes that `pip install -t` rewrites — so a deploy from a cold `cdk.out`
+republishes all four functions' code with no source change, which undermines the
+resource-level deploy reporting the repository requires. **Seven orphaned log
+groups** survive in dev, and every platform Lambda has a superseded
+`/aws/lambda/<function>` twin beside its Phase K `*Logs*` group. And **the
+drift → retrain edge has never fired**: both `RetrainTriggerFn` log groups report
+no events ever, so the closing edge of the drift loop is unexercised in this
+account.
 
 Partial 3F (EventBridge routing of Access Analyzer and Config events) remains
 queued. Two constraints carry into it. First, **IAM policy version pressure is now
@@ -353,8 +388,13 @@ Related runtime and human authority boundaries are documented in
   confirmation; no address is stored in this plan.
 - Security-service, WAF, CloudWatch, CloudTrail data-event, and KMS usage charges
   must be observed after each phase against the existing dev budget.
-- Phase 5 requires a billable pipeline run to prove that least-privilege access
-  still supports the full ML workflow.
+- Phase 5 required a billable pipeline run to prove that least-privilege access
+  still supports the full ML workflow. **Satisfied on 2026-08-06** by 5C's
+  component check, which pushed 1,200 new rows through ingestion and ran
+  `churn-training-pipeline-dev` to a registered, auto-approved model package and
+  an updated endpoint. The remaining question for 5D is narrower: that run
+  executed under the *unchanged* `PipelineExecutionRole`, so it is 5D's baseline,
+  not its proof.
 - Existing objects do not automatically adopt a new default KMS key. Phase 4C
   must preserve and verify object versions before lifecycle expiration.
 - Disabling long-lived administrator credentials is intentionally last so the

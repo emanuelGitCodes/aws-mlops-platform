@@ -3248,3 +3248,188 @@ belongs in its own gated sub-phase rather than a drive-by edit.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+## [2026-08-06] implement | AWS security hardening Phase 5C — deploy execution role
+
+### Objective
+
+Take `DeployFn`, the registry-approval → endpoint-update Lambda, off
+`AWSLambdaBasicExecutionRole` and off its six-action `Resource: "*"` SageMaker
+statement — the third of the four roles Phase 5 converts one at a time, and the
+repository's last real literal wildcard.
+
+### Scope
+
+`infra/stacks/serving_stack.py`, `infra/security_checks.py`,
+`tests/unit/test_serving_stack.py`, `tests/unit/test_security_checks.py`,
+`pyproject.toml`. Deployed stack `Mlops-Dev-Serving`. AWS resources touched by
+the component check: raw/curated/artifacts buckets, `churn-training-pipeline-dev`,
+`churn-model-group`, `churn-serverless-dev`, the API stage.
+
+### Identity and environment
+
+Dev, `us-east-1`. Deploy under the deployer identity; resource-level
+verification and all CloudTrail reads under the security-auditor identity;
+pipeline upsert/start, log reads and the API calls under the admin identity.
+The auditor cannot read the `DeployFnLogs` group — its Phase 2E out-of-band
+`logs:FilterLogEvents` grant is scoped to the audit group only, which surfaced
+as an `AccessDeniedException` and required the identity switch.
+
+### Commands and results
+
+Read-only pre-flight: `make lint typecheck test synth-all` green at 232 tests /
+92.54%; 40 acknowledgements in dev; 90 days of CloudTrail for the DeployFn
+session returning exactly the six modelled calls plus `CreateLogStream` and
+three `Decrypt`; `list-model-packages` confirming the
+`model-package/<group>/<version>` ARN shape.
+
+Mutating: one commit on `feat/phase-5c-deploy-role` (PR #41, CI green);
+`make deploy-stack STACK=Mlops-Dev-Serving` at 23:58Z (70 s); an upload of 1,200
+new rows to the raw bucket; `python -m src.pipeline.pipeline --start`, execution
+`z4y8kc4qz0kf`.
+
+`make verify-deploy SINCE=2026-08-05` reported six changed resources — the old
+role and policy deleted, the new role and policy created, the function
+re-pointed, and `ProxyFn` code-updated.
+
+Component check: all five pipeline steps `Succeeded`; training read 5,770 train
+/ 1,236 validation rows; model package version 2 registered and auto-approved;
+`DeployFn` logged `approved_challenger_deployed` with `action: "updated"` and
+`test_auc` populated, no `AccessDenied`; endpoint `InService`; `sample.json` →
+200 `churn: false`, high-risk → 200 `churn: true`, no key → 403; `make smoke`
+6 passed.
+
+Post-change gate: 233 passed at 92.58%, lint/typecheck/docs-sync/wiki-lint/
+synth-all clean.
+
+### Interpretation
+
+The wildcard, not the managed policy, was the point here. A `Resource: "*"`
+grant on `CreateModel`/`CreateEndpoint`/`UpdateEndpoint` in the role that reacts
+to a registry approval means a compromised deploy Lambda could point any endpoint
+in the account at any model. The scoping with the most security weight is
+`DescribeModelPackage` on `model-package/<group>/*`: the package ARN arrives
+inside the EventBridge detail, so it is the one attacker-influenceable input.
+
+The check was designed against 5B's lesson. A warm `/predict` exercises the
+proxy and proves nothing about this role, so new data was pushed through the
+entire platform to make a real approval fire. That settled the one guess static
+analysis could not: **`CreateModel` needs no permission on the model package it
+references** — it succeeded against a package the role has no `CreateModel`
+grant on. Granting only what evidence required, per 5B's precedent, cost nothing.
+
+The counterpart hedge is still untested. `CreateEndpoint`/`UpdateEndpoint` name
+both the endpoint and the endpoint-config because omitting a required resource
+breaks the deploy path; whether the config entry is needed is undetermined.
+
+Three findings belong to other change sets. The **bundled Lambda asset hash is
+not reproducible** — vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites — so a deploy from a cold `cdk.out` republishes all
+four functions with no source change, which is why the verify output shows
+`ProxyFn`. `lambda_code.py` already fixes this failure mode on the source side
+only. **Seven orphaned log groups** survive in dev and every platform Lambda has
+a superseded `/aws/lambda/<function>` twin; deletion was declined by the
+session's permission layer and handed to the operator. And **the drift → retrain
+edge has never fired** — both `RetrainTriggerFn` log groups report no events
+ever — which no earlier record had stated.
+
+Also corrected: `fail_under` is compared against the *unrounded* coverage total,
+so the floor went to 92.57, not the printed 92.58. The comment claiming the
+comparison was rounded to `precision` digits was wrong.
+
+### Decision and next checkpoint
+
+Deliberately left unchanged: `least_privilege_logs` stays opt-in, so `ValidateFn`
+and `RetrainTriggerFn` keep the managed log policy; `PipelineExecutionRole` keeps
+`AmazonSageMakerFullAccess` until 5D; prod is untouched. No execution-policy
+rotation was needed, so the last IAM version slot survives.
+
+**No observation window has been opened for 5C.** The runtime evidence is one
+end-to-end run immediately after deployment.
+
+**5D is unblocked.** The billable pipeline run Phase 5 has required since the
+roadmap was written happened here and succeeded — but under the *unchanged*
+pipeline role, so it is 5D's baseline rather than its proof.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.
+
+## [2026-08-06] verify | Attribute the alarm Phase 5C's deploy set off
+
+### Objective
+
+Attribute the `mlops-dev-security-iam-policy-changes` page that arrived during
+the 5C deployment, rather than assuming it was our own work because the timing
+fit.
+
+### Scope
+
+Alarm `mlops-dev-security-iam-policy-changes`, the `IamPolicyChanges` metric
+filter on `/aws/cloudtrail/mlops-dev-audit`, and the IAM writes made by the
+5C deploy of `Mlops-Dev-Serving`.
+
+### Identity and environment
+
+Dev, `us-east-1`, all reads under the security-auditor identity.
+
+### Commands and results
+
+The alarm fired at 2026-08-06T00:00:53Z on `1 datapoint [3.0 at 23:55:00]`
+against a threshold of `Sum >= 1` over one 300-second period, and self-cleared
+at 00:05:53Z. All six `mlops-dev-security-*` alarms are `OK`.
+
+`cloudtrail lookup-events` over the window returned **zero** IAM events — it
+caps at 50 results per page and the window was dominated by the pipeline run, so
+the IAM writes fell outside the page. That is a false negative of the tool, not
+evidence of absence, and it is why the attribution was redone against the
+authoritative source: `logs filter-log-events` on the audit log group using the
+metric filter's own pattern, read via the Phase 2E `logs:FilterLogEvents` grant.
+
+That returned exactly three events, all inside the breaching period:
+
+```
+23:58:29Z  PutRolePolicy     role=Mlops-Dev-Serving-DeployFnRole<suffix>
+                             policy=DeployFnRoleDefaultPolicyE7A28FAE
+23:59:04Z  DeleteRolePolicy  role=Mlops-Dev-Serving-DeployFnServiceRole<suffix>
+                             policy=DeployFnServiceRoleDefaultPolicy7D43372B
+23:59:05Z  DetachRolePolicy  role=Mlops-Dev-Serving-DeployFnServiceRole<suffix>
+```
+
+All three by `cdk-hnb659fds-cfn-exec-role-${AWS_ACCOUNT_ID}-<region>`, no
+`errorCode` on any.
+
+### Interpretation
+
+A true positive on our own change set, fully accounted for: the inline policy
+onto the new role, the inline policy off the old role, and the detach of
+`AWSLambdaBasicExecutionRole`. The third is the security event Phase 5C exists
+to produce — the moment `DeployFn` stopped carrying account-wide log
+permissions — and the detection caught it.
+
+The caller is the CDK CloudFormation execution role rather than the deployer
+identity directly, which is the expected chain: the deployer assumes the CDK
+exec role, and that role performs the IAM writes.
+
+`unauthorized-api-calls` stayed `OK` throughout the deployment **and** the
+end-to-end component check. That is a positive result rather than an absence:
+the new least-privilege policy produced no denials while exercising every
+statement in it.
+
+Worth stating as a standing expectation: this alarm is `1 of 1`, while
+`unauthorized-api-calls` was moved to `3 of 3` in Phase 2E. Any gated deploy
+that touches a role therefore pages immediately and exactly once — 3C produced
+six such emails, 5B two, 5C one. Deliberate contract, not noise; but it means
+deploy-time mail is routine and must not train the operator to discount the
+alarm.
+
+### Decision and next checkpoint
+
+No action. Nothing was misattributed, no unexpected principal appears, and no
+threshold change is warranted. The 5C observation window remains unopened.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

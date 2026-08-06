@@ -13,13 +13,15 @@ from constructs import IConstruct
 
 from infra.stacks.shared import PlatformConfig
 
-# Acknowledgement strings that name a deployment stage, the audit log group, or
-# a cross-stack export embed the environment, so they cannot be written as dev
-# literals shared by every environment. Write these tokens instead; they are
-# resolved per environment by `resolved_acknowledgements`. Plain `str.replace`
-# rather than `str.format`, so a brace in a future reason string is inert.
+# Acknowledgement strings that name a deployment stage, the audit log group, a
+# cross-stack export, or the model package group embed the environment, so they
+# cannot be written as dev literals shared by every environment. Write these
+# tokens instead; they are resolved per environment by
+# `resolved_acknowledgements`. Plain `str.replace` rather than `str.format`, so
+# a brace in a future reason string is inert.
 ENV_TOKEN = "{env}"
 PREFIX_TOKEN = "{prefix}"
+GROUP_TOKEN = "{group}"
 
 # Enablement flag for the account-wide budget. It lives beside the Phase 3
 # service flags rather than inside them: `security.services` is validated as
@@ -211,17 +213,35 @@ ACKNOWLEDGEMENTS = (
             "under one SageMaker-owned group, which is what PutLogEvents requires."
         ),
     ),
-    Acknowledgement(
-        "serving",
-        "DeployFn/ServiceRole",
-        LAMBDA_BASIC_POLICY,
-        "Existing Lambda uses the standard log policy; replace it in Phase 5.",
-    ),
-    Acknowledgement(
-        "serving",
-        "DeployFn/ServiceRole/DefaultPolicy",
-        "AwsSolutions-IAM5[Resource::*]",
-        "Known SageMaker deployment wildcard recorded in Phase 0; scope in Phase 5.",
+    # Phase 5C removed the deploy role's managed log policy and the six-action
+    # `Resource: "*"` SageMaker statement recorded in Phase 0. What remains is
+    # three ARNs whose trailing wildcard is inherent: `deploy_handler` suffixes
+    # every model and endpoint-config name with the epoch second, and the model
+    # package is addressed by version under one group.
+    *(
+        Acknowledgement(
+            "serving",
+            "DeployFnRole/DefaultPolicy",
+            (
+                "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"
+                f"<AWS::AccountId>:{resource}]"
+            ),
+            reason,
+        )
+        for resource, reason in (
+            (
+                "model/churn-serverless-{env}-model-*",
+                "Phase 5C scoped CreateModel to this endpoint's own generated model names.",
+            ),
+            (
+                "endpoint-config/churn-serverless-{env}-config-*",
+                "Phase 5C scoped the endpoint-config actions to this endpoint's generated names.",
+            ),
+            (
+                "model-package/{group}/*",
+                "Phase 5C scoped DescribeModelPackage to versions of this platform's own group.",
+            ),
+        )
     ),
     *(
         Acknowledgement(
@@ -294,21 +314,28 @@ ACKNOWLEDGEMENTS = (
 )
 
 
-def _resolve(text: str, env_name: str, prefix: str) -> str:
-    return text.replace(ENV_TOKEN, env_name).replace(PREFIX_TOKEN, prefix)
+def _resolve(text: str, config: PlatformConfig, prefix: str) -> str:
+    return (
+        text.replace(ENV_TOKEN, config["env_name"])
+        .replace(PREFIX_TOKEN, prefix)
+        .replace(GROUP_TOKEN, config["model_package_group"])
+    )
 
 
-def resolved_acknowledgements(env_name: str, prefix: str) -> tuple[Acknowledgement, ...]:
-    """`ACKNOWLEDGEMENTS` with the environment and stack-prefix tokens filled in.
+def resolved_acknowledgements(config: PlatformConfig, prefix: str) -> tuple[Acknowledgement, ...]:
+    """`ACKNOWLEDGEMENTS` with the environment tokens filled in.
 
     The single place tokens are resolved, shared by `apply_security_checks` and
     the tests, so the two can never disagree about what a path resolves to.
+    Takes the whole config rather than the individual values it substitutes:
+    Phase 5C needed the model package group as well as the environment name, and
+    every token after it comes from the same place instead of a longer signature.
     """
     return tuple(
         replace(
             acknowledgement,
-            construct_path=_resolve(acknowledgement.construct_path, env_name, prefix),
-            finding_id=_resolve(acknowledgement.finding_id, env_name, prefix),
+            construct_path=_resolve(acknowledgement.construct_path, config, prefix),
+            finding_id=_resolve(acknowledgement.finding_id, config, prefix),
         )
         for acknowledgement in ACKNOWLEDGEMENTS
     )
@@ -350,7 +377,7 @@ def apply_security_checks(
     # exists, leaving an unacknowledged cdk-nag finding.
     if config["security"]["account_budget"]:
         enabled.add(ACCOUNT_BUDGET_FLAG)
-    for acknowledgement in resolved_acknowledgements(config["env_name"], prefix):
+    for acknowledgement in resolved_acknowledgements(config, prefix):
         if acknowledgement.requires_flag and acknowledgement.requires_flag not in enabled:
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)

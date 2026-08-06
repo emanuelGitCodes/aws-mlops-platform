@@ -83,11 +83,20 @@ class ServingStack(Stack):
             )
         )
 
+        # The one endpoint this stack owns, named by both Lambdas below.
+        endpoint_arn = self.format_arn(
+            service="sagemaker",
+            resource="endpoint",
+            resource_name=endpoint_name,
+        )
+
         # Registry approval -> update/create the serverless endpoint.
         deploy_fn = platform_lambda(
             self,
             "DeployFn",
             config=config,
+            # Phase 5C: second role off the managed log policy.
+            least_privilege_logs=True,
             handler="src.serving.deploy_handler.handler",
             code=code,
             timeout=Duration.minutes(5),
@@ -98,17 +107,68 @@ class ServingStack(Stack):
                 "MAX_CONCURRENCY": str(config["serverless"]["max_concurrency"]),
             },
         )
+        # Phase 5C: these six actions used to share one `Resource: "*"` statement,
+        # which let the deploy Lambda point any endpoint in the account at any
+        # model. Each is now scoped to the resources `deploy_handler` actually
+        # names. The two trailing wildcards are inherent -- the handler suffixes
+        # every model and endpoint-config name with the epoch second, so no
+        # policy can name them exactly.
+        #
+        # Deliberately not granted, on 90 days of CloudTrail for this role: no
+        # `Delete*` (the handler never removes superseded revisions), no `List*`,
+        # and no `kms:Decrypt` -- the environment-variable decrypt at cold start
+        # runs against the AWS-managed `aws/lambda` key and is authorized by that
+        # key's own policy, which is why it already succeeds without a grant here.
+        endpoint_config_arn = self.format_arn(
+            service="sagemaker",
+            resource="endpoint-config",
+            resource_name=f"{endpoint_name}-config-*",
+        )
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=[
-                    "sagemaker:CreateModel",
-                    "sagemaker:CreateEndpointConfig",
-                    "sagemaker:CreateEndpoint",
-                    "sagemaker:UpdateEndpoint",
-                    "sagemaker:DescribeEndpoint",
-                    "sagemaker:DescribeModelPackage",
+                actions=["sagemaker:CreateModel"],
+                resources=[
+                    self.format_arn(
+                        service="sagemaker",
+                        resource="model",
+                        resource_name=f"{endpoint_name}-model-*",
+                    )
                 ],
-                resources=["*"],
+            )
+        )
+        deploy_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:CreateEndpointConfig"],
+                resources=[endpoint_config_arn],
+            )
+        )
+        # Create and Update take the endpoint *and* the config it points at, so
+        # both resource types belong in this statement.
+        deploy_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:CreateEndpoint", "sagemaker:UpdateEndpoint"],
+                resources=[endpoint_arn, endpoint_config_arn],
+            )
+        )
+        deploy_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:DescribeEndpoint"],
+                resources=[endpoint_arn],
+            )
+        )
+        # The package ARN arrives in the EventBridge detail, so pinning it to
+        # this platform's own group is the narrowing that matters: a crafted
+        # event cannot walk the Lambda onto a foreign model package.
+        deploy_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:DescribeModelPackage"],
+                resources=[
+                    self.format_arn(
+                        service="sagemaker",
+                        resource="model-package",
+                        resource_name=f"{package_group_name}/*",
+                    )
+                ],
             )
         )
         deploy_fn.add_to_role_policy(
@@ -142,13 +202,7 @@ class ServingStack(Stack):
         proxy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:InvokeEndpoint"],
-                resources=[
-                    self.format_arn(
-                        service="sagemaker",
-                        resource="endpoint",
-                        resource_name=endpoint_name,
-                    )
-                ],
+                resources=[endpoint_arn],
             )
         )
 

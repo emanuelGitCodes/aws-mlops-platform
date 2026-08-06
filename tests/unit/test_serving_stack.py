@@ -112,6 +112,64 @@ def test_the_model_role_carries_no_managed_policy(stacks):
     assert get_object["Resource"]["Fn::Join"][1][-1] == f"/{MODEL_ARTIFACT_PREFIX}/*"
 
 
+def test_the_deploy_role_names_every_resource_it_touches(stacks):
+    """Phase 5C: the deploy Lambda off the managed log policy and off `Resource: "*"`.
+
+    The six SageMaker actions used to share one wildcard statement, so the role
+    that reacts to a registry approval could point *any* endpoint in the account
+    at *any* model. Each action now names the resources `deploy_handler` builds,
+    and `DescribeModelPackage` is pinned to this platform's own group -- the
+    package ARN arrives in the EventBridge detail, so that is the grant a
+    crafted event would otherwise walk onto a foreign package.
+    """
+    resources = stacks["serving"].to_json()["Resources"]
+    role = next(
+        v
+        for k, v in resources.items()
+        if v["Type"] == "AWS::IAM::Role" and k.startswith("DeployFnRole")
+    )
+    assert "ManagedPolicyArns" not in role["Properties"]
+    assert role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]["Principal"] == {
+        "Service": "lambda.amazonaws.com"
+    }
+
+    policy = next(
+        v
+        for k, v in resources.items()
+        if v["Type"] == "AWS::IAM::Policy" and k.startswith("DeployFnRoleDefaultPolicy")
+    )
+    statements = policy["Properties"]["PolicyDocument"]["Statement"]
+    actions = {
+        a
+        for s in statements
+        for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
+    }
+    # The two log actions CDK's own group grant supplies -- again no
+    # logs:CreateLogGroup -- plus exactly what the handler calls, and nothing
+    # else. No Delete*, no List*, no kms:Decrypt: the cold-start environment
+    # decrypt is authorized by the AWS-managed key's own policy.
+    assert actions == {
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "sagemaker:CreateModel",
+        "sagemaker:CreateEndpointConfig",
+        "sagemaker:CreateEndpoint",
+        "sagemaker:UpdateEndpoint",
+        "sagemaker:DescribeEndpoint",
+        "sagemaker:DescribeModelPackage",
+        "iam:PassRole",
+    }
+    for statement in statements:
+        assert statement["Resource"] != "*"
+
+    # The package grant reaches only versions of the group this platform owns.
+    describe = next(s for s in statements if s["Action"] == "sagemaker:DescribeModelPackage")
+    assert (
+        describe["Resource"]["Fn::Join"][1][-1]
+        == f":model-package/{CONFIG['model_package_group']}/*"
+    )
+
+
 def test_the_proxy_role_carries_no_managed_policy(stacks):
     """Phase 5A: the proxy is the first role off `AWSLambdaBasicExecutionRole`.
 

@@ -7,14 +7,14 @@ import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Match
 
-from infra.app import stack_prefix
+from infra.app import load_config, stack_prefix
 from infra.security_checks import acknowledgement_metadata_key, resolved_acknowledgements
 from tests.unit.conftest import CONFIG, synth_env
 
 
 def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
     """Every accepted finding is attached to one real construct and a future phase."""
-    acknowledgements = resolved_acknowledgements(CONFIG["env_name"], "Test")
+    acknowledgements = resolved_acknowledgements(CONFIG, "Test")
     assert acknowledgements
     for acknowledgement in acknowledgements:
         stack = stack_constructs[acknowledgement.stack]
@@ -41,7 +41,7 @@ def test_acknowledgement_keys_keep_the_namespace_cdk_matches_on():
     findings with no error to point at. Pin both shapes against that silence.
     """
     plain, granular = [], []
-    for acknowledgement in resolved_acknowledgements(CONFIG["env_name"], "Test"):
+    for acknowledgement in resolved_acknowledgements(CONFIG, "Test"):
         # Classify from the id itself, not from the derived key, so this does
         # not simply restate acknowledgement_metadata_key back to itself.
         bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
@@ -72,7 +72,8 @@ def test_every_environment_builds_under_its_real_prefix(env_name):
 @pytest.mark.parametrize("env_name", ["dev", "prod"])
 def test_acknowledgements_leave_no_unresolved_tokens(env_name):
     """A mistyped token would silently stop matching instead of failing loudly."""
-    for acknowledgement in resolved_acknowledgements(env_name, stack_prefix(env_name)):
+    config = load_config(env_name)
+    for acknowledgement in resolved_acknowledgements(config, stack_prefix(env_name)):
         assert "{" not in acknowledgement.construct_path, acknowledgement
         assert "{" not in acknowledgement.finding_id, acknowledgement
 
@@ -107,13 +108,13 @@ def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
                 wildcard_policies.append((stack_name, logical_id))
 
     assert wildcard_policies == [
-        # Phase 3E: the s3:*AccountPublicAccessBlock actions are account-level
-        # and AWS accepts only "*" as their resource.
+        # The last literal `Resource: "*"` policy this repository writes. Phase
+        # 3E's account-BPA actions are account-level, and AWS accepts only "*"
+        # as their resource. Phase K removed three others (the CDK
+        # log-retention provider's policy in ingestion, serving, and
+        # monitoring), and Phase 5C removed the last real one -- the deploy
+        # role's six-action SageMaker statement.
         ("security_monitoring", "AccountPublicAccessBlockCustomResourcePolicy3665E1EC"),
-        # Phase K removed the other three: the CDK log-retention provider's
-        # policy in ingestion, serving, and monitoring. `platform_lambda` now
-        # owns an explicit log group, so no provider is synthesized.
-        ("serving", "DeployFnServiceRoleDefaultPolicy7D43372B"),
     ]
 
 
@@ -150,16 +151,23 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
-        # Phase 5A, then 5B, rebaselined serving. Reviewed delta, template-diffed
-        # against the pre-change synthesis: 5A replaced the CDK-generated ProxyFn
-        # service role and its default policy one-for-one with an explicit role
-        # carrying no managed policy. 5B then changed exactly two resources and
-        # added or removed none -- `ModelExecutionRole` loses `ManagedPolicyArns`,
-        # and its default policy trades the ten-action `grant_read_write` for
-        # `s3:GetObject` under one prefix, `s3:ListBucket`, and the endpoint log
-        # group. No role was added, removed, or renamed: the deployed
-        # `AWS::SageMaker::Model` pins this role's ARN.
-        "serving": "a7cad9d99cc8cf7088f3b7a6a193b116d164650bcdb747b2ea09a01da2e23d74",
+        # Phase 5A, then 5B, then 5C rebaselined serving. Reviewed delta,
+        # template-diffed against the pre-change synthesis: 5A replaced the
+        # CDK-generated ProxyFn service role and its default policy one-for-one
+        # with an explicit role carrying no managed policy. 5B then changed
+        # exactly two resources and added or removed none --
+        # `ModelExecutionRole` loses `ManagedPolicyArns`, and its default policy
+        # trades the ten-action `grant_read_write` for `s3:GetObject` under one
+        # prefix, `s3:ListBucket`, and the endpoint log group. No role was
+        # added, removed, or renamed: the deployed `AWS::SageMaker::Model` pins
+        # this role's ARN. 5C is 5A's shape again -- `DeployFnServiceRole*` and
+        # its default policy out, `DeployFnRole*` and its default policy in,
+        # one-for-one, with the function's `Role` and `DependsOn` re-pointed and
+        # nothing else in the stack touched. The managed log policy is gone and
+        # the six SageMaker actions moved off `Resource: "*"` onto five
+        # resource-scoped statements. ProxyFn's policy is byte-identical:
+        # hoisting the shared `endpoint_arn` changed no template output.
+        "serving": "99e3a8909503bc789ce3b99ade5723efb41fa791b3025c1ef0fb611351c66de1",
         "monitoring": "cc859d169d0aea8460e12bc4adfb6131293ab5335b6eb0d092fd53a9260632b3",
     }
 

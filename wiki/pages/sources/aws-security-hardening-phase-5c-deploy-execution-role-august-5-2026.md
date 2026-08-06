@@ -34,6 +34,13 @@ summary: "The deploy role loses both the managed log policy and the repository's
   `InService` and `make smoke` returned 6 passed.
 - **Acknowledgements rose 40 → 41 in dev.** Two coarse entries were replaced by
   three naming exact ARNs.
+- **The deploy set off one alarm, and it is fully attributed.**
+  `mlops-dev-security-iam-policy-changes` fired at 2026-08-06T00:00:53Z on three
+  events and self-cleared five minutes later. All three were the deploy's own IAM
+  writes by the CDK CloudFormation execution role: `PutRolePolicy` onto the new
+  role, `DeleteRolePolicy` off the old one, and the `DetachRolePolicy` that
+  removed `AWSLambdaBasicExecutionRole`. `unauthorized-api-calls` stayed `OK`
+  through both the deployment and the component check.
 - **A billable pipeline run succeeded.** Phase 5 has required one since the
   roadmap was written; it is now on record.
 

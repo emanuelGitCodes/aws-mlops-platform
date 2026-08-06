@@ -3355,3 +3355,81 @@ pipeline role, so it is 5D's baseline rather than its proof.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+## [2026-08-06] verify | Attribute the alarm Phase 5C's deploy set off
+
+### Objective
+
+Attribute the `mlops-dev-security-iam-policy-changes` page that arrived during
+the 5C deployment, rather than assuming it was our own work because the timing
+fit.
+
+### Scope
+
+Alarm `mlops-dev-security-iam-policy-changes`, the `IamPolicyChanges` metric
+filter on `/aws/cloudtrail/mlops-dev-audit`, and the IAM writes made by the
+5C deploy of `Mlops-Dev-Serving`.
+
+### Identity and environment
+
+Dev, `us-east-1`, all reads under the security-auditor identity.
+
+### Commands and results
+
+The alarm fired at 2026-08-06T00:00:53Z on `1 datapoint [3.0 at 23:55:00]`
+against a threshold of `Sum >= 1` over one 300-second period, and self-cleared
+at 00:05:53Z. All six `mlops-dev-security-*` alarms are `OK`.
+
+`cloudtrail lookup-events` over the window returned **zero** IAM events — it
+caps at 50 results per page and the window was dominated by the pipeline run, so
+the IAM writes fell outside the page. That is a false negative of the tool, not
+evidence of absence, and it is why the attribution was redone against the
+authoritative source: `logs filter-log-events` on the audit log group using the
+metric filter's own pattern, read via the Phase 2E `logs:FilterLogEvents` grant.
+
+That returned exactly three events, all inside the breaching period:
+
+```
+23:58:29Z  PutRolePolicy     role=Mlops-Dev-Serving-DeployFnRole<suffix>
+                             policy=DeployFnRoleDefaultPolicyE7A28FAE
+23:59:04Z  DeleteRolePolicy  role=Mlops-Dev-Serving-DeployFnServiceRole<suffix>
+                             policy=DeployFnServiceRoleDefaultPolicy7D43372B
+23:59:05Z  DetachRolePolicy  role=Mlops-Dev-Serving-DeployFnServiceRole<suffix>
+```
+
+All three by `cdk-hnb659fds-cfn-exec-role-${AWS_ACCOUNT_ID}-<region>`, no
+`errorCode` on any.
+
+### Interpretation
+
+A true positive on our own change set, fully accounted for: the inline policy
+onto the new role, the inline policy off the old role, and the detach of
+`AWSLambdaBasicExecutionRole`. The third is the security event Phase 5C exists
+to produce — the moment `DeployFn` stopped carrying account-wide log
+permissions — and the detection caught it.
+
+The caller is the CDK CloudFormation execution role rather than the deployer
+identity directly, which is the expected chain: the deployer assumes the CDK
+exec role, and that role performs the IAM writes.
+
+`unauthorized-api-calls` stayed `OK` throughout the deployment **and** the
+end-to-end component check. That is a positive result rather than an absence:
+the new least-privilege policy produced no denials while exercising every
+statement in it.
+
+Worth stating as a standing expectation: this alarm is `1 of 1`, while
+`unauthorized-api-calls` was moved to `3 of 3` in Phase 2E. Any gated deploy
+that touches a role therefore pages immediately and exactly once — 3C produced
+six such emails, 5B two, 5C one. Deliberate contract, not noise; but it means
+deploy-time mail is routine and must not train the operator to discount the
+alarm.
+
+### Decision and next checkpoint
+
+No action. Nothing was misattributed, no unexpected principal appears, and no
+threshold change is warranted. The 5C observation window remains unopened.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

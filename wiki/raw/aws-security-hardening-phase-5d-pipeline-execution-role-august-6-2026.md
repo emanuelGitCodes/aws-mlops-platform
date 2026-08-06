@@ -123,7 +123,7 @@ one 5B added — plus nine inline statements replacing `grant_read` and
 | 4 | `sagemaker:CreateProcessingJob`, `DescribeProcessingJob`, `AddTags` | `processing-job/pipelines-*` |
 | 5 | `sagemaker:CreateTrainingJob`, `DescribeTrainingJob`, `AddTags` | `training-job/pipelines-*` |
 | 6 | `sagemaker:CreateModelPackage`, `DescribeModelPackage`, `AddTags` | `model-package/churn-model-group/*` |
-| 7 | `sagemaker:CreateModelPackageGroup` | `model-package-group/churn-model-group` |
+| 7 | `sagemaker:CreateModelPackageGroup`, `AddTags` | `model-package-group/churn-model-group` |
 | 8 | `iam:PassRole` | its own ARN, `iam:PassedToService = sagemaker.amazonaws.com` |
 | 9 | `logs:CreateLogGroup`, `CreateLogStream`, `PutLogEvents`, `DescribeLogStreams` | `/aws/sagemaker/{Processing,Training}Jobs` and `:*` |
 
@@ -214,18 +214,79 @@ insistence on a live component check. Static analysis had the API surface
 right; it had the *authorization* surface wrong, and only a real
 `CreateProcessingJob` could tell the difference.
 
-Granted on statements 4, 5 and 6 — the three creates — so it reaches exactly
-the ARNs those creates already reach and no others.
+Granted first on the three job and package creates.
 
 ```
 2026-08-06T01:54:09Z  deploy 2   one resource UPDATE_COMPLETE (the policy only)
 ```
 
-### Second run
+### Second run: the same finding, one statement short
 
-Execution `t5z537c2f85z`, started 2026-08-06T01:54Z.
+Execution `t5z537c2f85z`, 2026-08-06T01:54Z → 02:10Z. Four of five steps
+**Succeeded** — Preprocess, Train, Evaluate, BeatsChampion — and
+`RegisterChallenger` failed:
 
-<!-- OUTCOME -->
+```
+ClientError: Failed to invoke sagemaker:CreateModelPackageGroup.
+User: .../sagemaker-pipeline-t5z537c2f85z-RegisterChallenger-R
+is not authorized to perform: sagemaker:AddTags
+on resource: .../model-package-group/churn-model-group
+```
+
+Same mechanism, a different ARN: the group, not the package. `AddTags` belongs
+on **all four** create statements, each scoped to the ARN of the thing being
+created. It took two runs to enumerate them because each failure stops at the
+first step that needs one, and nothing in CloudTrail lists them ahead of time.
+
+```
+2026-08-06T02:12:40Z  deploy 3   one resource UPDATE_COMPLETE (the policy only)
+```
+
+### Third run: clean
+
+Execution `u2p5fi2f79aq`, 2026-08-06T02:12Z → 02:18Z, **Succeeded**:
+
+```
+Preprocess                      Succeeded   cache hit from t5z537c2f85z
+Train                           Succeeded   cache hit from t5z537c2f85z
+Evaluate                        Succeeded
+BeatsChampion                   Succeeded
+RegisterChallenger-RegisterModel Succeeded
+```
+
+Preprocess and Train were 30-day cache hits, so this execution did not itself
+re-run them. It does not need to: **both ran live under the least-privilege
+policy in `t5z537c2f85z`**, whose policy differs from this one only by the
+model-package-group `AddTags` — an ARN neither step touches. The union of the
+two runs exercises every statement.
+
+The registry path then fired on its own:
+
+```
+02:18:16Z  model package version 3 registered, ModelApprovalStatus Approved
+02:18:22Z  endpoint churn-serverless-dev -> Updating, config churn-serverless-dev-config-<epoch>
+```
+
+Six seconds from auto-approval to `UpdateEndpoint`. That is the
+registry-approval → `DeployFn` → endpoint path, which is the evidence Phase 5C's
+unopened observation window was short. **5C closes on this run.**
+
+### Denial sweep
+
+CloudTrail for the pipeline role from 2026-08-06T01:49Z, read with the
+security-auditor identity:
+
+```
+55  kms:GenerateDataKey
+14  kms:Decrypt
+ 4  logs:CreateLogStream
+ 4  logs:CreateLogGroup   ResourceAlreadyExistsException
+```
+
+No `AccessDenied`. Read with the caveat that CloudTrail delivery lags roughly
+fifteen minutes, so the sweep trails the run — the load-bearing evidence is the
+execution reaching `Succeeded` with every step green, not the absence in this
+window.
 
 ## Alarms and cost
 

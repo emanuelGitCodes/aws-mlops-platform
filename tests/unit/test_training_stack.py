@@ -42,9 +42,9 @@ def test_the_pipeline_role_carries_no_managed_policy(stacks):
 def test_the_pipeline_role_names_every_resource_it_touches(stacks):
     """The action set is exactly what the 2026-08-06 CloudTrail baseline shows.
 
-    Nothing here is aspirational: every action was observed under this role
-    during a full pipeline run, and the notable absences were observed *not* to
-    be needed. No `ecr:` -- SageMaker pulls the first-party images with its own
+    Every action but `AddTags` was observed under this role during a full
+    pipeline run, and the notable absences were observed *not* to be needed.
+    No `ecr:` -- SageMaker pulls the first-party images with its own
     credentials. No `kms:` -- the role calls `GenerateDataKey` and `Decrypt`
     today while holding no KMS permission at all, because the AWS-managed
     `aws/s3` key policy authorizes it. No `s3:DeleteObject*`, which
@@ -71,6 +71,10 @@ def test_the_pipeline_role_names_every_resource_it_touches(stacks):
         "sagemaker:CreateModelPackage",
         "sagemaker:DescribeModelPackage",
         "sagemaker:CreateModelPackageGroup",
+        # Not in the CloudTrail baseline, and it could not have been: Pipelines
+        # tags each resource inside the create call, so the check never surfaces
+        # as its own event. The first run under this policy failed on it.
+        "sagemaker:AddTags",
         "iam:PassRole",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",

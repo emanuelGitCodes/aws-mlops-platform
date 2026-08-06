@@ -159,10 +159,14 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # the two CDK bucket grants for nine statements naming each artifacts
         # prefix, `pipelines-*` jobs, this environment's model package group,
         # the two SageMaker job log groups, and a `PassRole` on itself
-        # conditioned to `sagemaker.amazonaws.com`. The logical IDs are
+        # conditioned to `sagemaker.amazonaws.com`. `sagemaker:AddTags` sits on
+        # the three create statements and nowhere else: Pipelines tags what it
+        # creates inside the create call, which is why no CloudTrail event ever
+        # showed it and the first run under this policy failed on it. The
+        # logical IDs are
         # unchanged on purpose: the deployed pipeline definition pins this
         # role's ARN out of band, so a replacement would strand it.
-        "training": "d400b37697c7c53f7b3eb2c315c9ab48639c1df3b03d6820e3fd2009d47355e7",
+        "training": "383d102fa90fc2c11faa2b9113d702ee55ddf5368bddc72a92138e8a7e105553",
         # Phase 5A, then 5B, then 5C rebaselined serving. Reviewed delta,
         # template-diffed against the pre-change synthesis: 5A replaced the
         # CDK-generated ProxyFn service role and its default policy one-for-one

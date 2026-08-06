@@ -22,9 +22,16 @@ CloudTrail for this role over the 2026-08-06 pipeline run:
   and the action takes no resource ARN, so granting it would reintroduce a
   `Resource: "*"` statement.
 - **`s3:DeleteObject*`.** Supplied by `grant_read_write`; no step deletes.
-- **`sagemaker:AddTags`** and the lineage calls (`CreateArtifact`,
-  `AddAssociation`, `CreateTrialComponent`). CloudTrail attributes every one of
-  those to `sagemaker.amazonaws.com` itself, not to this role.
+- **The lineage calls** (`CreateArtifact`, `AddAssociation`,
+  `CreateTrialComponent`, `CreateTrial`, `CreateExperiment`). CloudTrail
+  attributes every one of those to `sagemaker.amazonaws.com` itself, not to
+  this role.
+
+`sagemaker:AddTags` was on that list until the first run under this policy
+failed on it. It is the one permission CloudTrail cannot reveal: Pipelines tags
+each resource it creates as part of the create call, so the authorization check
+happens inside `CreateProcessingJob` and never appears as its own event. It is
+granted below on the same three ARNs, and nowhere else.
 """
 
 from typing import Any
@@ -109,11 +116,17 @@ class TrainingStack(Stack):
         # `pipelines-<execution-id>-<Step>-<suffix>`, so `pipelines-*` is the
         # tightest form a policy can express -- and it still excludes every job
         # in the account that this pipeline did not start.
+        #
+        # `AddTags` rides along on every create: Pipelines stamps the execution
+        # ARN onto each resource it makes, as part of the create call rather
+        # than as a separate API call. It is scoped to the same ARNs as the
+        # creates, so it grants no reach the create does not already have.
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
                     "sagemaker:CreateProcessingJob",
                     "sagemaker:DescribeProcessingJob",
+                    "sagemaker:AddTags",
                 ],
                 resources=[
                     self.format_arn(
@@ -126,7 +139,11 @@ class TrainingStack(Stack):
         )
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateTrainingJob", "sagemaker:DescribeTrainingJob"],
+                actions=[
+                    "sagemaker:CreateTrainingJob",
+                    "sagemaker:DescribeTrainingJob",
+                    "sagemaker:AddTags",
+                ],
                 resources=[
                     self.format_arn(
                         service="sagemaker",
@@ -146,7 +163,11 @@ class TrainingStack(Stack):
         package_group_name = config["model_package_group"]
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateModelPackage", "sagemaker:DescribeModelPackage"],
+                actions=[
+                    "sagemaker:CreateModelPackage",
+                    "sagemaker:DescribeModelPackage",
+                    "sagemaker:AddTags",
+                ],
                 resources=[
                     self.format_arn(
                         service="sagemaker",

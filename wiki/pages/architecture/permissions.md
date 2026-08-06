@@ -40,15 +40,20 @@ action. `budgets:ViewBudget` remains outside the auditor scope. See the
 
 The [phased security hardening roadmap](phased-security-hardening.md) preserves
 these component boundaries while replacing broad SageMaker managed policies.
-It changes the proxy, model, deployment, and pipeline roles independently, with
+It changed the proxy, model, deployment, and pipeline roles independently, with
 a live component check after each role so an `AccessDenied` can be attributed to
-one policy change.
+one policy change. All four have landed and no role attaches
+`AmazonSageMakerFullAccess` any more. `AWSLambdaBasicExecutionRole` is a
+separate residue: 5A and 5C took the proxy and deploy Lambdas off it, but
+`ValidateFn`, `RetrainTriggerFn`, and the CDK provider Lambdas still carry it,
+each with its own acknowledgement in `infra/security_checks.py`.
 
 ## Tensions or open questions
 
-- The training (pipeline) role still attaches the AWS-managed
-  `AmazonSageMakerFullAccess` policy; Phase 5D replaces it with action- and
-  resource-scoped statements, and needs a billable pipeline run to sign off.
-  Phase 5B already did this for the model execution role.
+- Model Monitor runs under the pipeline role rather than one of its own:
+  `scripts/setup_monitor.py` takes the pipeline role ARN. Phase 5D granted the
+  `monitor/` artifacts prefix on that documented path rather than on evidence,
+  because the drift loop has never run in this account. Splitting the role is
+  recorded follow-up work, not a change any completed phase made.
 - Phase 6 changes the serving access boundary from API-key identification to
   IAM/SigV4 authorization. The inference response contract does not change.

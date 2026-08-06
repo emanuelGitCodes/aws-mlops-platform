@@ -117,10 +117,13 @@ class TrainingStack(Stack):
         # tightest form a policy can express -- and it still excludes every job
         # in the account that this pipeline did not start.
         #
-        # `AddTags` rides along on every create: Pipelines stamps the execution
-        # ARN onto each resource it makes, as part of the create call rather
-        # than as a separate API call. It is scoped to the same ARNs as the
-        # creates, so it grants no reach the create does not already have.
+        # `AddTags` rides along on *every* create below, each time scoped to the
+        # ARN of the thing being created. Pipelines stamps the execution ARN
+        # onto each resource it makes as part of the create call rather than as
+        # a separate API call, which is why no CloudTrail event ever showed it
+        # and why two successive runs had to fail -- first on the processing
+        # job, then on the model package group -- to enumerate the four places
+        # it belongs. It grants no reach the creates do not already have.
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
@@ -179,7 +182,7 @@ class TrainingStack(Stack):
         )
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateModelPackageGroup"],
+                actions=["sagemaker:CreateModelPackageGroup", "sagemaker:AddTags"],
                 resources=[
                     self.format_arn(
                         service="sagemaker",

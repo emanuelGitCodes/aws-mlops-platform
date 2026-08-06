@@ -3558,3 +3558,79 @@ version pressure: four of five slots used.
 
 New follow-up recorded: Model Monitor should have an execution role of its own
 rather than reusing the pipeline role.
+
+## [2026-08-06] verify | Phase 5D observation window closed as a go
+
+### Objective
+
+Decide go/no-go on Phase 5D after an observation period, rather than treating a
+green component check as the end of the phase.
+
+### Scope
+
+The pipeline execution role's CloudTrail record since deployment, the six
+security alarms, the endpoint, the `$20` budget, and hosted CI on the phase's
+pull request.
+
+### Evidence
+
+Window: 2026-08-06T01:49Z (first deploy) → 2026-08-06T23:22Z, about 21 hours.
+
+**No denial under the new policy.** CloudTrail for
+`PipelineExecutionRole` across the window:
+
+```
+51  kms:GenerateDataKey
+10  kms:Decrypt
+ 3  logs:CreateLogStream
+ 3  logs:CreateLogGroup   ResourceAlreadyExistsException
+```
+
+Zero `AccessDenied`. The `CreateLogGroup` errors are the documented expected
+path — the container agent calls it on every job and the group already exists —
+not failures. This is the criterion the phase existed to satisfy: the
+least-privilege policy carried a full pipeline run and the twenty-one hours
+after it without producing a single denial.
+
+**Alarms.** All six security alarms `OK`. `iam-policy-changes` self-cleared at
+2026-08-06T02:20:53Z, roughly eight minutes after the last deploy, and has not
+fired since. No alert email arrived during the window, which is the correct
+result rather than a missed signal: SNS sends on the `OK -> ALARM` transition
+only, and nothing touched IAM after the deploys.
+
+**Endpoint.** `InService`, unmodified since 2026-08-06T02:21Z.
+
+**Budget.** `$20` limit intact, `$0.00` actual, `$1.11` forecast. Month-to-date
+unblended cost is effectively zero — the three pipeline runs the phase needed
+cost under a cent between them.
+
+**CI.** `validate` and `secret-scan` both pass on the pull request.
+
+### Decision and next checkpoint
+
+**Go.** Phase 5D is complete and Phase 5 is closed. No role in the repository
+attaches `AmazonSageMakerFullAccess`, and Phase 3E's account-level Block Public
+Access remains the only wildcard resource this repository writes.
+
+Next is partial 3F (EventBridge routing of Access Analyzer and Config events),
+still constrained by IAM policy version pressure: four of five slots used.
+
+### A gap this window exposed
+
+**`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is denied
+for that identity, so the budget check here had to run under `aws-admin`.
+
+That matters more than the missing permission itself. Every prior observation
+window reported budget state, which means each one quietly reached for a broader
+identity to do it — the auditor role is supposed to be the identity that closes
+a window without administrator access, and on this criterion it never was. Phase
+2E set the precedent for the fix: an out-of-band grant of exactly the read the
+auditor needs, recorded here rather than left implicit.
+
+Not fixed in this change set. It is an IAM change to a hand-managed identity and
+belongs in its own gated step.
+
+### Verification
+
+Alarm states, endpoint status, budget, and CloudTrail read live. Index rebuilt,
+`make wiki-lint` clean, changed files scanned for account-identifying literals.

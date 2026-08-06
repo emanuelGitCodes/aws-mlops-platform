@@ -224,8 +224,14 @@ the boundary.
   `Containers[]`, so the deliberate omission was correct. Acknowledgements rose
   40 → 41, two coarse entries traded for three naming exact ARNs. See the
   [Phase 5C record](../sources/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md).
-- **Phase 5D: complete; Phase 5 closes here. Deployed and component-checked
-  2026-08-06.** The pipeline execution role is off `AmazonSageMakerFullAccess`
+- **Phase 5D: complete; observation closed as a go 2026-08-06. Phase 5 closes
+  here.** The window ran about 21 hours from the first deploy and recorded
+  **zero `AccessDenied` under the new policy** — the only errors in the role's
+  CloudTrail are the expected `ResourceAlreadyExistsException` on
+  `logs:CreateLogGroup`. Six alarms `OK`, `iam-policy-changes` self-cleared
+  eight minutes after the last deploy, endpoint `InService` and unmodified,
+  `$20` budget intact at `$0.00` actual against a `$1.11` forecast, hosted CI
+  green. The pipeline execution role is off `AmazonSageMakerFullAccess`
   — the last attachment in the repository — and off the two CDK bucket grants
   that gave it delete rights over the whole artifacts bucket. Nine statements
   name what a run touches: `telco/` on curated; the four artifacts prefixes;
@@ -450,6 +456,13 @@ Related runtime and human authority boundaries are documented in
 - The repository execution policy retains the GuardDuty actions while the
   live default is `v8`; this deliberate divergence reconciles at the next
   sub-phase's controlled rotation.
+- **`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is
+  denied for that identity, exposed when 5D's observation window tried to check
+  the budget and had to fall back to `aws-admin`. Every prior window reported
+  budget state, so each one quietly did the same — the auditor is meant to be
+  the identity that closes a window without administrator access, and on this
+  one criterion it never was. Phase 2E is the precedent for the fix: an
+  out-of-band grant of exactly the read required, in its own gated step.
 - The SNS alert destination requires an email value and manual subscription
   confirmation; no address is stored in this plan.
 - Security-service, WAF, CloudWatch, CloudTrail data-event, and KMS usage charges

@@ -125,4 +125,4 @@ precision = 2
 # run green. Take the new floor from the printed total rounded *down*: the
 # comparison uses the unrounded value, so Phase 5C's printed 92.58 was really
 # 92.5799 and a floor of 92.58 failed against its own measurement.
-fail_under = 92.57
+fail_under = 92.63

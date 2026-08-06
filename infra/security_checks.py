@@ -22,6 +22,7 @@ from infra.stacks.shared import PlatformConfig
 ENV_TOKEN = "{env}"
 PREFIX_TOKEN = "{prefix}"
 GROUP_TOKEN = "{group}"
+PIPELINE_TOKEN = "{pipeline}"
 
 # Enablement flag for the account-wide budget. It lives beside the Phase 3
 # service flags rather than inside them: `security.services` is validated as
@@ -47,9 +48,10 @@ LAMBDA_BASIC_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AWSLambdaBasicExecutionRole]"
 )
-SAGEMAKER_FULL_ACCESS = (
-    "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/AmazonSageMakerFullAccess]"
-)
+# `AmazonSageMakerFullAccess` had a constant here until Phase 5D took the last
+# role off it. Nothing acknowledges it now, and
+# `test_broad_sagemaker_managed_policy_baseline_has_not_grown` is what keeps it
+# from coming back.
 APIGW_LOG_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AmazonAPIGatewayPushToCloudWatchLogs]"
@@ -151,39 +153,66 @@ ACKNOWLEDGEMENTS = (
         "AwsSolutions::AwsSolutions-L1",
         "Python 3.12 matches the packaged native runtime; review runtime in Phase 7.",
     ),
-    # Training role: broad managed policy and generated S3 actions are Phase 5 debt.
-    Acknowledgement(
-        "training",
-        "PipelineExecutionRole",
-        SAGEMAKER_FULL_ACCESS,
-        "Known broad pipeline role recorded in Phase 0; replace role policy in Phase 5.",
-    ),
-    *(
-        Acknowledgement(
-            "training",
-            "PipelineExecutionRole/DefaultPolicy",
-            f"AwsSolutions-IAM5[Action::{action}]",
-            "CDK S3 grants use wildcard actions; replace with Phase 5 pipeline permissions.",
-        )
-        for action in (
-            "s3:GetObject*",
-            "s3:GetBucket*",
-            "s3:List*",
-            "s3:DeleteObject*",
-            "s3:Abort*",
-        )
-    ),
+    # Training role: Phase 5D removed `AmazonSageMakerFullAccess` and the five
+    # CDK S3 grant wildcards. What survives is the object wildcard under each
+    # named prefix, plus the two generated job-name wildcards -- SageMaker names
+    # every pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, so no
+    # policy can enumerate them ahead of the run.
     *(
         Acknowledgement(
             "training",
             "PipelineExecutionRole/DefaultPolicy",
             f"AwsSolutions-IAM5[Resource::{resource}]",
-            "Object wildcard is limited to an imported workload bucket; replace in Phase 5.",
+            (
+                "Phase 5D scoped this to one prefix of one workload bucket; the object "
+                "wildcard is the narrowest form S3 accepts."
+            ),
         )
         for resource in (
-            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
-            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/*",
+            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/telco/*",
+            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/{pipeline}/*",
+            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/training/*",
+            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/evaluations/*",
+            "{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket2AAC5544ArnD57FAE19/monitor/*",
         )
+    ),
+    *(
+        Acknowledgement(
+            "training",
+            "PipelineExecutionRole/DefaultPolicy",
+            f"AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"
+            f"<AWS::AccountId>:{resource}]",
+            (
+                "Phase 5D: SageMaker generates the job name per execution, so `pipelines-*` "
+                "is the tightest ARN a policy can name."
+            ),
+        )
+        for resource in ("processing-job/pipelines-*", "training-job/pipelines-*")
+    ),
+    *(
+        Acknowledgement(
+            "training",
+            "PipelineExecutionRole/DefaultPolicy",
+            f"AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:logs:<AWS::Region>:"
+            f"<AWS::AccountId>:log-group:/aws/sagemaker/{job_type}Jobs:*]",
+            (
+                "Phase 5D: the stream wildcard is one SageMaker-owned log group, and the "
+                "per-job stream name is generated at run time."
+            ),
+        )
+        for job_type in ("Processing", "Training")
+    ),
+    Acknowledgement(
+        "training",
+        "PipelineExecutionRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"
+            "<AWS::AccountId>:model-package/{group}/*]"
+        ),
+        (
+            "Phase 5D: the package version is assigned at registration, so the wildcard "
+            "is confined to this platform's own model package group."
+        ),
     ),
     # Serving IAM debt and current API controls are removed in Phases 5-8.
     # Phase 5B removed the model role's `AmazonSageMakerFullAccess` and the five
@@ -319,6 +348,7 @@ def _resolve(text: str, config: PlatformConfig, prefix: str) -> str:
         text.replace(ENV_TOKEN, config["env_name"])
         .replace(PREFIX_TOKEN, prefix)
         .replace(GROUP_TOKEN, config["model_package_group"])
+        .replace(PIPELINE_TOKEN, config["pipeline_name"])
     )
 
 

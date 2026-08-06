@@ -97,6 +97,16 @@ CONFIG_DELIVERY_PREFIX = "config"
 # two together instead.
 MODEL_ARTIFACT_PREFIX = "training"
 
+# The other two artifacts-bucket prefixes the pipeline role writes, shared for
+# the same reason as MODEL_ARTIFACT_PREFIX -- Phase 5D scopes the role to a
+# prefix list, so a rename anywhere else breaks a pipeline run rather than a
+# synth. `evaluations/` is the evaluation step's explicit output destination in
+# `src/pipeline/pipeline.py`; `monitor/` is where `scripts/setup_monitor.py`
+# puts the Model Monitor baseline and reports. Both are pinned to their writer
+# in `tests/unit/test_pipeline.py`.
+EVALUATION_REPORT_PREFIX = "evaluations"
+MONITOR_OUTPUT_PREFIX = "monitor"
+
 
 _LOG_RETENTION = {
     7: logs.RetentionDays.ONE_WEEK,
@@ -183,9 +193,12 @@ def sagemaker_execution_role(
     change set, each with its own live component check, and a default would
     flip both roles at once.
 
-    Never pass `role_name`. The deployed `AWS::SageMaker::Model` pins this
-    role's ARN, so the role must be updated in place -- a replacement would
-    strand the running endpoint on a deleted ARN at its next cold start.
+    Never pass `role_name`, and never rename the construct: both roles this
+    builds are pinned by ARN outside CloudFormation, so each must be updated in
+    place. A replaced model role strands the running endpoint on a deleted ARN
+    at its next cold start; a replaced pipeline role strands the deployed
+    SageMaker Pipeline definition, which is upserted out of band with
+    `--role-arn`, and `scripts/setup_monitor.py`, which takes the same ARN.
     """
     return iam.Role(
         scope,

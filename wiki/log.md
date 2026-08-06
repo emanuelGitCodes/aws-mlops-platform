@@ -3248,3 +3248,110 @@ belongs in its own gated sub-phase rather than a drive-by edit.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+## [2026-08-06] implement | AWS security hardening Phase 5C — deploy execution role
+
+### Objective
+
+Take `DeployFn`, the registry-approval → endpoint-update Lambda, off
+`AWSLambdaBasicExecutionRole` and off its six-action `Resource: "*"` SageMaker
+statement — the third of the four roles Phase 5 converts one at a time, and the
+repository's last real literal wildcard.
+
+### Scope
+
+`infra/stacks/serving_stack.py`, `infra/security_checks.py`,
+`tests/unit/test_serving_stack.py`, `tests/unit/test_security_checks.py`,
+`pyproject.toml`. Deployed stack `Mlops-Dev-Serving`. AWS resources touched by
+the component check: raw/curated/artifacts buckets, `churn-training-pipeline-dev`,
+`churn-model-group`, `churn-serverless-dev`, the API stage.
+
+### Identity and environment
+
+Dev, `us-east-1`. Deploy under the deployer identity; resource-level
+verification and all CloudTrail reads under the security-auditor identity;
+pipeline upsert/start, log reads and the API calls under the admin identity.
+The auditor cannot read the `DeployFnLogs` group — its Phase 2E out-of-band
+`logs:FilterLogEvents` grant is scoped to the audit group only, which surfaced
+as an `AccessDeniedException` and required the identity switch.
+
+### Commands and results
+
+Read-only pre-flight: `make lint typecheck test synth-all` green at 232 tests /
+92.54%; 40 acknowledgements in dev; 90 days of CloudTrail for the DeployFn
+session returning exactly the six modelled calls plus `CreateLogStream` and
+three `Decrypt`; `list-model-packages` confirming the
+`model-package/<group>/<version>` ARN shape.
+
+Mutating: one commit on `feat/phase-5c-deploy-role` (PR #41, CI green);
+`make deploy-stack STACK=Mlops-Dev-Serving` at 23:58Z (70 s); an upload of 1,200
+new rows to the raw bucket; `python -m src.pipeline.pipeline --start`, execution
+`z4y8kc4qz0kf`.
+
+`make verify-deploy SINCE=2026-08-05` reported six changed resources — the old
+role and policy deleted, the new role and policy created, the function
+re-pointed, and `ProxyFn` code-updated.
+
+Component check: all five pipeline steps `Succeeded`; training read 5,770 train
+/ 1,236 validation rows; model package version 2 registered and auto-approved;
+`DeployFn` logged `approved_challenger_deployed` with `action: "updated"` and
+`test_auc` populated, no `AccessDenied`; endpoint `InService`; `sample.json` →
+200 `churn: false`, high-risk → 200 `churn: true`, no key → 403; `make smoke`
+6 passed.
+
+Post-change gate: 233 passed at 92.58%, lint/typecheck/docs-sync/wiki-lint/
+synth-all clean.
+
+### Interpretation
+
+The wildcard, not the managed policy, was the point here. A `Resource: "*"`
+grant on `CreateModel`/`CreateEndpoint`/`UpdateEndpoint` in the role that reacts
+to a registry approval means a compromised deploy Lambda could point any endpoint
+in the account at any model. The scoping with the most security weight is
+`DescribeModelPackage` on `model-package/<group>/*`: the package ARN arrives
+inside the EventBridge detail, so it is the one attacker-influenceable input.
+
+The check was designed against 5B's lesson. A warm `/predict` exercises the
+proxy and proves nothing about this role, so new data was pushed through the
+entire platform to make a real approval fire. That settled the one guess static
+analysis could not: **`CreateModel` needs no permission on the model package it
+references** — it succeeded against a package the role has no `CreateModel`
+grant on. Granting only what evidence required, per 5B's precedent, cost nothing.
+
+The counterpart hedge is still untested. `CreateEndpoint`/`UpdateEndpoint` name
+both the endpoint and the endpoint-config because omitting a required resource
+breaks the deploy path; whether the config entry is needed is undetermined.
+
+Three findings belong to other change sets. The **bundled Lambda asset hash is
+not reproducible** — vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites — so a deploy from a cold `cdk.out` republishes all
+four functions with no source change, which is why the verify output shows
+`ProxyFn`. `lambda_code.py` already fixes this failure mode on the source side
+only. **Seven orphaned log groups** survive in dev and every platform Lambda has
+a superseded `/aws/lambda/<function>` twin; deletion was declined by the
+session's permission layer and handed to the operator. And **the drift → retrain
+edge has never fired** — both `RetrainTriggerFn` log groups report no events
+ever — which no earlier record had stated.
+
+Also corrected: `fail_under` is compared against the *unrounded* coverage total,
+so the floor went to 92.57, not the printed 92.58. The comment claiming the
+comparison was rounded to `precision` digits was wrong.
+
+### Decision and next checkpoint
+
+Deliberately left unchanged: `least_privilege_logs` stays opt-in, so `ValidateFn`
+and `RetrainTriggerFn` keep the managed log policy; `PipelineExecutionRole` keeps
+`AmazonSageMakerFullAccess` until 5D; prod is untouched. No execution-policy
+rotation was needed, so the last IAM version slot survives.
+
+**No observation window has been opened for 5C.** The runtime evidence is one
+end-to-end run immediately after deployment.
+
+**5D is unblocked.** The billable pipeline run Phase 5 has required since the
+roadmap was written happened here and succeeded — but under the *unchanged*
+pipeline role, so it is 5D's baseline rather than its proof.
+
+### Verification
+
+Index rebuilt, `make wiki-lint` clean, changed files scanned for
+account-identifying literals.

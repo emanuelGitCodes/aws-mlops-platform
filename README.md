@@ -201,11 +201,13 @@ Current dev baseline:
   is phase 4; the audit bucket already uses one.
 - Runtime responsibilities use separate validation, pipeline, proxy, deployment,
   and model roles. Phase 5 replaces the broad ones one at a time: the proxy is
-  scoped to invoke only the configured endpoint and write its own log group, and
-  the model role reads only the training prefix of the artifacts bucket. The
-  pipeline role still uses `AmazonSageMakerFullAccess` and is a documented
-  hardening gap, acknowledged construct-by-construct in
-  `infra/security_checks.py` and scheduled for phase 5D.
+  scoped to invoke only the configured endpoint and write its own log group, the
+  model role reads only the training prefix of the artifacts bucket, the deploy
+  role names the endpoint and model package group it may touch, and the pipeline
+  role names each bucket prefix, job pattern, and log group a training run
+  uses. Phase 5 is complete: no role attaches `AmazonSageMakerFullAccess`, and
+  the only remaining wildcard resource is account-level S3 Block Public Access,
+  where AWS accepts nothing else.
 - `/predict` currently requires an API key and is throttled, but the key is not
   strong user authentication. The approved roadmap replaces it with IAM/SigV4
   in phase 6.

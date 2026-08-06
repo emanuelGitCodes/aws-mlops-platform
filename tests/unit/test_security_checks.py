@@ -79,10 +79,12 @@ def test_acknowledgements_leave_no_unresolved_tokens(env_name):
 
 
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
-    """Phase 5 owns this role; Phase 1 rejects any new attachment.
+    """No role carries this policy any more; Phase 1 rejects any new attachment.
 
-    Phase 5B took the serving model role off the policy, leaving the pipeline
-    role as the last holder until 5D.
+    Phase 5B took the serving model role off it and 5D took the pipeline role,
+    the last holder. The list is now permanently empty, which is the point of
+    keeping the test: it is what stops the managed policy coming back the next
+    time a role needs one more permission.
     """
     roles = []
     for stack_name, template in stacks.items():
@@ -93,7 +95,7 @@ def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
             if any("AmazonSageMakerFullAccess" in str(policy) for policy in policies):
                 roles.append((stack_name, logical_id))
 
-    assert roles == [("training", "PipelineExecutionRoleF9B1F2D0")]
+    assert roles == []
 
 
 def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
@@ -150,7 +152,22 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # `Resource: *` policy. No role was added or otherwise modified.
         "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-        "training": "d5cc3390088645f797b05769e35bec78b3073ace00e81b8cfff2ecd42ad50b10",
+        # Phase 5D rebaselined training. Reviewed delta, template-diffed against
+        # the pre-change synthesis: exactly two resources changed and none was
+        # added, removed, or renamed -- `PipelineExecutionRole` loses
+        # `ManagedPolicyArns` and nothing else, and its default policy trades
+        # the two CDK bucket grants for nine statements naming each artifacts
+        # prefix, `pipelines-*` jobs, this environment's model package group,
+        # the two SageMaker job log groups, and a `PassRole` on itself
+        # conditioned to `sagemaker.amazonaws.com`. `sagemaker:AddTags` sits on
+        # the three create statements and nowhere else: Pipelines tags what it
+        # creates inside the create call, which is why no CloudTrail event ever
+        # showed it and two successive runs failed on it -- the processing job,
+        # then the model package group. The
+        # logical IDs are
+        # unchanged on purpose: the deployed pipeline definition pins this
+        # role's ARN out of band, so a replacement would strand it.
+        "training": "38c16b61765d1ad0a1f8dede12c2af664eb508af0cdcc5fd97e38780154a4574",
         # Phase 5A, then 5B, then 5C rebaselined serving. Reviewed delta,
         # template-diffed against the pre-change synthesis: 5A replaced the
         # CDK-generated ProxyFn service role and its default policy one-for-one

@@ -8,6 +8,7 @@ in the same spirit as the CDK assertion tests in `test_stacks.py`.
 """
 
 import json
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -126,6 +127,36 @@ def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition
 
     output = _step(definition, "Train")["Arguments"]["OutputDataConfig"]["S3OutputPath"]
     assert output.endswith(f"/{MODEL_ARTIFACT_PREFIX}")
+
+
+def test_evaluation_reports_land_where_the_pipeline_role_is_allowed_to_write(definition):
+    """Phase 5D scoped the pipeline role to a prefix list on the artifacts
+    bucket, so `evaluations/` is now load-bearing IAM rather than just tidy
+    layout. Pinned here for the same reason as the training prefix above: a
+    rename in `pipeline.py` alone would surface as an `AccessDenied` part-way
+    through a billable run, not as a synth error.
+    """
+    from infra.stacks.shared import EVALUATION_REPORT_PREFIX
+
+    destination = _step(definition, "Evaluate")["Arguments"]["ProcessingOutputConfig"]["Outputs"][
+        0
+    ]["S3Output"]["S3Uri"]
+    # A `Join` over the bucket, the prefix, and two execution variables.
+    assert EVALUATION_REPORT_PREFIX in json.dumps(destination)
+
+
+def test_the_monitor_prefix_matches_what_setup_monitor_writes():
+    """`scripts/setup_monitor.py` runs Model Monitor under the pipeline role.
+
+    Phase 5D granted `monitor/` on that documented operational path rather than
+    on CloudTrail evidence -- the drift loop has never run in this account -- so
+    nothing else would catch the two drifting apart.
+    """
+    from infra.stacks.shared import MONITOR_OUTPUT_PREFIX
+
+    source = Path("scripts/setup_monitor.py").read_text()
+    assert f"{{args.artifacts_bucket}}/{MONITOR_OUTPUT_PREFIX}/baseline" in source
+    assert f"{{args.artifacts_bucket}}/{MONITOR_OUTPUT_PREFIX}/reports" in source
 
 
 def test_training_hyperparameters_reach_the_estimator(definition):

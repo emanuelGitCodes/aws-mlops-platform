@@ -3433,3 +3433,204 @@ threshold change is warranted. The 5C observation window remains unopened.
 
 Index rebuilt, `make wiki-lint` clean, changed files scanned for
 account-identifying literals.
+
+## [2026-08-06] implement | AWS security hardening Phase 5D — pipeline execution role
+
+### Objective
+
+Take `PipelineExecutionRole` off `AmazonSageMakerFullAccess` and off the CDK
+bucket grants, replacing both with statements naming what a training run
+actually touches. This is the last of Phase 5's four roles, so it closes the
+phase.
+
+### Scope
+
+`infra/stacks/training_stack.py`, the two new prefix constants in
+`infra/stacks/shared.py`, the training acknowledgements in
+`infra/security_checks.py`, and their tests. One stack deployed in dev,
+`Mlops-Dev-Training`. Prod untouched.
+
+### What changed
+
+`least_privilege=True` on the `sagemaker_execution_role` helper 5B added, plus
+nine inline statements: `telco/` on curated; four artifacts prefixes
+(`{pipeline_name}/`, `training/`, `evaluations/`, `monitor/`); `pipelines-*`
+processing and training jobs; this environment's model package group;
+the two SageMaker job log groups; and `PassRole` on itself, conditioned to
+`sagemaker.amazonaws.com`. No statement carries `Resource: "*"`.
+
+Scoping the curated read to `telco/` is a narrowing, not tidier IAM.
+`InputDataUri` is a pipeline parameter, so a crafted `StartPipelineExecution`
+could otherwise train the model on data of the caller's choosing.
+`retrain_handler` starts the pipeline with default parameters only.
+
+Updated in place. The deployed pipeline definition is upserted out of band with
+`--role-arn` and `scripts/setup_monitor.py` takes the same ARN, so a
+replacement would strand both. The template diff confirms it: two resources
+changed, none added, removed, or renamed.
+
+### The finding
+
+The component check took three runs, and the two failures are the useful
+output. Both were `sagemaker:AddTags` — first on the processing job, then on
+the model package group.
+
+`AddTags` appears **nowhere** in CloudTrail for this role. That absence is real
+and the inference from it was wrong: Pipelines tags each resource it creates
+*as part of the create call*, so the authorization check happens inside
+`CreateProcessingJob` and never becomes its own event. No amount of trail
+reading would have found it.
+
+The general lesson, worth carrying into any future least-privilege work:
+**CloudTrail enumerates a role's API surface, not its authorization surface.**
+Anything checked as part of another call is invisible to it.
+
+The same baseline did produce two correct catches of a related kind.
+`logs:CreateLogGroup` and `sagemaker:CreateModelPackageGroup` are both called
+unconditionally and both return a *service* error today
+(`ResourceAlreadyExistsException`, `ValidationException`). Those are success
+paths only while the permission exists — remove it and the same call returns
+`AccessDenied`.
+
+### Deliberately not granted
+
+ECR (first-party images, pulled by SageMaker's own credentials; 5B proved it
+live), `cloudwatch:PutMetricData` (no ARN, would restore the wildcard),
+`s3:DeleteObject*` (no step deletes), and the lineage calls CloudTrail
+attributes to `sagemaker.amazonaws.com` itself.
+
+KMS is now settled **positively** rather than by analogy: the role makes 39
+`GenerateDataKey`/`Decrypt` calls per run and succeeds today holding no KMS
+permission at all — `AmazonSageMakerFullAccess` grants only `DescribeKey` and
+`ListAliases`, and the `KMS_MANAGED` buckets make CDK emit no key grant. The
+AWS-managed `aws/s3` key policy is what authorizes it.
+
+One grant departs from evidence-only scoping and is recorded as such:
+`monitor/*`, on the documented path in `scripts/setup_monitor.py`, which runs
+Model Monitor under this same role. The drift loop has never run in this
+account, so no evidence exists or could. The prefix is pinned to the script in
+`tests/unit/test_pipeline.py`.
+
+### Verification
+
+```
+2026-08-06T01:49:23Z  deploy 1   role + policy, in place, nothing replaced
+2026-08-06T01:50Z     run ik4h7l6y020c  Failed  AddTags on the processing job
+2026-08-06T01:54:09Z  deploy 2   policy only
+2026-08-06T01:54Z     run t5z537c2f85z  Failed  4/5 steps green; AddTags on the group
+2026-08-06T02:12:40Z  deploy 3   policy only
+2026-08-06T02:12Z     run u2p5fi2f79aq  Succeeded  all five steps
+2026-08-06T02:18:16Z  model package v3 registered, auto-approved
+2026-08-06T02:18:22Z  endpoint -> Updating   (six seconds later)
+2026-08-06T02:21:01Z  endpoint InService
+                      make smoke  6 passed
+```
+
+`make verify-deploy SINCE=2026-08-06` reports two resources changed in
+`Mlops-Dev-Training` and no other stack touched. Run 3's Preprocess and Train
+were 30-day cache hits, but both ran live under the least-privilege policy in
+run 2, whose policy differs only by an ARN neither step touches — the union of
+the two runs exercises every statement.
+
+`mlops-dev-security-iam-policy-changes` fired, as it does on any gated deploy
+that touches a role. The `AddTags` denials did **not** page
+`unauthorized-api-calls`: a single denial in one five-minute period cannot
+assemble the Phase 2E three-datapoint rule. `mlops-dev-endpoint-5xx` remains in
+`INSUFFICIENT_DATA`, the unfixed gap recorded at the 5B/5C closure.
+
+Local gate: lint, typecheck, 240 tests, coverage 92.64% (floor ratcheted
+92.57 → 92.63), `make synth-all` clean for both environments. Acknowledgements
+41 → 43.
+
+### Decision and next checkpoint
+
+Phase 5 is complete. No role attaches `AmazonSageMakerFullAccess`, and Phase
+3E's account-level Block Public Access is the only wildcard resource the
+repository writes. `AWSLambdaBasicExecutionRole` is separate residue and is not
+finished: `ValidateFn`, `RetrainTriggerFn`, and the CDK provider Lambdas still
+carry it.
+
+**Phase 5C's observation window closed as a go on this run** — the registry →
+`DeployFn` → endpoint path fired unattended, six seconds from auto-approval,
+which is the evidence that window was short. Next is partial 3F (EventBridge
+routing of Access Analyzer and Config events), still constrained by IAM policy
+version pressure: four of five slots used.
+
+New follow-up recorded: Model Monitor should have an execution role of its own
+rather than reusing the pipeline role.
+
+## [2026-08-06] verify | Phase 5D observation window closed as a go
+
+### Objective
+
+Decide go/no-go on Phase 5D after an observation period, rather than treating a
+green component check as the end of the phase.
+
+### Scope
+
+The pipeline execution role's CloudTrail record since deployment, the six
+security alarms, the endpoint, the `$20` budget, and hosted CI on the phase's
+pull request.
+
+### Evidence
+
+Window: 2026-08-06T01:49Z (first deploy) → 2026-08-06T23:22Z, about 21 hours.
+
+**No denial under the new policy.** CloudTrail for
+`PipelineExecutionRole` across the window:
+
+```
+51  kms:GenerateDataKey
+10  kms:Decrypt
+ 3  logs:CreateLogStream
+ 3  logs:CreateLogGroup   ResourceAlreadyExistsException
+```
+
+Zero `AccessDenied`. The `CreateLogGroup` errors are the documented expected
+path — the container agent calls it on every job and the group already exists —
+not failures. This is the criterion the phase existed to satisfy: the
+least-privilege policy carried a full pipeline run and the twenty-one hours
+after it without producing a single denial.
+
+**Alarms.** All six security alarms `OK`. `iam-policy-changes` self-cleared at
+2026-08-06T02:20:53Z, roughly eight minutes after the last deploy, and has not
+fired since. No alert email arrived during the window, which is the correct
+result rather than a missed signal: SNS sends on the `OK -> ALARM` transition
+only, and nothing touched IAM after the deploys.
+
+**Endpoint.** `InService`, unmodified since 2026-08-06T02:21Z.
+
+**Budget.** `$20` limit intact, `$0.00` actual, `$1.11` forecast. Month-to-date
+unblended cost is effectively zero — the three pipeline runs the phase needed
+cost under a cent between them.
+
+**CI.** `validate` and `secret-scan` both pass on the pull request.
+
+### Decision and next checkpoint
+
+**Go.** Phase 5D is complete and Phase 5 is closed. No role in the repository
+attaches `AmazonSageMakerFullAccess`, and Phase 3E's account-level Block Public
+Access remains the only wildcard resource this repository writes.
+
+Next is partial 3F (EventBridge routing of Access Analyzer and Config events),
+still constrained by IAM policy version pressure: four of five slots used.
+
+### A gap this window exposed
+
+**`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is denied
+for that identity, so the budget check here had to run under `aws-admin`.
+
+That matters more than the missing permission itself. Every prior observation
+window reported budget state, which means each one quietly reached for a broader
+identity to do it — the auditor role is supposed to be the identity that closes
+a window without administrator access, and on this criterion it never was. Phase
+2E set the precedent for the fix: an out-of-band grant of exactly the read the
+auditor needs, recorded here rather than left implicit.
+
+Not fixed in this change set. It is an IAM change to a hand-managed identity and
+belongs in its own gated step.
+
+### Verification
+
+Alarm states, endpoint status, budget, and CloudTrail read live. Index rebuilt,
+`make wiki-lint` clean, changed files scanned for account-identifying literals.

@@ -3979,3 +3979,101 @@ baseline, then force a violation with `scripts/send_drift_traffic.py` and
 confirm the event reaches `RetrainTriggerFn`. The observation window should
 watch for the baseline-reset behaviour recorded on the decision page: a
 rejected challenger overwrites the baseline and can silence a true positive.
+
+## [2026-08-07] verify | First baseline written; the sample-size rule guards count, not diversity
+
+### Objective
+
+Write the first drift baseline by upserting and running the pipeline, then
+check the loop against real artifacts rather than fixtures.
+
+### Scope
+
+Pipeline `churn-training-pipeline-dev`, execution `bib1c66yrmkk`. The baseline
+object under the `monitor/baseline` prefix. Local scoring of real captured
+records and real curated records against that baseline.
+
+### The upsert needs an identity the platform does not have
+
+`mlops-deployer` cannot upsert the pipeline. `get_champion` calls
+`ListModelPackages`, and that identity is denied it:
+
+```
+AccessDeniedException ... user/mlops-deployer is not authorized to perform:
+sagemaker:ListModelPackages on resource: model-package/churn-model-group/*
+```
+
+The upsert ran under `aws-admin` instead. This is the same shape as the
+existing rule that deploying and verifying are different identities: there is a
+**third** out-of-band operator step, and it has no scoped identity of its own.
+Recorded as open work, not fixed here.
+
+### The run
+
+Execution `bib1c66yrmkk`, 17:35:16Z → 17:48:35Z, `Succeeded`.
+
+```
+Preprocess       Succeeded  17:35:17 -> 17:40:20
+Train            Succeeded  17:40:21 -> 17:43:29
+Evaluate         Succeeded  17:43:30 -> 17:48:34
+BeatsChampion    Succeeded  17:48:34 -> 17:48:35   outcome: False
+```
+
+The challenger lost to champion version 3. Nothing registered, nothing
+approved, and the endpoint was not touched — still on the config it has held
+since 2026-08-05T22:21Z.
+
+**This is the first live observation of the baseline-reset behaviour the
+decision page records.** The gate returned `False`, and the baseline was
+written anyway, because `Preprocess` runs before the gate and writes to a fixed
+key. The behaviour is deliberate — it stops a shift the model cannot beat from
+starting a retrain every hour — but it is now confirmed rather than predicted.
+
+### The baseline
+
+5,770 training rows. Nineteen columns with bucket counts, four numeric columns
+with quantile edges. `Contract` sums to the record count. `SeniorCitizen` has
+edges `[0.0, 1.0]` and buckets `4833`/`937`, so the two values separate
+cleanly; real quantiles gave it two edges rather than the single edge that
+motivated the left-open binning fix.
+
+### The defect this check found
+
+Scoring real data against the real baseline, with the shipped code:
+
+| Window | Result |
+|---|---|
+| 100 / 500 / 1000 real curated records | `drifted=False`, 0 of 19 columns moved |
+| 100 / 500 / 2000 identical records | `drifted=True`, 19 of 19 columns moved |
+
+The statistic is well calibrated on genuine traffic — no false positive at any
+of the three realistic window sizes. **`MIN_RECORDS` guards count, not
+diversity.** A window of identical records is a point mass, so every column's
+PSI explodes against the training distribution, and the
+`DRIFTED_COLUMN_FRACTION` rule cannot help: it counts moved columns, and all of
+them moved.
+
+This is reachable from inside this repository. `make smoke` posts
+`sample.json`. A health check or load test that calls `/predict` a hundred
+times in an hour would report full drift and start a billable retraining run.
+
+The unit tests missed it because every fixture window varies at least one
+column. `test_compare_reports_no_drift_against_the_same_population` uses a
+`spread`, so it never presented a single repeated record.
+
+### Decision and next checkpoint
+
+The loop is wired end to end and the baseline is live, but **it should not be
+left armed with this defect**: the schedule is hourly, and any repetitive
+caller trips it.
+
+Proposed fix, as its own gated change set: require a minimum number of
+*distinct* records in the window alongside `MIN_RECORDS`, and skip with a
+distinct outcome when the window is too uniform to score. Real traffic produces
+close to one distinct record per capture; the failure case produces one in
+total, so the two separate cleanly.
+
+Forcing a violation with `scripts/send_drift_traffic.py` is deliberately not
+done yet. That script does vary its records, so it would pass — but with this
+defect present, a pass would not distinguish a real detection from the
+uniformity artifact.

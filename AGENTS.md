@@ -31,14 +31,21 @@ trusting this summary, which is coarse by design.
 - Phases 0–2 are complete. Phase 3 is partial: the six enablement flags
   under `security.services` in `infra/config/*.yaml` flip one per sub-phase,
   and in dev `access_analyzer`, `config_recorder`, and `account_bpa` are
-  true. `guardduty` and `security_hub` are off: enabling GuardDuty starts a
-  30-day free trial and then bills monthly. Prod stays all-false until a
-  deliberate rollout.
-- Phase 5 (replace broad IAM one role at a time) is in progress. Its
-  mechanism is the opt-in `least_privilege_logs` kwarg on the Lambda helper
-  in `infra/stacks/shared.py`; every role still carrying the managed policy
-  keeps a `security_checks.py` acknowledgement naming Phase 5.
+  true. Prod stays all-false until a deliberate rollout. What remains is
+  3F (EventBridge routing), plus `guardduty` and `security_hub` behind the
+  paid-plan decision — enabling GuardDuty starts a 30-day free trial and
+  then bills monthly.
+- Phase 5 (replace broad IAM one role at a time) is **complete**: the proxy,
+  model, deploy, and pipeline roles all passed their component checks by
+  2026-08-06. Its mechanisms stay in place — the opt-in `least_privilege`
+  and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
+  Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
+  `security_checks.py` acknowledgement naming Phase 5.
 - Phase 4 (KMS) and Phases 6–9 are not started.
+
+**IAM policy version pressure is binding.** Four of the five
+`mlops-cloudformation-execution-policy.json` version slots are used. Any new
+grant must free a slot first.
 
 Two rules follow from the roadmap's operating rule and apply to any phase
 work you do:

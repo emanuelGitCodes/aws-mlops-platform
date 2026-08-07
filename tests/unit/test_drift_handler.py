@@ -1,4 +1,4 @@
-"""Drift Lambda: the window it reads, the sample-size rule, and the event."""
+"""Drift Lambda: the window it reads, the two window rules, and the event."""
 
 import datetime
 import io
@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from src.common import drift
-from tests.unit.conftest import VALID, import_with_stubbed_boto3
+from tests.unit.conftest import VALID, import_with_stubbed_boto3, varied_records
 
 os.environ.setdefault("ARTIFACTS_BUCKET", "test-artifacts")
 os.environ.setdefault("BASELINE_KEY", "monitor/baseline/baseline.json")
@@ -17,25 +17,29 @@ os.environ.setdefault("CAPTURE_PREFIX", "capture")
 
 drift_handler = import_with_stubbed_boto3("src.monitoring.drift_handler")
 
+# Windows are drawn from the feature vocabulary, not repeated from one record.
+# A repeated record is a point mass, and every drift statistic reports total
+# drift against it, so such a fixture cannot tell a working detector from a
+# broken one.
+BASELINE = drift.build_baseline(varied_records(600, seed=1))
+STABLE = varied_records(200, seed=2)
+SHIFTED = varied_records(
+    200,
+    seed=3,
+    tenure=180,
+    MonthlyCharges=400.0,
+    TotalCharges=60000.0,
+    Contract="Two year",
+    InternetService="DSL",
+    PaymentMethod="Mailed check",
+)
+# The shape a health check produces: plenty of records, one distinct value.
+UNIFORM = [dict(VALID) for _ in range(200)]
+
 
 def body(payload):
     """Stand in for the streaming body an S3 GetObject returns."""
     return {"Body": io.BytesIO(json.dumps(payload).encode())}
-
-
-# Six of the nineteen columns moved, which clears DRIFTED_COLUMN_FRACTION.
-SHIFTED = [
-    {
-        **VALID,
-        "tenure": 180,
-        "MonthlyCharges": 400.0,
-        "TotalCharges": 60000.0,
-        "Contract": "Two year",
-        "InternetService": "DSL",
-        "PaymentMethod": "Mailed check",
-        "gender": "Male",
-    }
-]
 
 
 @pytest.fixture
@@ -48,7 +52,7 @@ def aws():
         yield s3, events
 
 
-def stub_capture(s3, records, baseline):
+def stub_capture(s3, records, baseline=BASELINE):
     """Serve `records` from the listing, and `baseline` from its own key."""
     keys = [f"capture/2026/08/07/10/{index}.json" for index in range(len(records))]
     s3.get_paginator.return_value.paginate.return_value = [
@@ -83,7 +87,7 @@ def test_window_prefixes_roll_back_over_midnight():
 
 def test_a_small_window_is_skipped_rather_than_scored(aws):
     s3, events = aws
-    stub_capture(s3, [VALID] * 3, drift.build_baseline([VALID] * 10))
+    stub_capture(s3, varied_records(3, seed=4))
 
     result = drift_handler.handler({}, None)
 
@@ -105,22 +109,37 @@ def test_an_empty_window_is_skipped(aws):
     events.put_events.assert_not_called()
 
 
+def test_a_uniform_window_is_skipped_even_when_it_is_large(aws):
+    """The defect the live check found. `make smoke` posts one fixed payload,
+    so a health check on /predict produces a large point-mass window."""
+    s3, events = aws
+    stub_capture(s3, UNIFORM)
+
+    result = drift_handler.handler({}, None)
+
+    assert result["skipped"] == "uniform_records"
+    assert result["records"] == 200
+    assert result["distinct"] == 1
+    # It cleared the record count and still must not retrain.
+    assert result["records"] >= drift_handler.MIN_RECORDS
+    events.put_events.assert_not_called()
+
+
 def test_a_stable_window_reports_no_drift_and_emits_nothing(aws):
     s3, events = aws
-    population = [{**VALID, "tenure": value} for value in (1, 6, 12, 24, 36)] * 40
-    stub_capture(s3, population, drift.build_baseline(population))
+    stub_capture(s3, STABLE)
 
     result = drift_handler.handler({}, None)
 
     assert result["drifted"] is False
+    assert result["drifted_columns"] == []
     assert result["record_count"] == 200
     events.put_events.assert_not_called()
 
 
 def test_a_shifted_window_emits_the_violation_event(aws):
     s3, events = aws
-    baseline = drift.build_baseline([{**VALID, "tenure": v} for v in (1, 6, 12, 24, 36)] * 40)
-    stub_capture(s3, SHIFTED * 200, baseline)
+    stub_capture(s3, SHIFTED)
 
     result = drift_handler.handler({}, None)
 
@@ -133,13 +152,49 @@ def test_a_shifted_window_emits_the_violation_event(aws):
     assert "tenure" in detail["drifted_columns"]
 
 
+def test_the_shift_is_detected_on_its_merits_not_on_uniformity(aws):
+    """The window that triggers a violation is as diverse as the stable one."""
+    assert drift.distinct_record_count(SHIFTED) == len(SHIFTED)
+    assert drift.distinct_record_count(STABLE) == len(STABLE)
+    # Only the deliberately shifted columns move.
+    moved = drift.compare(BASELINE, SHIFTED)["drifted_columns"]
+    assert set(moved) <= {
+        "tenure",
+        "MonthlyCharges",
+        "TotalCharges",
+        "Contract",
+        "InternetService",
+        "PaymentMethod",
+    }
+
+
 def test_the_emitted_detail_is_what_the_retrain_handler_matches(aws):
     """The producer's event must satisfy the consumer's guard."""
     s3, events = aws
-    baseline = drift.build_baseline([{**VALID, "tenure": v} for v in (1, 6, 12, 24, 36)] * 40)
-    stub_capture(s3, SHIFTED * 200, baseline)
+    stub_capture(s3, SHIFTED)
     drift_handler.handler({}, None)
 
     retrain = import_with_stubbed_boto3("src.monitoring.retrain_handler")
     detail = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
     assert detail["status"] == retrain.VIOLATION_STATUS
+
+
+def test_the_four_window_outcomes_stay_distinguishable(aws):
+    """Too few, too uniform, scored clean, and scored drifting are four
+    different readings, and only the last one may retrain."""
+    s3, events = aws
+
+    stub_capture(s3, varied_records(3, seed=5))
+    assert drift_handler.handler({}, None)["skipped"] == "insufficient_records"
+
+    stub_capture(s3, UNIFORM)
+    assert drift_handler.handler({}, None)["skipped"] == "uniform_records"
+
+    stub_capture(s3, STABLE)
+    assert drift_handler.handler({}, None)["drifted"] is False
+
+    events.put_events.assert_not_called()
+
+    stub_capture(s3, SHIFTED)
+    assert drift_handler.handler({}, None)["drifted"] is True
+    events.put_events.assert_called_once()

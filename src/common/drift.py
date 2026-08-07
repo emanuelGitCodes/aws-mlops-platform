@@ -114,6 +114,17 @@ def bucket_counts(
     return counts
 
 
+def distinct_record_count(rows: list[dict[str, Any]]) -> int:
+    """Count the distinct feature vectors in a window.
+
+    A window of repeated identical records is a point mass. Every column's PSI
+    against the training distribution then explodes, and `compare` reports that
+    every column moved. The count of records cannot detect this, so the caller
+    needs the count of distinct ones.
+    """
+    return len({tuple(str(row.get(column)) for column in FEATURE_COLUMNS) for row in rows})
+
+
 def build_baseline(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Build the reference distribution the drift job compares windows against.
 

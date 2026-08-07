@@ -6,7 +6,7 @@ import pytest
 
 from src.common import drift
 from src.common.features import FEATURE_COLUMNS, NUMERIC
-from tests.unit.conftest import VALID
+from tests.unit.conftest import VALID, varied_records
 
 
 def rows(count, **overrides):
@@ -113,9 +113,11 @@ def test_an_unseen_category_registers_as_drift():
     assert index > drift.COLUMN_PSI_THRESHOLD
 
 
-def test_compare_reports_no_drift_against_the_same_population():
-    population = spread(200, "tenure", [1, 12, 24, 48, 60])
-    result = drift.compare(drift.build_baseline(population), population)
+def test_compare_reports_no_drift_between_two_draws_of_one_population():
+    # Two independent draws, not the same rows twice. Comparing a window with
+    # itself cannot fail and so proves nothing.
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    result = drift.compare(baseline, varied_records(200, seed=2))
     assert result["drifted"] is False
     assert result["drifted_columns"] == []
     assert result["record_count"] == 200
@@ -123,20 +125,24 @@ def test_compare_reports_no_drift_against_the_same_population():
 
 def test_compare_detects_a_shifted_population():
     # The shift `scripts/send_drift_traffic.py` sends: extreme tenure and
-    # charges, on a month-to-month fiber contract.
-    baseline = drift.build_baseline(spread(200, "tenure", [1, 6, 12, 24, 36]))
-    shifted = spread(200, "tenure", [150, 160, 170, 180, 190])
-    for row in shifted:
-        row["MonthlyCharges"] = 400.0
-        row["TotalCharges"] = 60000.0
-        row["Contract"] = "Two year"
-        row["InternetService"] = "DSL"
-        row["PaymentMethod"] = "Mailed check"
-        row["gender"] = "Male"
+    # charges. The window stays diverse, so the detection is on the shift.
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    shifted = varied_records(
+        200,
+        seed=3,
+        tenure=180,
+        MonthlyCharges=400.0,
+        TotalCharges=60000.0,
+        Contract="Two year",
+        InternetService="DSL",
+        PaymentMethod="Mailed check",
+    )
     result = drift.compare(baseline, shifted)
     assert result["drifted"] is True
     assert "tenure" in result["drifted_columns"]
     assert result["drifted_fraction"] >= drift.DRIFTED_COLUMN_FRACTION
+    # Untouched columns must stay put, or the result is uniformity, not drift.
+    assert "gender" not in result["drifted_columns"]
 
 
 def test_one_moved_column_is_not_enough_to_call_drift():
@@ -159,3 +165,30 @@ def test_compare_survives_an_empty_window():
     result = drift.compare(drift.build_baseline(rows(10)), [])
     assert result["record_count"] == 0
     assert result["drifted"] is False
+
+
+def test_distinct_record_count_sees_through_repetition():
+    assert drift.distinct_record_count(rows(100)) == 1
+    assert drift.distinct_record_count(spread(100, "tenure", [1, 2, 3, 4])) == 4
+    assert drift.distinct_record_count([]) == 0
+
+
+def test_distinct_record_count_ignores_columns_outside_the_contract():
+    # Two records that differ only in a non-feature column are one vector.
+    assert drift.distinct_record_count([{**VALID, "Churn": "Yes"}, {**VALID, "Churn": "No"}]) == 1
+
+
+def test_a_repeated_payload_reports_every_column_as_drifted():
+    """Why the caller needs a distinctness guard, not just a record count.
+
+    A window of identical records is a point mass, so every column's PSI
+    against the training distribution explodes. `DRIFTED_COLUMN_FRACTION`
+    cannot catch it, because every column moved.
+    """
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    result = drift.compare(baseline, rows(500))
+    assert result["drifted"] is True
+    assert len(result["drifted_columns"]) == len(FEATURE_COLUMNS)
+    # The record count alone says this window is plentiful.
+    assert result["record_count"] == 500
+    assert drift.distinct_record_count(rows(500)) == 1

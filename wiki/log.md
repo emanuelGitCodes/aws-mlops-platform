@@ -4077,3 +4077,87 @@ Forcing a violation with `scripts/send_drift_traffic.py` is deliberately not
 done yet. That script does vary its records, so it would pass — but with this
 defect present, a pass would not distinguish a real detection from the
 uniformity artifact.
+
+## [2026-08-07] implement | Uniformity guard for the drift window, deployed to dev
+
+### Objective
+
+Fix the defect the first live check found: `MIN_RECORDS` guards the size of a
+drift window, not its diversity, so a repetitive caller trips a full violation.
+
+### Scope
+
+`src/common/drift.py`, `src/monitoring/drift_handler.py`,
+`tests/unit/conftest.py`, `tests/unit/test_drift.py`,
+`tests/unit/test_drift_handler.py`, `pyproject.toml`. Deployed
+`Mlops-Dev-Monitoring` only.
+
+### The fix
+
+`distinct_record_count` counts distinct feature vectors in a window. The
+handler skips with a **third** outcome, `uniform_records`, when that count
+falls below `MIN_DISTINCT_RECORDS`. Too few, too uniform, scored clean, and
+scored drifting are now four readings, and only the last may retrain.
+
+The threshold is 25, chosen from measurement rather than taste. Windows of 50,
+100, 200, 500, and 1000 real curated records were **100 percent distinct** at
+every size; the failure case is 1. Twenty-five sits between them with a wide
+margin on both sides.
+
+### The fixtures were the reason the defect shipped
+
+Adding the guard broke five existing tests, and that is the more useful
+finding. Every window fixture was built by repeating one record — `SHIFTED *
+200`, `spread(...)` varying a single column while the other eighteen stayed at
+the sample value. Those windows are point masses. **No drift statistic can be
+evaluated against a point mass**, because it reports total drift regardless of
+whether the detector works, so the tests could not distinguish a correct
+implementation from a broken one.
+
+One test was worse than weak. The stable-population case compared a baseline
+with *the same rows* it was built from. That comparison cannot fail.
+
+`tests/unit/conftest.py` gains `varied_records`, which draws from the real
+`FEATURE_VOCABULARY` and then applies overrides to shift chosen columns. The
+population-level tests now use two independent draws of one population, and the
+shift test asserts that untouched columns such as `gender` stay put — which is
+what separates a detected shift from detected uniformity.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **284 passed**, coverage
+`93.2752%`, floor raised `93.24 → 93.27`. `make synth-all` clean for dev and
+prod.
+
+The reviewed diff was **asset hash only** on both Lambdas — no IAM statement,
+no resource added or removed. `make verify-deploy` confirms exactly two
+resources changed:
+
+```
+Mlops-Dev-Monitoring   UPDATE_COMPLETE  DriftEvaluationFnBA02D79D
+                       UPDATE_COMPLETE  RetrainTriggerFn2698F1D9
+```
+
+A live invocation of the redeployed function returned
+`{"skipped": "insufficient_records", "records": 2}`, reading the two real
+captured records in the closed hour. The count guard is live.
+
+### What is still unproven live
+
+The **uniformity guard has not been exercised against real traffic**. Proving
+it needs a closed hour holding at least `MIN_RECORDS` captured predictions that
+are identical. Writing synthetic capture objects to reach that state was not
+done: fabricating records in a data store is a poor way to prove a data rule,
+and the sound test is the real one — post the `sample.json` payload through
+`/predict` about 120 times, let the hour close, and read the scheduled run's
+log for `drift_window_too_uniform`. That is precisely the health-check scenario
+the defect describes, so the test and the failure mode are the same event.
+
+Until that runs, the guard rests on unit evidence plus the measurement that set
+its threshold.
+
+### Note on the shared bundle
+
+`Serving` and `Ingestion` still carry the previous `src/` asset, because only
+`Monitoring` was deployed. Their next deploy will show an asset-hash-only diff.
+Nothing in their behaviour changed; the drift modules are inert for them.

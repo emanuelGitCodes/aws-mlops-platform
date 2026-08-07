@@ -4161,3 +4161,64 @@ its threshold.
 `Serving` and `Ingestion` still carry the previous `src/` asset, because only
 `Monitoring` was deployed. Their next deploy will show an asset-hash-only diff.
 Nothing in their behaviour changed; the drift modules are inert for them.
+
+## [2026-08-07] verify | The uniformity guard rejected a real 120-record health-check window
+
+### Objective
+
+Prove the uniformity guard against real traffic rather than fixtures, by
+reproducing the exact failure the earlier check found.
+
+### Method
+
+The test and the failure mode are the same event. `sample.json` was posted
+through `/predict` 120 times at 18:07-18:09Z, which is what a health check on
+the endpoint looks like. Fabricating capture objects in S3 was deliberately not
+used: proving a data rule by writing fabricated data is weak evidence, and the
+real path was available.
+
+All 120 returned HTTP 200. The proxy log holds **120 `inference_response` and
+zero `capture_failed`**, and the capture prefix gained exactly 120 objects for
+hour 18 — one per prediction, no loss. Every score was byte-identical, which is
+the point mass the guard exists to reject.
+
+### Result
+
+The **scheduled** run at 19:00:34Z read the closed hour and skipped it:
+
+```
+{"event": "drift_window_too_uniform", "records": 120, "distinct": 1, "required": 25}
+```
+
+Unattended, on the hourly rule, with no operator in the loop.
+
+The negative evidence matters as much as the log line, because the failure mode
+was a spurious retrain:
+
+- `RetrainTriggerFn` has **zero log streams**. It has never been invoked.
+- The only pipeline execution today is `first baseline for the drift loop`.
+  Nothing started after the burst.
+- Endpoint `InService`, last modified 2026-08-05T22:21Z, untouched.
+- Six security alarms `OK`; `iam-policy-changes` cleared after the redeploy.
+
+Before the guard this window would have scored 19 of 19 columns drifted, fired
+a violation, and started a billable training run.
+
+### What this closes and what it does not
+
+The loop is now proven to **not** retrain in the three cases where it must not:
+too few records, a uniform window, and a window drawn from the training
+distribution.
+
+**It has never been proven to retrain when it should.** No violation event has
+ever been emitted, so the path from `PutEvents` through `DriftViolationRule` to
+`StartPipelineExecution` is still untested end to end — the rule pattern and the
+handler guard agree only by the unit assertion. Closing that needs
+`scripts/send_drift_traffic.py`, whose records are varied, and it costs a
+training run plus a possible endpoint update. Not done here.
+
+### A gap this window exposed
+
+**Captured objects have no expiry.** The capture prefix grows without bound,
+and the drift job reads only the last hour. 122 objects is nothing, but there
+is no lifecycle rule and no phase that adds one before 4C. Recorded, not fixed.

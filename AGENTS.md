@@ -31,8 +31,9 @@ trusting this summary, which is coarse by design.
 - Phases 0–2 are complete. Phase 3 is partial: the six enablement flags
   under `security.services` in `infra/config/*.yaml` flip one per sub-phase,
   and in dev `access_analyzer`, `config_recorder`, and `account_bpa` are
-  true. `guardduty` and `security_hub` are deferred behind the AWS Free-plan
-  upgrade gate. Prod stays all-false until a deliberate rollout.
+  true. `guardduty` and `security_hub` are off: enabling GuardDuty starts a
+  30-day free trial and then bills monthly. Prod stays all-false until a
+  deliberate rollout.
 - Phase 5 (replace broad IAM one role at a time) is in progress. Its
   mechanism is the opt-in `least_privilege_logs` kwarg on the Lambda helper
   in `infra/stacks/shared.py`; every role still carrying the managed policy
@@ -144,11 +145,67 @@ required workflow, not suggestions.
    function and its call sites. Do not leave the old path in place and add
    a parallel `_v2`/`_new`/`foo2` variant.
 
+## Comments and docstrings (mandatory)
+
+Write every comment and docstring in Simplified Technical English, per
+ASD-STE100. A comment earns its place by telling a reader something the
+code cannot. Delete it otherwise.
+
+**Sentences**
+
+- Procedural sentences: 20 words maximum. Descriptive: 25 words maximum.
+- One idea per sentence. Do not join two actions with "and".
+- Use the active voice and name the actor: "SageMaker owns this group",
+  not "this group is owned".
+- Use the imperative for an instruction: "Update this role in place."
+- Use the present tense. Describe what the code does now.
+
+**Words**
+
+- One word, one meaning. Use the simplest exact word: "use" over
+  "utilize", "start" over "initiate", "before" over "prior to".
+- Do not drop articles. Write "Read the file", not "Read file".
+- Repeat the same term for the same thing. Do not vary it for style.
+- No idioms, metaphors, or humor.
+- Reproduce code identifiers, paths, commands, and AWS error names
+  exactly. Never simplify one to read better.
+
+**What a comment must not contain**
+
+1. **No history.** Do not write what the code used to be, what a previous
+   version did, or what a past incident was. Git and the wiki hold that.
+   Write the rule that holds today. Not "the host's wheels once caused a
+   pydantic_core failure" but "the host's wheels fail at runtime".
+2. **No justification.** Do not argue for the code. Drop "that is the
+   point", "deliberately", "worth it", "reviewed and diffed", "would have
+   shipped", "this test pins". State the constraint and stop.
+3. **No status or dates.** Do not write phase numbers as bookkeeping,
+   enablement dates, or observation windows — "3C. Enabled 2026-08-02" is
+   noise in the code. `wiki/pages/architecture/phased-security-hardening.md`
+   is the status board. Name a phase only when it identifies work the code
+   still owes, such as a cdk-nag acknowledgement `reason` string, which
+   must name the phase that removes it.
+4. **No coverage or test-debt narration.** Do not write that something
+   had no test or sat at 0%.
+
+**Keep a comment when it carries one of these**
+
+- A constraint that fails at runtime rather than at synth or lint.
+- A non-obvious AWS or SDK behaviour, and what breaks without the code.
+- A rule the next editor must obey, such as "update in place, never
+  replace — the deployed pipeline pins this ARN".
+- Why an alternative was not taken, stated as a fact about the
+  alternative, not as a defence of the choice.
+
+**Maintenance.** When you change code, update or delete the comments
+around it in the same change set. A comment that names a file, symbol, or
+behaviour that no longer exists is a defect — fix it when you see it.
+
 ## Conventions
 
 - Line length: target 80–90 characters (ruff's hard limit is 100, but
   stay under 90). Python 3.12; ruff rules E, F, I, W, UP, B, ANN, with
-  only ANN401 ignored (`**kwargs: Any` is honest for CDK/jsii passthrough).
+  only ANN401 ignored (`**kwargs: Any` is correct for CDK/jsii passthrough).
 - **Every function in `src/`, `infra/`, and `scripts/` must be fully
   annotated** — parameters and return. Enforced by `make typecheck`
   (mypy, `disallow_untyped_defs`) and ruff's ANN rules, both blocking in
@@ -165,9 +222,10 @@ required workflow, not suggestions.
   must not use PEP 604 unions in runtime-evaluated positions.
 - Tests go in `tests/unit/` and mirror the source module they cover; run
   with `make test`. Coverage is measured on every run and enforced against
-  `fail_under` in `pyproject.toml` (currently **92.4**). That floor is a
+  `fail_under` in `pyproject.toml` (currently **92.63**). That floor is a
   ratchet: raise it when a phase lands, never lower it to make a red run
-  green.
+  green. Take a new floor from the printed total rounded down — the
+  comparison uses the unrounded value.
 - `infra/cdk.out/` is build output, never source. It holds synthesized
   Lambda bundles with vendored third-party packages, and is excluded from
   mypy and from coverage — keep it out of any new tooling config too.

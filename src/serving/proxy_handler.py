@@ -3,10 +3,16 @@
 It validates the request against the shared schema. It encodes the record into
 the CSV feature vector XGBoost expects. It invokes the endpoint and returns the
 churn probability. No inference logic lives here.
+
+The handler is also the platform's capture point. A serverless endpoint cannot
+use `DataCaptureConfig`, so each served record and its score are written to S3
+here instead. `src.monitoring.drift_handler` reads those objects.
 """
 
+import datetime
 import json
 import os
+import uuid
 from typing import Any
 
 import boto3
@@ -21,8 +27,14 @@ from src.common.schema import (
 )
 
 runtime = boto3.client("sagemaker-runtime")
+s3 = boto3.client("s3")
 
 ENDPOINT_NAME = os.environ["ENDPOINT_NAME"]
+
+# Capture is off when either variable is absent, so the handler still runs
+# under a stack that predates the capture prefix.
+CAPTURE_BUCKET = os.environ.get("CAPTURE_BUCKET", "")
+CAPTURE_PREFIX = os.environ.get("CAPTURE_PREFIX", "")
 
 # SageMaker Runtime failures that mean "not ready yet", not "this request is
 # wrong". These are routine on a serverless endpoint. Every approved challenger
@@ -42,6 +54,46 @@ UNAVAILABLE_ERROR_CODES = frozenset(
 # Seconds. A cold start or an endpoint update finishes in under a minute. This
 # value only has to stop a client from retrying immediately.
 RETRY_AFTER_SECONDS = 15
+
+
+def capture_key(now: datetime.datetime) -> str:
+    """Return the S3 key for one captured prediction.
+
+    The hour partition is what lets the drift job list a window instead of the
+    whole prefix. Keep the four path segments zero-padded and in this order.
+    """
+    return (
+        f"{CAPTURE_PREFIX}/{now:%Y/%m/%d/%H}/{uuid.uuid4()}.json"
+        if CAPTURE_PREFIX
+        else f"{now:%Y/%m/%d/%H}/{uuid.uuid4()}.json"
+    )
+
+
+def capture(record: CustomerRecord, prediction: dict[str, Any]) -> None:
+    """Write one served record and its score to the capture prefix.
+
+    A capture failure must never change the response. The caller has already
+    served a correct prediction by this point, and losing one record costs the
+    next drift window one sample.
+    """
+    if not CAPTURE_BUCKET:
+        return
+    now = datetime.datetime.now(datetime.UTC)
+    try:
+        s3.put_object(
+            Bucket=CAPTURE_BUCKET,
+            Key=capture_key(now),
+            Body=json.dumps(
+                {
+                    "captured_at": now.isoformat(),
+                    "record": {column: getattr(record, column) for column in FEATURE_COLUMNS},
+                    **prediction,
+                }
+            ).encode(),
+            ContentType="application/json",
+        )
+    except Exception as error:  # noqa: BLE001
+        log_event("capture_failed", endpoint=ENDPOINT_NAME, error=str(error))
 
 
 def _response(
@@ -107,4 +159,8 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
 
     prediction = {"churn_probability": score, "churn": score >= DEFAULT_THRESHOLD}
     log_event("inference_response", endpoint=ENDPOINT_NAME, **prediction)
+    # Capture runs after the prediction is final. The record never reaches the
+    # log group: Phase 7 requires observability that does not log customer
+    # inputs, and S3 is the only capture destination that satisfies it.
+    capture(record, prediction)
     return _response(200, prediction)

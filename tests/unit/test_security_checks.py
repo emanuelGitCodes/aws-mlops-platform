@@ -143,8 +143,10 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # Keep `ModelExecutionRole` unchanged. The deployed
         # `AWS::SageMaker::Model` pins its ARN, so a replacement strands the
         # endpoint at its next cold start.
-        "serving": "99e3a8909503bc789ce3b99ade5723efb41fa791b3025c1ef0fb611351c66de1",
-        "monitoring": "cc859d169d0aea8460e12bc4adfb6131293ab5335b6eb0d092fd53a9260632b3",
+        "serving": "df36151514116565e7ad6d73e8185b530945a329fa1c3454273da7d0bbc04eb3",
+        # `DriftEvaluationFnRole` is new and carries no managed policy.
+        # `RetrainTriggerFnServiceRole` keeps its logical ID.
+        "monitoring": "ec915cc421fe16e8b569a4efd1ce440ddda73f2c419d876de40adc9e3843cc00",
     }
 
     stacks["training"].has_resource_properties(

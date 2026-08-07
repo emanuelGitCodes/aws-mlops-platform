@@ -3744,3 +3744,110 @@ rule. No code was changed here.
 `make wiki-index` rebuilt, `make wiki-lint` clean. Changed files scanned for
 account-identifying literals: none. No AWS credentials used and no AWS API
 called.
+
+## [2026-08-07] implement | The drift loop closes on a repository-owned PSI job
+
+### Objective
+
+Implement Option C from the
+[capture-design decision](pages/decisions/drift-capture-design.md): close the
+drift-to-retrain loop without SageMaker Model Monitor and without giving up the
+serverless endpoint's zero idle cost.
+
+### Scope
+
+New: `src/common/drift.py`, `src/monitoring/drift_handler.py`,
+`tests/unit/test_drift.py`, `tests/unit/test_drift_handler.py`. Changed:
+`src/serving/proxy_handler.py`, `src/monitoring/retrain_handler.py`,
+`src/pipeline/preprocess.py`, `src/pipeline/pipeline.py`,
+`infra/stacks/{shared,serving_stack,monitoring_stack}.py`,
+`infra/security_checks.py`, `infra/app.py`, and six test modules. Retired:
+`scripts/setup_monitor.py` and its test. Docs: `README.md`, `AGENTS.md`,
+three wiki pages. No AWS API was called and nothing is deployed.
+
+### What the loop is now
+
+The proxy writes each served record and its score to
+`capture/<YYYY>/<MM>/<DD>/<HH>/<uuid>.json` on the artifacts bucket. The
+preprocessing step writes the training distribution to a fixed baseline key.
+An hourly Lambda scores the previous hour against that baseline and emits
+`mlops.monitoring` / `Drift Evaluation Result` with `status: DriftDetected`
+when enough columns move. `RetrainTriggerFn` reacts to that instead of
+SageMaker's monitoring event.
+
+The statistic is the Population Stability Index over **raw** values, not the
+encoded vector — a moved column names itself that way, which an ordinal code
+cannot. Ten quantile bins per numeric column, `0.2` per column, `0.3` of
+columns to call the window drifted.
+
+### Three decisions the implementation forced
+
+**Capture writes to S3, never to the log group.** Routing it through
+`log_event` and a subscription filter would have been cheaper and would have
+reused the deployed one-line-per-event convention. Phase 7's checkpoint
+requires observability that does not log customer inputs, and a capture stream
+in the proxy's log group is exactly that. The roadmap wins.
+
+**Left-open bins, and this was a real defect.** The first implementation used
+`bisect_right`. A right-open bin puts a low-cardinality numeric column entirely
+in one bucket: `SeniorCitizen` holds 0 and 1, its only quantile edge is `0.0`,
+and every shift in that column was invisible. The failing test was a fixture
+whose constant baseline column reported zero drift against a very different
+constant. `bucket_of` now uses `bisect_left`, and
+`test_a_low_cardinality_numeric_column_still_separates` pins it.
+
+**A rejected challenger resets the baseline.** Every preprocessing run
+overwrites the fixed baseline key, including a run whose challenger loses the
+AUC gate. Deliberate: it stops a shift the model cannot beat from starting a
+retrain every hour. The cost is that a true positive is silenced by a failed
+attempt to answer it, and that is the first thing the observation window should
+look at.
+
+### Boundaries the change set holds
+
+- **The drift job has its own execution role.** This closes the Phase 5D
+  follow-up about Model Monitor sharing the pipeline role, by never creating
+  the shared-role condition. `DriftEvaluationFn` reads the baseline and the
+  capture prefix, lists that prefix under a `StringLike` condition, puts events
+  on the default bus, and writes nothing at all. A drift evaluation that could
+  write the capture prefix could forge the evidence it reports on;
+  `test_the_drift_lambda_reads_capture_and_never_writes_it` asserts no `s3:Put`
+  or `s3:Delete` appears in the monitoring stack.
+- **The proxy gained exactly `s3:PutObject` under `capture/*`.** No `Get`, no
+  `Delete`. It cannot read the model artifact it serves and cannot replace a
+  captured record. This re-opened a role Phase 5A scoped, so the serving IAM
+  fingerprint moved; both pinned logical IDs, `ModelExecutionRole` and
+  `ProxyFnRole`, are unchanged, so the deployed `AWS::SageMaker::Model` is not
+  stranded.
+- **A capture failure cannot fail a prediction.** The write happens after the
+  response is final and is caught; it logs `capture_failed` and returns.
+- **A short window is skipped, not scored.** `MIN_RECORDS` defaults to 100.
+  A serverless endpoint is idle most of the time, and PSI over a handful of
+  rows is sampling noise. `skipped: insufficient_records` and a no-drift result
+  are distinct outcomes in the log, which is the point.
+- The window is the hours *before* the current one, so a partial hour is never
+  scored and no record is scored twice.
+
+### Verification
+
+`make lint`, `make typecheck`, `make docs-sync` clean. `make test`: **278
+passed**, coverage `93.2458%`, floor raised `92.63 → 93.24`. `make synth-all`
+clean for dev and prod, which is the cdk-nag gate — two new acknowledgements,
+both naming Phase 4 as the point that re-evaluates them when the bucket moves
+to a customer-managed key. IAM fingerprint baseline updated for `serving` and
+`monitoring` with the logical IDs reviewed. `make wiki-lint` clean.
+
+### Decision and next checkpoint
+
+**Nothing is deployed.** The loop has never run in AWS, so `MIN_RECORDS`, both
+thresholds, and the hourly cadence are unvalidated against real traffic. Under
+the operating rule the next steps are a reviewed `cdk diff`, a scoped dev
+deploy of Serving and Monitoring, a pipeline run to write the first baseline,
+`scripts/send_drift_traffic.py` to force a violation, and an observation window
+that watches for the baseline-reset behaviour above.
+
+Two limits are structural rather than open work, and are recorded on the
+decision page: ground truth never arrives, so this loop detects changed input
+traffic and never a worse model; and `scripts/setup_monitor.py` is gone, so
+there is no path back to Model Monitor without the eligibility pre-flight that
+page describes.

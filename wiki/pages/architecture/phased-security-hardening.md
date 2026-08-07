@@ -472,11 +472,10 @@ Related runtime and human authority boundaries are documented in
   supplied the baseline under the unchanged role; 5D's third run supplied the
   proof, reaching `Succeeded` on all five steps under the scoped role and
   driving the registry → deploy → endpoint path behind it.
-- Model Monitor still runs under the pipeline role rather than one of its own —
-  `scripts/setup_monitor.py` takes that ARN. 5D granted the `monitor/` prefix
-  on that documented path rather than on evidence, because the drift loop has
-  never run in this account, and pinned the prefix to the script in the tests
-  so the two cannot drift apart silently. Splitting the role is open work.
+- The 5D follow-up about Model Monitor sharing the pipeline role is closed.
+  Model Monitor is no longer part of the platform, and the drift loop that
+  replaced it has its own execution role. See
+  [drift capture design](../decisions/drift-capture-design.md).
 - Existing objects do not automatically adopt a new default KMS key. Phase 4C
   must preserve and verify object versions before lifecycle expiration.
 - Disabling long-lived administrator credentials is intentionally last so the

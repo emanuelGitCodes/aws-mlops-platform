@@ -139,3 +139,75 @@ def test_unreadable_endpoint_response_returns_502():
 
     assert resp["statusCode"] == 502
     assert "Retry-After" not in resp["headers"]
+
+
+def _served(capture_bucket="test-artifacts"):
+    """Serve one valid request with capture pointed at a stubbed S3."""
+    with (
+        mock.patch.object(proxy_handler, "runtime") as runtime,
+        mock.patch.object(proxy_handler, "s3") as s3,
+        mock.patch.object(proxy_handler, "CAPTURE_BUCKET", capture_bucket),
+        mock.patch.object(proxy_handler, "CAPTURE_PREFIX", "capture"),
+        mock.patch("builtins.print"),
+    ):
+        runtime.invoke_endpoint.return_value = {"Body": io.BytesIO(b"0.83")}
+        response = proxy_handler.handler(_event(VALID), None)
+    return response, s3
+
+
+def test_a_served_prediction_is_captured_to_s3():
+    response, s3 = _served()
+
+    assert response["statusCode"] == 200
+    call = s3.put_object.call_args.kwargs
+    assert call["Bucket"] == "test-artifacts"
+    captured = json.loads(call["Body"])
+    # The raw record, so the drift job never has to reverse the encoding.
+    assert captured["record"] == VALID
+    assert captured["churn_probability"] == 0.83
+    assert captured["churn"] is True
+    assert captured["captured_at"]
+
+
+def test_the_capture_key_is_partitioned_by_hour():
+    _, s3 = _served()
+    key = s3.put_object.call_args.kwargs["Key"]
+    prefix, year, month, day, hour, name = key.split("/")
+    assert prefix == "capture"
+    assert (len(year), len(month), len(day), len(hour)) == (4, 2, 2, 2)
+    assert name.endswith(".json")
+
+
+def test_capture_is_off_when_no_bucket_is_configured():
+    response, s3 = _served(capture_bucket="")
+    assert response["statusCode"] == 200
+    s3.put_object.assert_not_called()
+
+
+def test_a_capture_failure_never_changes_the_response():
+    # The caller already has a correct prediction. Losing one captured record
+    # costs the next drift window one sample and nothing else.
+    with (
+        mock.patch.object(proxy_handler, "runtime") as runtime,
+        mock.patch.object(proxy_handler, "s3") as s3,
+        mock.patch.object(proxy_handler, "CAPTURE_BUCKET", "test-artifacts"),
+        mock.patch("builtins.print") as log,
+    ):
+        runtime.invoke_endpoint.return_value = {"Body": io.BytesIO(b"0.83")}
+        s3.put_object.side_effect = RuntimeError("bucket on fire")
+        response = proxy_handler.handler(_event(VALID), None)
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"churn_probability": 0.83, "churn": True}
+    assert "capture_failed" in " ".join(str(c) for c in log.call_args_list)
+
+
+def test_a_rejected_request_is_never_captured():
+    with (
+        mock.patch.object(proxy_handler, "s3") as s3,
+        mock.patch.object(proxy_handler, "CAPTURE_BUCKET", "test-artifacts"),
+    ):
+        response = proxy_handler.handler(_event({"gender": "Female"}), None)
+
+    assert response["statusCode"] == 422
+    s3.put_object.assert_not_called()

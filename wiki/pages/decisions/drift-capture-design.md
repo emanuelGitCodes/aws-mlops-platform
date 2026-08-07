@@ -3,7 +3,7 @@ type: decision
 title: Drift capture design for a serverless endpoint
 created: "2026-08-07"
 updated: "2026-08-07"
-sources: ["https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html", "https://github.com/aws-samples/sample-aiops-on-amazon-sagemakerai/tree/main/monitoring", "../../../infra/stacks/monitoring_stack.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/serving/deploy_handler.py", "../../../scripts/setup_monitor.py", "../../../infra/config/prod.yaml", "../concepts/closed-drift-loop.md", "../architecture/phased-security-hardening.md"]
+sources: ["https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html", "https://github.com/aws-samples/sample-aiops-on-amazon-sagemakerai/tree/main/monitoring", "../../../infra/stacks/monitoring_stack.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/serving/deploy_handler.py", "../../../src/common/drift.py", "../../../src/monitoring/drift_handler.py", "../../../infra/config/prod.yaml", "../concepts/closed-drift-loop.md", "../architecture/phased-security-hardening.md"]
 summary: "Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay."
 ---
 # Drift capture design for a serverless endpoint
@@ -109,7 +109,11 @@ The cost is that drift statistics become repository-owned code with tests
 behind them, and that the EventBridge contract changes. That contract change is
 the real work in this option, and it is small and well-pinned.
 
-### What Option C changes
+### What Option C changed
+
+Implemented on 2026-08-07, not yet deployed. The list below is what the change
+set did, and the parenthetical notes record where the design met something it
+had not anticipated.
 
 - `src/serving/proxy_handler.py` writes the validated record and the returned
   score to the capture prefix. **The write must not be able to fail a
@@ -137,6 +141,17 @@ the real work in this option, and it is small and well-pinned.
   agreement between them and must move in the same change set.
 - `scripts/setup_monitor.py` retires. `scripts/send_drift_traffic.py` survives
   unchanged: it drives the public API, and the API is still the capture source.
+- The statistic is **PSI computed directly**, not Evidently. The open question
+  below resolved on module size: `src/common/drift.py` is standard-library only,
+  so the SageMaker processing image installs nothing extra for it and the Lambda
+  bundle does not grow. Ten quantile bins per numeric column, a 0.2 per-column
+  threshold, and a 0.3 drifted-column fraction.
+- The **minimum-sample rule is `MIN_RECORDS`**, and a short window returns
+  `skipped: insufficient_records` rather than a no-drift result. The two
+  readings stay distinguishable in the log, which is the whole point of the
+  rule.
+- The baseline comes from the **train split alone**, not the whole curated
+  dataset. Validation and test rows are data the model never learned.
 - The baseline statistics must be derived from the pipeline's existing
   preprocess output. `src/common/features.py` stays the single source of the
   raw-value contract; the drift job must not re-implement encoding or column
@@ -162,12 +177,24 @@ the real work in this option, and it is small and well-pinned.
   fires on noise or reports nothing and cannot distinguish that from healthy —
   the same defect class as `mlops-dev-endpoint-5xx` leaving `TreatMissingData`
   unset. The sample-size rule is part of the design, not a refinement of it.
-- **The drift statistic is not chosen.** Evidently AI's presets compute PSI and
-  KS per feature, and Evidently is what AWS's replacement solutions use. This
-  repository has no statistics dependency today, and adding one to a Lambda
-  bundle is a size and audit question. Computing PSI directly over the
-  nineteen-column contract is the alternative and may be smaller than the
-  dependency.
+- **Resolved: the drift statistic is PSI, computed directly.** Evidently AI's
+  presets compute PSI and KS per feature, and Evidently is what AWS's
+  replacement solutions use, but a direct implementation over the
+  nineteen-column contract needs no dependency in either the Lambda bundle or
+  the SageMaker processing image. KS is not implemented; only PSI is.
+- **Binning is left-open, and that was a defect the tests caught.** A
+  right-open bin puts a low-cardinality numeric column entirely in one bucket.
+  `SeniorCitizen` holds 0 and 1, so its only quantile edge is `0.0`, and every
+  shift in that column would have been invisible. `bucket_of` uses
+  `bisect_left` for this reason.
+- **A rejected challenger still resets the baseline.** Every preprocessing run
+  overwrites the fixed baseline key, including a run whose challenger loses the
+  AUC gate. That is deliberate: it stops a shift the model cannot beat from
+  starting a retrain every hour. The cost is that a true positive is silenced
+  by a failed attempt to answer it. Watch for this in the observation window.
+- **Nothing is deployed.** This change set is code, tests, and documentation
+  only. The loop has never run end to end in AWS, so `MIN_RECORDS`, the
+  thresholds, and the hourly cadence are all unvalidated against real traffic.
 - **The threshold conversation is separate.** The 0.50 cutoff and its
   `0.5370` recall, raised in the [closed drift loop](../concepts/closed-drift-loop.md),
   concern the classification rule rather than drift detection. Do not fold the

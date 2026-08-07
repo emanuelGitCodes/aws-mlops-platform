@@ -11,7 +11,8 @@ EXECUTION_ARN = "arn:aws:sagemaker:us-east-1:123456789012:pipeline/test-pipeline
 
 
 def _event(status: str) -> dict:
-    return {"detail": {"MonitoringScheduleName": "x", "MonitoringExecutionStatus": status}}
+    """One drift event as `src.monitoring.drift_handler` emits it."""
+    return {"detail": {"drifted_columns": ["tenure"], "status": status}}
 
 
 def test_violation_starts_the_pipeline():
@@ -20,7 +21,7 @@ def test_violation_starts_the_pipeline():
         mock.patch("builtins.print") as log,
     ):
         sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
-        result = retrain_handler.handler(_event("CompletedWithViolations"), None)
+        result = retrain_handler.handler(_event(retrain_handler.VIOLATION_STATUS), None)
 
     assert result == {"retrain_started": EXECUTION_ARN}
     call = sm.start_pipeline_execution.call_args.kwargs
@@ -33,12 +34,13 @@ def test_violation_starts_the_pipeline():
     }
 
 
-@pytest.mark.parametrize("status", ["Completed", "Failed", "Stopped", "InProgress", None])
+@pytest.mark.parametrize("status", ["CompletedWithViolations", "Evaluated", None])
 def test_non_violation_statuses_do_not_retrain(status):
     """Only a violation may retrain: every other outcome is a no-op.
 
-    Retraining on `Completed` would put the pipeline in a loop, and each run
-    costs a training job.
+    Retraining on an evaluated window with no drift would put the pipeline in
+    a loop, and each run costs a training job. `CompletedWithViolations` is
+    Model Monitor's word, which nothing in this loop emits any more.
     """
     with mock.patch.object(retrain_handler, "sm") as sm:
         result = retrain_handler.handler(_event(status), None)

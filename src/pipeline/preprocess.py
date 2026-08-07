@@ -22,6 +22,7 @@ import pathlib
 import random
 from typing import Any
 
+from src.common.drift import build_baseline
 from src.common.events import log_event
 from src.common.features import FEATURE_COLUMNS, LABEL_COLUMN, encode_features
 
@@ -69,6 +70,14 @@ def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -
                 f,
             )
             f.write("\n")
+
+    # The drift baseline describes the data the model was fitted on, so it
+    # comes from the train split alone. Including validation or test rows would
+    # compare live traffic against data the model never learned.
+    baseline_dir = root / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    with open(baseline_dir / "baseline.json", "w") as f:
+        json.dump(build_baseline(splits["train"]), f)
 
 
 def main() -> None:

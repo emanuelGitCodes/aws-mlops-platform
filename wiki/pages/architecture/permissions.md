@@ -50,10 +50,11 @@ each with its own acknowledgement in `infra/security_checks.py`.
 
 ## Tensions or open questions
 
-- Model Monitor runs under the pipeline role rather than one of its own:
-  `scripts/setup_monitor.py` takes the pipeline role ARN. Phase 5D granted the
-  `monitor/` artifacts prefix on that documented path rather than on evidence,
-  because the drift loop has never run in this account. Splitting the role is
-  recorded follow-up work, not a change any completed phase made.
+- The Phase 5D follow-up about Model Monitor sharing the pipeline role is
+  closed, and not by splitting that role. Model Monitor is out of the platform:
+  the drift loop now runs as `DriftEvaluationFn` with an execution role of its
+  own, which reads the capture prefix and the baseline and writes nothing. See
+  [drift capture design](../decisions/drift-capture-design.md). The pipeline
+  role keeps the `monitor/` prefix, which the preprocessing step now writes.
 - Phase 6 changes the serving access boundary from API-key identification to
   IAM/SigV4 authorization. The inference response contract does not change.

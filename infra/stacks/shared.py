@@ -85,12 +85,19 @@ class PlatformConfig(TypedDict):
 #   scopes the audit-bucket policy to it.
 # - `training`: the training step writes `model.tar.gz` here. It is the only
 #   prefix the model container reads.
-# - `evaluations` and `monitor`: written by the evaluation step and by
-#   `scripts/setup_monitor.py`. The pipeline role is scoped to both.
+# - `evaluations` and `monitor`: written by the evaluation and preprocessing
+#   steps. The pipeline role is scoped to both.
+# - `capture`: the proxy Lambda writes one object per served prediction. The
+#   drift Lambda reads them.
 CONFIG_DELIVERY_PREFIX = "config"
 MODEL_ARTIFACT_PREFIX = "training"
 EVALUATION_REPORT_PREFIX = "evaluations"
 MONITOR_OUTPUT_PREFIX = "monitor"
+CAPTURE_PREFIX = "capture"
+
+# The one key the drift Lambda reads. The preprocessing step writes it through
+# the pipeline's `BASELINE_DESTINATION_PREFIX`, which repeats the same path.
+BASELINE_KEY = f"{MONITOR_OUTPUT_PREFIX}/baseline/baseline.json"
 
 
 _LOG_RETENTION = {
@@ -174,7 +181,7 @@ def sagemaker_execution_role(
     function builds are pinned by ARN outside CloudFormation, so each must be
     updated in place. A replaced model role strands the endpoint at its next
     cold start. A replaced pipeline role strands the deployed pipeline
-    definition and `scripts/setup_monitor.py`.
+    definition, which pins that ARN.
     """
     return iam.Role(
         scope,
@@ -188,20 +195,25 @@ def sagemaker_execution_role(
     )
 
 
-def sagemaker_event_rule(
+def lambda_event_rule(
     scope: Construct,
     construct_id: str,
     *,
     detail_type: str,
     detail: dict[str, Any],
     handler: lambda_.IFunction,
+    source: str = "aws.sagemaker",
 ) -> events.Rule:
-    """EventBridge rule on an aws.sagemaker event that invokes a Lambda."""
+    """EventBridge rule on one event source that invokes a Lambda.
+
+    The default source covers the registry and endpoint events. The drift loop
+    passes its own source, because the platform emits that event itself.
+    """
     return events.Rule(
         scope,
         construct_id,
         event_pattern=events.EventPattern(
-            source=["aws.sagemaker"],
+            source=[source],
             detail_type=[detail_type],
             detail=detail,
         ),

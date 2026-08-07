@@ -7,7 +7,6 @@ gate, and registration.
 """
 
 import json
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -145,17 +144,23 @@ def test_evaluation_reports_land_where_the_pipeline_role_is_allowed_to_write(def
     assert EVALUATION_REPORT_PREFIX in json.dumps(destination)
 
 
-def test_the_monitor_prefix_matches_what_setup_monitor_writes():
-    """`scripts/setup_monitor.py` runs Model Monitor under the pipeline role.
+def test_the_baseline_lands_where_the_drift_lambda_reads_it(definition):
+    """`src/pipeline/` cannot import `infra`, so the path is written twice.
 
-    Phase 5D granted `monitor/` on that documented path, not on CloudTrail
-    evidence, because the drift loop has never run in this account.
+    The pipeline writes the baseline. The drift Lambda reads one fixed key. A
+    rename on either side fails only at runtime, so pin them together here.
     """
-    from infra.stacks.shared import MONITOR_OUTPUT_PREFIX
+    from infra.stacks.shared import BASELINE_KEY, MONITOR_OUTPUT_PREFIX
+    from src.pipeline.pipeline import BASELINE_DESTINATION_PREFIX
 
-    source = Path("scripts/setup_monitor.py").read_text()
-    assert f"{{args.artifacts_bucket}}/{MONITOR_OUTPUT_PREFIX}/baseline" in source
-    assert f"{{args.artifacts_bucket}}/{MONITOR_OUTPUT_PREFIX}/reports" in source
+    assert BASELINE_DESTINATION_PREFIX.startswith(f"{MONITOR_OUTPUT_PREFIX}/")
+    assert BASELINE_KEY == f"{BASELINE_DESTINATION_PREFIX}/baseline.json"
+
+    outputs = _step(definition, "Preprocess")["Arguments"]["ProcessingOutputConfig"]["Outputs"]
+    baseline = next(o for o in outputs if o["OutputName"] == "baseline")
+    # The other outputs are execution-scoped. This one must not be: the drift
+    # Lambda reads a fixed key and cannot discover an execution id.
+    assert baseline["S3Output"]["S3Uri"].endswith(f"/{BASELINE_DESTINATION_PREFIX}")
 
 
 def test_training_hyperparameters_reach_the_estimator(definition):

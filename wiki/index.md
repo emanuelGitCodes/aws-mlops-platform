@@ -6,7 +6,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Overview
 
-- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform with gated models and reproducible evaluation reports; serverless drift capture remains deferred.
+- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform with gated models and reproducible evaluation reports; the drift capture leg is designed but not yet built.
 
 ## Architecture
 
@@ -20,11 +20,12 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Concepts
 
-- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — A gated challenger run produces held-out metrics and report artifacts before registry promotion; serverless monitoring capture remains a future design boundary.
+- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — A gated challenger run produces held-out metrics and report artifacts before registry promotion; the capture leg is now designed as a repository-owned drift job.
 - [Validation versus preprocessing contracts](pages/concepts/contracts-and-preprocessing.md) — Validation checks whether a record is acceptable; preprocessing deterministically converts an accepted record into the model's numeric feature vector.
 
 ## Decisions
 
+- [Drift capture design for a serverless endpoint](pages/decisions/drift-capture-design.md) — Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay.
 - [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.
 - [Platform design decisions](pages/decisions/platform-design.md) — The platform favors managed SageMaker lineage where it matters and small AWS primitives where simple event wiring is clearer.
 

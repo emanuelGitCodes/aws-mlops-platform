@@ -3634,3 +3634,113 @@ belongs in its own gated step.
 
 Alarm states, endpoint status, budget, and CloudTrail read live. Index rebuilt,
 `make wiki-lint` clean, changed files scanned for account-identifying literals.
+
+## [2026-08-07] decide | Drift capture design; Model Monitor closed to new customers
+
+### Objective
+
+Decide the capture design that closes the drift-to-retrain loop, which has been
+the one unfinished piece of the original platform plan since the serverless
+endpoint shipped.
+
+### Scope
+
+New page `wiki/pages/decisions/drift-capture-design.md`. Updated
+`wiki/pages/concepts/closed-drift-loop.md` and `wiki/pages/overview.md`. Read
+but did not change: `infra/stacks/monitoring_stack.py`,
+`src/monitoring/retrain_handler.py`, `src/serving/proxy_handler.py`,
+`src/serving/deploy_handler.py`, `scripts/setup_monitor.py`,
+`scripts/send_drift_traffic.py`, `infra/config/prod.yaml`. No AWS calls, no
+application code changed.
+
+### Evidence
+
+Read live from AWS documentation on 2026-08-07.
+
+**Serverless Inference feature exclusions** name data capture and Model Monitor
+separately, alongside GPUs, multi-model endpoints, VPC configuration, network
+isolation, multiple production variants, and inference pipelines. The same page
+records that serverless-to-real-time conversion cannot be rolled back.
+
+**Model Monitor is no longer open to new customers.** Every Model Monitor page
+carries the notice: existing customers continue as normal, AWS continues
+security and availability investment, no new features are planned. AWS names the
+replacement — the open-source SageMaker AI monitoring solutions in `aws-samples`
+(Evidently AI plus MLflow), with CloudWatch and QuickSight.
+
+**Model Monitor does support batch transform inputs**, so a capture-format S3
+prefix is a legitimate input independent of endpoint type.
+
+**This platform never became a Model Monitor customer.**
+`scripts/setup_monitor.py` has never run against `churn-serverless-dev`, because
+Model Monitor does not support that endpoint type, and the README instructs the
+reader not to try. No `CreateMonitoringSchedule` call exists in this platform's
+history.
+
+### Interpretation
+
+The availability change collapses the framing the decision started with. Both
+candidate options — provisioned inference with built-in capture, and serverless
+capture written in Model Monitor's format — aim at a service this account cannot
+onboard to. The choice is therefore not "which capture source" but "own the
+drift job or do not close the loop".
+
+Three options were evaluated. **A**, a provisioned real-time endpoint, is
+rejected: it surrenders scale-to-zero, it is a one-way conversion, and it still
+lands on Model Monitor. **B**, capture-format S3 plus a batch-input schedule, is
+the most attractive on paper — a real Model Monitor execution still emits the
+status-change event, so `DriftViolationRule` and `RetrainTriggerFn` would need
+no change at all — and is rejected for exactly that reason: its whole value
+depends on an unproven eligibility, and it owes a second migration afterwards.
+**C**, a repository-owned drift job over proxy-side capture, is recommended.
+
+Two constraints surfaced that the framing did not anticipate.
+
+**Capture must not go through the log group.** Routing it through `log_event`
+and a CloudWatch Logs subscription would be cheaper and would reuse the deployed
+one-JSON-line-per-event convention, but Phase 7's checkpoint requires
+observability that does not log customer inputs. A capture stream in the proxy's
+log group is customer inputs in a log group. The roadmap wins; capture writes to
+S3 directly.
+
+**The cost line inverts.** The original design's hourly `ml.m5.large` schedule
+was already recorded in `prod.yaml` as the thing that dominates the `$20`
+budget. The Telco dataset is small enough that a window comparison fits in a
+Lambda, so owning the job removes the cost rather than adding it.
+
+### Decision and next checkpoint
+
+**Option C.** The serverless endpoint stays. The proxy writes each validated
+record and its score to an S3 capture prefix, a scheduled repository-owned job
+compares a recent window against the training baseline, and it emits its own
+violation event. `RetrainTriggerFn` reacts to that instead of SageMaker's event.
+The drift job gets its own execution role from the start, which resolves the
+Phase 5D follow-up about Model Monitor reusing the pipeline role by never
+creating the shared-role condition.
+
+The EventBridge contract change is the real work: `DriftViolationRule`'s detail
+type, `retrain_handler.VIOLATION_STATUS`, and the `test_monitoring_stack.py`
+assertion that pins their agreement all move in one change set. The proxy role
+gains `s3:PutObject` on one prefix, which re-opens a role Phase 5A scoped and so
+belongs in a change set that re-verifies that scoping.
+
+Deliberately left open, and recorded on the page rather than settled here: the
+drift statistic (Evidently as a dependency versus PSI computed directly over the
+nineteen-column contract), and the minimum-sample rule.
+
+**Two limits recorded that constrain any implementation.** Ground truth never
+arrives in this platform — churn labels are not observed after a prediction — so
+model-quality monitoring is unreachable by every option, and this loop can only
+ever detect that input traffic changed. And an hourly schedule over a near-idle
+endpoint mostly reads empty windows; without a minimum-sample rule the job
+either fires on noise or cannot distinguish silence from health, which is the
+same defect class as `mlops-dev-endpoint-5xx` leaving `TreatMissingData` unset.
+
+Next checkpoint is implementation as a gated change set under the operating
+rule. No code was changed here.
+
+### Verification
+
+`make wiki-index` rebuilt, `make wiki-lint` clean. Changed files scanned for
+account-identifying literals: none. No AWS credentials used and no AWS API
+called.

@@ -3924,11 +3924,28 @@ explicitly. The baseline does not exist yet, and the handler returned without
 error, because the sample-size check runs before `read_baseline`. A missing
 baseline is therefore not a failure mode while traffic is below `MIN_RECORDS`.
 
-**Alarms.** `iam-policy-changes` moved to `ALARM`, and CloudTrail attributes it
-entirely to this deploy: `CreateRole` at 16:59:03Z, `PutRolePolicy` at
-16:57:54Z and 16:59:22Z, all by `AWSCloudFormation`. This is the Phase 5B/5C/5D
-pattern — the detection working, and it self-clears. The other five alarms
-`OK`. `mlops-dev-endpoint-5xx` unchanged at `INSUFFICIENT_DATA`.
+**Alarms.** `iam-policy-changes` fired at 17:00:12Z and **self-cleared at
+17:07:12Z**, seven minutes later. Phase 5D's deploy on 08-05 took five. The
+SNS email was delivered, so the Phase 2C detection path is live-proven again.
+CloudTrail attributes the fire entirely to this deploy: `CreateRole` at
+16:59:03Z, `PutRolePolicy` at 16:57:54Z and 16:59:22Z, all by
+`AWSCloudFormation`. The other five alarms `OK`. `mlops-dev-endpoint-5xx`
+unchanged at `INSUFFICIENT_DATA`.
+
+Two readings of that alarm are worth keeping, because both invite a wrong
+conclusion:
+
+- **The alarm email names `16:55:00` as the datapoint.** That is the start of
+  the five-minute period, not an event time. The period contains all three IAM
+  calls above. Read as an event time it looks like the alarm fired on something
+  that predates the deploy.
+- **The metric summed 1.0 in the 16:55 period and 1.0 in the 17:00 period.**
+  Two matches total, which is exactly the two `PutRolePolicy` calls;
+  `CreateRole` is correctly not in the CIS filter set. The split across two
+  periods is CloudTrail-to-Logs delivery lag — the second call was delivered
+  after its period closed. This is the same late-datapoint effect the Phase 2E
+  closure recorded for `unauthorized-api-calls`, now observed on a second
+  detection.
 
 **Endpoint and budget.** Endpoint `InService`, last modified 2026-08-05T22:21Z
 — unchanged by this deploy. Budget `$20` intact, `$0.00` actual, `$1.496`

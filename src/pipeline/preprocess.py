@@ -1,17 +1,18 @@
-"""Preprocessing: curated Telco CSV -> train/validation/test CSVs for XGBoost.
+"""Preprocessing: it turns the curated Telco CSV into train, validation, and
+test CSVs for XGBoost.
 
-The encoding itself lives in `src.common.features` alongside the vocabulary it
-depends on, so the serving proxy Lambda reuses the exact same encoding at
-inference time. This module is the training-only half: labels and splits.
+The encoding lives in `src.common.features`, beside the vocabulary it uses, so
+the serving proxy Lambda applies the same encoding at inference time. This
+module holds the training-only half: labels and splits.
 
-As a SageMaker ProcessingStep this runs as a script: reads curated CSVs from
-/opt/ml/processing/input, writes label-first headerless CSVs (XGBoost's
-expected format) to /opt/ml/processing/{train,validation,test}.
+This runs as a script inside a SageMaker ProcessingStep. It reads curated CSVs
+from /opt/ml/processing/input. It writes label-first headerless CSVs, the
+format XGBoost expects, to /opt/ml/processing/{train,validation,test}.
 """
 
-# This module runs inside the SageMaker FrameworkProcessor managed image,
-# whose Python is older than the 3.12 the rest of the repo targets. Deferring
-# annotation evaluation keeps modern syntax here from being a runtime error.
+# This module runs inside the SageMaker FrameworkProcessor managed image. That
+# image runs an older Python than 3.12. Deferred annotations keep modern syntax
+# here from becoming a runtime error.
 from __future__ import annotations
 
 import csv
@@ -52,9 +53,9 @@ def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -
         with open(out_dir / f"{name}.csv", "w", newline="") as f:
             csv.writer(f).writerows(encode_labeled_row(row) for row in splits[name])
 
-    # This contains only fields accepted by the public prediction API. Keeping
-    # the label separate makes it possible to evaluate a deployed endpoint
-    # without reversing the lossy categorical encoding used for XGBoost.
+    # This file holds only fields the public prediction API accepts. The label
+    # stays separate, so an operator can evaluate a deployed endpoint without
+    # reversing the lossy categorical encoding XGBoost uses.
     api_test_dir = root / "api_test"
     api_test_dir.mkdir(parents=True, exist_ok=True)
     with open(api_test_dir / "api_test.jsonl", "w") as f:

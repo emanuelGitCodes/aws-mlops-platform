@@ -25,9 +25,8 @@ jobs:
       - name: Install locked dependencies
         run: make install
 
-      # Via the Make targets, so CI and a local run can never drift apart --
-      # the unit-test step in particular carries a coverage floor that only
-      # the target knows about.
+      # Call the Make targets, so CI and a local run cannot drift apart. The
+      # unit-test target carries a coverage floor that this file does not know.
       - name: Lint
         run: make lint
 
@@ -37,15 +36,13 @@ jobs:
       - name: Unit tests
         run: make test
 
-      # AGENTS.md is the single source; CLAUDE.md is a symlink to it. The rule
-      # was prose only, and prose cannot stop a commit that replaces the
-      # symlink with a copy free to drift.
+      # AGENTS.md is the single source, and CLAUDE.md is a symlink to it.
+      # Prose alone cannot stop a commit that replaces the symlink with a copy.
       - name: Check the agent docs stay one file
         run: make docs-sync
 
-      # The wiki is a maintained deliverable with its own health check, and
-      # `make wiki-lint` ran nowhere: a broken source link or an orphaned page
-      # could merge unnoticed.
+      # The wiki is a maintained deliverable with its own health check.
+      # Without this step, a broken source link or an orphaned page merges.
       - name: Lint the wiki
         run: make wiki-lint
 
@@ -53,7 +50,7 @@ jobs:
         run: make audit
 
       - name: CDK security synthesis
-        # Both environments: a dev-only synth cannot catch an acknowledgement
+        # Both environments. A dev-only synth cannot catch an acknowledgement
         # whose construct path or finding id embeds the environment name.
         run: make synth-all
 

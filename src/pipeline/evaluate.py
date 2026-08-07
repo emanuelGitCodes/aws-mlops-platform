@@ -1,13 +1,13 @@
 """Evaluation ProcessingStep: score a challenger on the held-out test split.
 
-The machine-readable ``evaluation.json`` retains SageMaker's ModelMetrics AUC
-shape used by the promotion gate.  The same ProcessingStep also emits a richer
-per-execution report: metrics JSON, prediction CSV, and diagnostic PNG charts.
+``evaluation.json`` keeps the SageMaker ModelMetrics AUC shape the promotion
+gate reads. The same step also writes a fuller per-execution report: a metrics
+JSON file, a prediction CSV, and diagnostic PNG charts.
 """
 
-# This module runs inside the SageMaker FrameworkProcessor managed image,
-# whose Python is older than the 3.12 the rest of the repo targets. Deferring
-# annotation evaluation keeps modern syntax here from being a runtime error.
+# This module runs inside the SageMaker FrameworkProcessor managed image. That
+# image runs an older Python than 3.12. Deferred annotations keep modern syntax
+# here from becoming a runtime error.
 from __future__ import annotations
 
 import argparse
@@ -245,8 +245,8 @@ def main() -> None:
     parser.add_argument("--challenger-model-artifact", default="unknown")
     args = parser.parse_args()
 
-    # Import inside the SageMaker entrypoint so local report unit tests do not
-    # require the XGBoost runtime bundled only with this ProcessingStep.
+    # Import inside the entrypoint, so the local report unit tests do not need
+    # the XGBoost runtime. Only this ProcessingStep bundles it.
     import xgboost as xgb
 
     with tarfile.open(f"{MODEL_DIR}/model.tar.gz") as tar:

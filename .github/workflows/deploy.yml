@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # OIDC federation; no long-lived AWS keys anywhere
+  id-token: write   # OIDC federation. There are no long-lived AWS keys.
   contents: read
 
 jobs:
@@ -21,8 +21,8 @@ jobs:
           version: "0.11.28"
           python-version: "3.12"
 
-      # Via the Make target, like every other workflow: the extras this
-      # project needs are defined once, in `install`, not restated here.
+      # Call the Make target, like every other workflow. The `install` target
+      # defines the extras once. Do not restate them here.
       - name: Install locked dependencies
         run: make install
 
@@ -31,8 +31,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEV_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-      # Via the Make target: the CDK CLI version is pinned once, in the
-      # Makefile, rather than restated in every workflow that deploys.
+      # Call the Make target. The Makefile pins the CDK CLI version once.
       - name: Deploy
         run: make deploy ENV=dev
       - name: Smoke test the deployed API
@@ -41,7 +40,7 @@ jobs:
   deploy-prod:
     needs: deploy-dev
     runs-on: ubuntu-latest
-    environment: prod   # manual approval gate configured on the GitHub environment
+    environment: prod   # The GitHub environment carries the approval gate.
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,8 +51,8 @@ jobs:
           version: "0.11.28"
           python-version: "3.12"
 
-      # Via the Make target, like every other workflow: the extras this
-      # project needs are defined once, in `install`, not restated here.
+      # Call the Make target, like every other workflow. The `install` target
+      # defines the extras once. Do not restate them here.
       - name: Install locked dependencies
         run: make install
 

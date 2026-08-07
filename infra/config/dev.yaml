@@ -1,7 +1,7 @@
 env_name: dev
-# Unsuffixed because this group already holds deployed model lineage; renaming
-# it would replace the group. Every other environment must pick a distinct
-# name — see the note in prod.yaml.
+# Unsuffixed, because this group already holds deployed model lineage. A rename
+# replaces the group. Every other environment must pick a distinct name. See
+# the note in prod.yaml.
 model_package_group: churn-model-group
 model_approval_status: Approved   # auto-approve challengers in dev
 endpoint_name: churn-serverless-dev
@@ -16,15 +16,15 @@ log_retention_days: 14
 security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]
-  # Dev owns the account-wide budget: it is the environment that already has
-  # the deployed $20 budget and its notification history, and the budget is
-  # account-scoped anyway, so it already covers prod's spend. Prod must stay
-  # false — see the note there.
+  # Dev owns the account-wide budget. It holds the deployed $20 budget and its
+  # notification history. The budget is account-scoped, so it covers prod spend
+  # too. Prod must stay false. See the note there.
   account_budget: true
-  services:            # Phase 3 enablement flags; one flips true per sub-phase
+  services:
     access_analyzer: true
-    guardduty: false   # 3B deferred: AWS Free plan blocks GuardDuty until upgrade
-    config_recorder: true    # 3C: enabled 2026-08-02; minimally scoped recorder
+    # Enabling GuardDuty starts a 30-day free trial, then bills monthly.
+    guardduty: false
+    config_recorder: true
     security_hub: false
     account_bpa: true
     eventbridge_alerts: false

@@ -5,7 +5,7 @@ from aws_cdk.assertions import Match
 
 def test_ingestion_wiring(stacks):
     template = stacks["ingestion"]
-    # queue + DLQ, with redrive between them
+    # A queue and a DLQ, with redrive between them.
     template.resource_count_is("AWS::SQS::Queue", 2)
     template.has_resource_properties(
         "AWS::SQS::Queue",

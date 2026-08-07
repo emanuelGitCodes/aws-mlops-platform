@@ -1,42 +1,39 @@
 version: 2
 
-# CI already *detects* dependency problems -- pip-audit for published CVEs,
-# gitleaks for secrets -- but remediation was entirely manual, so 38 packages
-# had drifted behind with nothing scheduled to close the gap. This is the
-# remediation half.
+# CI detects dependency problems: pip-audit for published CVEs, and gitleaks
+# for secrets. This file is the remediation half. Without it, remediation is
+# manual and packages drift behind.
 updates:
-  # `uv`, not `pip`: the resolved versions live in uv.lock, and `make
-  # lock-check` (`uv lock --check`) fails CI whenever the lock and pyproject
-  # disagree. Only the uv ecosystem updates both together.
+  # Use `uv`, not `pip`. The resolved versions live in uv.lock, and
+  # `make lock-check` fails CI whenever the lock and pyproject disagree. Only
+  # the uv ecosystem updates both together.
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    # Update within the declared constraints; never rewrite the constraints
-    # themselves. The ceilings in pyproject are deliberate policy, not staleness:
-    # `sagemaker>=2.220,<3` holds v2 until the pipeline is migrated to the v3
-    # API, and `cdk-nag==3.0.1` is exact because a cdk-nag bump changes which
-    # findings fire and therefore which acknowledgements in
-    # infra/security_checks.py still bind. Raising either is a deliberate act
-    # with its own branch, not a Monday morning PR.
+    # Update within the declared constraints. Never rewrite a constraint. The
+    # ceilings in pyproject are policy. `sagemaker>=2.220,<3` holds v2 until the
+    # pipeline moves to the v3 API. `cdk-nag==3.0.1` is exact, because a bump
+    # changes which findings fire, and therefore which acknowledgements in
+    # infra/security_checks.py still bind. Raise either one on its own branch.
     versioning-strategy: "lockfile-only"
-    # Grouped so a red run is attributable. Ungrouped, a week of transitive
-    # churn is 20 PRs; one all-in group means a synth failure could come from
-    # any of them. Groups are matched in order, so the catch-all must stay last.
+    # Group the updates, so a red run is attributable. Ungrouped, a week of
+    # transitive churn is 20 PRs. In one all-in group, a synth failure can come
+    # from any package. Groups match in order, so the catch-all stays last.
     groups:
-      # aws-cdk-lib, constructs, and jsii are version-coupled -- a partial bump
-      # fails synthesis rather than producing a working mismatch. cdk-nag rides
-      # along because it is the gate that reads the synthesized tree.
+      # aws-cdk-lib, constructs, and jsii are version-coupled. A partial bump
+      # fails synthesis. cdk-nag joins them, because it is the gate that reads
+      # the synthesized tree.
       aws-cdk:
         patterns:
           - "aws-cdk*"
           - "constructs"
           - "cdk-nag"
           - "jsii"
-      # Isolated from aws-cdk: these change what the pipeline and the evaluation
-      # image actually compute, so a regression here is a model-behavior
+      # Keep these apart from aws-cdk. They change what the pipeline and the
+      # evaluation image compute, so a regression here is a model-behaviour
       # regression, not a build break.
       pipeline-runtime:
         patterns:
@@ -46,16 +43,16 @@ updates:
           - "scikit-learn"
           - "matplotlib"
           - "xgboost"
-      # The stubs must track the SDK they describe, or `make typecheck` fails on
-      # signatures that no longer exist.
+      # The stubs must track the SDK they describe. Otherwise `make typecheck`
+      # fails on signatures that no longer exist.
       boto3:
         patterns:
           - "boto3*"
           - "botocore"
           - "s3transfer"
           - "mypy-boto3-*"
-      # Gate tooling. A bump here can add new lint rules or type errors and turn
-      # CI red on untouched code -- worth its own reviewable PR.
+      # Gate tooling. A bump here adds lint rules or type errors and turns CI
+      # red on untouched code, so it takes its own PR.
       dev-tooling:
         patterns:
           - "ruff"
@@ -67,9 +64,9 @@ updates:
         patterns:
           - "*"
 
-  # Every action is SHA-pinned with a version comment; Dependabot updates both
-  # the SHA and the comment, which is the only maintainable way to keep pinning
-  # honest. Monthly, because these move far more slowly than the Python tree.
+  # Every action is SHA-pinned with a version comment. Dependabot updates the
+  # SHA and the comment together. The interval is monthly, because these move
+  # more slowly than the Python tree.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

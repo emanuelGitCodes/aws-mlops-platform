@@ -4,13 +4,13 @@ Run manually or from CI after a deploy:
     API_URL=... API_KEY=... pytest tests/integration -q
 Skipped when the env vars aren't set (e.g. during unit CI).
 
-Scope: every status the public path can be driven to from outside — 200, the
-422 and 400 request rejections, and the 403 from the API key boundary. The
-proxy's 503 (with `Retry-After`) and 502 mappings are deliberately absent:
-both need the SageMaker endpoint to be missing, mid-update, or answering with
-something that is not a probability, and none of that can be induced through
-the public API without breaking the endpoint for real traffic. Those are
-covered against a stubbed runtime client in tests/unit/test_proxy_handler.py.
+These tests cover every status the public path reaches from outside: 200, the
+422 and 400 request rejections, and the 403 from the API key boundary.
+
+The 503 and 502 mappings are absent. Both need the SageMaker endpoint to be
+missing, mid-update, or answering with something other than a probability, and
+the public API cannot induce that without breaking real traffic.
+tests/unit/test_proxy_handler.py covers them against a stubbed runtime client.
 """
 
 import json
@@ -88,8 +88,8 @@ def test_the_model_is_not_reachable_without_a_key():
 
 
 def test_a_wrong_api_key_is_rejected():
-    # Kept under ten characters: a longer literal here reads to the gitleaks
-    # `generic-api-key` rule as a real key beside `api_key=` and fails the scan.
+    # Keep this under ten characters. Beside `api_key=`, a longer literal
+    # reads to the gitleaks `generic-api-key` rule as a real key.
     status, _ = _post(VALID, api_key="wrong")
 
     assert status == 403

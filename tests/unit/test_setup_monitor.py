@@ -6,11 +6,10 @@ import pytest
 from infra.app import load_config
 from scripts import setup_monitor
 
-# This module used to stub `sagemaker` into sys.modules, because the `pipeline`
-# extra was not synced. `make install` now syncs it (test_pipeline.py needs the
-# real SDK), and the stub actively broke that: a MagicMock registered under
-# "sagemaker" made `from sagemaker.inputs import ...` fail with
-# "'sagemaker' is not a package" in whichever module imported it second.
+# Do not stub `sagemaker` into sys.modules here. `make install` syncs the
+# `pipeline` extra, and test_pipeline.py needs the real SDK. A MagicMock
+# registered under "sagemaker" makes `from sagemaker.inputs import ...` fail
+# with "'sagemaker' is not a package" in whichever module imports it second.
 
 ARGS = [
     "setup_monitor.py",
@@ -32,11 +31,10 @@ def _schedule_kwargs(monitor_cls: mock.Mock) -> dict:
 def test_schedule_is_whatever_the_config_says():
     """A non-default cron must reach SageMaker unchanged.
 
-    Deliberately not asserting against the real config: both environments are
-    currently set to `cron(0 * ? * * *)`, which is exactly what the removed
-    `CronExpressionGenerator.hourly()` produced -- so a test using the real
-    values would still pass if the hardcoded call came back. This sentinel is
-    what makes the wiring, rather than a coincidence, the thing under test.
+    Do not assert against the real config. Both environments hold
+    `cron(0 * ? * * *)`, which is what the removed
+    `CronExpressionGenerator.hourly()` produced, so real values pass even when
+    the hardcoded call returns. The sentinel below tests the wiring.
     """
     sentinel = "cron(15 3 ? * MON *)"
     config = {**load_config("dev"), "monitor": {"schedule_cron": sentinel}}

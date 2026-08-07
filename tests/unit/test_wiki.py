@@ -92,10 +92,9 @@ def test_repo_wiki_is_healthy():
     assert errors == []
 
 
-# `main` is the dispatch behind `make wiki-lint`, a blocking CI gate. Only its
-# healthy-lint path was exercised, so a subcommand wired to the wrong method,
-# or an exit code that stopped distinguishing "wiki is broken" from "the
-# command itself failed", would have merged green.
+# `main` is the dispatch behind `make wiki-lint`, a blocking CI gate. These
+# tests cover each subcommand's target method and the exit codes that separate
+# "the wiki is broken" from "the command failed".
 
 
 def _run(wiki: Wiki, *argv: str) -> int:
@@ -143,7 +142,7 @@ def test_search_prints_ranked_hits_and_records_the_query(tmp_path: Path, capsys)
     assert _run(wiki, "search", "drift") == 0
 
     assert "drift.md" in capsys.readouterr().out
-    # A search is a recorded operation even though it changes no page.
+    # A search is a recorded operation, even though it changes no page.
     assert "query | drift" in wiki.log_path.read_text(encoding="utf-8")
 
 

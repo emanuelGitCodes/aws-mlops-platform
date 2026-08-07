@@ -1,15 +1,15 @@
-"""Create the Model Monitor baseline + schedule for the live endpoint.
+"""Create the Model Monitor baseline and schedule for the live endpoint.
 
-Run once after the endpoint exists (SDK-driven; monitoring schedules need a
-live endpoint and a baselining job, so this isn't plain CloudFormation):
+Run this once, after the endpoint exists. It uses the SDK, because a monitoring
+schedule needs a live endpoint and a baselining job:
 
     uv run --locked --extra pipeline python scripts/setup_monitor.py \\
         --env dev --endpoint churn-serverless-dev --role-arn <pipeline-role-arn> \\
         --artifacts-bucket <bucket> --curated-bucket <bucket>
 
-The schedule comes from ``monitor.schedule_cron`` in ``infra/config/<env>.yaml``.
-It previously did not: this script hardcoded an hourly expression, so the
-config key was inert and editing it changed nothing.
+The schedule comes from ``monitor.schedule_cron`` in
+``infra/config/<env>.yaml``. This script once hardcoded an hourly expression,
+which made that config key inert.
 """
 
 import argparse
@@ -19,8 +19,8 @@ from pathlib import Path
 from sagemaker.model_monitor import DefaultModelMonitor
 from sagemaker.model_monitor.dataset_format import DatasetFormat
 
-# Allow the documented file-path invocation above to import the repository
-# package without requiring callers to set PYTHONPATH first.
+# This lets the file-path invocation above import the repository package. The
+# caller does not have to set PYTHONPATH.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from infra.app import load_config

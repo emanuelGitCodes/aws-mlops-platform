@@ -36,7 +36,7 @@ def test_valid_request_invokes_endpoint_and_returns_score():
     call = runtime.invoke_endpoint.call_args.kwargs
     assert call["EndpointName"] == "test-endpoint"
     assert call["ContentType"] == "text/csv"
-    # payload is the encoded feature vector, one float per feature
+    # The payload is the encoded feature vector, one float per feature.
     values = call["Body"].split(",")
     assert all(float(v) >= 0 for v in values)
     assert json.loads(log.call_args.args[0]) == {
@@ -98,7 +98,7 @@ def test_endpoint_not_ready_returns_503_with_retry_after(code):
 
     assert resp["statusCode"] == 503
     assert resp["headers"]["Retry-After"] == str(proxy_handler.RETRY_AFTER_SECONDS)
-    # The AWS error code is operator detail; it must not reach a public caller.
+    # The AWS error code is operator detail. It must not reach a caller.
     assert code not in resp["body"]
     assert "retry" in json.loads(resp["body"])["error"]
 

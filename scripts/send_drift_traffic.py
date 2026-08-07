@@ -1,5 +1,5 @@
-"""Demo helper: hit the API with distribution-shifted traffic so Model Monitor
-flags drift and the retrain loop visibly fires.
+"""Demo helper. It sends distribution-shifted traffic to the API, so Model
+Monitor reports drift and the retrain loop fires where you can see it.
 
     uv run --locked --extra dev python scripts/send_drift_traffic.py \\
         --url <api-url> --api-key <key> -n 200
@@ -10,8 +10,8 @@ import random
 import sys
 from pathlib import Path
 
-# Allow the documented file-path invocation above to import the repository
-# package without requiring PYTHONPATH first.
+# This lets the file-path invocation above import the repository package. The
+# caller does not have to set PYTHONPATH.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.evaluate_api import post_prediction
@@ -47,9 +47,9 @@ def main() -> None:
     p.add_argument("-n", type=int, default=200)
     args = p.parse_args()
 
-    # Fail loudly if the demo record ever drifts from the shared schema. Not an
-    # `assert`: python -O strips those, and this is the only thing keeping the
-    # demo payload honest.
+    # Fail loudly if the demo record no longer matches the shared schema. Do
+    # not use `assert`. Python -O strips assertions, and this check is the only
+    # thing that keeps the demo payload correct.
     CustomerRecord.model_validate(BASE)
     drift = set(BASE) ^ set(FEATURE_COLUMNS)
     if drift:
@@ -58,7 +58,8 @@ def main() -> None:
     rng = random.Random(7)
     for i in range(args.n):
         rec = dict(BASE)
-        # Deliberately shifted vs. training distribution: extreme tenure + charges.
+        # Shifted away from the training distribution: extreme tenure and
+        # extreme charges.
         tenure = rng.randint(120, 200)
         monthly_charges = round(rng.uniform(300, 500), 2)
         rec["tenure"] = tenure

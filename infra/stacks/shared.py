@@ -1,13 +1,11 @@
 """Cross-stack CDK helpers and the environment config contract.
 
-New module because these patterns repeat across several stacks and
-``lambda_code.py`` is specific to the bundled Lambda asset; no other
-stack-shared module exists.
+This module exists because these patterns repeat across several stacks.
+``lambda_code.py`` covers only the bundled Lambda asset.
 
-The ``*Config`` TypedDicts below are the single source of truth for the
-shape of ``infra/config/{dev,prod}.yaml``. They are build-time only and
-deliberately separate from ``src/common/schema.py``, which is the runtime
-data contract shipped into Lambda.
+The ``*Config`` TypedDicts define the shape of
+``infra/config/{dev,prod}.yaml``. They are build-time only. Keep them
+separate from ``src/common/schema.py``, which is the runtime contract.
 """
 
 from typing import Any, TypedDict
@@ -37,9 +35,9 @@ class MonitorConfig(TypedDict):
 
 
 class SecurityServicesConfig(TypedDict):
-    """``security.services:`` — the six Phase 3 enablement flags.
+    """``security.services:`` — the six security-service enablement flags.
 
-    ``SecurityMonitoringStack`` requires exactly these keys; keep in sync
+    ``SecurityMonitoringStack`` requires exactly these keys. Keep them in sync
     with ``PHASE_3_SERVICE_FLAGS``.
     """
 
@@ -56,11 +54,9 @@ class SecurityConfig(TypedDict):
 
     audit_log_retention_days: int
     budget_thresholds: list[int]
-    # AWS Budgets is account-scoped, and these stacks are environment-agnostic
-    # (no `env=cdk.Environment`), so dev and prod share one account. Exactly one
-    # environment may own the account budget; a second one re-measures the same
-    # dollars and alarms twice on them. Gated like the account-level Block
-    # Public Access flag, and for the same reason.
+    # AWS Budgets is account-scoped, and dev and prod share one account. Only
+    # one environment may own the budget. A second one measures the same
+    # dollars and alarms twice.
     account_budget: bool
     services: SecurityServicesConfig
 
@@ -80,30 +76,19 @@ class PlatformConfig(TypedDict):
     security: SecurityConfig
 
 
-# Phase 3C Config snapshots land under this prefix of the Security stack's
-# audit bucket. Shared because two stacks need the same string:
-# SecurityMonitoring sets it on the delivery channel, Security scopes the
-# bucket policy to it, and a mismatch would fail delivery at runtime rather
-# than at synth.
+# S3 prefixes shared between a writer and an IAM grant. A rename in one place
+# only fails at runtime, never at synth, so each is pinned to its writer in
+# `tests/unit/test_pipeline.py`. `src/pipeline/` runs in the SageMaker image,
+# where `infra` is not installed, so it cannot import these.
+#
+# - `config`: SecurityMonitoring sets it on the delivery channel. Security
+#   scopes the audit-bucket policy to it.
+# - `training`: the training step writes `model.tar.gz` here. It is the only
+#   prefix the model container reads.
+# - `evaluations` and `monitor`: written by the evaluation step and by
+#   `scripts/setup_monitor.py`. The pipeline role is scoped to both.
 CONFIG_DELIVERY_PREFIX = "config"
-
-# Where the pipeline's training step writes `model.tar.gz`, and therefore the
-# only prefix of the artifacts bucket the model container ever reads. Shared for
-# the same reason as CONFIG_DELIVERY_PREFIX: `src/pipeline/pipeline.py` writes
-# it and the serving stack scopes the model role's `s3:GetObject` to it, and a
-# mismatch would break inference at the next container start rather than at
-# synth. `src/pipeline/` runs in the SageMaker image, where `infra` is not
-# installed, so it cannot import this -- `tests/unit/test_pipeline.py` pins the
-# two together instead.
 MODEL_ARTIFACT_PREFIX = "training"
-
-# The other two artifacts-bucket prefixes the pipeline role writes, shared for
-# the same reason as MODEL_ARTIFACT_PREFIX -- Phase 5D scopes the role to a
-# prefix list, so a rename anywhere else breaks a pipeline run rather than a
-# synth. `evaluations/` is the evaluation step's explicit output destination in
-# `src/pipeline/pipeline.py`; `monitor/` is where `scripts/setup_monitor.py`
-# puts the Model Monitor baseline and reports. Both are pinned to their writer
-# in `tests/unit/test_pipeline.py`.
 EVALUATION_REPORT_PREFIX = "evaluations"
 MONITOR_OUTPUT_PREFIX = "monitor"
 
@@ -133,21 +118,18 @@ def platform_lambda(
     least_privilege_logs: bool = False,
     **kwargs: Any,
 ) -> lambda_.Function:
-    """Lambda with platform defaults: Python 3.12, an own log group at the
-    config's retention, and the shared src/ asset unless other code is supplied.
+    """Lambda with platform defaults: Python 3.12, its own log group at the
+    config retention, and the shared src/ asset unless other code is supplied.
 
-    The group is explicit rather than `log_retention=`, which CDK deprecated and
-    removes in the next major. That prop also built a singleton provider Lambda
-    and role per stack whose `Resource: *` log policy carried six of the cdk-nag
-    acknowledgements; an owned `LogGroup` deletes all of it.
+    The log group is explicit. CDK deprecated `log_retention=`, and that prop
+    builds a provider Lambda per stack whose `Resource: *` log policy needs six
+    cdk-nag acknowledgements.
 
-    The name is CDK-generated, not `/aws/lambda/<function>`: the function name is
-    generated too, so naming the group after it is circular. Lambda still writes
-    to it because `AWSLambdaBasicExecutionRole` grants the log actions on `*`,
-    not on an `/aws/lambda/` prefix. `DESTROY` because these are application
-    logs, not the retained audit evidence in the Security stack -- and with a
-    generated name a retained group would be orphaned by the next deploy rather
-    than reused.
+    The group name is CDK-generated, not `/aws/lambda/<function>`. The function
+    name is generated too, so naming the group after it would be circular.
+    Lambda still writes to it, because the managed log policy grants the log
+    actions on `*`. Use `DESTROY`, because a retained group with a generated
+    name would be orphaned by the next deploy.
     """
     log_group = logs.LogGroup(
         scope,
@@ -157,12 +139,10 @@ def platform_lambda(
     )
     role: iam.IRole | None = None
     if least_privilege_logs:
-        # Phase 5 replaces `AWSLambdaBasicExecutionRole`, which grants the three
-        # log actions on `Resource: "*"` -- every log group in the account, not
-        # just this function's. Supplying a role stops CDK attaching it at all,
-        # and the only grant left is writing to the group created above. Opt-in
-        # rather than default because Phase 5 converts one role at a time, each
-        # with its own component check.
+        # `AWSLambdaBasicExecutionRole` grants the log actions on every log
+        # group in the account. Supplying a role stops CDK from attaching that
+        # policy, so the function writes only to the group created above. This
+        # is opt-in, because roles are converted one per change set.
         role = iam.Role(
             scope,
             f"{construct_id}Role",
@@ -186,19 +166,15 @@ def sagemaker_execution_role(
 ) -> iam.Role:
     """Execution role SageMaker assumes.
 
-    Carries `AmazonSageMakerFullAccess` unless `least_privilege` is set, in
-    which case it carries no managed policy at all and the caller grants every
-    permission explicitly. Opt-in for the same reason as
-    `platform_lambda`'s `least_privilege_logs`: Phase 5 converts one role per
-    change set, each with its own live component check, and a default would
-    flip both roles at once.
+    The role carries `AmazonSageMakerFullAccess` unless `least_privilege` is
+    set. With that flag it carries no managed policy, and the caller grants
+    every permission explicitly.
 
-    Never pass `role_name`, and never rename the construct: both roles this
-    builds are pinned by ARN outside CloudFormation, so each must be updated in
-    place. A replaced model role strands the running endpoint on a deleted ARN
-    at its next cold start; a replaced pipeline role strands the deployed
-    SageMaker Pipeline definition, which is upserted out of band with
-    `--role-arn`, and `scripts/setup_monitor.py`, which takes the same ARN.
+    Never pass `role_name`, and never rename the construct. Both roles this
+    function builds are pinned by ARN outside CloudFormation, so each must be
+    updated in place. A replaced model role strands the endpoint at its next
+    cold start. A replaced pipeline role strands the deployed pipeline
+    definition and `scripts/setup_monitor.py`.
     """
     return iam.Role(
         scope,

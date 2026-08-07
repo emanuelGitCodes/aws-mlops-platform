@@ -1,10 +1,9 @@
 """Structural tests for the SageMaker pipeline definition.
 
-`build_pipeline` had no test at all: 272 lines covering preprocessing,
-training, the promotion gate and registration -- the core of the closed drift
-loop -- at 0% coverage. These build the real pipeline object with the boto3
-session mocked and assert on the definition JSON SageMaker would receive,
-in the same spirit as the CDK assertion tests in `test_stacks.py`.
+These tests build the real pipeline object with the boto3 session mocked. They
+assert on the definition JSON SageMaker receives, like the CDK assertion tests
+do on a synthesized template. They cover preprocessing, training, the promotion
+gate, and registration.
 """
 
 import json
@@ -41,8 +40,8 @@ def _build(approval_status: str = "Approved", champion: dict | None = None) -> d
             approval_status,
             "us-east-1",
         )
-        # Inside the patch: definition() resolves step arguments lazily, which
-        # reaches S3 for the source bundles.
+        # Keep this inside the patch. definition() resolves step arguments
+        # lazily, and that reaches S3 for the source bundles.
         definition: dict = json.loads(pipeline.definition())
     return definition
 
@@ -68,15 +67,16 @@ def test_steps_are_the_four_stage_drift_loop(definition):
 def test_pipeline_parameters_are_the_champion_contract(definition):
     parameters = {p["Name"]: p for p in definition["Parameters"]}
     assert set(parameters) == {"InputDataUri", "ChampionAuc", "ChampionModelPackageArn"}
-    # No approved package in the registry yet -> the documented 0.5 baseline,
-    # so the very first challenger has something to beat.
+    # The registry holds no approved package, so the default is the 0.5
+    # baseline. The first challenger still has a bar to clear.
     assert parameters["ChampionAuc"]["DefaultValue"] == 0.5
     assert parameters["ChampionModelPackageArn"]["DefaultValue"] == "none"
     assert parameters["InputDataUri"]["DefaultValue"] == "s3://curated-bucket/telco/"
 
 
 def test_gate_compares_challenger_auc_against_the_champion(definition):
-    """The promotion rule: register only when test AUC beats the champion."""
+    """The promotion rule. Register only when the test AUC beats the
+    champion."""
     gate = _step(definition, "BeatsChampion")
     condition = gate["Arguments"]["Conditions"][0]
 
@@ -106,10 +106,10 @@ def test_evaluate_receives_the_champion_to_compare_against(definition):
 
 
 def test_preprocess_and_train_are_cached_but_evaluate_is_not(definition):
-    """Caching skips re-running unchanged steps; evaluation must always run.
+    """Caching skips unchanged steps. Evaluation must always run.
 
     Evaluate compares against a champion that changes independently of this
-    pipeline's inputs, so a cache hit could report a stale verdict.
+    pipeline's inputs, so a cache hit can report a stale verdict.
     """
     for name in ("Preprocess", "Train"):
         assert _step(definition, name)["CacheConfig"]["Enabled"] is True
@@ -118,10 +118,10 @@ def test_preprocess_and_train_are_cached_but_evaluate_is_not(definition):
 
 def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition):
     """Phase 5B scoped the model execution role to one prefix of the artifacts
-    bucket, and `src/pipeline/` cannot import `infra` to share the constant --
-    it runs in the SageMaker image, where `infra` is not installed. Pin the two
-    together here, because a divergence surfaces as a broken container start on
-    the next deployment rather than as a synth or import error.
+    bucket. `src/pipeline/` cannot import `infra` to share the constant,
+    because it runs in the SageMaker image, where `infra` is not installed. A
+    divergence appears as a broken container start on the next deploy, not as a
+    synth error.
     """
     from infra.stacks.shared import MODEL_ARTIFACT_PREFIX
 
@@ -131,26 +131,25 @@ def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition
 
 def test_evaluation_reports_land_where_the_pipeline_role_is_allowed_to_write(definition):
     """Phase 5D scoped the pipeline role to a prefix list on the artifacts
-    bucket, so `evaluations/` is now load-bearing IAM rather than just tidy
-    layout. Pinned here for the same reason as the training prefix above: a
-    rename in `pipeline.py` alone would surface as an `AccessDenied` part-way
-    through a billable run, not as a synth error.
+    bucket, so `evaluations/` is IAM, not layout. A rename in `pipeline.py`
+    alone appears as an `AccessDenied` part-way through a billable run, not as
+    a synth error.
     """
     from infra.stacks.shared import EVALUATION_REPORT_PREFIX
 
     destination = _step(definition, "Evaluate")["Arguments"]["ProcessingOutputConfig"]["Outputs"][
         0
     ]["S3Output"]["S3Uri"]
-    # A `Join` over the bucket, the prefix, and two execution variables.
+    # This is a `Join` over the bucket, the prefix, and two execution
+    # variables.
     assert EVALUATION_REPORT_PREFIX in json.dumps(destination)
 
 
 def test_the_monitor_prefix_matches_what_setup_monitor_writes():
     """`scripts/setup_monitor.py` runs Model Monitor under the pipeline role.
 
-    Phase 5D granted `monitor/` on that documented operational path rather than
-    on CloudTrail evidence -- the drift loop has never run in this account -- so
-    nothing else would catch the two drifting apart.
+    Phase 5D granted `monitor/` on that documented path, not on CloudTrail
+    evidence, because the drift loop has never run in this account.
     """
     from infra.stacks.shared import MONITOR_OUTPUT_PREFIX
 
@@ -163,13 +162,13 @@ def test_training_hyperparameters_reach_the_estimator(definition):
     hyperparameters = _step(definition, "Train")["Arguments"]["HyperParameters"]
     assert hyperparameters["objective"] == "binary:logistic"
     assert hyperparameters["eval_metric"] == "auc"
-    # SageMaker stringifies every value; assert the serialized form.
+    # SageMaker stringifies every value. Assert the serialized form.
     assert hyperparameters["num_round"] == "200"
 
 
 @pytest.mark.parametrize("approval_status", ["Approved", "PendingManualApproval"])
 def test_approval_status_is_threaded_through_to_registration(approval_status):
-    """dev auto-approves; prod must wait for a human. This is that difference."""
+    """dev auto-approves. prod waits for a human."""
     definition = _build(approval_status=approval_status)
     register = _step(definition, "BeatsChampion")["Arguments"]["IfSteps"][0]
     assert register["Arguments"]["ModelApprovalStatus"] == approval_status

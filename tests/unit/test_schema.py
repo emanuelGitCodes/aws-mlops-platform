@@ -30,15 +30,15 @@ def test_blank_total_charges_coerced_to_zero():
         ("Partner", "Maybe"),
         ("tenure", -1),
         ("Churn", "Perhaps"),
-        # The ten columns that used to validate as bare `str`: each of these
-        # reached the encoder and raised KeyError instead of being rejected.
+        # The ten columns that once validated as bare `str`. Each one reached
+        # the encoder and raised KeyError instead of being rejected.
         ("Contract", "Three year"),
         ("PaymentMethod", "Crypto"),
         ("InternetService", "5G"),
         ("MultipleLines", "Sometimes"),
         ("OnlineSecurity", "Maybe"),
         ("StreamingTV", "Occasionally"),
-        # Column-specific "No" variants must not leak across columns.
+        # A column-specific "No" variant must not leak across columns.
         ("Partner", "No internet service"),
         ("PhoneService", "No phone service"),
     ],

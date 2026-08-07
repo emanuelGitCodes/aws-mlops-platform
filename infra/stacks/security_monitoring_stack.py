@@ -1,4 +1,4 @@
-"""Phase 3 threat detection and configuration monitoring, one flag-gated service at a time."""
+"""Threat detection and configuration monitoring, one flag-gated service at a time."""
 
 from typing import Any
 
@@ -24,22 +24,19 @@ PHASE_3_SERVICE_FLAGS = (
     "eventbridge_alerts",
 )
 
-# The subset of PHASE_3_SERVICE_FLAGS this stack actually builds resources for.
-# The rest are declared in config so the flag contract stays stable across
-# sub-phases, but have no CDK behind them yet. Enabling one of those must fail
-# loudly: a silent no-op deploy would look like a security service was turned
-# on when nothing was created. Add a flag here in the same change that
-# implements its sub-phase.
+# The flags this stack builds resources for. The other flags keep the config
+# contract stable, but have no CDK behind them. Enabling one of those must fail
+# loudly. A silent no-op deploy looks like an enabled security service. Add a
+# flag here in the change that implements it.
 IMPLEMENTED_SERVICE_FLAGS = frozenset(
     {"access_analyzer", "guardduty", "account_bpa", "config_recorder"}
 )
 
-# Phase 3C records configuration history for the resource classes the Phase 2C
-# detections already alarm on changes to, and nothing else. Config bills per
-# configuration item, so an all-types recorder would pay to version resources
-# no control here reads -- and would grow silently when EC2 arrives. Recording
-# is continuous: at $0.003 an item against ~100 resources the periodic rate
-# would cost more for less.
+# Config records history for the resource types the metric detections alarm
+# on, and no others. It bills per configuration item, so an all-types recorder
+# pays to version resources no control reads, and it grows when EC2 arrives.
+# Recording is continuous: at $0.003 an item against about 100 resources, the
+# periodic rate costs more for less.
 CONFIG_RECORDED_TYPES = (
     "AWS::CloudTrail::Trail",
     "AWS::IAM::Group",
@@ -54,9 +51,9 @@ CONFIG_RECORDED_TYPES = (
 )
 
 # Account-level Block Public Access is the backstop under every per-bucket
-# setting: it applies to buckets this repository does not create and survives a
-# bucket-level misconfiguration. All four settings move together; a partial
-# block would leave one public-exposure route open.
+# setting. It covers buckets this repository does not create, and it survives a
+# bucket-level mistake. All four settings move together. A partial block leaves
+# one route to public exposure open.
 ACCOUNT_BPA_CONFIGURATION = {
     "BlockPublicAcls": True,
     "IgnorePublicAcls": True,
@@ -75,7 +72,7 @@ GUARDDUTY_DISABLED_FEATURES = (
 
 
 class SecurityMonitoringStack(Stack):
-    """Phase 3 services; every flag stays false until its own sub-phase enables it."""
+    """Each service builds only when its own flag is true."""
 
     def __init__(
         self,
@@ -153,11 +150,10 @@ class SecurityMonitoringStack(Stack):
                 Tags.of(detector).add(key, value)
 
         if services["account_bpa"]:
-            # CloudFormation has no resource type for the account-level setting,
-            # so the S3 Control API is called directly and the account id stays a
-            # pseudo-parameter rather than a literal. The synthesized Custom::AWS
-            # resource is not taggable, so unlike the analyzer and the detector
-            # this one carries no tags.
+            # CloudFormation has no resource type for the account-level
+            # setting, so this calls the S3 Control API directly. The account id
+            # stays a pseudo-parameter, never a literal. The Custom::AWS
+            # resource is not taggable, so it carries no tags.
             bpa_resource_id = f"mlops-{self.env_name}-account-bpa"
             put_account_bpa = cr.AwsSdkCall(
                 service="S3Control",
@@ -173,11 +169,11 @@ class SecurityMonitoringStack(Stack):
                 "AccountPublicAccessBlock",
                 install_latest_aws_sdk=False,
                 on_create=put_account_bpa,
-                # Repeating the call on update stops a later change to the four
-                # settings from synthesizing without ever reaching the account.
+                # Repeat the call on update. Otherwise a later change to the
+                # four settings synthesizes but never reaches the account.
                 on_update=put_account_bpa,
-                # Deleting restores the recorded pre-state (no account-level
-                # configuration), so a failed phase rolls back to where it began.
+                # Delete restores the pre-state, which is no account-level
+                # configuration. A failed phase rolls back to where it began.
                 on_delete=cr.AwsSdkCall(
                     service="S3Control",
                     action="deletePublicAccessBlock",
@@ -186,10 +182,10 @@ class SecurityMonitoringStack(Stack):
                 policy=cr.AwsCustomResourcePolicy.from_statements(
                     [
                         iam.PolicyStatement(
-                            # Only the two actions the calls above make: the
-                            # account-level actions are not bucket-scoped and AWS
-                            # accepts only "*" as their resource, so an unused
-                            # third grant would be wildcard debt for nothing.
+                            # Only the two actions the calls above make. These
+                            # account-level actions are not bucket-scoped, and
+                            # AWS accepts only "*" as their resource. A third
+                            # grant would be unused wildcard debt.
                             actions=[
                                 "s3:PutAccountPublicAccessBlock",
                                 "s3:DeleteAccountPublicAccessBlock",
@@ -202,10 +198,9 @@ class SecurityMonitoringStack(Stack):
 
         if services["config_recorder"]:
             # Config authorizes itself through the service-linked role, not a
-            # role this stack writes: AWS owns its policy, so the recorder
-            # cannot be granted more than the service needs. The execution
-            # policy was pre-granted the scoped CreateServiceLinkedRole in
-            # Phase 3-prep for exactly this.
+            # role this stack writes. AWS owns that policy, so the recorder
+            # cannot receive more than the service needs. The CloudFormation
+            # execution policy grants the scoped CreateServiceLinkedRole.
             service_linked_role = iam.CfnServiceLinkedRole(
                 self,
                 "ConfigServiceLinkedRole",
@@ -218,10 +213,8 @@ class SecurityMonitoringStack(Stack):
                 role_arn=self.format_arn(
                     service="iam",
                     region="",
-                    # `aws-service-role`, not `aws-service-linked-role`: the
-                    # latter is not a real IAM path. Phase 3-prep pre-granted
-                    # the wrong one, which would have failed this deploy on
-                    # CreateServiceLinkedRole; v10 corrects both statements.
+                    # Use `aws-service-role`. `aws-service-linked-role` is not
+                    # a real IAM path, and CreateServiceLinkedRole fails on it.
                     resource="role/aws-service-role/config.amazonaws.com",
                     resource_name="AWSServiceRoleForConfig",
                     arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -234,16 +227,13 @@ class SecurityMonitoringStack(Stack):
             )
             recorder.add_dependency(service_linked_role)
 
-            # Deliberately NOT ordered against the recorder. The two are
-            # mutually dependent at the API: PutDeliveryChannel fails with
-            # NoAvailableConfigurationRecorderException until a recorder
-            # exists, and the recorder's own creation calls
-            # StartConfigurationRecorder, which fails with
-            # NoAvailableDeliveryChannelException until a channel exists.
-            # Ordering either way deadlocks -- both were tried, and because
-            # CloudFormation retries these two errors instead of failing, each
-            # attempt hung until it was cancelled rather than rolling back on
-            # its own. Left concurrent, the retries converge.
+            # Do not order this against the recorder. The two depend on each
+            # other at the API. PutDeliveryChannel fails until a recorder
+            # exists. The recorder calls StartConfigurationRecorder, which
+            # fails until a channel exists. Either order deadlocks, and
+            # CloudFormation retries both errors rather than failing, so the
+            # deploy hangs until it is cancelled. Left concurrent, the retries
+            # converge.
             config_.CfnDeliveryChannel(
                 self,
                 "ConfigDeliveryChannel",

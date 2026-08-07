@@ -1,8 +1,8 @@
 """Repository security gate and explicit acknowledgements of existing debt.
 
-Every acknowledgement is bound to one construct and names the phase that removes
-or re-evaluates it. New resources and new findings therefore fail synthesis
-instead of inheriting a stack-wide suppression.
+Each acknowledgement binds to one construct and names the phase that removes or
+re-evaluates it. A new resource or a new finding therefore fails synthesis. It
+cannot inherit a stack-wide suppression.
 """
 
 from dataclasses import dataclass, replace
@@ -13,20 +13,20 @@ from constructs import IConstruct
 
 from infra.stacks.shared import PlatformConfig
 
-# Acknowledgement strings that name a deployment stage, the audit log group, a
-# cross-stack export, or the model package group embed the environment, so they
-# cannot be written as dev literals shared by every environment. Write these
-# tokens instead; they are resolved per environment by
-# `resolved_acknowledgements`. Plain `str.replace` rather than `str.format`, so
-# a brace in a future reason string is inert.
+# Some acknowledgement strings embed the environment: a deployment stage, the
+# audit log group, a cross-stack export, or the model package group. They
+# cannot be dev literals shared by every environment. Write these tokens
+# instead. `resolved_acknowledgements` fills them in per environment. It uses
+# `str.replace`, not `str.format`, so a brace in a future reason string stays
+# inert.
 ENV_TOKEN = "{env}"
 PREFIX_TOKEN = "{prefix}"
 GROUP_TOKEN = "{group}"
 PIPELINE_TOKEN = "{pipeline}"
 
-# Enablement flag for the account-wide budget. It lives beside the Phase 3
-# service flags rather than inside them: `security.services` is validated as
-# exactly the six Phase 3 flags, and this is a Phase 2 resource.
+# Enablement flag for the account-wide budget. It sits beside the service
+# flags, not inside them. `security.services` is validated as exactly six
+# flags, and the budget is not one of the services.
 ACCOUNT_BUDGET_FLAG = "account_budget"
 
 
@@ -36,11 +36,10 @@ class Acknowledgement:
     construct_path: str
     finding_id: str
     reason: str
-    # Flag-gated constructs exist only where their flag is enabled -- the Phase 3
-    # sub-phases, and the account-scoped budget that only one environment owns.
-    # Naming the flag here skips the acknowledgement everywhere else; leaving it
-    # None keeps the strict behavior, where a path that matches no construct
-    # fails synthesis and catches a stale acknowledgement.
+    # A flag-gated construct exists only where its flag is enabled. Naming the
+    # flag here skips the acknowledgement everywhere else. Leaving it None keeps
+    # the strict behaviour: a path that matches no construct fails synthesis,
+    # which catches a stale acknowledgement.
     requires_flag: str | None = None
 
 
@@ -48,10 +47,8 @@ LAMBDA_BASIC_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AWSLambdaBasicExecutionRole]"
 )
-# `AmazonSageMakerFullAccess` had a constant here until Phase 5D took the last
-# role off it. Nothing acknowledges it now, and
-# `test_broad_sagemaker_managed_policy_baseline_has_not_grown` is what keeps it
-# from coming back.
+# No role carries `AmazonSageMakerFullAccess`, so nothing acknowledges it.
+# `test_broad_sagemaker_managed_policy_baseline_has_not_grown` keeps it out.
 APIGW_LOG_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AmazonAPIGatewayPushToCloudWatchLogs]"
@@ -104,7 +101,6 @@ ACKNOWLEDGEMENTS = (
         "Phase 2 budget API provider; replace managed log policy during Phase 5 IAM work.",
         requires_flag=ACCOUNT_BUDGET_FLAG,
     ),
-    # Ingestion: existing Lambda/queue findings remain visible until their named phase.
     Acknowledgement(
         "ingestion",
         "ValidateFn/ServiceRole",
@@ -153,11 +149,10 @@ ACKNOWLEDGEMENTS = (
         "AwsSolutions::AwsSolutions-L1",
         "Python 3.12 matches the packaged native runtime; review runtime in Phase 7.",
     ),
-    # Training role: Phase 5D removed `AmazonSageMakerFullAccess` and the five
-    # CDK S3 grant wildcards. What survives is the object wildcard under each
-    # named prefix, plus the two generated job-name wildcards -- SageMaker names
-    # every pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, so no
-    # policy can enumerate them ahead of the run.
+    # Training role. Two wildcard classes remain: the object wildcard under
+    # each named prefix, and the two generated job names. SageMaker names every
+    # pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, which no policy
+    # can enumerate before the run.
     *(
         Acknowledgement(
             "training",
@@ -214,10 +209,8 @@ ACKNOWLEDGEMENTS = (
             "is confined to this platform's own model package group."
         ),
     ),
-    # Serving IAM debt and current API controls are removed in Phases 5-8.
-    # Phase 5B removed the model role's `AmazonSageMakerFullAccess` and the five
-    # CDK S3 grant wildcards; what remains is the object wildcard under one
-    # prefix, which no policy can express without one.
+    # Serving. Only the object wildcard under one prefix remains, and no
+    # policy can address those keys without it.
     Acknowledgement(
         "serving",
         "ModelExecutionRole/DefaultPolicy",
@@ -242,11 +235,10 @@ ACKNOWLEDGEMENTS = (
             "under one SageMaker-owned group, which is what PutLogEvents requires."
         ),
     ),
-    # Phase 5C removed the deploy role's managed log policy and the six-action
-    # `Resource: "*"` SageMaker statement recorded in Phase 0. What remains is
-    # three ARNs whose trailing wildcard is inherent: `deploy_handler` suffixes
-    # every model and endpoint-config name with the epoch second, and the model
-    # package is addressed by version under one group.
+    # Deploy role. Three ARNs remain, and each trailing wildcard is
+    # unavoidable. `deploy_handler` suffixes every model and endpoint-config
+    # name with the epoch second, and the model package is addressed by version
+    # under one group.
     *(
         Acknowledgement(
             "serving",
@@ -327,7 +319,6 @@ ACKNOWLEDGEMENTS = (
             "AwsSolutions::AwsSolutions-COG4",
         )
     ),
-    # Monitoring Lambda findings remain until IAM and logging phases.
     Acknowledgement(
         "monitoring",
         "RetrainTriggerFn/ServiceRole",
@@ -353,13 +344,12 @@ def _resolve(text: str, config: PlatformConfig, prefix: str) -> str:
 
 
 def resolved_acknowledgements(config: PlatformConfig, prefix: str) -> tuple[Acknowledgement, ...]:
-    """`ACKNOWLEDGEMENTS` with the environment tokens filled in.
+    """Return `ACKNOWLEDGEMENTS` with the environment tokens filled in.
 
-    The single place tokens are resolved, shared by `apply_security_checks` and
-    the tests, so the two can never disagree about what a path resolves to.
-    Takes the whole config rather than the individual values it substitutes:
-    Phase 5C needed the model package group as well as the environment name, and
-    every token after it comes from the same place instead of a longer signature.
+    This is the only place that resolves tokens. `apply_security_checks` and
+    the tests share it, so the two cannot disagree about what a path resolves
+    to. It takes the whole config instead of the individual values, because
+    each new token would otherwise lengthen the signature.
     """
     return tuple(
         replace(
@@ -372,15 +362,15 @@ def resolved_acknowledgements(config: PlatformConfig, prefix: str) -> tuple[Ackn
 
 
 def acknowledgement_metadata_key(finding_id: str) -> str:
-    """The metadata key CDK ends up recording for `finding_id`.
+    """Return the metadata key CDK records for `finding_id`.
 
     The two registration paths namespace their keys differently, and the
-    difference is silent: a wrong key records fine and simply never matches a
-    finding. Derived in one place, shared by `apply_security_checks` and the
-    tests, so neither can drift from what is actually registered.
+    difference is silent. A wrong key records without error and then never
+    matches a finding. This function derives the key once.
+    `apply_security_checks` and the tests share it.
     """
     bare_id = finding_id.removeprefix("AwsSolutions::")
-    # Granular ids are keyed un-namespaced; plain rule ids keep the namespace.
+    # Granular ids are keyed without the namespace. Plain rule ids keep it.
     return f"annotation::{bare_id}" if "::" in bare_id else finding_id
 
 
@@ -397,14 +387,14 @@ def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
 def apply_security_checks(
     app: cdk.App, stacks: dict[str, cdk.Stack], config: PlatformConfig, prefix: str
 ) -> None:
-    """Register exact existing acknowledgements, then fail on any new finding."""
-    # Collected by name, because a TypedDict cannot be indexed by a flag name
-    # that is only known at runtime.
+    """Register the existing acknowledgements, then fail on any new finding."""
+    # Collect the names, because a TypedDict cannot be indexed by a flag name
+    # known only at runtime.
     enabled = {name for name, on in config["security"]["services"].items() if on}
-    # Indexed by literal because mypy requires one for a TypedDict; the constant
-    # names the same key, and a mismatch fails synthesis loudly rather than
-    # silently -- the acknowledgement would be skipped while its construct still
-    # exists, leaving an unacknowledged cdk-nag finding.
+    # Index by literal, because mypy requires one for a TypedDict. The constant
+    # names the same key. A mismatch fails synthesis loudly. Otherwise the
+    # acknowledgement would be skipped while its construct still exists, and
+    # that leaves an unacknowledged cdk-nag finding.
     if config["security"]["account_budget"]:
         enabled.add(ACCOUNT_BUDGET_FLAG)
     for acknowledgement in resolved_acknowledgements(config, prefix):
@@ -412,27 +402,26 @@ def apply_security_checks(
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)
         target = construct.node.default_child or construct
-        # A granular id carries its own `Action::`/`Resource::`/`Policy::`
-        # delimiter; a plain rule id carries only the leading namespace. The two
+        # A granular id carries its own `Action::`, `Resource::`, or `Policy::`
+        # delimiter. A plain rule id carries only the leading namespace. The two
         # take different registration paths and disagree about the namespace, so
-        # the distinction is drawn once, here.
+        # this line draws the distinction once.
         bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
         if "::" in bare_id:
-            # cdk-nag's granular ids embed ARNs, which `acknowledge()` rejects
-            # outright, so write the metadata it would have written. The key
-            # takes the *un-namespaced* id: a namespaced key stops matching
-            # silently, which is the same lapse the plain path suffered below.
+            # A granular cdk-nag id embeds an ARN, and `acknowledge()` rejects
+            # those, so write the metadata it would have written. The key takes
+            # the id without the namespace. A namespaced key stops matching,
+            # and it does so without any error.
             target.node.add_metadata(
                 cdk.Validations.ACKNOWLEDGED_RULES_METADATA_KEY,
                 {acknowledgement_metadata_key(acknowledgement.finding_id): acknowledgement.reason},
             )
         else:
-            # Acknowledge under the id exactly as written -- namespace included.
-            # Stripping it used to work: 2.261 matched a bare `AwsSolutions-S1`,
-            # so the prefix looked redundant. 2.262 matches only the namespaced
-            # form and silently stops suppressing, which lapses every plain
-            # acknowledgement at once and reopens 13 findings. The namespaced
-            # form is accepted by both versions; the bare form is not.
+            # Acknowledge under the id as written, with the namespace.
+            # aws-cdk-lib 2.261 also matches the bare form. 2.262 matches only
+            # the namespaced form, and it stops suppressing without warning.
+            # A bare id there lapses every plain acknowledgement and reopens 13
+            # findings.
             cdk.Validations.of(target).acknowledge(
                 cdk.Acknowledgment(
                     id=acknowledgement.finding_id,

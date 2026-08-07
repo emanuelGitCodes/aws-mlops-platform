@@ -23,30 +23,30 @@ from infra.stacks.training_stack import TrainingStack
 
 
 def load_config(env_name: str) -> PlatformConfig:
-    """Load one environment's YAML config (the single config loader).
+    """Load one environment's YAML config. This is the only config loader.
 
-    ``yaml.safe_load`` returns ``Any``; this is the single boundary where
-    that is narrowed to ``PlatformConfig``, so every downstream stack gets
-    real key and value checking.
+    ``yaml.safe_load`` returns ``Any``. This is the one boundary that narrows
+    it to ``PlatformConfig``, so every downstream stack gets real key and value
+    checking.
     """
     path = pathlib.Path(__file__).parent / "config" / f"{env_name}.yaml"
     return cast(PlatformConfig, yaml.safe_load(path.read_text()))
 
 
 def stack_prefix(env_name: str) -> str:
-    """Stack-name prefix for one environment.
+    """Return the stack-name prefix for one environment.
 
-    Single source of the formula, shared by the deploy entrypoint and the
-    tests, so a test can never assert against a prefix the app never builds.
+    This is the only copy of the formula. The deploy entrypoint and the tests
+    share it, so a test cannot assert against a prefix the app never builds.
     """
     return f"Mlops-{env_name.capitalize()}"
 
 
 def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cdk.Stack]:
-    """Instantiate and wire every stack, then apply the security checks.
+    """Build and wire every stack, then apply the security checks.
 
-    Single source of the stack dependency graph, shared by the deploy
-    entrypoint and the CDK assertion tests.
+    This is the only copy of the stack dependency graph. The deploy entrypoint
+    and the CDK assertion tests share it.
     """
     security = SecurityStack(app, f"{prefix}-Security", config=config)
     security_monitoring = SecurityMonitoringStack(

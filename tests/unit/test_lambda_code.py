@@ -1,11 +1,10 @@
 """The shared Lambda asset must be fingerprinted on `src/` and nothing else.
 
-`Code.from_asset` hashes its source directory, and the source directory here is
-the repository root -- bundling needs `src/` to be reachable from it. So every
-file the exclude list fails to filter out joins the Lambda code hash, even
-though bundling only ever copies `src/`. Under the previous denylist a README
-or Makefile edit changed the hash and redeployed all four functions, and each
-new top-level file silently joined the fingerprint.
+`Code.from_asset` hashes its source directory. Here that directory is the
+repository root, because bundling must reach `src/` from it. Every file the
+exclude list fails to filter joins the Lambda code hash, even though bundling
+copies only `src/`. Under a denylist, a README edit changes the hash and
+redeploys all four functions.
 """
 
 import contextlib
@@ -65,26 +64,26 @@ def test_a_new_repository_root_file_does_not_change_the_lambda_asset(baseline):
 
 
 def test_a_change_under_src_does_change_the_lambda_asset(baseline):
-    """The other half of the contract: real code changes must still ship."""
+    """The other half of the contract. A real code change must still ship."""
     with _temporary_file(REPO_ROOT / "src" / PROBE_NAME):
         assert _serving_asset_key() != baseline
 
 
 def test_the_probe_files_are_cleaned_up():
-    """A leaked probe would silently poison every later asset comparison."""
+    """A leaked probe poisons every later asset comparison."""
     assert not (REPO_ROOT / PROBE_NAME).exists()
     assert not (REPO_ROOT / "src" / PROBE_NAME).exists()
 
 
-# `try_bundle` builds every Lambda package on the host, and returning False is
-# how it hands off to the Docker image. Neither branch was tested: a broken
-# local path would fall back silently and slowly, and a local path that stopped
-# cross-installing would ship the host's wheels -- which is how a pydantic_core
-# import failure reached the runtime once already.
+# `try_bundle` builds every Lambda package on the host. It returns False to
+# hand off to the Docker image. A broken local path falls back silently and
+# slowly. A local path that stops cross-installing ships the host's wheels,
+# which fails at runtime on the pydantic_core import.
 
 
 def _bundle(output_dir: pathlib.Path, pip_result=None):
-    """Run try_bundle with pip stubbed; returns (result, run mock, copytree mock)."""
+    """Run try_bundle with pip stubbed. Return the result, the run mock, and
+    the copytree mock."""
     with (
         mock.patch("subprocess.run", side_effect=pip_result) as run,
         mock.patch("shutil.copytree") as copytree,
@@ -104,13 +103,13 @@ def test_local_bundling_cross_installs_for_the_lambda_runtime(tmp_path):
         assert flag in command, flag
     assert command[-2:] == ["-t", str(tmp_path)]
     assert any(dep.startswith("pydantic") for dep in command)
-    # check=True is what turns a failed install into the Docker fallback below.
+    # check=True turns a failed install into the Docker fallback below.
     assert run.call_args.kwargs["check"] is True
     assert copytree.call_args.args[0] == REPO_ROOT / "src"
 
 
 def test_local_bundling_does_not_copy_pycache_into_the_package(tmp_path):
-    """Compiled bytecode from the host has no business in the deployed asset."""
+    """Compiled bytecode from the host must not enter the deployed asset."""
     _, _, copytree = _bundle(tmp_path)
 
     ignore = copytree.call_args.kwargs["ignore"]
@@ -118,23 +117,22 @@ def test_local_bundling_does_not_copy_pycache_into_the_package(tmp_path):
 
 
 def test_a_failed_local_install_falls_back_to_docker(tmp_path):
-    """Returning False is the handoff; raising would abort the synth instead."""
+    """Returning False is the handoff. Raising would abort the synth."""
     error = subprocess.CalledProcessError(1, "pip")
     result, _, copytree = _bundle(tmp_path, pip_result=error)
 
     assert result is False
-    # No half-populated output directory is left for CDK to zip.
+    # No half-populated output directory remains for CDK to zip.
     copytree.assert_not_called()
 
 
 def test_compiled_bytecode_does_not_change_the_lambda_asset(baseline):
     """A `.pyc` under src/ must not move the hash.
 
-    Re-including `src/**` pulled `__pycache__` into the fingerprint, and a
-    `.pyc` header embeds its source file's mtime -- so a test run or a
-    `git stash` changed the Lambda code hash with no source change, updating
-    all four functions on the next deploy. Bundling never copied these files,
-    which is what made it invisible.
+    Re-including `src/**` pulls `__pycache__` into the fingerprint. A `.pyc`
+    header embeds the source file mtime, so a test run moves the Lambda code
+    hash with no source change, and the next deploy updates all four functions.
+    Bundling never copies these files, so the fault is invisible.
     """
     probe = REPO_ROOT / "src" / "common" / "__pycache__" / f"{PROBE_NAME}.cpython-312.pyc"
     probe.parent.mkdir(parents=True, exist_ok=True)

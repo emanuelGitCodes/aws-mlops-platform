@@ -1,28 +1,24 @@
 """Dependency-free feature contract shared by training and serving.
 
-Keep the ordered model columns separate from the Pydantic validation model so
-SageMaker preprocessing can import the training contract in the stock sklearn
-image, which does not include Pydantic.
+Keep the ordered model columns separate from the Pydantic model, so SageMaker
+preprocessing can import the training contract in the stock sklearn image. That
+image does not include Pydantic.
 
-This module owns the *whole* raw-value contract: which columns exist, which
-values each one accepts, and how those values become numbers. Validation and
-encoding used to live apart -- the schema in ``schema.py``, the maps in
-``pipeline/preprocess.py`` -- and drifted: the schema typed ten categorical
-columns as bare ``str``, so a plausible-looking value such as
-``Contract="Three year"`` validated cleanly and then raised ``KeyError`` in
-the encoder. Keeping both here means the accepted vocabulary and the
-encodable vocabulary cannot disagree; ``tests/unit/test_features.py`` asserts
-they still don't.
+This module owns the whole raw-value contract: which columns exist, which
+values each one accepts, and how those values become numbers. Keep validation
+and encoding together here. Apart, they drift, and a value the schema accepts
+raises ``KeyError`` in the encoder. ``tests/unit/test_features.py`` asserts
+that the accepted vocabulary and the encodable vocabulary stay equal.
 """
 
-# This module is imported by the SageMaker ProcessingStep entrypoints, whose
-# managed image runs an older Python than the 3.12 the rest of the repo
-# targets. Deferring annotation evaluation keeps modern syntax safe here.
+# The SageMaker ProcessingStep entrypoints import this module. Their managed
+# image runs an older Python than 3.12. Deferred annotations keep modern syntax
+# safe here.
 from __future__ import annotations
 
 from typing import Any
 
-# Order matters: this is the feature order used for both training and inference.
+# The order matters. Training and inference both use this feature order.
 FEATURE_COLUMNS = [
     "gender",
     "SeniorCitizen",
@@ -46,14 +42,13 @@ FEATURE_COLUMNS = [
 ]
 LABEL_COLUMN = "Churn"
 
-# Decision rule shared by serving and evaluation: churn iff score >= threshold.
+# Decision rule shared by serving and evaluation: a score at or above this
+# threshold means churn.
 DEFAULT_THRESHOLD = 0.5
 
 # Promotion gate, shared by the pipeline definition and the evaluation step.
-# With no approved package in the registry a challenger is compared against
-# this baseline, so the first model still has a bar to clear. Both values were
-# repeated as bare literals in pipeline.py and evaluate.py, which had to agree
-# for the gate and the report to tell the same story.
+# When the registry holds no approved package, the challenger is compared
+# against this baseline, so the first model still has a bar to clear.
 NO_CHAMPION_ARN = "none"
 BASELINE_CHAMPION_AUC = 0.5
 
@@ -61,7 +56,8 @@ YES_NO = frozenset({"Yes", "No"})
 NO_PHONE_SERVICE = "No phone service"
 NO_INTERNET_SERVICE = "No internet service"
 
-# Fixed ordinal maps: deterministic, no fitted state to ship to the Lambda.
+# Fixed ordinal maps. They are deterministic, so no fitted state ships to the
+# Lambda.
 YES_NO_MAP = {"No": 0, "Yes": 1, NO_PHONE_SERVICE: 2, NO_INTERNET_SERVICE: 2}
 CATEGORY_MAPS = {
     "gender": {"Female": 0, "Male": 1},
@@ -76,11 +72,11 @@ CATEGORY_MAPS = {
 }
 NUMERIC = {"SeniorCitizen", "tenure", "MonthlyCharges", "TotalCharges"}
 
-# Columns whose "No" variant the source data spells out. These are the reason
-# the vocabulary is per-column rather than one shared Yes/No set: only
-# MultipleLines may say "No phone service", and only the six add-on services
-# may say "No internet service". A single shared set would quietly start
-# accepting `Partner="No internet service"`.
+# Columns whose "No" variant the source data spells out. These columns are why
+# the vocabulary is per-column and not one shared Yes/No set. Only
+# MultipleLines may say "No phone service". Only these six add-on services may
+# say "No internet service". One shared set would accept
+# `Partner="No internet service"`.
 _INTERNET_ADDON_COLUMNS = (
     "OnlineSecurity",
     "OnlineBackup",
@@ -90,8 +86,8 @@ _INTERNET_ADDON_COLUMNS = (
     "StreamingMovies",
 )
 
-# The raw values each categorical column accepts. Numeric columns are absent:
-# their contract is the range check on the Pydantic model, not a value set.
+# The raw values each categorical column accepts. Numeric columns are absent.
+# Their contract is the range check on the Pydantic model, not a value set.
 FEATURE_VOCABULARY: dict[str, frozenset[str]] = {
     **{column: YES_NO for column in ("Partner", "Dependents", "PhoneService", "PaperlessBilling")},
     "MultipleLines": YES_NO | {NO_PHONE_SERVICE},
@@ -101,10 +97,10 @@ FEATURE_VOCABULARY: dict[str, frozenset[str]] = {
 
 
 def encode_features(row: dict[str, Any]) -> list[float]:
-    """Encode one record (dict of raw feature values) into the numeric vector.
+    """Encode one record of raw feature values into the numeric vector.
 
-    Dependency-free (no pandas) so the serving proxy Lambda can reuse the exact
-    same encoding at inference time that training used.
+    This function needs no pandas, so the serving proxy Lambda applies the same
+    encoding at inference time that training used.
     """
     out = []
     for col in FEATURE_COLUMNS:
@@ -114,8 +110,8 @@ def encode_features(row: dict[str, Any]) -> list[float]:
             continue
         table = CATEGORY_MAPS[col] if col in CATEGORY_MAPS else YES_NO_MAP
         if v not in table:
-            # Reachable only if a caller skipped CustomerRecord validation:
-            # name the column, rather than surfacing a bare KeyError.
+            # This is reachable only if a caller skipped CustomerRecord
+            # validation. Name the column instead of raising a bare KeyError.
             raise ValueError(f"{col}: value not in the feature vocabulary: {v!r}")
         out.append(float(table[v]))
     return out

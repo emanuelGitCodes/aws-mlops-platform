@@ -50,8 +50,8 @@ def test_environments_never_share_a_model_package_group():
     group_names = {env: _registry_group_name(stacks) for env, stacks in environments.items()}
     assert len(set(group_names.values())) == len(group_names), group_names
 
-    # The approval rules key off the group name, so distinct names must also
-    # leave no two environments listening to the same event.
+    # The approval rules key off the group name. Distinct names must leave no
+    # two environments listening to the same event.
     patterns = [
         json.dumps(pattern, sort_keys=True)
         for stacks in environments.values()

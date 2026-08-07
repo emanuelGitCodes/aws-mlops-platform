@@ -1,8 +1,10 @@
-"""Deploy Lambda: Model Registry approval event -> update the serverless endpoint.
+"""Deploy Lambda: a Model Registry approval event updates the serverless
+endpoint.
 
-Triggered by EventBridge on "SageMaker Model Package State Change" when a
-package in our group flips to Approved. Creates a Model + EndpointConfig for
-the new package and points the endpoint at it (create if first deploy).
+EventBridge triggers it on "SageMaker Model Package State Change" when a
+package in this group becomes Approved. The handler creates a Model and an
+EndpointConfig for the new package, then points the endpoint at it. On the
+first deploy it creates the endpoint instead.
 """
 
 import os
@@ -25,12 +27,12 @@ _NOT_FOUND_CODES = {"ValidationException", "ResourceNotFound"}
 
 
 def _is_endpoint_not_found(error: Exception) -> bool:
-    """True only for "this endpoint does not exist yet".
+    """Return True only for "this endpoint does not exist yet".
 
-    SageMaker reports a missing endpoint as a ValidationException rather than a
-    modelled not-found error, so the message has to be read too. If AWS ever
-    rewords it we re-raise instead of guessing -- a loud failure on a first
-    deploy is safer than silently taking the create branch for another reason.
+    SageMaker reports a missing endpoint as a ValidationException, not as a
+    modelled not-found error, so this function must read the message too. If
+    AWS rewords the message, the caller re-raises. A loud failure on a first
+    deploy is safer than a create for the wrong reason.
     """
     details = (getattr(error, "response", None) or {}).get("Error", {})
     return (
@@ -54,9 +56,9 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         ExecutionRoleArn=EXECUTION_ROLE_ARN,
         Containers=[{"ModelPackageName": package_arn}],
     )
-    # SageMaker Serverless Inference does not support DataCaptureConfig. Keeping
-    # this endpoint serverless avoids idle hosting cost; Model Monitor capture
-    # must therefore be configured through a separate serving design later.
+    # SageMaker Serverless Inference does not support DataCaptureConfig. A
+    # serverless endpoint has no idle hosting cost, so it stays serverless.
+    # Model Monitor capture needs a different serving design later.
     sm.create_endpoint_config(
         EndpointConfigName=config_name,
         ProductionVariants=[
@@ -71,10 +73,10 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         ],
     )
 
-    # Only "the endpoint does not exist yet" may fall through to create. Catching
-    # every ClientError turned an AccessDenied or a throttle into a spurious
-    # create_endpoint, which then failed with an error describing the wrong
-    # problem. `update_endpoint` stays outside the try for the same reason.
+    # Only a missing endpoint may fall through to create. Catching every
+    # ClientError turned an AccessDenied or a throttle into a create_endpoint,
+    # which then failed with an error describing the wrong problem. Keep
+    # `update_endpoint` outside the try for the same reason.
     try:
         sm.describe_endpoint(EndpointName=ENDPOINT_NAME)
     except sm.exceptions.ClientError as error:

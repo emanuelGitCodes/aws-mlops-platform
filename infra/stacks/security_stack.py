@@ -1,4 +1,4 @@
-"""Phase 2 audit foundation, CIS metric detections, and alert delivery."""
+"""Audit foundation, CIS metric detections, and alert delivery."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -34,10 +34,8 @@ class SecurityDetection:
     metric_name: str
     alarm_slug: str
     filter_pattern: str
-    # Defaults match the original Phase 2C contract: one five-minute
-    # datapoint at >= 1 pages immediately. None renders no
-    # DatapointsToAlarm property, keeping the other alarms
-    # byte-identical in the template.
+    # One five-minute datapoint at 1 or more pages immediately. None renders
+    # no DatapointsToAlarm property at all.
     evaluation_periods: int = 1
     datapoints_to_alarm: int | None = None
 
@@ -53,9 +51,8 @@ SECURITY_DETECTIONS = (
         "UnauthorizedApiCalls",
         "unauthorized-api-calls",
         '{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}',
-        # Phase 2E (issue 10): an isolated least-privilege denial must not
-        # page; a burst sustained across three consecutive five-minute
-        # datapoints still does. Threshold and filter are unchanged.
+        # An isolated least-privilege denial must not page. A burst across
+        # three consecutive five-minute datapoints still does.
         evaluation_periods=3,
         datapoints_to_alarm=3,
     ),
@@ -100,9 +97,8 @@ SECURITY_DETECTIONS = (
 def _default_cfn_resource(construct: IConstruct) -> CfnResource:
     """Narrow a construct's L1 child for ``CfnResource.add_dependency``.
 
-    ``node.default_child`` is typed ``IConstruct | None``, so passing it
-    straight to ``add_dependency`` would fail at synth time rather than
-    here if a construct ever stops exposing an L1 child.
+    ``node.default_child`` is typed ``IConstruct | None``. Passing it straight
+    to ``add_dependency`` would fail at synth time instead of here.
     """
     resource = construct.node.default_child
     if not isinstance(resource, CfnResource):
@@ -320,11 +316,10 @@ class SecurityStack(Stack):
         ):
             audit_bucket.add_to_resource_policy(statement)
 
-        # Phase 3C delivers Config snapshots into this bucket, so the grants
-        # live here with the bucket and key rather than in SecurityMonitoring:
-        # that stack already consumes both, and writing back to them from there
-        # would close a dependency cycle. Gated on the same flag, so a disabled
-        # sub-phase adds no principal.
+        # Config delivers snapshots into this bucket, so the grants live here
+        # with the bucket and the key. SecurityMonitoring already consumes
+        # both, and granting from there would close a dependency cycle. The
+        # recorder flag gates them, so a disabled service adds no principal.
         if config["security"]["services"]["config_recorder"]:
             for statement in (
                 iam.PolicyStatement(
@@ -352,8 +347,8 @@ class SecurityStack(Stack):
             ):
                 audit_bucket.add_to_resource_policy(statement)
 
-            # The bucket is KMS-encrypted, so delivery fails with AccessDenied
-            # on the key rather than on the bucket without this.
+            # The bucket is KMS-encrypted. Without this grant, delivery fails
+            # with AccessDenied on the key, not on the bucket.
             audit_key.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AllowConfigSnapshotEncryption",

@@ -1,9 +1,10 @@
-"""SageMaker Pipeline definition: preprocess -> train -> evaluate -> gate -> register.
+"""SageMaker Pipeline definition. The steps run in this order: preprocess,
+train, evaluate, gate, register.
 
-The champion AUC is resolved from the Model Registry when an execution starts
-(via the `ChampionAuc` pipeline parameter default, refreshed by `get_champion`
-each time the pipeline is upserted/started by the EventBridge->Pipeline trigger
-or CI). A challenger is only registered if its test AUC beats the champion.
+`get_champion` reads the champion AUC from the Model Registry and sets it as
+the `ChampionAuc` parameter default. It refreshes each time CI or the retrain
+trigger upserts the pipeline. A challenger registers only when its test AUC
+beats the champion.
 """
 
 import argparse
@@ -29,17 +30,17 @@ from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
 
 from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
 
-# Sizing and tuning knobs, named so they are findable rather than buried four
-# call sites deep. Deliberately three constants and not one: processing,
-# training, and the instance types the registered model advertises for
-# inference are independent choices that currently share a value.
+# Sizing knobs, named here rather than buried at the call sites. Keep three
+# constants, not one. Processing, training, and the inference instance types
+# the registered model advertises are independent choices that share a value
+# today.
 PROCESSING_INSTANCE_TYPE = "ml.m5.large"
 TRAINING_INSTANCE_TYPE = "ml.m5.large"
 INFERENCE_INSTANCE_TYPES = ["ml.m5.large"]
 
-# Strings because SageMaker stringifies every hyperparameter value anyway. The
-# annotation is explicit because dict is invariant: a bare dict[str, str] does
-# not satisfy the SDK's dict[str, str | PipelineVariable].
+# These are strings, because SageMaker stringifies every hyperparameter value.
+# The annotation is explicit, because dict is invariant. A bare dict[str, str]
+# does not satisfy the SDK's dict[str, str | PipelineVariable].
 TRAINING_HYPERPARAMETERS: dict[str, str | PipelineVariable] = {
     "objective": "binary:logistic",
     "eval_metric": "auc",
@@ -51,7 +52,8 @@ TRAINING_HYPERPARAMETERS: dict[str, str | PipelineVariable] = {
 
 
 def get_champion(model_package_group: str, region: str) -> tuple[str, float]:
-    """Latest approved package ARN and its AUC; use a 0.5 baseline if absent."""
+    """Return the latest approved package ARN and its AUC. If the group holds
+    no approved package, return the 0.5 baseline."""
     sm = boto3.client("sagemaker", region_name=region)
     packages = sm.list_model_packages(
         ModelPackageGroupName=model_package_group,
@@ -88,8 +90,8 @@ def build_pipeline(
     )
 
     # SKLearnProcessor uploads only the entrypoint script. Preprocessing also
-    # needs the shared ``src.common.features`` contract, so use
-    # FrameworkProcessor to bundle ``src`` beside the entrypoint.
+    # needs the shared ``src.common.features`` contract, so FrameworkProcessor
+    # bundles ``src`` beside the entrypoint.
     preprocess_processor = FrameworkProcessor(
         estimator_cls=SKLearn,
         framework_version="1.2-1",
@@ -111,8 +113,8 @@ def build_pipeline(
     preprocess = ProcessingStep(
         name="Preprocess",
         step_args=preprocess_args,
-        # Cache configuration belongs to the pipeline step rather than the
-        # ProcessingJob request returned by FrameworkProcessor.run().
+        # Cache configuration belongs to the pipeline step, not to the
+        # ProcessingJob request that FrameworkProcessor.run() returns.
         cache_config=cache,
     )
 
@@ -145,9 +147,9 @@ def build_pipeline(
     evaluation_report = PropertyFile(
         name="EvaluationReport", output_name="evaluation", path="evaluation.json"
     )
-    # The sklearn Processing image does not ship XGBoost. Give only the
-    # evaluation step a small source bundle with its pinned runtime dependency;
-    # preprocessing remains dependency-free and does not pay this install cost.
+    # The sklearn Processing image does not include XGBoost. Only the
+    # evaluation step gets a source bundle with that pinned dependency.
+    # Preprocessing stays dependency-free and pays no install cost.
     evaluate_processor = FrameworkProcessor(
         estimator_cls=SKLearn,
         framework_version="1.2-1",
@@ -243,7 +245,7 @@ def build_pipeline(
         name="BeatsChampion",
         conditions=[
             # JsonGet is the documented way to gate on a property file, but the
-            # SDK's `left` hint omits it. Drop the ignore if the SDK adds it.
+            # SDK `left` hint omits it. Remove the ignore if the SDK adds it.
             ConditionGreaterThan(
                 left=challenger_auc,  # type: ignore[arg-type]
                 right=champion_auc,

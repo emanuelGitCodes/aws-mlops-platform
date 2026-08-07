@@ -15,7 +15,7 @@ APPROVAL_EVENT = {
 }
 
 
-# What SageMaker actually returns for a DescribeEndpoint on a missing endpoint.
+# What SageMaker returns for a DescribeEndpoint on a missing endpoint.
 ENDPOINT_MISSING = _ClientError("ValidationException", 'Could not find endpoint "test-endpoint".')
 
 

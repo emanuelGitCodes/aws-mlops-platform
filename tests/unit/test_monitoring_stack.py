@@ -4,20 +4,18 @@ from aws_cdk.assertions import Match
 
 from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
 
-# Stubbed, like every other handler import in the suite: the module builds a
-# real boto3 client at import time, and a real client here caches credential
-# state that leaks into the SageMaker pipeline tests. The previous single
-# test_stacks.py imported it unstubbed and only got away with it because it
-# sorted after test_pipeline.py.
+# Stub this, like every other handler import in the suite. The module builds a
+# real boto3 client at import time, and that client caches credential state
+# which leaks into the SageMaker pipeline tests.
 VIOLATION_STATUS = import_with_stubbed_boto3("src.monitoring.retrain_handler").VIOLATION_STATUS
 
 
 def test_monitoring_drift_loop_wiring(stacks):
     template = stacks["monitoring"]
 
-    # The rule's status and the handler's guard must agree. They cannot share a
-    # constant -- importing the handler during synth would run its env lookups
-    # -- so this is what keeps the two literals from drifting apart.
+    # The rule status and the handler guard must agree. They cannot share a
+    # constant, because importing the handler during synth runs its env
+    # lookups.
     template.has_resource_properties(
         "AWS::Events::Rule",
         {
@@ -28,8 +26,8 @@ def test_monitoring_drift_loop_wiring(stacks):
     )
     assert VIOLATION_STATUS == "CompletedWithViolations"
 
-    # The handler is bundled source, not an inline string: that is what puts it
-    # in reach of ruff, mypy and pytest.
+    # The handler is bundled source, not an inline string, which puts it in
+    # reach of ruff, mypy, and pytest.
     template.has_resource_properties(
         "AWS::Lambda::Function",
         {
@@ -37,7 +35,7 @@ def test_monitoring_drift_loop_wiring(stacks):
             "Code": Match.object_like({"S3Key": Match.any_value()}),
         },
     )
-    # retrain Lambda may only start the one pipeline
+    # The retrain Lambda may start only the one pipeline.
     template.has_resource_properties(
         "AWS::IAM::Policy",
         {
@@ -48,7 +46,7 @@ def test_monitoring_drift_loop_wiring(stacks):
                             Match.object_like(
                                 {
                                     "Action": "sagemaker:StartPipelineExecution",
-                                    # arn is an Fn::Join over region/account tokens
+                                    # The ARN is an Fn::Join over tokens.
                                     "Resource": {
                                         "Fn::Join": Match.array_with(
                                             [
@@ -74,7 +72,7 @@ def test_monitoring_drift_loop_wiring(stacks):
     template.resource_count_is("AWS::CloudWatch::Alarm", 1)
 
     # An alarm with no action only changes colour in the console. This one
-    # must page the same operator topic as the Phase 2 security alarms.
+    # must page the same topic as the Phase 2 security alarms.
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {

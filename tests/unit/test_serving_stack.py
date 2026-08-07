@@ -9,12 +9,12 @@ from tests.unit.conftest import CONFIG
 def test_serving_endpoint_auth_and_least_privilege(stacks):
     template = stacks["serving"]
 
-    # the public method requires an API key
+    # The public method requires an API key.
     template.has_resource_properties(
         "AWS::ApiGateway::Method",
         {"HttpMethod": "POST", "ApiKeyRequired": True},
     )
-    # proxy role can only invoke the one endpoint
+    # The proxy role may invoke only the one endpoint.
     template.has_resource_properties(
         "AWS::IAM::Policy",
         {
@@ -25,7 +25,7 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
                             Match.object_like(
                                 {
                                     "Action": "sagemaker:InvokeEndpoint",
-                                    # arn is an Fn::Join over region/account tokens
+                                    # The ARN is an Fn::Join over tokens.
                                     "Resource": {
                                         "Fn::Join": Match.array_with(
                                             [
@@ -47,7 +47,7 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
             )
         },
     )
-    # approval events from our package group trigger the deploy Lambda
+    # An approval event from this package group triggers the deploy Lambda.
     template.has_resource_properties(
         "AWS::Events::Rule",
         {
@@ -63,13 +63,11 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
 
 
 def test_the_model_role_carries_no_managed_policy(stacks):
-    """Phase 5B: the model container's role off `AmazonSageMakerFullAccess`.
+    """Phase 5B: the model container role drops `AmazonSageMakerFullAccess`.
 
-    What replaces it is read-only and specific: the training prefix of the
-    artifacts bucket, plus the endpoint's own log group. The write and delete
-    actions `grant_read_write` used to add are the ones that matter -- a hosted
-    serverless model has no data capture, so nothing it runs ever writes back to
-    the bucket its own artifacts come from.
+    The replacement is read-only and specific: the training prefix of the
+    artifacts bucket, plus the endpoint log group. A serverless model has no
+    data capture, so it never writes back to the artifacts bucket.
     """
     resources = stacks["serving"].to_json()["Resources"]
     role = next(
@@ -81,9 +79,8 @@ def test_the_model_role_carries_no_managed_policy(stacks):
     assert role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]["Principal"] == {
         "Service": "sagemaker.amazonaws.com"
     }
-    # The deployed AWS::SageMaker::Model pins this role's ARN, so a generated
-    # name is what keeps an update from replacing the role out from under a
-    # running endpoint.
+    # The deployed AWS::SageMaker::Model pins this role's ARN. A generated
+    # name stops an update from replacing the role under a running endpoint.
     assert "RoleName" not in role["Properties"]
 
     policy = next(
@@ -107,20 +104,21 @@ def test_the_model_role_carries_no_managed_policy(stacks):
     }
     for statement in statements:
         assert statement["Resource"] != "*"
-    # The object grant reaches only the prefix the training step writes to.
+    # The object grant reaches only the prefix the training step writes.
     get_object = next(s for s in statements if s["Action"] == "s3:GetObject")
     assert get_object["Resource"]["Fn::Join"][1][-1] == f"/{MODEL_ARTIFACT_PREFIX}/*"
 
 
 def test_the_deploy_role_names_every_resource_it_touches(stacks):
-    """Phase 5C: the deploy Lambda off the managed log policy and off `Resource: "*"`.
+    """Phase 5C: the deploy Lambda drops the managed log policy and
+    `Resource: "*"`.
 
-    The six SageMaker actions used to share one wildcard statement, so the role
-    that reacts to a registry approval could point *any* endpoint in the account
-    at *any* model. Each action now names the resources `deploy_handler` builds,
-    and `DescribeModelPackage` is pinned to this platform's own group -- the
-    package ARN arrives in the EventBridge detail, so that is the grant a
-    crafted event would otherwise walk onto a foreign package.
+    The six SageMaker actions once shared one wildcard statement, so the role
+    that reacts to a registry approval could point any endpoint in the account
+    at any model. Each action now names the resources `deploy_handler` builds.
+    `DescribeModelPackage` is pinned to this platform's own group, because the
+    package ARN arrives in the EventBridge detail, and a crafted event would
+    otherwise reach a foreign package.
     """
     resources = stacks["serving"].to_json()["Resources"]
     role = next(
@@ -144,10 +142,10 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
         for s in statements
         for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
     }
-    # The two log actions CDK's own group grant supplies -- again no
-    # logs:CreateLogGroup -- plus exactly what the handler calls, and nothing
-    # else. No Delete*, no List*, no kms:Decrypt: the cold-start environment
-    # decrypt is authorized by the AWS-managed key's own policy.
+    # The two log actions the CDK group grant supplies, again without
+    # logs:CreateLogGroup, plus what the handler calls and nothing else. No
+    # Delete*, no List*, and no kms:Decrypt. The AWS-managed key policy
+    # authorizes the cold-start environment decrypt.
     assert actions == {
         "logs:CreateLogStream",
         "logs:PutLogEvents",
@@ -162,7 +160,7 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
     for statement in statements:
         assert statement["Resource"] != "*"
 
-    # The package grant reaches only versions of the group this platform owns.
+    # The package grant reaches only versions of this platform's group.
     describe = next(s for s in statements if s["Action"] == "sagemaker:DescribeModelPackage")
     assert (
         describe["Resource"]["Fn::Join"][1][-1]
@@ -173,10 +171,10 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
 def test_the_proxy_role_carries_no_managed_policy(stacks):
     """Phase 5A: the proxy is the first role off `AWSLambdaBasicExecutionRole`.
 
-    That managed policy grants the three log actions on `Resource: "*"` -- every
-    log group in the account. The replacement grants writes to this function's
-    own group and nothing else, so a compromised proxy cannot write into, or
-    create, log groups belonging to the audit trail.
+    That managed policy grants the three log actions on every log group in the
+    account. The replacement grants writes to this function's own group and
+    nothing else, so a compromised proxy cannot write into or create an audit
+    trail log group.
     """
     resources = stacks["serving"].to_json()["Resources"]
     role_id, role = next(
@@ -200,8 +198,8 @@ def test_the_proxy_role_carries_no_managed_policy(stacks):
         for s in statements
         for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
     }
-    # Exactly the two log actions plus the one business permission. Notably no
-    # logs:CreateLogGroup: CDK creates the group, so the function never needs it.
+    # The two log actions plus the one business permission. There is no
+    # logs:CreateLogGroup, because CDK creates the group.
     assert actions == {"logs:CreateLogStream", "logs:PutLogEvents", "sagemaker:InvokeEndpoint"}
     for statement in statements:
         assert statement["Resource"] != "*"

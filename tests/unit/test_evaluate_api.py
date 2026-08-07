@@ -72,7 +72,7 @@ def test_resolve_fixture_s3_uri_finds_the_api_test_output():
     with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
         assert evaluate_api.resolve_fixture_s3_uri("arn:execution") == "s3://bucket/api_test"
 
-    # Looked up by job name, not by the full ARN.
+    # The lookup uses the job name, not the full ARN.
     assert client.describe_processing_job.call_args.kwargs == {"ProcessingJobName": "prep-1"}
 
 
@@ -100,7 +100,7 @@ def test_load_fixture_reads_jsonl_and_appends_the_default_filename():
         records = evaluate_api.load_fixture("s3://bucket/prefix")
 
     assert [record["row_id"] for record in records] == [0, 1]
-    # A prefix gets the fixture filename appended; blank lines are skipped.
+    # A prefix takes the fixture filename. Blank lines are skipped.
     assert client.get_object.call_args.kwargs == {
         "Bucket": "bucket",
         "Key": "prefix/api_test.jsonl",
@@ -218,9 +218,8 @@ def test_select_records_falls_back_to_a_plain_sample_for_one_class():
     )
 
 
-# `main` is the only path an operator actually runs, and none of it was
-# covered: a mis-wired argument or a report written without its fixture URI
-# would have shipped.
+# `main` is the only path an operator runs. These tests cover the argument
+# wiring and the fixture URI the report records.
 
 REPORT = {"source": "deployed_api", "accuracy": 1.0}
 
@@ -235,16 +234,16 @@ def test_main_evaluates_an_explicit_fixture_and_prints_the_report(capsys):
         )
 
     report = json.loads(capsys.readouterr().out)
-    # The URI is echoed into the report, so a saved run records what it read.
+    # The report echoes the URI, so a saved run records what it read.
     assert report["fixture_s3_uri"] == "s3://bucket/prefix"
     assert load.call_args.args[0] == "s3://bucket/prefix"
 
 
 def test_main_resolves_the_fixture_from_a_pipeline_execution(capsys):
     with (
-        # Split across lines, and kept split by the trailing comma: on one line
-        # this reads to gitleaks as `api...="<high-entropy string>"` and fails
-        # the secret scan on the patch target's own name.
+        # Keep this split across lines. The trailing comma holds the split.
+        # On one line, gitleaks reads it as `api...="<high-entropy string>"`
+        # and fails the secret scan on the patch target's own name.
         mock.patch.object(
             evaluate_api,
             "resolve_fixture_s3_uri",

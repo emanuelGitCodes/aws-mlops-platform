@@ -1,9 +1,9 @@
 """Shared Lambda asset: bundles src/ plus pydantic.
 
-Tries local bundling first (pip on the host — fast, no Docker needed in CI);
-falls back to the SAM build image in Docker if local pip fails. One asset is
-reused by every function so the deployed handlers import the same
-src.common.schema the pipeline uses.
+Local bundling runs first. It uses pip on the host, which is fast and needs no
+Docker in CI. If local pip fails, bundling falls back to the SAM build image in
+Docker. Every function reuses this one asset, so each deployed handler imports
+the same src.common.schema the pipeline uses.
 """
 
 import pathlib
@@ -20,11 +20,9 @@ from aws_cdk import aws_lambda as lambda_
 _RUNTIME_DEPS = ["pydantic==2.*"]
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# The wheels must match the Lambda runtime, not the host building the asset --
-# installing the host's native wheels once produced a pydantic_core import
-# failure at runtime. Defined once and shared by both bundling paths below:
-# they were previously two hand-maintained spellings of the same command, one
-# as an argv list and one as a shell string, free to drift apart.
+# The wheels must match the Lambda runtime, not the host that builds the asset.
+# The host's native wheels cause a pydantic_core import failure at runtime.
+# Both bundling paths below share these flags.
 _PIP_TARGET_FLAGS = [
     "--platform",
     "manylinux2014_x86_64",
@@ -64,20 +62,15 @@ class _LocalPipBundling:
         return True
 
 
-# An allowlist, not a denylist. The asset fingerprint is computed over the
-# source directory, so anything reachable here changes the Lambda code hash
-# even though bundling only ever copies `src/`. Under the old denylist a
-# README or Makefile edit redeployed all four functions, and every new
-# top-level file silently joined the fingerprint. `src/` is the only input
-# that belongs in it.
+# This is an allowlist, not a denylist. CDK computes the asset fingerprint over
+# the whole source directory, so anything reachable here moves the Lambda code
+# hash. Bundling copies only `src/`. Under a denylist, a README edit redeploys
+# all four functions, and every new top-level file joins the fingerprint.
 #
-# `__pycache__` is then excluded back out, because re-including `src/**` had
-# pulled it in: a `.pyc` header embeds the source file's mtime, so a test run
-# or a `git stash` moved the Lambda code hash with no source change at all.
-# Every deploy therefore updated all four functions and made `verify-deploy`
-# report code changes that were not code changes. Bundling already skips
-# `__pycache__` via `shutil.ignore_patterns`, so the shipped package is
-# unaffected -- this only stops the hash from moving on its own.
+# The last two patterns exclude `__pycache__`, which re-including `src/**`
+# pulls back in. A `.pyc` header embeds the source mtime, so a test run moves
+# the code hash with no source change. Bundling already skips `__pycache__`, so
+# the shipped package is unaffected.
 _ASSET_CONTENT = [
     "*",
     "!src",

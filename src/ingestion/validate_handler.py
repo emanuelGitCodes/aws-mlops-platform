@@ -1,7 +1,8 @@
-"""Validation Lambda: SQS-wrapped S3 events -> validate CSV rows -> curated or quarantine.
+"""Validation Lambda: it validates CSV rows and writes them to the curated
+bucket or to quarantine.
 
-Triggered by EventBridge (S3 ObjectCreated on the raw bucket) buffered through SQS.
-Valid rows go to s3://<curated>/telco/<basename>; invalid rows to
+EventBridge triggers it on S3 ObjectCreated in the raw bucket, through SQS.
+Valid rows go to s3://<curated>/telco/<basename>. Invalid rows go to
 s3://<curated>/quarantine/<basename> with a `reason` column appended.
 """
 
@@ -26,7 +27,8 @@ CURATED_BUCKET = os.environ["CURATED_BUCKET"]
 def validate_rows(
     rows: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Split rows into (valid, rejected-with-reason)."""
+    """Split rows into valid rows and rejected rows. Each rejected row carries
+    a `reason`."""
     valid: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for row in rows:

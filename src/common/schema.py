@@ -1,8 +1,8 @@
 """Shared input schema for the Telco churn model.
 
-Used by the ingestion validation Lambda (rows from raw CSVs) and the
-serving proxy Lambda (inference requests). Single source of truth so the
-training data contract and the API contract can't drift apart.
+The ingestion validation Lambda uses it for rows from raw CSVs. The serving
+proxy Lambda uses it for inference requests. One source keeps the training
+data contract and the API contract together.
 """
 
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
@@ -52,11 +52,9 @@ class CustomerRecord(BaseModel):
     TotalCharges: float = Field(ge=0)
     Churn: str | None = None
 
-    # Every categorical column at once, checked against the same vocabulary the
-    # encoder uses. Previously only gender and four Yes/No columns were checked,
-    # so the other ten reached `encode_features` unvalidated and raised KeyError
-    # there -- a 502 from the API instead of a 422, and a dead preprocessing job
-    # when such a row reached the curated bucket.
+    # Check every categorical column against the vocabulary the encoder uses.
+    # An unchecked column reaches `encode_features` and raises KeyError there,
+    # which returns a 502 instead of a 422 and kills the preprocessing job.
     @field_validator(*FEATURE_VOCABULARY)
     @classmethod
     def _known_category(cls, v: str, info: ValidationInfo) -> str:

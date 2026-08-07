@@ -1,8 +1,8 @@
-"""Thin proxy Lambda: API Gateway -> SageMaker serverless endpoint.
+"""Thin proxy Lambda between API Gateway and the SageMaker endpoint.
 
-Validates the request against the shared schema, shapes it into the CSV
-feature vector XGBoost expects, invokes the endpoint, and returns the churn
-probability. No inference logic lives here.
+It validates the request against the shared schema. It encodes the record into
+the CSV feature vector XGBoost expects. It invokes the endpoint and returns the
+churn probability. No inference logic lives here.
 """
 
 import json
@@ -24,12 +24,11 @@ runtime = boto3.client("sagemaker-runtime")
 
 ENDPOINT_NAME = os.environ["ENDPOINT_NAME"]
 
-# SageMaker Runtime failures that mean "not ready yet" rather than "this
-# request is wrong". These are routine rather than exceptional on a serverless
-# endpoint: every approved challenger triggers an endpoint update, and
-# invocations during that window fail until the new variant is live. A missing
-# or not-yet-InService endpoint is reported as ValidationError, not as a
-# modelled not-found error, so it has to be listed here too.
+# SageMaker Runtime failures that mean "not ready yet", not "this request is
+# wrong". These are routine on a serverless endpoint. Every approved challenger
+# triggers an endpoint update, and invocations fail until the new variant is
+# live. SageMaker reports a missing endpoint as ValidationError, so that code
+# belongs here too.
 UNAVAILABLE_ERROR_CODES = frozenset(
     {
         "ModelNotReadyException",
@@ -40,8 +39,8 @@ UNAVAILABLE_ERROR_CODES = frozenset(
     }
 )
 
-# Seconds. A serverless cold start or an endpoint update is over in well under
-# a minute; this only has to stop a client from retrying instantly.
+# Seconds. A cold start or an endpoint update finishes in under a minute. This
+# value only has to stop a client from retrying immediately.
 RETRY_AFTER_SECONDS = 15
 
 
@@ -69,8 +68,8 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     features = encode_features({c: getattr(record, c) for c in FEATURE_COLUMNS})
     csv_line = ",".join(str(v) for v in features)
 
-    # Unguarded, this call surfaced every SageMaker failure to the caller as a
-    # 502 with a Lambda stack trace -- including the endpoint-updating window,
+    # Without this guard, every SageMaker failure reached the caller as a 502
+    # with a Lambda stack trace. That included the endpoint-updating window,
     # which this architecture enters on every promotion.
     try:
         result = runtime.invoke_endpoint(
@@ -87,8 +86,8 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
             error_code=code,
             status=503 if unavailable else 502,
         )
-        # The AWS error code is logged, not returned: it is operator detail on
-        # a public endpoint.
+        # Log the AWS error code. Never return it. It is operator detail on a
+        # public endpoint.
         if unavailable:
             return _response(
                 503,
@@ -100,8 +99,9 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     try:
         score = float(result["Body"].read().decode().strip())
     except (ValueError, KeyError) as error:
-        # The endpoint answered, but not with a probability -- a wrong model or
-        # a wrong content type. Not retryable, so not a 503.
+        # The endpoint answered, but not with a probability. The cause is a
+        # wrong model or a wrong content type. A retry cannot fix it, so this
+        # is not a 503.
         log_event("inference_unreadable", endpoint=ENDPOINT_NAME, error=str(error))
         return _response(502, {"error": "model endpoint returned an unreadable response"})
 

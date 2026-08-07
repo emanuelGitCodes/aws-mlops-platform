@@ -1,9 +1,9 @@
 """Unit tests for the drift-traffic demo helper.
 
-The point of this module is that its hardcoded demo record stays a valid
+This module asserts that the hardcoded demo record stays a valid
 `CustomerRecord` and that the traffic it sends is actually distribution-shifted.
-Both silently stop being true when the schema changes, and the script is only
-run by hand during a demo, so nothing else would notice.
+A schema change breaks both without any error. The script runs by hand during
+a demo, so nothing else reports it.
 """
 
 import sys
@@ -20,7 +20,7 @@ def test_demo_record_matches_the_shared_schema():
     """The record is written out by hand; the schema is the source of truth."""
     CustomerRecord.model_validate(send_drift_traffic.BASE)
     assert set(send_drift_traffic.BASE) == set(FEATURE_COLUMNS)
-    # It must also survive encoding, which is a stricter check than validation.
+    # It must also survive encoding, a stricter check than validation.
     assert len(encode_features(send_drift_traffic.BASE)) == len(FEATURE_COLUMNS)
 
 
@@ -41,15 +41,15 @@ def test_main_sends_the_requested_number_of_shifted_records():
     assert post.call_count == 5
     sent = [call.args[2] for call in post.call_args_list]
     for record in sent:
-        # Shifted well outside the training distribution, which is the whole
-        # point: Model Monitor has to see drift.
+        # This is shifted well outside the training distribution, which is
+        # the point. Model Monitor has to see drift.
         assert 120 <= record["tenure"] <= 200
         assert 300 <= record["MonthlyCharges"] <= 500
         assert record["TotalCharges"] == pytest.approx(
             round(record["tenure"] * record["MonthlyCharges"], 2)
         )
-        # Still a valid record, or the API rejects it with a 422 and the demo
-        # produces no traffic at all.
+        # It must stay a valid record. Otherwise the API returns a 422 and
+        # the demo produces no traffic.
         CustomerRecord.model_validate(record)
 
 

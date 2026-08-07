@@ -5,9 +5,9 @@
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
 
-# The `pipeline` extra is needed by the tests, not just by the SageMaker
-# images: src/pipeline/pipeline.py imports the SageMaker SDK at module level,
-# and stubbing it would reduce the pipeline tests to asserting against mocks.
+# The tests need the `pipeline` extra, not only the SageMaker images.
+# src/pipeline/pipeline.py imports the SageMaker SDK at module level, and a
+# stub reduces the pipeline tests to assertions against mocks.
 install:
 	uv sync --locked --extra dev --extra pipeline
 
@@ -18,25 +18,23 @@ lint:
 	uv run --locked ruff check .
 	uv run --locked ruff format --check .
 
-# Both extras, like `test`: with sagemaker absent, mypy falls back to the
-# ignore_missing_imports override and src/pipeline/ types as Any -- it would
-# pass without checking anything there.
+# Both extras, like `test`. Without sagemaker, mypy falls back to the
+# ignore_missing_imports override, src/pipeline/ types as Any, and the run
+# passes without checking that package.
 typecheck:
 	uv run --locked --extra dev --extra pipeline mypy
 
-# Coverage is measured on every run and enforced against the floor in
-# pyproject (`fail_under`). Measuring without a floor is how 78% coverage sat
-# unnoticed with the pipeline definition at 0%.
+# Every run measures coverage and enforces it against `fail_under` in
+# pyproject. Without a floor, coverage falls without any failure.
 test:
 	uv run --locked --extra dev --extra pipeline pytest tests/unit -q \
 		--cov --cov-report=term-missing
 
-# AGENTS.md is the single source and CLAUDE.md is a symlink to it, so the two
-# cannot drift -- but only while the symlink survives. A checkout without
-# symlink support, or an agent that writes CLAUDE.md directly, replaces it with
-# a regular file, and the "change one, change both" rule silently becomes prose
-# again. Asserted against the git index rather than the working tree: the index
-# is what CI checks out and what a bad commit would carry.
+# AGENTS.md is the single source, and CLAUDE.md is a symlink to it. The two
+# cannot drift while the symlink survives. A checkout without symlink support,
+# or an agent that writes CLAUDE.md directly, replaces it with a regular file.
+# Assert against the git index, not the working tree. The index is what CI
+# checks out and what a bad commit carries.
 docs-sync:
 	@mode=$$(git ls-files -s CLAUDE.md | cut -d' ' -f1); \
 	if [ "$$mode" != "120000" ]; then \
@@ -58,17 +56,17 @@ synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups
 
 # The authoritative cdk-nag gate. An acknowledgement whose construct path or
-# finding id embeds the environment only fails for the environment it was
-# written against, so a dev-only synth let prod stay unbuildable unnoticed.
+# finding id embeds the environment fails only for that environment, so a
+# dev-only synth leaves prod unbuildable.
 synth-all:
 	$(MAKE) synth ENV=dev
 	$(MAKE) synth ENV=prod
 
 security: lock-check audit synth-all
 
-# Once per account/region, before the first deploy. A target rather than a
-# documented `cdk bootstrap`, so the bootstrap runs the same pinned CLI
-# version as every other CDK invocation.
+# Run this once per account and region, before the first deploy. It is a
+# target, so the bootstrap uses the same pinned CLI version as every other CDK
+# invocation.
 bootstrap:
 	cd infra && $(CDK_CLI) bootstrap -c env=$(ENV)
 
@@ -90,19 +88,20 @@ deploy:
 destroy:
 	cd infra && $(CDK_CLI) destroy --all -c env=$(ENV)
 
-# What a deployment actually changed. Stack status does not answer this:
-# UPDATE_COMPLETE is reported even when no resource was touched.
+# What a deployment changed. Stack status does not answer this. CloudFormation
+# reports UPDATE_COMPLETE even when it touched no resource.
 #
-# Needs a profile with cloudformation:ListStacks -- mlops-security-auditor or
-# aws-admin, not mlops-deployer, which can deploy but cannot enumerate stacks:
+# This needs a profile with cloudformation:ListStacks. Use
+# mlops-security-auditor or aws-admin. mlops-deployer can deploy but cannot
+# enumerate stacks:
 #     AWS_PROFILE=mlops-security-auditor make verify-deploy SINCE=2026-08-01
 verify-deploy:
 	uv run --locked --extra dev python scripts/verify_deployment.py \
 		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")
 
 # Post-deploy check against the live API. tests/integration skips itself when
-# API_URL/API_KEY are unset, so every value is resolved and asserted here: a
-# missing output must fail the run, not silently reduce it to zero tests.
+# API_URL or API_KEY is unset, so this target resolves and asserts every value.
+# A missing output must fail the run, not reduce it to zero tests.
 smoke:
 	@set -eu; \
 	prefix=$$(uv run --locked --extra dev python -c \

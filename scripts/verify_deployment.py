@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 """Report what a CloudFormation deployment actually changed.
 
-New module because nothing else in the repo queries CloudFormation; the
-other scripts talk to SageMaker, S3, or the API.
+This module exists because nothing else in the repo queries CloudFormation. The
+other scripts call SageMaker, S3, or the API.
 
 Stack status does not answer "what changed". A stack reaches
-``UPDATE_COMPLETE`` even when CloudFormation resolved the new template to
-a no-op and updated no resource at all — which is exactly what happened on
-2026-07-24, when a partition-agnostic ARN rewrite produced a diff but
-CloudFormation skipped both IAM policies because the resolved documents
-were identical. Only resource-level events answer the question.
+``UPDATE_COMPLETE`` even when CloudFormation resolved the new template to a
+no-op and updated no resource. That happened on 2026-07-24: a partition-agnostic
+ARN rewrite produced a diff, but CloudFormation skipped both IAM policies,
+because the resolved documents were identical. Only resource-level events
+answer the question.
 
-The console has the same trap: the stack list's default **Created time**
+The console holds the same trap. The stack list's default **Created time**
 column never changes on update, so it cannot tell you whether a stack was
 deployed today. **Updated time** and the Events tab can.
 
-Run it with a profile that can enumerate stacks. ``describe_stacks`` with no
-``StackName`` is authorized as ``cloudformation:ListStacks``, which the deploy
-identity does not have: ``mlops-deployer`` can create the change set that
-updates a stack but cannot list stacks afterwards, so it fails here with
-AccessDenied. ``mlops-security-auditor`` is the read-only identity for exactly
-this, and ``aws-admin`` also works.
+Run this with a profile that can enumerate stacks. ``describe_stacks`` with no
+``StackName`` is authorized as ``cloudformation:ListStacks``. The deploy
+identity ``mlops-deployer`` does not have it: that identity can create the
+change set that updates a stack, but it cannot list stacks afterwards, so it
+fails here with AccessDenied. Use ``mlops-security-auditor``, the read-only
+identity for this. ``aws-admin`` also works.
 
 Prefer ``AWS_PROFILE=mlops-security-auditor make verify-deploy
-SINCE=<YYYY-MM-DD>``; these are the same call with the ``dev`` extra that
-supplies boto3:
+SINCE=<YYYY-MM-DD>``. The commands below are the same call with the ``dev``
+extra that supplies boto3:
 
     uv run --locked --extra dev python scripts/verify_deployment.py --prefix Mlops-Dev
     uv run --locked --extra dev python scripts/verify_deployment.py --since 2026-07-24
@@ -37,8 +37,8 @@ from typing import Any
 
 import boto3
 
-# Not real resources: the stack's own lifecycle events, and the metadata
-# resource CDK rewrites on essentially every deployment.
+# These are not real resources. They are the stack's own lifecycle events and
+# the metadata resource CDK rewrites on nearly every deployment.
 _STACK_LEVEL_STATUSES = ("REVIEW_IN_PROGRESS",)
 CDK_METADATA = "CDKMetadata"
 
@@ -49,12 +49,12 @@ def select_changed_resources(
     since: dt.datetime,
     include_metadata: bool = False,
 ) -> list[tuple[str, str]]:
-    """Resources with a terminal event at or after ``since``.
+    """Return the resources with a terminal event at or after ``since``.
 
-    Filters out the stack's own lifecycle events, keeps only completed or
-    failed states so in-progress noise does not double-count, and drops
-    ``CDKMetadata`` unless asked for -- it changes on nearly every deploy
-    and is not a real resource change.
+    This drops the stack's own lifecycle events. It keeps only completed and
+    failed states, so in-progress events do not double-count. It also drops
+    ``CDKMetadata`` unless the caller asks for it, because that resource
+    changes on nearly every deploy.
     """
     seen: dict[str, str] = {}
     for event in events:
@@ -69,13 +69,14 @@ def select_changed_resources(
             continue
         if not (status.endswith("_COMPLETE") or status.endswith("_FAILED")):
             continue
-        # Events come newest-first; keep the newest terminal status.
+        # Events arrive newest-first. Keep the newest terminal status.
         seen.setdefault(logical_id, status)
     return sorted(seen.items())
 
 
 def format_report(rows: list[dict[str, Any]]) -> str:
-    """Render one block per stack: when it changed and what changed."""
+    """Render one block per stack. Each block gives the update time and the
+    resources that changed."""
     if not rows:
         return "No stacks matched."
     lines: list[str] = []
@@ -108,7 +109,8 @@ def collect(
     since: dt.datetime | None = None,
     include_metadata: bool = False,
 ) -> list[dict[str, Any]]:
-    """Describe matching stacks and the resources their last update touched."""
+    """Describe the matching stacks and the resources each last update
+    touched."""
     client = boto3.client("cloudformation", region_name=region)
     rows: list[dict[str, Any]] = []
     for page in client.get_paginator("describe_stacks").paginate():

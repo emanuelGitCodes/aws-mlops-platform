@@ -1,8 +1,8 @@
 """Unit tests for the deployment verification CLI.
 
-The AWS calls are deliberately thin wrappers; the logic worth testing is
-the event filtering, which is what distinguishes a real resource change
-from a stack that merely reached UPDATE_COMPLETE.
+The AWS calls are thin wrappers. These tests cover the event filtering, which
+separates a real resource change from a stack that only reached
+UPDATE_COMPLETE.
 """
 
 import datetime as dt
@@ -174,8 +174,7 @@ def test_collect_filters_by_prefix_and_since_and_sorts_newest_first():
         rows = collect("Mlops-Dev", since=dt.datetime(2026, 7, 20, tzinfo=dt.UTC))
 
     assert [row["name"] for row in rows] == ["Mlops-Dev-Monitoring", "Mlops-Dev-Serving"]
-    # A metadata-only stack is reported, but with nothing changed -- the whole
-    # point of the tool.
+    # The report lists a metadata-only stack, with nothing changed.
     assert rows[0]["changed"] == []
     assert rows[1]["changed"] == [("ProxyFn0105D3E4", "UPDATE_COMPLETE")]
 

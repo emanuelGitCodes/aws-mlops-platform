@@ -1,8 +1,8 @@
 """Structured stdout event logging shared by Lambdas and pipeline steps.
 
-New module because neither ``schema.py`` (data contract) nor ``features.py``
-(feature contract) is a home for runtime helpers; this is the single place
-for the one-JSON-line-per-event convention used across the platform.
+This module exists because ``schema.py`` holds the data contract and
+``features.py`` holds the feature contract. Neither is a home for a runtime
+helper. This is the one place for the one-JSON-line-per-event convention.
 """
 
 import json

@@ -26,8 +26,8 @@ def test_buckets_are_locked_down(stacks):
             "VersioningConfiguration": {"Status": "Enabled"},
         },
     )
-    # Exactly one: AWS Budgets is account-scoped and dev and prod share an
-    # account, so a second budget anywhere re-measures the same dollars.
+    # Exactly one. AWS Budgets is account-scoped, and dev and prod share an
+    # account, so a second budget measures the same dollars.
     template.resource_count_is("AWS::Budgets::Budget", 1)
     template.has_resource_properties(
         "AWS::Budgets::Budget",
@@ -111,12 +111,11 @@ def test_buckets_are_locked_down(stacks):
 
 
 def test_prod_creates_no_second_account_budget():
-    """AWS Budgets is account-scoped and both environments share one account.
+    """AWS Budgets is account-scoped, and both environments share one account.
 
-    A budget in each environment does not scope either one's spend: both
-    re-measure the whole account and alarm on the same dollars at every
-    threshold. Only the environment whose `account_budget` flag is true may
-    build one.
+    A budget in each environment scopes neither one's spend. Both measure the
+    whole account and alarm on the same dollars at every threshold. Only the
+    environment whose `account_budget` flag is true may build one.
     """
     prod_config = load_config("prod")
     assert prod_config["security"]["account_budget"] is False, (
@@ -125,16 +124,16 @@ def test_prod_creates_no_second_account_budget():
 
     prod = Template.from_stack(synth_env("prod", "Test-Prod-Budget")["data"])
     prod.resource_count_is("AWS::Budgets::Budget", 0)
-    # The notification provider goes with it, or its acknowledgement would
-    # match no construct and fail prod synthesis.
+    # The notification provider goes with it. Otherwise its acknowledgement
+    # matches no construct and fails the prod synthesis.
     prod.resource_count_is("Custom::AWS", 0)
 
 
 def test_exactly_one_environment_owns_the_account_budget():
-    """The invariant itself, not just today's two values.
+    """Assert the rule itself, not today's two values.
 
-    Nothing in CDK can see both environments at once -- each synthesis loads one
-    config -- so this is the only place the "exactly one" rule is enforced.
+    Nothing in CDK sees both environments at once, because each synthesis loads
+    one config. This is the only place that enforces the "exactly one" rule.
     """
     owners = [env for env in ("dev", "prod") if load_config(env)["security"]["account_budget"]]
     assert owners == ["dev"], f"expected dev to be the sole budget owner, got {owners}"

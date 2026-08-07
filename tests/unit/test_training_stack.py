@@ -1,10 +1,8 @@
 """The training stack's pipeline execution role.
 
-Its own module rather than a few more cases in `test_registry_stack.py`, which
-covered the training stack only because the two stacks were one line each:
-Phase 5D gave this stack real policy logic -- nine statements naming every
-bucket prefix, job ARN, model package group, and log group the pipeline
-touches -- and that is worth the mirror the convention asks for.
+Phase 5D gave this stack nine policy statements, naming every bucket prefix,
+job ARN, model package group, and log group the pipeline touches. This module
+mirrors that stack, as the convention requires.
 """
 
 from tests.unit.conftest import CONFIG
@@ -29,8 +27,8 @@ def test_the_pipeline_role_carries_no_managed_policy(stacks):
     """Phase 5D: the last role off `AmazonSageMakerFullAccess`.
 
     That policy let the training pipeline read and write every SageMaker
-    resource in the account -- endpoints, models, and model packages belonging
-    to work this platform has nothing to do with.
+    resource in the account, including endpoints, models, and model packages
+    belonging to unrelated work.
     """
     role, _ = _role_and_policy(stacks)
     assert "ManagedPolicyArns" not in role["Properties"]
@@ -40,17 +38,13 @@ def test_the_pipeline_role_carries_no_managed_policy(stacks):
 
 
 def test_the_pipeline_role_names_every_resource_it_touches(stacks):
-    """The action set is exactly what the 2026-08-06 CloudTrail baseline shows.
+    """The action set matches the 2026-08-06 CloudTrail baseline.
 
-    Every action but `AddTags` was observed under this role during a full
-    pipeline run, and the notable absences were observed *not* to be needed.
-    No `ecr:` -- SageMaker pulls the first-party images with its own
-    credentials. No `kms:` -- the role calls `GenerateDataKey` and `Decrypt`
-    today while holding no KMS permission at all, because the AWS-managed
-    `aws/s3` key policy authorizes it. No `s3:DeleteObject*`, which
-    `grant_read_write` used to supply and no step performs. No
-    `cloudwatch:PutMetricData`, which takes no ARN and would put the wildcard
-    back.
+    The omissions: no `ecr:`, because SageMaker pulls the first-party images
+    with its own credentials. No `kms:`, because the `aws/s3` key policy
+    authorizes `GenerateDataKey` and `Decrypt`. No `s3:DeleteObject*`, because
+    no step deletes. No `cloudwatch:PutMetricData`, because it takes no ARN and
+    restores the wildcard.
     """
     _, policy = _role_and_policy(stacks)
     statements = policy["Properties"]["PolicyDocument"]["Statement"]
@@ -71,9 +65,9 @@ def test_the_pipeline_role_names_every_resource_it_touches(stacks):
         "sagemaker:CreateModelPackage",
         "sagemaker:DescribeModelPackage",
         "sagemaker:CreateModelPackageGroup",
-        # Not in the CloudTrail baseline, and it could not have been: Pipelines
-        # tags each resource inside the create call, so the check never surfaces
-        # as its own event. The first run under this policy failed on it.
+        # This is absent from the CloudTrail baseline. Pipelines tags each
+        # resource inside the create call, so the check never appears as its
+        # own event.
         "sagemaker:AddTags",
         "iam:PassRole",
         "logs:CreateLogGroup",
@@ -89,8 +83,8 @@ def test_the_pipeline_role_may_only_pass_itself_to_sagemaker(stacks):
     """`iam:PassRole` is the grant that would otherwise widen the whole phase.
 
     Every step hands this role to SageMaker when it creates its job, so the
-    grant is unavoidable -- but unconditioned it would let a compromised
-    credential hand the role to any service that accepts one.
+    grant is unavoidable. Without the condition, a stolen credential could pass
+    the role to any service that accepts one.
     """
     _, policy = _role_and_policy(stacks)
     pass_role = next(
@@ -106,10 +100,9 @@ def test_the_pipeline_role_may_only_pass_itself_to_sagemaker(stacks):
 def test_the_pipeline_role_reads_only_the_training_dataset(stacks):
     """`InputDataUri` is a pipeline parameter, so this is a real narrowing.
 
-    A crafted `StartPipelineExecution` can override the URI; scoping the
-    curated-bucket read to `telco/` stops it walking the pipeline onto another
-    prefix, the same shape of fix Phase 5C applied to the deploy Lambda's model
-    package ARN.
+    A crafted `StartPipelineExecution` can override the URI. Scoping the
+    curated-bucket read to `telco/` stops that call reading another prefix.
+    Phase 5C applied the same fix to the deploy Lambda model package ARN.
     """
     _, policy = _role_and_policy(stacks)
     curated_reads = [

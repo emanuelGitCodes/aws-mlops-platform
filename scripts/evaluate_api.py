@@ -1,4 +1,5 @@
-"""Evaluate the deployed API with raw, labeled records from a pipeline execution.
+"""Evaluate the deployed API with raw labeled records from a pipeline
+execution.
 
 Examples:
     API_URL=https://.../predict API_KEY=... \\
@@ -23,8 +24,8 @@ from typing import Any
 
 import boto3
 
-# Allow the documented file-path invocation above to import the repository
-# package without requiring callers to set PYTHONPATH first.
+# This lets the file-path invocation above import the repository package. The
+# caller does not have to set PYTHONPATH.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.common.features import DEFAULT_THRESHOLD
@@ -32,7 +33,7 @@ from src.pipeline.evaluate import calculate_classification_metrics
 
 
 class ApiEvaluationError(RuntimeError):
-    """Raised when a deployed endpoint does not satisfy the prediction contract."""
+    """Raised when a deployed endpoint breaks the prediction contract."""
 
 
 def parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -46,7 +47,7 @@ def parse_s3_uri(uri: str) -> tuple[str, str]:
 
 
 def resolve_fixture_s3_uri(pipeline_execution_arn: str, region: str | None = None) -> str:
-    """Find the api_test ProcessingOutput emitted by one pipeline execution."""
+    """Find the api_test ProcessingOutput that one pipeline execution wrote."""
     client = boto3.client("sagemaker", region_name=region)
     paginator = client.get_paginator("list_pipeline_execution_steps")
     for page in paginator.paginate(PipelineExecutionArn=pipeline_execution_arn):
@@ -77,7 +78,8 @@ def load_fixture(s3_uri: str, region: str | None = None) -> list[dict[str, Any]]
 def select_records(
     records: list[dict[str, Any]], limit: int, all_records: bool
 ) -> list[dict[str, Any]]:
-    """Select a reproducible, class-balanced subset unless the full set is requested."""
+    """Select a repeatable, class-balanced subset. If the caller asks for all
+    records, return them all."""
     if all_records or limit >= len(records):
         return records
     if limit < 2:
@@ -117,7 +119,7 @@ def post_prediction(
 def invoke_prediction(
     api_url: str, api_key: str, record: dict[str, Any], timeout: float = 15.0
 ) -> dict[str, Any]:
-    """Call /predict and validate its probability and thresholded-class response."""
+    """Call /predict. Validate the probability and the thresholded class."""
     try:
         payload = post_prediction(api_url, api_key, record, timeout=timeout)
     except urllib.error.HTTPError as error:
@@ -147,7 +149,8 @@ def evaluate_api_records(
     limit: int = 25,
     all_records: bool = False,
 ) -> dict[str, Any]:
-    """Call the deployed API and return quality metrics for the selected labeled records."""
+    """Call the deployed API. Return quality metrics for the selected
+    records."""
     selected = select_records(records, limit=limit, all_records=all_records)
     labels, scores = [], []
     for fixture in selected:

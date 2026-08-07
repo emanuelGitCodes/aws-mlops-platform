@@ -80,13 +80,12 @@ class DataStack(Stack):
     def _account_budget(self, *, config: PlatformConfig, alert_topic: sns.ITopic) -> None:
         """The account-wide monthly budget and its threshold notifications.
 
-        Deliberately not scoped with ``CostFilters``. A tag filter is the only
-        way to scope a budget to one environment, and it reports zero until the
-        tag is activated as a cost allocation tag in Billing -- a manual step
-        with a 24-hour lag that CDK cannot perform. A budget that silently
-        matches nothing never alarms, which is a worse failure than a budget
-        that measures more than one environment. Owning it in exactly one
-        environment removes the duplicate without disarming the tripwire.
+        This budget uses no ``CostFilters``. A tag filter is the only way to
+        scope a budget to one environment, and it reports zero until someone
+        activates the tag in Billing. That is a manual step with a 24-hour lag,
+        and CDK cannot perform it. A budget that matches nothing never alarms,
+        which is worse than a budget that measures both environments. One
+        owning environment removes the duplicate and keeps the tripwire armed.
         """
         monthly_budget = budgets.CfnBudget(
             self,
@@ -100,9 +99,9 @@ class DataStack(Stack):
             ),
         )
 
-        # CloudFormation replaces AWS::Budgets::Budget when notifications are added.
-        # Manage each notification through the Budgets API so the existing $20 budget
-        # keeps its physical name and history.
+        # CloudFormation replaces AWS::Budgets::Budget when you add a
+        # notification. Manage each notification through the Budgets API, so
+        # the existing $20 budget keeps its physical name and its history.
         budget_arn = self.format_arn(
             service="budgets",
             region="",

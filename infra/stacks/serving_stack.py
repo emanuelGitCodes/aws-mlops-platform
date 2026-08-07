@@ -35,19 +35,17 @@ class ServingStack(Stack):
         endpoint_name = config["endpoint_name"]
         code = src_code()
 
-        # Role the endpoint's model container runs as. Phase 5B: no managed
-        # policy, and every permission below is one the container demonstrably
-        # uses at start-up. Updated in place, never replaced -- the deployed
-        # `AWS::SageMaker::Model` pins this role's ARN.
+        # Role the model container runs as. Phase 5B: no managed policy. The
+        # container uses every permission below at start-up. Update this role
+        # in place. The deployed `AWS::SageMaker::Model` pins its ARN.
         model_exec_role = sagemaker_execution_role(
             self,
             "ModelExecutionRole",
             least_privilege=True,
         )
-        # Read the one thing the container downloads: the training step's
-        # `model.tar.gz`. Replaces `grant_read_write`, which granted the write
-        # and delete actions a hosted model never performs -- serverless
-        # inference has no data capture, so nothing writes back.
+        # Read the one object the container downloads: `model.tar.gz`. This
+        # replaces `grant_read_write`. Serverless inference has no data
+        # capture, so the container never writes back.
         model_exec_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],
@@ -63,8 +61,8 @@ class ServingStack(Stack):
             )
         )
         # Container start-up and inference logs. SageMaker owns this group, not
-        # CDK, so unlike the Phase 5A Lambda roles this one does need
-        # `CreateLogGroup` -- scoped to the single group it may create.
+        # CDK, so this role needs `CreateLogGroup`. The Phase 5A Lambda roles
+        # do not. It is scoped to the single group the role may create.
         endpoint_log_group_arn = self.format_arn(
             service="logs",
             resource="log-group",
@@ -107,18 +105,16 @@ class ServingStack(Stack):
                 "MAX_CONCURRENCY": str(config["serverless"]["max_concurrency"]),
             },
         )
-        # Phase 5C: these six actions used to share one `Resource: "*"` statement,
-        # which let the deploy Lambda point any endpoint in the account at any
-        # model. Each is now scoped to the resources `deploy_handler` actually
-        # names. The two trailing wildcards are inherent -- the handler suffixes
-        # every model and endpoint-config name with the epoch second, so no
-        # policy can name them exactly.
+        # Phase 5C: these six actions once shared one `Resource: "*"` statement,
+        # which let the deploy Lambda point any endpoint at any model. Each one
+        # is now scoped to the resources `deploy_handler` names. The two
+        # trailing wildcards are unavoidable, because the handler suffixes each
+        # model and endpoint-config name with the epoch second.
         #
-        # Deliberately not granted, on 90 days of CloudTrail for this role: no
-        # `Delete*` (the handler never removes superseded revisions), no `List*`,
-        # and no `kms:Decrypt` -- the environment-variable decrypt at cold start
-        # runs against the AWS-managed `aws/lambda` key and is authorized by that
-        # key's own policy, which is why it already succeeds without a grant here.
+        # Omitted, on 90 days of CloudTrail for this role: `Delete*`, because
+        # the handler never removes a superseded revision; `List*`; and
+        # `kms:Decrypt`, because the `aws/lambda` key policy already authorizes
+        # the cold-start decrypt.
         endpoint_config_arn = self.format_arn(
             service="sagemaker",
             resource="endpoint-config",
@@ -142,8 +138,8 @@ class ServingStack(Stack):
                 resources=[endpoint_config_arn],
             )
         )
-        # Create and Update take the endpoint *and* the config it points at, so
-        # both resource types belong in this statement.
+        # Create and Update take the endpoint and the config it points at, so
+        # this statement needs both resource types.
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:CreateEndpoint", "sagemaker:UpdateEndpoint"],
@@ -156,9 +152,9 @@ class ServingStack(Stack):
                 resources=[endpoint_arn],
             )
         )
-        # The package ARN arrives in the EventBridge detail, so pinning it to
-        # this platform's own group is the narrowing that matters: a crafted
-        # event cannot walk the Lambda onto a foreign model package.
+        # The package ARN arrives in the EventBridge detail. Pin it to this
+        # platform's own group, so a crafted event cannot point the Lambda at a
+        # foreign model package.
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:DescribeModelPackage"],
@@ -225,6 +221,6 @@ class ServingStack(Stack):
 
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))
         CfnOutput(self, "EndpointName", value=endpoint_name)
-        # Id only — the key value is never a stack output. `make smoke` and
-        # operators resolve it with `apigateway get-api-key --include-value`.
+        # The id only. Never output the key value. `make smoke` and operators
+        # read it with `apigateway get-api-key --include-value`.
         CfnOutput(self, "ApiKeyId", value=key.key_id)

@@ -1,10 +1,10 @@
 env_name: prod
-# Must differ from every other environment's group. Stacks are environment-
-# agnostic (no `env=cdk.Environment`), so dev and prod land in the same
-# account: a shared name means the second RegistryStack cannot create the
-# group, and both ServingStacks' approval rules match the same events — a
-# dev-auto-approved challenger would deploy itself to the prod endpoint.
-# Dev keeps the unsuffixed name because it already holds deployed lineage.
+# This must differ from every other environment's group. The stacks are
+# environment-agnostic, so dev and prod land in the same account. Under a
+# shared name, the second RegistryStack cannot create the group, and both
+# ServingStack approval rules match the same events, so a dev-auto-approved
+# challenger deploys itself to the prod endpoint. Dev keeps the unsuffixed
+# name, because it already holds deployed lineage.
 model_package_group: churn-model-group-prod
 model_approval_status: PendingManualApproval
 endpoint_name: churn-serverless-prod
@@ -13,26 +13,25 @@ serverless:
   memory_mb: 3072
   max_concurrency: 20
 monitor:
-  # Hourly, matching dev. Reviewed 2026-08-01 and kept deliberately. Note each
-  # run is a SageMaker processing job on ml.m5.large, so a live hourly schedule
-  # is ~720 jobs/month and would dominate the bill below.
+  # Hourly, matching dev. Reviewed 2026-08-01. Each run is a SageMaker
+  # processing job on ml.m5.large, so a live hourly schedule is about 720 jobs
+  # a month and dominates the budget below.
   schedule_cron: "cron(0 * ? * * *)"
 
-# The two values below match dev deliberately -- reviewed 2026-08-01, not an
-# untuned copy. `budget_usd` is inert here while `security.account_budget` is
-# false; it stays set so the number is ready if ownership ever moves.
+# The two values below match dev. Reviewed 2026-08-01. `budget_usd` is inert
+# while `security.account_budget` is false. Keep it set, so the number is ready
+# if ownership moves.
 budget_usd: 20
 log_retention_days: 14
 security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]
-  # False, and it must stay false while dev is true. AWS Budgets is
-  # account-scoped and these stacks are environment-agnostic, so a second
-  # budget would not scope prod's spend -- it would re-measure the whole
-  # account and alarm on the same dollars dev already alarms on, at
-  # 50/80/100%. Dev's account-wide budget already covers prod.
+  # This must stay false while dev is true. AWS Budgets is account-scoped, and
+  # these stacks are environment-agnostic. A second budget does not scope prod
+  # spend. It measures the whole account and alarms on the same dollars at 50,
+  # 80, and 100 percent. The dev budget already covers prod.
   account_budget: false
-  services:            # stays all-false until the manual production rollout
+  services:            # All false until the manual production rollout.
     access_analyzer: false
     guardduty: false
     config_recorder: false

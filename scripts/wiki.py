@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Small, local-first toolkit for the repository's LLM-maintained wiki.
 
-The LLM does the interpretation and synthesis.  This module only performs
-deterministic bookkeeping: registering immutable sources, scaffolding a page,
-rebuilding the content index, searching markdown, recording operations, and
-checking wiki health.
+The LLM does the interpretation and the synthesis. This module performs only
+deterministic bookkeeping: it registers immutable sources, scaffolds a page,
+rebuilds the content index, searches markdown, records operations, and checks
+wiki health.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def _parse_scalar(value: str) -> str | list[str]:
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
-    """Parse the deliberately small YAML subset used by wiki pages."""
+    """Parse the small YAML subset that wiki pages use."""
 
     if not text.startswith("---\n"):
         return {}, text
@@ -301,7 +301,7 @@ class Wiki:
         return (path.parent / target).resolve()
 
     def lint(self) -> list[str]:
-        """Return deterministic wiki health errors; an empty list means healthy."""
+        """Return the wiki health errors. An empty list means healthy."""
 
         errors: list[str] = []
         for required in (self.index_path, self.log_path, self.root / "raw", self.page_root):

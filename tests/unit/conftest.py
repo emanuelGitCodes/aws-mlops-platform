@@ -1,9 +1,9 @@
 """Shared unit-test setup: handler env stubs, boto3-stubbed imports, the
 canonical valid sample record, the repo root path, and the synthesized CDK app.
 
-The CDK fixtures are session-scoped rather than module-scoped: the per-stack
-test modules all assert against the same dev synthesis, and re-synthesizing the
-whole app once per module would multiply the suite's slowest step by eight.
+The CDK fixtures are session-scoped, not module-scoped. Every per-stack test
+module asserts against the same dev synthesis. One synthesis per module would
+multiply the slowest step in the suite by eight.
 """
 
 import importlib
@@ -27,9 +27,8 @@ os.environ.setdefault("CURATED_BUCKET", "test-curated")
 os.environ.setdefault("PIPELINE_NAME", "test-pipeline")
 
 # One valid CustomerRecord payload, shared by every test module that needs it.
-# Read from sample.json rather than restated here: the two were byte-identical
-# copies, so a schema change could be applied to the fixture while the payload
-# operators actually curl with went stale, or the reverse.
+# Read it from sample.json. The two were identical copies, so a schema change
+# could reach the fixture while the payload operators curl with went stale.
 SAMPLE_PATH = REPO_ROOT / "sample.json"
 VALID = json.loads(SAMPLE_PATH.read_text())
 
@@ -44,10 +43,10 @@ CONFIG = load_config("dev")
 
 
 def synth_env(env_name: str, prefix: str) -> dict:
-    """Build and synth every stack for one environment.
+    """Build and synthesize every stack for one environment.
 
-    The single place the test app context is configured, so a test can never
-    synthesize under different assumptions than the rest of the suite.
+    This is the only place that configures the test app context, so no test
+    can synthesize under different assumptions than the rest of the suite.
     """
     app = cdk.App(
         context={
@@ -72,10 +71,10 @@ def stacks(stack_constructs) -> dict:
 
 
 class ClientError(Exception):
-    """Stands in for botocore's ClientError, which carries a `response` dict.
+    """Stand-in for the botocore ClientError, which carries a `response` dict.
 
-    Shared: both the deploy handler and the proxy handler branch on the error
-    code, and a second copy could drift from the shape botocore actually
+    The deploy handler and the proxy handler both branch on the error code, so
+    they share this class. A second copy could drift from the shape botocore
     raises.
     """
 

@@ -2,9 +2,9 @@
 type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
-updated: "2026-07-12"
+updated: "2026-08-07"
 sources: ["../../README.md", "../../infra/app.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../raw/aws-security-hardening-phase-1-completion-july-12-2026.md"]
-summary: "A portfolio-grade AWS platform with gated models and reproducible evaluation reports; serverless drift capture remains deferred."
+summary: "A portfolio-grade AWS platform with gated models and reproducible evaluation reports; the drift capture leg is designed but not yet built."
 ---
 # AWS MLOps platform overview
 
@@ -19,9 +19,10 @@ The runtime path is:
 1. Raw CSV data enters S3 and is validated into a curated bucket.
 2. A SageMaker Pipeline preprocesses, trains, evaluates, and conditionally registers a challenger model.
 3. An approved model is deployed to a SageMaker serverless endpoint and exposed through an API Gateway plus proxy Lambda.
-4. CloudWatch observes endpoint operations. Model Monitor capture and automated
-   drift events remain deferred because the serverless endpoint cannot use
-   `DataCaptureConfig`.
+4. CloudWatch observes endpoint operations. Capture and automated drift events
+   are not deployed, because the serverless endpoint cannot use
+   `DataCaptureConfig`. The route out is decided rather than open: see
+   [drift capture design](decisions/drift-capture-design.md).
 
 ## Synthesis
 

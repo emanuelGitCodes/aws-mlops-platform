@@ -187,11 +187,19 @@ had not anticipated.
   `SeniorCitizen` holds 0 and 1, so its only quantile edge is `0.0`, and every
   shift in that column would have been invisible. `bucket_of` uses
   `bisect_left` for this reason.
-- **A rejected challenger still resets the baseline.** Every preprocessing run
-  overwrites the fixed baseline key, including a run whose challenger loses the
-  AUC gate. That is deliberate: it stops a shift the model cannot beat from
-  starting a retrain every hour. The cost is that a true positive is silenced
-  by a failed attempt to answer it. Watch for this in the observation window.
+- **Corrected 2026-08-07: the baseline does *not* reliably reset, and the
+  retrain-storm protection claimed here does not exist.** The original claim
+  was that every preprocessing run overwrites the fixed baseline key, so a
+  rejected challenger resets it and a shift the model cannot beat stops firing
+  every hour. The first drift-triggered retrain disproved it. `Preprocess` and
+  `Train` are cached with `expire_after="P30D"`, and on unchanged curated data
+  both were **cache hits of one second each**. A cached step does not re-run,
+  so it wrote no baseline: the object still carries its original timestamp.
+
+  The consequence is the opposite of the claim. While drifted traffic keeps
+  arriving, the loop can retrain every hour, hit the cache, fail the AUC gate,
+  and never move the reference it is measuring against. A cooldown after a
+  retrain, or an uncached baseline refresh, is the fix. Neither is implemented.
 - **Nothing is deployed.** This change set is code, tests, and documentation
   only. The loop has never run end to end in AWS, so `MIN_RECORDS`, the
   thresholds, and the hourly cadence are all unvalidated against real traffic.

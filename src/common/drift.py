@@ -44,6 +44,16 @@ COLUMN_PSI_THRESHOLD = 0.2
 # nineteen is a different population.
 DRIFTED_COLUMN_FRACTION = 0.3
 
+# A single column this far past `COLUMN_PSI_THRESHOLD` is drift on its own.
+# The fraction rule alone misses a targeted shift: tripling `tenure` and both
+# charge columns moves three of nineteen, which is under the fraction, while
+# their PSI reaches double digits. Those three carry most of the model's
+# signal, so silence there is the wrong answer.
+#
+# Windows drawn from the training population score every column under
+# `COLUMN_PSI_THRESHOLD`, so this leaves a wide margin over observed noise.
+SEVERE_COLUMN_PSI = 1.0
+
 # The platform's own violation event, shared by the Lambda that emits it and
 # the Lambda that consumes it. `infra/stacks/monitoring_stack.py` repeats these
 # three as literals, because importing a handler during synth would run its
@@ -176,10 +186,14 @@ def compare(baseline: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     drifted = sorted(
         column for column, value in column_psi.items() if value >= COLUMN_PSI_THRESHOLD
     )
+    fraction = len(drifted) / len(FEATURE_COLUMNS)
+    worst = max(column_psi.values()) if column_psi else 0.0
     return {
         "record_count": len(rows),
         "column_psi": column_psi,
         "drifted_columns": drifted,
-        "drifted_fraction": round(len(drifted) / len(FEATURE_COLUMNS), 6),
-        "drifted": len(drifted) / len(FEATURE_COLUMNS) >= DRIFTED_COLUMN_FRACTION,
+        "drifted_fraction": round(fraction, 6),
+        "max_column_psi": round(worst, 6),
+        # Two ways in: many columns moved, or one moved severely.
+        "drifted": fraction >= DRIFTED_COLUMN_FRACTION or worst >= SEVERE_COLUMN_PSI,
     }

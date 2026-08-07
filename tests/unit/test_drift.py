@@ -145,12 +145,32 @@ def test_compare_detects_a_shifted_population():
     assert "gender" not in result["drifted_columns"]
 
 
-def test_one_moved_column_is_not_enough_to_call_drift():
-    # A single column is a data-quality question, not a changed population.
-    baseline = drift.build_baseline(spread(200, "tenure", [1, 6, 12, 24, 36]))
-    result = drift.compare(baseline, rows(200, tenure=200))
-    assert result["drifted_columns"] == ["tenure"]
+def test_one_column_moved_mildly_is_not_drift():
+    """A single column that shifts a little is a data-quality question. The
+    column clears `COLUMN_PSI_THRESHOLD` and stays under the severity bar."""
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    window = varied_records(400, seed=7)
+    for index, record in enumerate(window):
+        if index % 10 < 6:  # "Two year" goes from about a third to 60 percent
+            record["Contract"] = "Two year"
+
+    result = drift.compare(baseline, window)
+    assert result["drifted_columns"] == ["Contract"]
+    assert result["column_psi"]["Contract"] >= drift.COLUMN_PSI_THRESHOLD
+    assert result["max_column_psi"] < drift.SEVERE_COLUMN_PSI
     assert result["drifted"] is False
+
+
+def test_one_column_moved_severely_is_drift():
+    """The counterpart. `Contract` collapsing to a single value is a changed
+    population, and the fraction rule alone would let it pass."""
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    result = drift.compare(baseline, varied_records(400, seed=6, Contract="Two year"))
+
+    assert result["drifted_columns"] == ["Contract"]
+    assert result["drifted_fraction"] < drift.DRIFTED_COLUMN_FRACTION
+    assert result["max_column_psi"] >= drift.SEVERE_COLUMN_PSI
+    assert result["drifted"] is True
 
 
 def test_compare_scores_a_window_on_the_baseline_edges():
@@ -192,3 +212,25 @@ def test_a_repeated_payload_reports_every_column_as_drifted():
     # The record count alone says this window is plentiful.
     assert result["record_count"] == 500
     assert drift.distinct_record_count(rows(500)) == 1
+
+
+def test_a_targeted_severe_shift_drifts_below_the_column_fraction():
+    """The fraction rule alone misses this. Three of nineteen columns is under
+    the threshold, and those three carry most of the model's signal."""
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    shifted = varied_records(200, seed=4, tenure=180, MonthlyCharges=400.0, TotalCharges=72000.0)
+    result = drift.compare(baseline, shifted)
+
+    assert result["drifted_columns"] == ["MonthlyCharges", "TotalCharges", "tenure"]
+    assert result["drifted_fraction"] < drift.DRIFTED_COLUMN_FRACTION
+    assert result["max_column_psi"] >= drift.SEVERE_COLUMN_PSI
+    assert result["drifted"] is True
+
+
+def test_a_broad_mild_shift_drifts_on_the_fraction_rule():
+    """The other way in. Many columns moved, none of them severely."""
+    baseline = drift.build_baseline(varied_records(600, seed=1))
+    result = drift.compare(baseline, varied_records(200, seed=5))
+    # Two independent draws of one population do not drift at all.
+    assert result["drifted"] is False
+    assert result["max_column_psi"] < drift.SEVERE_COLUMN_PSI

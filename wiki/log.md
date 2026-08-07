@@ -4222,3 +4222,82 @@ training run plus a possible endpoint update. Not done here.
 **Captured objects have no expiry.** The capture prefix grows without bound,
 and the drift job reads only the last hour. 122 objects is nothing, but there
 is no lifecycle rule and no phase that adds one before 4C. Recorded, not fixed.
+
+## [2026-08-07] verify | The drift loop closed end to end, and the demo exposed a hole in the rule
+
+### Objective
+
+Prove the violation path — the one link with no live evidence — then tighten
+`scripts/send_drift_traffic.py` so its detection rests on the shift it names.
+
+### The loop closed
+
+200 shifted requests were sent at 19:44Z and captured into hour 19. The
+scheduled run at 20:00Z carried the whole chain with no operator in it:
+
+```
+drift_violation   record_count 200, every column over threshold
+retrain_started   execution xk0bvzv647ni
+pipeline          "drift-triggered retrain"  Executing -> Succeeded
+```
+
+`RetrainTriggerFn` was invoked for the first time in this platform's history.
+The three windows staged that day each exercised a different branch, and each
+behaved: hour 17 with 2 records skipped on count, hour 18 with 120 records and
+1 distinct skipped on uniformity, hour 19 with 200 diverse shifted records
+fired. The gate returned `False`, so nothing was promoted and the endpoint is
+unchanged since 2026-08-05T22:21Z.
+
+### Tightening the demo exposed a hole in the detection rule
+
+The old script repeated one fixed record and varied only tenure and charges.
+Sixteen of its nineteen drifted columns moved because the script **pinned**
+them, not because of the shift it advertises. Rebuilding the background from
+the real held-out `api_test` fixture — the same fixture `evaluate_api.py`
+replays — isolates the shift to the three intended columns.
+
+That isolation would have stopped the loop firing at all:
+
+```
+moved: MonthlyCharges, TotalCharges, tenure
+fraction 0.158  (rule needed >= 0.3)      DRIFTED: False
+max column PSI 12.65
+```
+
+Three of nineteen is under `DRIFTED_COLUMN_FRACTION`, so a shift with a PSI of
+**12.6** — sixty times the per-column threshold — scored clean. Those three
+columns carry most of the model's signal. The fraction rule alone cannot see a
+targeted shift, and the old demo only ever worked because it was not targeted.
+
+`SEVERE_COLUMN_PSI = 1.0` adds the second way in: many columns moved, or one
+moved severely. Windows drawn from the training population score every column
+under `COLUMN_PSI_THRESHOLD` and reach a maximum PSI of `0.067`, so the bar sits
+about fifteen times above observed noise.
+
+Two existing tests were overturned by the change, correctly. One asserted that
+a single moved column is never drift, which is no longer the contract; it is
+replaced by a pair that pin both sides — `Contract` skewed to 60 percent scores
+`0.662` and does not fire, `Contract` collapsed to one value scores `9.44` and
+does.
+
+### A claim on the decision page was wrong
+
+The page said every preprocessing run overwrites the baseline, so a rejected
+challenger resets it and stops a retrain storm. The drift-triggered run
+disproved it. `Preprocess` and `Train` are cached with `expire_after="P30D"`,
+and on unchanged curated data both were **cache hits of one second each**. The
+baseline object still carries its 13:37Z timestamp.
+
+So the protection claimed does not exist. While drifted traffic keeps arriving,
+the loop can retrain hourly, hit the cache, fail the gate, and never move its
+own reference. A cooldown after a retrain, or an uncached baseline refresh, is
+the fix. Neither is implemented, and the page is corrected.
+
+The cache did make this retrain nearly free: only `Evaluate` ran, for 5m20s.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **291 passed**, coverage
+`93.3538%`, floor raised `93.27 → 93.35`. Not yet deployed: this changes when
+the platform spends money on retraining, so it needs its own reviewed diff and
+deploy.

@@ -35,7 +35,7 @@ class ServingStack(Stack):
         endpoint_name = config["endpoint_name"]
         code = src_code()
 
-        # Role the model container runs as. Phase 5B: no managed policy. The
+        # Role the model container runs as. It carries no managed policy. The
         # container uses every permission below at start-up. Update this role
         # in place. The deployed `AWS::SageMaker::Model` pins its ARN.
         model_exec_role = sagemaker_execution_role(
@@ -43,9 +43,9 @@ class ServingStack(Stack):
             "ModelExecutionRole",
             least_privilege=True,
         )
-        # Read the one object the container downloads: `model.tar.gz`. This
-        # replaces `grant_read_write`. Serverless inference has no data
-        # capture, so the container never writes back.
+        # Read the one object the container downloads: `model.tar.gz`.
+        # Serverless inference has no data capture, so the container never
+        # writes back.
         model_exec_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],
@@ -61,8 +61,8 @@ class ServingStack(Stack):
             )
         )
         # Container start-up and inference logs. SageMaker owns this group, not
-        # CDK, so this role needs `CreateLogGroup`. The Phase 5A Lambda roles
-        # do not. It is scoped to the single group the role may create.
+        # CDK, so this role needs `CreateLogGroup`, scoped to the single
+        # group it may create. The Lambda roles do not need it.
         endpoint_log_group_arn = self.format_arn(
             service="logs",
             resource="log-group",
@@ -93,7 +93,6 @@ class ServingStack(Stack):
             self,
             "DeployFn",
             config=config,
-            # Phase 5C: second role off the managed log policy.
             least_privilege_logs=True,
             handler="src.serving.deploy_handler.handler",
             code=code,
@@ -105,16 +104,13 @@ class ServingStack(Stack):
                 "MAX_CONCURRENCY": str(config["serverless"]["max_concurrency"]),
             },
         )
-        # Phase 5C: these six actions once shared one `Resource: "*"` statement,
-        # which let the deploy Lambda point any endpoint at any model. Each one
-        # is now scoped to the resources `deploy_handler` names. The two
-        # trailing wildcards are unavoidable, because the handler suffixes each
-        # model and endpoint-config name with the epoch second.
+        # Each action is scoped to the resources `deploy_handler` names. The
+        # two trailing wildcards are unavoidable, because the handler suffixes
+        # each model and endpoint-config name with the epoch second.
         #
-        # Omitted, on 90 days of CloudTrail for this role: `Delete*`, because
-        # the handler never removes a superseded revision; `List*`; and
-        # `kms:Decrypt`, because the `aws/lambda` key policy already authorizes
-        # the cold-start decrypt.
+        # Omitted: `Delete*`, because the handler never removes a superseded
+        # revision. `List*`. And `kms:Decrypt`, because the `aws/lambda` key
+        # policy already authorizes the cold-start decrypt.
         endpoint_config_arn = self.format_arn(
             service="sagemaker",
             resource="endpoint-config",
@@ -187,7 +183,6 @@ class ServingStack(Stack):
             self,
             "ProxyFn",
             config=config,
-            # Phase 5A: first role off the managed log policy.
             least_privilege_logs=True,
             handler="src.serving.proxy_handler.handler",
             code=code,

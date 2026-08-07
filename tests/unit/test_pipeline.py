@@ -2,8 +2,8 @@
 
 These tests build the real pipeline object with the boto3 session mocked. They
 assert on the definition JSON SageMaker receives, like the CDK assertion tests
-in `test_stacks.py`. They cover preprocessing, training, the promotion gate,
-and registration.
+do on a synthesized template. They cover preprocessing, training, the promotion
+gate, and registration.
 """
 
 import json

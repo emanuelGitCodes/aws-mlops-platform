@@ -13,14 +13,12 @@ serverless:
   memory_mb: 3072
   max_concurrency: 20
 monitor:
-  # Hourly, matching dev. Reviewed 2026-08-01. Each run is a SageMaker
-  # processing job on ml.m5.large, so a live hourly schedule is about 720 jobs
-  # a month and dominates the budget below.
+  # Each run is a SageMaker processing job on ml.m5.large, so an hourly
+  # schedule is about 720 jobs a month and dominates the budget below.
   schedule_cron: "cron(0 * ? * * *)"
 
-# The two values below match dev. Reviewed 2026-08-01. `budget_usd` is inert
-# while `security.account_budget` is false. Keep it set, so the number is ready
-# if ownership moves.
+# `budget_usd` is inert while `security.account_budget` is false. Keep it set,
+# so the number is ready if budget ownership moves here.
 budget_usd: 20
 log_retention_days: 14
 security:
@@ -31,7 +29,7 @@ security:
   # spend. It measures the whole account and alarms on the same dollars at 50,
   # 80, and 100 percent. The dev budget already covers prod.
   account_budget: false
-  services:            # All false until the manual production rollout.
+  services:
     access_analyzer: false
     guardduty: false
     config_recorder: false

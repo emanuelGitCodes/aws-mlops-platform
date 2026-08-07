@@ -1,4 +1,4 @@
-"""Security stack: the Phase 2 audit foundation and its CIS detections."""
+"""Security stack: the audit foundation and its CIS detections."""
 
 import json
 
@@ -212,8 +212,8 @@ def test_security_audit_foundation(stacks):
         "AllowRegionalCloudWatchLogsEncryption",
         "AllowCloudWatchEncryptedAlerts",
         "AllowBudgetsEncryptedAlerts",
-        # Phase 3C: without this grant, Config cannot write snapshots into
-        # the KMS-encrypted audit bucket. It fails on the key, not the bucket.
+        # Without this grant, Config cannot write snapshots into the
+        # KMS-encrypted audit bucket. It fails on the key, not the bucket.
         "AllowConfigSnapshotEncryption",
     }
 
@@ -329,9 +329,9 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
     ]
     topic_ref = {"Ref": "SecurityAlertsTopic1CE4D100"}
     assert len(alarms) == 6
-    # Phase 2E (issue 10): only unauthorized-api-calls needs a sustained
-    # burst, which is 3 of 3 five-minute datapoints. The other five page on
-    # the first event and must render no DatapointsToAlarm property.
+    # Only unauthorized-api-calls needs a sustained burst, which is 3 of 3
+    # five-minute datapoints. The other five page on the first event and must
+    # render no DatapointsToAlarm property.
     expected_evaluation = {
         "root-user-activity": (1, None),
         "unauthorized-api-calls": (3, 3),

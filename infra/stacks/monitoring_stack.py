@@ -66,8 +66,8 @@ class MonitoringStack(Stack):
                 "MonitoringScheduleName": [{"prefix": endpoint_name}],
                 # This must equal retrain_handler.VIOLATION_STATUS. Keep it a
                 # literal. Importing the handler here would run its
-                # module-level os.environ lookups during synth. test_stacks.py
-                # asserts that the two agree.
+                # module-level os.environ lookups during synth.
+                # tests/unit/test_monitoring_stack.py asserts that they agree.
                 "MonitoringExecutionStatus": ["CompletedWithViolations"],
             },
             handler=retrain_fn,
@@ -116,5 +116,5 @@ class MonitoringStack(Stack):
             evaluation_periods=1,
         )
         # Without an action, this alarm only changes colour in the console. It
-        # delivers to the same topic as the Phase 2 security alarms.
+        # delivers to the same topic as the security alarms.
         endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))

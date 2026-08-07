@@ -1,4 +1,4 @@
-"""Phase 3 threat detection and configuration monitoring, one flag-gated service at a time."""
+"""Threat detection and configuration monitoring, one flag-gated service at a time."""
 
 from typing import Any
 
@@ -25,19 +25,18 @@ PHASE_3_SERVICE_FLAGS = (
 )
 
 # The flags this stack builds resources for. The other flags keep the config
-# contract stable across sub-phases, but have no CDK behind them. Enabling one
-# of those must fail loudly. A silent no-op deploy would look like an enabled
-# security service. Add a flag here in the change that implements its
-# sub-phase.
+# contract stable, but have no CDK behind them. Enabling one of those must fail
+# loudly. A silent no-op deploy looks like an enabled security service. Add a
+# flag here in the change that implements it.
 IMPLEMENTED_SERVICE_FLAGS = frozenset(
     {"access_analyzer", "guardduty", "account_bpa", "config_recorder"}
 )
 
-# Phase 3C records history for the resource types the Phase 2C detections
-# alarm on, and no others. Config bills per configuration item, so an
-# all-types recorder would pay to version resources no control reads. It would
-# also grow silently when EC2 arrives. Recording is continuous: at $0.003 an
-# item against about 100 resources, the periodic rate costs more for less.
+# Config records history for the resource types the metric detections alarm
+# on, and no others. It bills per configuration item, so an all-types recorder
+# pays to version resources no control reads, and it grows when EC2 arrives.
+# Recording is continuous: at $0.003 an item against about 100 resources, the
+# periodic rate costs more for less.
 CONFIG_RECORDED_TYPES = (
     "AWS::CloudTrail::Trail",
     "AWS::IAM::Group",
@@ -73,7 +72,7 @@ GUARDDUTY_DISABLED_FEATURES = (
 
 
 class SecurityMonitoringStack(Stack):
-    """Phase 3 services; every flag stays false until its own sub-phase enables it."""
+    """Each service builds only when its own flag is true."""
 
     def __init__(
         self,
@@ -153,8 +152,8 @@ class SecurityMonitoringStack(Stack):
         if services["account_bpa"]:
             # CloudFormation has no resource type for the account-level
             # setting, so this calls the S3 Control API directly. The account id
-            # stays a pseudo-parameter, never a literal. The synthesized
-            # Custom::AWS resource is not taggable, so it carries no tags.
+            # stays a pseudo-parameter, never a literal. The Custom::AWS
+            # resource is not taggable, so it carries no tags.
             bpa_resource_id = f"mlops-{self.env_name}-account-bpa"
             put_account_bpa = cr.AwsSdkCall(
                 service="S3Control",
@@ -200,8 +199,8 @@ class SecurityMonitoringStack(Stack):
         if services["config_recorder"]:
             # Config authorizes itself through the service-linked role, not a
             # role this stack writes. AWS owns that policy, so the recorder
-            # cannot receive more than the service needs. Phase 3-prep
-            # pre-granted the scoped CreateServiceLinkedRole for this.
+            # cannot receive more than the service needs. The CloudFormation
+            # execution policy grants the scoped CreateServiceLinkedRole.
             service_linked_role = iam.CfnServiceLinkedRole(
                 self,
                 "ConfigServiceLinkedRole",
@@ -216,7 +215,6 @@ class SecurityMonitoringStack(Stack):
                     region="",
                     # Use `aws-service-role`. `aws-service-linked-role` is not
                     # a real IAM path, and CreateServiceLinkedRole fails on it.
-                    # Policy v10 grants both statements on the correct path.
                     resource="role/aws-service-role/config.amazonaws.com",
                     resource_name="AWSServiceRoleForConfig",
                     arn_format=ArnFormat.SLASH_RESOURCE_NAME,

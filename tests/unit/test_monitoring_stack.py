@@ -72,7 +72,7 @@ def test_monitoring_drift_loop_wiring(stacks):
     template.resource_count_is("AWS::CloudWatch::Alarm", 1)
 
     # An alarm with no action only changes colour in the console. This one
-    # must page the same topic as the Phase 2 security alarms.
+    # must page the same topic as the security alarms.
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {

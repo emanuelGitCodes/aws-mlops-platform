@@ -63,11 +63,11 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
 
 
 def test_the_model_role_carries_no_managed_policy(stacks):
-    """Phase 5B: the model container role drops `AmazonSageMakerFullAccess`.
+    """The model container role carries no managed policy.
 
-    The replacement is read-only and specific: the training prefix of the
-    artifacts bucket, plus the endpoint log group. A serverless model has no
-    data capture, so it never writes back to the artifacts bucket.
+    Its grants are read-only and specific: the training prefix of the artifacts
+    bucket, plus the endpoint log group. A serverless model has no data
+    capture, so it never writes back to the artifacts bucket.
     """
     resources = stacks["serving"].to_json()["Resources"]
     role = next(
@@ -110,12 +110,11 @@ def test_the_model_role_carries_no_managed_policy(stacks):
 
 
 def test_the_deploy_role_names_every_resource_it_touches(stacks):
-    """Phase 5C: the deploy Lambda drops the managed log policy and
-    `Resource: "*"`.
+    """The deploy Lambda carries no managed log policy and no `Resource: "*"`.
 
-    The six SageMaker actions once shared one wildcard statement, so the role
-    that reacts to a registry approval could point any endpoint in the account
-    at any model. Each action now names the resources `deploy_handler` builds.
+    Each SageMaker action names the resources `deploy_handler` builds. Under
+    one shared wildcard statement, the role that reacts to a registry approval
+    could point any endpoint in the account at any model.
     `DescribeModelPackage` is pinned to this platform's own group, because the
     package ARN arrives in the EventBridge detail, and a crafted event would
     otherwise reach a foreign package.
@@ -169,12 +168,11 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
 
 
 def test_the_proxy_role_carries_no_managed_policy(stacks):
-    """Phase 5A: the proxy is the first role off `AWSLambdaBasicExecutionRole`.
+    """The proxy role carries no `AWSLambdaBasicExecutionRole`.
 
     That managed policy grants the three log actions on every log group in the
-    account. The replacement grants writes to this function's own group and
-    nothing else, so a compromised proxy cannot write into or create an audit
-    trail log group.
+    account. This role writes to the function's own group and nothing else, so
+    a compromised proxy cannot write into or create an audit trail log group.
     """
     resources = stacks["serving"].to_json()["Resources"]
     role_id, role = next(

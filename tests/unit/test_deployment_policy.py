@@ -88,11 +88,11 @@ def test_access_analyzer_service_linked_role_stays_scoped():
 
 
 def test_guardduty_grants_are_absent_until_its_sub_phase_returns():
-    """Policy v10 removed them. Phase 3B waits for the planned EC2 work, and a
-    standing grant for a service nobody can create is authority for nothing.
+    """GuardDuty is not enabled, and a standing grant for a service nobody can
+    create is authority for nothing.
 
-    Re-adding them costs something. The live default v10 filled the last of the
-    five IAM policy version slots, so the next rotation must delete an old
+    Re-adding them costs something. The live default version filled the last of
+    the five IAM policy version slots, so the next rotation must delete an old
     version first.
     """
     document = json.loads(POLICY_PATH.read_text())
@@ -105,7 +105,7 @@ def test_config_service_linked_role_stays_scoped():
     document = json.loads(POLICY_PATH.read_text())
     # Use `aws-service-role`, not `aws-service-linked-role`.
     # CreateServiceLinkedRole is denied on the second path and rolls the deploy
-    # back. Policy v10 grants the correct one.
+    # back.
     slr_arn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/config.amazonaws.com/*"
 
     create = _statement(document, "ConfigServiceLinkedRole")

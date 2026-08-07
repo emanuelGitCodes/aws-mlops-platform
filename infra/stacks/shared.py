@@ -35,9 +35,9 @@ class MonitorConfig(TypedDict):
 
 
 class SecurityServicesConfig(TypedDict):
-    """``security.services:`` — the six Phase 3 enablement flags.
+    """``security.services:`` — the six security-service enablement flags.
 
-    ``SecurityMonitoringStack`` requires exactly these keys; keep in sync
+    ``SecurityMonitoringStack`` requires exactly these keys. Keep them in sync
     with ``PHASE_3_SERVICE_FLAGS``.
     """
 
@@ -86,7 +86,7 @@ class PlatformConfig(TypedDict):
 # - `training`: the training step writes `model.tar.gz` here. It is the only
 #   prefix the model container reads.
 # - `evaluations` and `monitor`: written by the evaluation step and by
-#   `scripts/setup_monitor.py`. Phase 5D scopes the pipeline role to both.
+#   `scripts/setup_monitor.py`. The pipeline role is scoped to both.
 CONFIG_DELIVERY_PREFIX = "config"
 MODEL_ARTIFACT_PREFIX = "training"
 EVALUATION_REPORT_PREFIX = "evaluations"
@@ -139,11 +139,10 @@ def platform_lambda(
     )
     role: iam.IRole | None = None
     if least_privilege_logs:
-        # Phase 5 replaces `AWSLambdaBasicExecutionRole`, which grants the log
-        # actions on every log group in the account. Supplying a role stops CDK
-        # from attaching that policy. The role can then write only to the group
-        # created above. This is opt-in, because Phase 5 converts one role per
-        # change set.
+        # `AWSLambdaBasicExecutionRole` grants the log actions on every log
+        # group in the account. Supplying a role stops CDK from attaching that
+        # policy, so the function writes only to the group created above. This
+        # is opt-in, because roles are converted one per change set.
         role = iam.Role(
             scope,
             f"{construct_id}Role",
@@ -169,8 +168,7 @@ def sagemaker_execution_role(
 
     The role carries `AmazonSageMakerFullAccess` unless `least_privilege` is
     set. With that flag it carries no managed policy, and the caller grants
-    every permission explicitly. The flag is opt-in, because Phase 5 converts
-    one role per change set.
+    every permission explicitly.
 
     Never pass `role_name`, and never rename the construct. Both roles this
     function builds are pinned by ARN outside CloudFormation, so each must be

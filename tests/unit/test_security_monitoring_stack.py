@@ -1,4 +1,4 @@
-"""SecurityMonitoring stack: the flag-gated Phase 3 services."""
+"""SecurityMonitoring stack: the flag-gated security services."""
 
 import json
 
@@ -18,8 +18,8 @@ from tests.unit.conftest import CONFIG
 
 
 def test_security_monitoring_enables_only_phase_3a_3c_and_3e(stacks):
-    """Dev enables the analyzer, Config, and account BPA. Phase 3B GuardDuty
-    is deferred."""
+    """Dev enables the analyzer, Config, and account BPA. GuardDuty stays
+    off."""
     services = CONFIG["security"]["services"]
     assert services["access_analyzer"] is True
     assert services["account_bpa"] is True
@@ -61,10 +61,10 @@ def test_security_monitoring_enables_only_phase_3a_3c_and_3e(stacks):
 
 
 def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
-    """The flag-gated detector keeps its Phase 3B shape for the later retry."""
+    """The flag-gated detector keeps its shape for a later enablement."""
     config = load_config("dev")
     config["security"]["services"]["guardduty"] = True
-    # Isolate the detector. Phase 3C would dereference the stub audit bucket
+    # Isolate the detector. The recorder dereferences the stub audit bucket
     # below.
     config["security"]["services"]["config_recorder"] = False
 
@@ -143,8 +143,8 @@ def _account_bpa_call(template, key):
 
 
 def test_account_bpa_blocks_all_four_public_access_routes(stacks):
-    """Phase 3E sets every account-level switch. Delete reverts to no
-    configuration."""
+    """The custom resource sets every account-level switch. Delete reverts to
+    no configuration."""
     template = stacks["security_monitoring"]
     template.resource_count_is("Custom::AWS", 1)
 
@@ -264,8 +264,8 @@ def test_prod_security_monitoring_stays_a_disabled_shell():
 
 
 def test_disabling_a_phase_3_flag_still_synthesizes():
-    """Turning a sub-phase off must not break synthesis. Otherwise rollback
-    is stuck.
+    """Turning a service off must not break synthesis. Otherwise rollback is
+    stuck.
 
     Acknowledgements are matched to real constructs, so one naming a flag-gated
     Phase 3 construct fails synthesis the moment that flag goes false -- which is
@@ -289,7 +289,7 @@ def test_disabling_a_phase_3_flag_still_synthesizes():
 
 
 def test_config_recorder_records_only_the_named_security_types(stacks):
-    """Phase 3C is not an all-types recorder. Config bills per item.
+    """This is not an all-types recorder. Config bills per item.
 
     `AllSupported` true would silently start versioning every resource class,
     including whatever the planned EC2 work adds, with no diff to review.
@@ -333,7 +333,8 @@ def test_config_delivers_into_the_audit_bucket_under_its_own_prefix(stacks):
 
 
 def test_disabling_config_leaves_no_recorder_and_no_bucket_grant():
-    """The rollback path. Turning Phase 3C off must remove the principal."""
+    """The rollback path. Turning the recorder off must remove the
+    principal."""
     config = load_config("dev")
     config["security"]["services"]["config_recorder"] = False
 

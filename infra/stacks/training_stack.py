@@ -4,8 +4,8 @@ The pipeline definition lives in src/pipeline/pipeline.py. The SageMaker SDK
 upserts it, because Pipelines are versioned documents and not CloudFormation
 resources. This stack owns only the IAM role the pipeline runs as.
 
-Phase 5D replaced `AmazonSageMakerFullAccess` with the policy below. Each
-omission was checked against CloudTrail for the 2026-08-06 run:
+The policy below replaces `AmazonSageMakerFullAccess`. Each omission was
+checked against a full CloudTrail pipeline run:
 
 - ECR: SageMaker pulls the first-party images with its own credentials.
 - KMS: the buckets use the `aws/s3` key. Its key policy authorizes the call.
@@ -14,8 +14,8 @@ omission was checked against CloudTrail for the 2026-08-06 run:
 - Lineage calls: CloudTrail attributes them to `sagemaker.amazonaws.com`.
 
 `sagemaker:AddTags` is the exception. Pipelines tags each resource inside the
-create call, so CloudTrail never logs it as its own event. Two runs had to fail
-to find the four ARNs that need it.
+create call, so CloudTrail never logs it as its own event. It is granted on the
+four ARNs below and nowhere else.
 """
 
 from typing import Any
@@ -47,8 +47,8 @@ class TrainingStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Phase 5D: the last role off `AmazonSageMakerFullAccess`. Update this
-        # role in place. Never replace it. The deployed pipeline definition and
+        # This role carries no managed policy. Update it in place. Never
+        # replace it. The deployed pipeline definition and
         # `scripts/setup_monitor.py` both pin its ARN.
         self.pipeline_role = sagemaker_execution_role(
             self,
@@ -68,8 +68,8 @@ class TrainingStack(Stack):
         )
         # Step I/O on the artifacts bucket, which is also the SDK session
         # bucket: code bundles, `model.tar.gz`, evaluation reports, and the
-        # Model Monitor baseline. This replaces `grant_read_write`, which
-        # covered the whole bucket with ten actions.
+        # Model Monitor baseline. Each prefix is named, so no grant covers the
+        # whole bucket.
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],

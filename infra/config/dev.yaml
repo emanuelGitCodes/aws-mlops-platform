@@ -20,10 +20,11 @@ security:
   # notification history. The budget is account-scoped, so it covers prod spend
   # too. Prod must stay false. See the note there.
   account_budget: true
-  services:            # Phase 3 enablement flags. One flips true per sub-phase.
+  services:
     access_analyzer: true
-    guardduty: false   # 3B deferred. The AWS Free plan blocks GuardDuty.
-    config_recorder: true    # 3C. Enabled 2026-08-02. Minimally scoped.
+    # Enabling GuardDuty starts a 30-day free trial, then bills monthly.
+    guardduty: false
+    config_recorder: true
     security_hub: false
     account_bpa: true
     eventbridge_alerts: false

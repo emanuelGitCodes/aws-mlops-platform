@@ -24,9 +24,9 @@ PREFIX_TOKEN = "{prefix}"
 GROUP_TOKEN = "{group}"
 PIPELINE_TOKEN = "{pipeline}"
 
-# Enablement flag for the account-wide budget. It sits beside the Phase 3
-# service flags, not inside them. `security.services` is validated as exactly
-# the six Phase 3 flags, and the budget is a Phase 2 resource.
+# Enablement flag for the account-wide budget. It sits beside the service
+# flags, not inside them. `security.services` is validated as exactly six
+# flags, and the budget is not one of the services.
 ACCOUNT_BUDGET_FLAG = "account_budget"
 
 
@@ -36,11 +36,10 @@ class Acknowledgement:
     construct_path: str
     finding_id: str
     reason: str
-    # A flag-gated construct exists only where its flag is enabled. That covers
-    # the Phase 3 sub-phases and the account budget one environment owns.
-    # Naming the flag here skips the acknowledgement everywhere else. Leaving it
-    # None keeps the strict behaviour: a path that matches no construct fails
-    # synthesis, which catches a stale acknowledgement.
+    # A flag-gated construct exists only where its flag is enabled. Naming the
+    # flag here skips the acknowledgement everywhere else. Leaving it None keeps
+    # the strict behaviour: a path that matches no construct fails synthesis,
+    # which catches a stale acknowledgement.
     requires_flag: str | None = None
 
 
@@ -48,8 +47,7 @@ LAMBDA_BASIC_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AWSLambdaBasicExecutionRole]"
 )
-# A constant for `AmazonSageMakerFullAccess` sat here until Phase 5D took the
-# last role off it. Nothing acknowledges that policy now.
+# No role carries `AmazonSageMakerFullAccess`, so nothing acknowledges it.
 # `test_broad_sagemaker_managed_policy_baseline_has_not_grown` keeps it out.
 APIGW_LOG_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
@@ -103,7 +101,6 @@ ACKNOWLEDGEMENTS = (
         "Phase 2 budget API provider; replace managed log policy during Phase 5 IAM work.",
         requires_flag=ACCOUNT_BUDGET_FLAG,
     ),
-    # Ingestion: existing Lambda/queue findings remain visible until their named phase.
     Acknowledgement(
         "ingestion",
         "ValidateFn/ServiceRole",
@@ -152,11 +149,10 @@ ACKNOWLEDGEMENTS = (
         "AwsSolutions::AwsSolutions-L1",
         "Python 3.12 matches the packaged native runtime; review runtime in Phase 7.",
     ),
-    # Training role: Phase 5D removed `AmazonSageMakerFullAccess` and the five
-    # CDK S3 grant wildcards. Two wildcard classes survive: the object wildcard
-    # under each named prefix, and the two generated job names. SageMaker names
-    # every pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, which no
-    # policy can enumerate before the run.
+    # Training role. Two wildcard classes remain: the object wildcard under
+    # each named prefix, and the two generated job names. SageMaker names every
+    # pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, which no policy
+    # can enumerate before the run.
     *(
         Acknowledgement(
             "training",
@@ -213,10 +209,8 @@ ACKNOWLEDGEMENTS = (
             "is confined to this platform's own model package group."
         ),
     ),
-    # Phases 5 to 8 remove the serving IAM debt and the current API controls.
-    # Phase 5B removed the model role's `AmazonSageMakerFullAccess` and the five
-    # CDK S3 grant wildcards. Only the object wildcard under one prefix remains,
-    # and no policy can address those keys without it.
+    # Serving. Only the object wildcard under one prefix remains, and no
+    # policy can address those keys without it.
     Acknowledgement(
         "serving",
         "ModelExecutionRole/DefaultPolicy",
@@ -241,11 +235,10 @@ ACKNOWLEDGEMENTS = (
             "under one SageMaker-owned group, which is what PutLogEvents requires."
         ),
     ),
-    # Phase 5C removed the deploy role's managed log policy and the six-action
-    # `Resource: "*"` SageMaker statement Phase 0 recorded. Three ARNs remain,
-    # and each trailing wildcard is unavoidable. `deploy_handler` suffixes every
-    # model and endpoint-config name with the epoch second, and the model
-    # package is addressed by version under one group.
+    # Deploy role. Three ARNs remain, and each trailing wildcard is
+    # unavoidable. `deploy_handler` suffixes every model and endpoint-config
+    # name with the epoch second, and the model package is addressed by version
+    # under one group.
     *(
         Acknowledgement(
             "serving",
@@ -326,7 +319,6 @@ ACKNOWLEDGEMENTS = (
             "AwsSolutions::AwsSolutions-COG4",
         )
     ),
-    # Monitoring Lambda findings remain until IAM and logging phases.
     Acknowledgement(
         "monitoring",
         "RetrainTriggerFn/ServiceRole",

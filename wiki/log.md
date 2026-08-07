@@ -3851,3 +3851,114 @@ decision page: ground truth never arrives, so this loop detects changed input
 traffic and never a worse model; and `scripts/setup_monitor.py` is gone, so
 there is no path back to Model Monitor without the eligibility pre-flight that
 page describes.
+
+## [2026-08-07] deploy | Drift loop deployed to dev; the baseline is not yet written
+
+### Objective
+
+Deploy the drift loop to dev under the operating rule, with a reviewed diff
+before any mutation, and resource-level evidence after it.
+
+### Scope
+
+`Mlops-Dev-Data`, `Mlops-Dev-Serving`, `Mlops-Dev-Monitoring`, in that order.
+Data first, because both other stacks import a new export from it. Identity:
+`mlops-deployer` for the diff and the deploys, `mlops-security-auditor` for
+verification, `aws-admin` for the budget and CloudTrail reads the auditor is
+denied.
+
+### Pre-flight baseline
+
+Endpoint `InService`, last modified 2026-08-05T22:21Z. Six security alarms
+`OK`. `mlops-dev-endpoint-5xx` `INSUFFICIENT_DATA`, which is the known
+unfixed gap rather than a new symptom: it leaves `TreatMissingData` unset and
+the endpoint is idle.
+
+### The diff, before deploying
+
+- **Data:** one added output, `ExportsOutputRefArtifactsBucket…`. No resource
+  change. The bucket *ARN* export already existed; the drift Lambda and the
+  proxy need the bucket *name*.
+- **Serving:** exactly one IAM statement added — `s3:PutObject` on
+  `<artifacts>/capture/*` for `ProxyFnRole`. `ProxyFn` gains two environment
+  variables and a new asset hash. `DeployFn` shows an asset-hash change only,
+  because both share the bundled `src/` asset. **No role replaced**, and
+  `ModelExecutionRole` untouched.
+- **Monitoring:** six resources added — log group, role, policy, function,
+  schedule rule, invoke permission. Two updated: `RetrainTriggerFn` (asset)
+  and `DriftViolationRule`, whose pattern moves from
+  `aws.sagemaker` / `SageMaker Model Monitor Execution Status Change` /
+  `MonitoringExecutionStatus` to `mlops.monitoring` / `Drift Evaluation Result`
+  / `status`. Nothing deleted, nothing replaced.
+
+### What the deploy actually changed
+
+From `make verify-deploy SINCE=2026-08-07`, not from stack status:
+
+```
+Mlops-Dev-Monitoring   6 CREATE_COMPLETE, 2 UPDATE_COMPLETE
+Mlops-Dev-Serving      3 UPDATE_COMPLETE (DeployFn, ProxyFn, ProxyFnRole policy)
+Mlops-Dev-Data         (no resources changed -- metadata-only or no-op update)
+```
+
+The Data line is the case this rule exists for. The stack reports
+`UPDATE_COMPLETE` and modified no resource; only the export was added.
+
+### Live checks
+
+**Serving and capture.** `make smoke` passed 6 of 6 against the deployed API.
+Two capture objects landed under `capture/2026/08/07/17/`, one per successful
+prediction. The smoke suite also exercises the rejection paths, and those
+produced no object — a rejected request is never captured, as intended. A
+captured object holds `captured_at`, all nineteen raw feature columns, and the
+score.
+
+**Drift evaluation.** A direct invocation returned
+`{"skipped": "insufficient_records", "records": 0}` and logged
+`{"event": "drift_window_too_small", "records": 0, "required": 100}`. Zero is
+correct: the window is the hour *before* the current one, and the captures are
+in the current hour.
+
+That invocation also proved an ordering property the design did not state
+explicitly. The baseline does not exist yet, and the handler returned without
+error, because the sample-size check runs before `read_baseline`. A missing
+baseline is therefore not a failure mode while traffic is below `MIN_RECORDS`.
+
+**Alarms.** `iam-policy-changes` moved to `ALARM`, and CloudTrail attributes it
+entirely to this deploy: `CreateRole` at 16:59:03Z, `PutRolePolicy` at
+16:57:54Z and 16:59:22Z, all by `AWSCloudFormation`. This is the Phase 5B/5C/5D
+pattern — the detection working, and it self-clears. The other five alarms
+`OK`. `mlops-dev-endpoint-5xx` unchanged at `INSUFFICIENT_DATA`.
+
+**Endpoint and budget.** Endpoint `InService`, last modified 2026-08-05T22:21Z
+— unchanged by this deploy. Budget `$20` intact, `$0.00` actual, `$1.496`
+forecast.
+
+### What is deployed and what is not
+
+Capture is live and the drift job runs on schedule. **The loop cannot yet
+complete.** The baseline does not exist, and the deployed pipeline definition
+does not write it: the `baseline` ProcessingOutput is in `src/pipeline/`, and
+that definition reaches AWS through an SDK upsert, not through CloudFormation.
+
+Two consequences, both unaddressed by this deploy:
+
+1. Until the pipeline is upserted **and** run once, no drift evaluation can
+   score anything.
+2. If captured traffic reaches `MIN_RECORDS` in an hour before that happens,
+   the handler will pass the sample-size check and fail on `NoSuchKey`. At the
+   current traffic level this is remote, but it is the one way this deploy can
+   produce an error rather than a skip.
+
+The upsert is deliberately not done here. It mutates the deployed pipeline
+definition, and a run in dev auto-approves its challenger, which can update
+the endpoint. That is a larger action than deploying the loop and belongs to
+its own decision.
+
+### Next checkpoint
+
+Upsert the pipeline with `--role-arn` and run it once to write the first
+baseline, then force a violation with `scripts/send_drift_traffic.py` and
+confirm the event reaches `RetrainTriggerFn`. The observation window should
+watch for the baseline-reset behaviour recorded on the decision page: a
+rejected challenger overwrites the baseline and can silence a true positive.

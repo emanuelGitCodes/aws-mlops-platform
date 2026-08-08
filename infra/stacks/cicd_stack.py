@@ -5,7 +5,7 @@ No long-lived AWS key exists for CI, and none may be created.
 
 The trust is scoped to one GitHub environment per role. The prod environment
 carries a manual approval gate, so the prod role is reachable only by a job
-that passed it. A branch-scoped trust would not carry that property.
+that passed it. A branch-scoped trust does not reach that gate.
 """
 
 from typing import Any
@@ -49,9 +49,9 @@ class CicdStack(Stack):
             resource_name=GITHUB_OIDC_DOMAIN,
         )
         if cicd_config["owns_oidc_provider"]:
-            # AWS validates the provider's certificate against its own trusted
-            # CAs, so no thumbprint is pinned here. A pinned thumbprint becomes
-            # a rotation outage the day GitHub changes its chain.
+            # AWS validates the provider's certificate against its own
+            # trusted CAs. A pinned thumbprint becomes a rotation outage the
+            # day GitHub changes its chain.
             iam.CfnOIDCProvider(
                 self,
                 "GitHubOidcProvider",
@@ -70,9 +70,9 @@ class CicdStack(Stack):
                 conditions={
                     "StringEquals": {
                         f"{GITHUB_OIDC_DOMAIN}:aud": STS_AUDIENCE,
-                        # One environment, not a branch and not a wildcard. A
-                        # `repo:<repo>:*` subject lets any branch or pull
-                        # request in the repository assume this role.
+                        # A `repo:<repo>:*` subject lets any branch or pull
+                        # request in the repository assume this role. A
+                        # ref-scoped subject does not reach the approval gate.
                         f"{GITHUB_OIDC_DOMAIN}:sub": (f"repo:{repository}:environment:{env_name}"),
                     }
                 },
@@ -92,10 +92,8 @@ class CicdStack(Stack):
         # calls the endpoint. Phase 6 authorizes that call with SigV4, so the
         # caller needs execute-api:Invoke.
         #
-        # Both ARNs arrive from Serving rather than being rebuilt here. A
-        # stack ARN ends in a generated id and a REST API ARN embeds a
-        # generated api id, so composing either one locally costs a wildcard
-        # and a permanent cdk-nag acknowledgement.
+        # A stack ARN ends in a generated id, and a REST API ARN embeds a
+        # generated api id. An ARN composed here needs a wildcard over both.
         deploy_role.add_to_policy(
             iam.PolicyStatement(
                 sid="ReadServingStackOutputs",

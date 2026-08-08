@@ -9,8 +9,8 @@ from tests.unit.conftest import REPO_ROOT
 POLICY_DIR = REPO_ROOT / "infra" / "policies"
 POLICY_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy.json"
 # The execution boundary spans two managed policies. AWS caps one managed
-# policy at 6144 characters, and the first reached that ceiling on 2026-08-08.
-# Both attach to the same CloudFormation execution role, so the grants union.
+# policy at 6144 characters, and the main document is full. Both attach to the
+# same CloudFormation execution role, so the grants union.
 EXTENSION_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy-extension.json"
 POLICY_SIZE_QUOTA = 6144
 
@@ -165,8 +165,7 @@ def _rendered_size(path):
     """Return the size IAM measures: compact JSON with the account filled in.
 
     IAM ignores whitespace, so an indented file is not what counts. The
-    placeholder is longer than a real account id, so substituting it keeps the
-    measurement honest rather than pessimistic.
+    placeholder is longer than a real account id.
     """
     document = path.read_text().replace("${AWS_ACCOUNT_ID}", "123456789012")
     return len(json.dumps(json.loads(document), separators=(",", ":")))
@@ -174,8 +173,8 @@ def _rendered_size(path):
 
 @pytest.mark.parametrize("path", [POLICY_PATH, EXTENSION_PATH])
 def test_each_policy_document_fits_the_aws_size_quota(path):
-    """A rotation that exceeds 6144 fails with LimitExceeded, and the failure
-    arrives at the AWS API rather than in CI. Measure it here instead."""
+    """A rotation that exceeds 6144 fails with LimitExceeded, and that failure
+    arrives at the AWS API rather than in CI."""
     size = _rendered_size(path)
 
     assert size <= POLICY_SIZE_QUOTA, (

@@ -35,7 +35,7 @@ def test_the_trust_names_one_github_environment(stacks):
     assert conditions[f"{GITHUB_DOMAIN}:sub"] == (
         f"repo:{CONFIG['cicd']['github_repository']}:environment:{CONFIG['env_name']}"
     )
-    # A StringLike on the subject would allow a wildcard to creep in later.
+    # A StringLike on the subject matches more than one value.
     assert "StringLike" not in statement["Condition"]
 
 

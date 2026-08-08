@@ -4939,3 +4939,62 @@ hours would have added cost data the budget already reports as zero.
 Full 3F stays behind the paid-plan decision.
 
 **Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] deploy | Sub-phase 2F deployed to dev, observation open
+
+**Objective.** Make the two endpoint alarms report an idle endpoint honestly,
+under the Phase 2E gate.
+
+**Scope.** `infra/stacks/monitoring_stack.py`, `infra/stacks/shared.py`
+(`MonitorConfig`), both `infra/config/*.yaml`,
+`tests/unit/test_monitoring_stack.py`, `pyproject.toml`. Stack
+`Mlops-Dev-Monitoring` only.
+
+**Change.** `mlops-<env>-endpoint-5xx` sets `TreatMissingData` to
+`NOT_BREACHING`. A new `mlops-<env>-endpoint-silent` alarms on `Invocations`
+`Sum` under 1, hourly period, over `monitor.silence_alarm_hours` periods, with
+`TreatMissingData` `BREACHING`. Dev's window is 24 hours, prod's is 6.
+
+**The decision this sub-phase was required to state.** The 2F entry demanded an
+explicit choice between taking a second signal and accepting the limit that no
+`TreatMissingData` value separates idle from silent. **It took the second
+signal.** The cost was stated in advance and is real: dev has no traffic floor,
+so `endpoint-silent` reaches `ALARM` there on a correctly working idle
+endpoint, and it pages the same topic as the security alarms. The 24-hour dev
+window bounds that to about one page per idle day rather than one per six
+hours.
+
+**Gate results.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 307 passed at `93.47%`, and the floor moves
+`93.45 → 93.47`. The named diff showed the two intended alarm changes plus two
+Lambda code republishes with no source change.
+
+**Deploy.** `Mlops-Dev-Monitoring` updated at 2026-08-08T15:48:43Z.
+`make verify-deploy SINCE=2026-08-08` reports four changed resources:
+`Endpoint5xxAlarm` updated, `EndpointSilentAlarm` created, `DriftEvaluationFn`
+and `RetrainTriggerFn` updated. **The two functions are the 5C
+non-reproducible-asset defect, not 2F.** This is the first deploy where that
+defect visibly inflates a resource-level report, which is the exact reporting
+the repository requires — worth fixing before it misleads a later window.
+
+**Live checks.** The 5xx alarm left `INSUFFICIENT_DATA` at 15:49:36Z, 48
+seconds after the deploy, with CloudWatch naming the cause: one missing
+datapoint `treated as [NonBreaching]`. The silence alarm evaluated over history
+and settled `OK` — 19 missing datapoints treated as breaching against 5 real
+ones — so one invocation anywhere in the window holds it `OK`. `make smoke`
+passed 6. All eight alarms now read `OK`.
+
+**Interpretation.** The alarm has 24 evaluation periods and no separate
+`DatapointsToAlarm`, so every one of the 24 hourly periods must breach. That is
+the intended contract: 24 consecutive idle hours, not 24 idle hours in any
+order.
+
+**Decision and next checkpoint.** The window is open. It closes on
+`endpoint-silent` reaching `ALARM` after a full idle window and clearing on
+real traffic, the 5xx alarm holding `OK` while idle and still paging on a
+forced 5xx, six security alarms unchanged, `/predict` working, and the budget
+intact. 2G stays not started under the one-at-a-time rule. **Dev observation
+windows now check seven alarms, not six**, and `endpoint-silent` in `ALARM`
+there means nobody called the endpoint.
+
+**Verification.** `python scripts/wiki.py lint`.

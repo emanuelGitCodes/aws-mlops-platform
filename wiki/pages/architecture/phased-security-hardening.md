@@ -108,17 +108,32 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
-- **Phase 2F: open, not started.** Set `TreatMissingData` on
-  `mlops-<env>-endpoint-5xx`, which is built in `infra/stacks/monitoring_stack.py`
-  and is the only alarm in the repository that leaves the property unset. It
-  therefore defaults to `missing` and reads `INSUFFICIENT_DATA` while the
-  serverless endpoint is idle. The sub-phase chooses between `NOT_BREACHING`,
-  which reads `OK` while idle, and `IGNORE`, which holds the last state. Note
-  the limit before choosing: **neither value distinguishes "healthy and idle"
-  from "not reporting"**, because both suppress the one state that marks
-  absent data. Separating them needs a second signal, such as an alarm on
-  invocation volume. State in the change set whether the sub-phase takes that
-  second signal or accepts the limit.
+- **Phase 2F: deployed to dev 2026-08-08, observation open.**
+  `mlops-<env>-endpoint-5xx` now sets `TreatMissingData` to `NOT_BREACHING`.
+  It defaulted to `missing` and read `INSUFFICIENT_DATA` while the serverless
+  endpoint was idle. **The sub-phase took the second signal rather than
+  accepting the limit**, because `NOT_BREACHING` reads `OK` both when the
+  endpoint is idle and when it is silent. `mlops-<env>-endpoint-silent` carries
+  that signal: `Invocations` `Sum` under 1, on an hourly period, over
+  `monitor.silence_alarm_hours` periods. SageMaker publishes no `Invocations`
+  datapoint for an idle hour rather than a zero, so `BREACHING` is the only
+  `TreatMissingData` value that detects silence at all. A test pins that.
+
+  **The window is configuration, not a constant, because the alarm is only
+  meaningful where traffic is expected.** Dev has no traffic floor, so its
+  window is 24 hours and an idle endpoint reaches `ALARM` there on its own.
+  Prod is 6. Two consequences follow for anyone closing a later observation
+  window. **Dev now has seven alarms, not six**, and `endpoint-silent` in
+  `ALARM` there means "nobody called it", not a fault. The alarm also pages the
+  same topic as the security alarms, so it is a standing noise source in that
+  inbox.
+
+  Live behaviour matched on both alarms. The 5xx alarm left
+  `INSUFFICIENT_DATA` 48 seconds after the deploy, and CloudWatch named the
+  cause: one missing datapoint `treated as [NonBreaching]`. The silence alarm
+  evaluated straight over history and settled `OK`, reporting 19 missing
+  datapoints treated as breaching against 5 real ones — so a single invocation
+  anywhere in the window holds it `OK`.
 - **Phase 2G: open, not started.** Give the `UnauthorizedApiCalls` metric a
   `Fill` so an undelivered five-minute datapoint counts as zero. Today
   CloudWatch reaches back past a gap to assemble three datapoints, so the
@@ -516,10 +531,21 @@ next cleanup — one of them the GuardDuty actions when the trigger in
 arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
-Two alarm-truthfulness sub-phases are now open, **2F** and **2G**, and neither
-waits on the paid-plan decision or on a policy version slot. Both are eligible
-once the 3F window closes, and the operating rule allows only one of them to be
-in validation at a time.
+**2F is deployed to dev and its observation window is open.** `make
+verify-deploy SINCE=2026-08-08` reports four changed resources in
+`Mlops-Dev-Monitoring`: `Endpoint5xxAlarm` updated, `EndpointSilentAlarm`
+created, and `DriftEvaluationFn` and `RetrainTriggerFn` republished. **Only the
+first two are 2F.** The two functions carry no source change; they are the
+non-reproducible bundled-asset hash recorded as a 5C finding, and this deploy
+is the first to show that defect inflating a resource-level report. Read it as
+the known artefact, not as 2F touching the drift loop.
+
+The window closes on: `endpoint-silent` reaching `ALARM` after a full idle
+window and clearing on real traffic, the 5xx alarm holding `OK` while idle and
+still paging on a forced 5xx, the six security alarms unchanged, `/predict`
+working, and the `$20` budget intact. **2G stays not started** — the operating
+rule allows one sub-phase in validation at a time. It waits on neither the
+paid-plan decision nor a policy version slot.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and

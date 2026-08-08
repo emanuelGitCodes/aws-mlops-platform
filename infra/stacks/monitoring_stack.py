@@ -191,9 +191,8 @@ class MonitoringStack(Stack):
             metric=_sm_metric("Invocation5XXErrors", "Sum", period=Duration.minutes(5)),
             threshold=5,
             evaluation_periods=1,
-            # Without this the alarm defaults to `missing` and reads
-            # INSUFFICIENT_DATA whenever the serverless endpoint is idle. It
-            # still pages when a 5xx datapoint arrives either way.
+            # Without this the alarm defaults to `missing`. It then reads
+            # INSUFFICIENT_DATA whenever the serverless endpoint is idle.
             treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
         )
         # An alarm with no action only changes colour in the console. This one
@@ -201,8 +200,7 @@ class MonitoringStack(Stack):
         endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))
 
         # NOT_BREACHING above reads OK while the endpoint is idle and while it
-        # is silent, so the 5xx alarm alone cannot separate the two. This alarm
-        # carries the second signal.
+        # is silent. This alarm separates the two states.
         endpoint_silent_alarm = cw.Alarm(
             self,
             "EndpointSilentAlarm",
@@ -212,8 +210,8 @@ class MonitoringStack(Stack):
             comparison_operator=cw.ComparisonOperator.LESS_THAN_THRESHOLD,
             evaluation_periods=config["monitor"]["silence_alarm_hours"],
             # SageMaker publishes no Invocations datapoint for an hour with no
-            # traffic. It does not publish a zero. BREACHING is therefore the
-            # only value that makes this alarm detect silence at all.
+            # traffic. It does not publish a zero. Any other value here
+            # detects no silence.
             treat_missing_data=cw.TreatMissingData.BREACHING,
         )
         endpoint_silent_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))

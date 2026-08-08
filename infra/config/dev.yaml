@@ -12,9 +12,8 @@ serverless:
 monitor:
   schedule_cron: "cron(0 * ? * * *)"   # hourly
   # Hours of zero endpoint invocations before the silence alarm pages. This
-  # environment has no traffic floor, so an idle endpoint reaches the alarm
-  # state on its own. Read `endpoint-silent` in ALARM here as "nobody called
-  # it", not as a fault.
+  # environment has no traffic floor. An idle endpoint reaches the alarm state
+  # on its own, so `endpoint-silent` in ALARM here means nobody called it.
   silence_alarm_hours: 24
 budget_usd: 20
 log_retention_days: 14

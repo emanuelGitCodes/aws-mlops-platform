@@ -4783,3 +4783,38 @@ known `config:ListConfigurationRecorders` one.
 unproved: proving it means breaking the compliance evidence trail on purpose,
 which is not worth the value. The 3F window stays open on that reduced gap.
 No account artifacts remain from the test.
+
+## [2026-08-08] update | The drift → retrain edge fired for the first time
+
+**Objective.** Correct a claim this repository has carried since 5C: that the
+closing edge of the drift loop had never run.
+
+**It has now run.** Timeline from the Phase K log groups, all on 2026-08-08:
+
+| Time (UTC) | Event |
+|---|---|
+| 01:21 | Inference traffic writes the capture window |
+| 02:00:38 | `drift_violation` — 200 records, `drifted: true`, `tenure` 12.648, `MonthlyCharges` 12.455, `TotalCharges` 12.438 |
+| 02:00:40 | `retrain_started` — execution `k6hglww9i8xw` |
+| 02:05:13 | `challenger_evaluation` — challenger 0.8535 AUC, champion 0.8679, `promotion_decision: reject` |
+| 02:11:07 | `retrain_suppressed` — `reason: cooldown`, `cooldown_hours: 6` |
+
+`describe-pipeline-execution` reports `k6hglww9i8xw` as `Succeeded`.
+
+Three mechanisms are now proved live, not only in tests: the drift Lambda's
+violation path, the promotion gate rejecting a worse challenger, and the
+six-hour retrain throttle.
+
+**The wiki was wrong and is corrected.** The roadmap page still said both
+`RetrainTriggerFn` log groups reported no events ever. Only the superseded
+`/aws/lambda/<function>` twin does; the Phase K `*Logs*` group holds the run.
+Reading the `/aws/lambda` twin alone would repeat the mistake — the twin exists
+for every platform Lambda and none of them writes to it.
+
+The hourly drift job has logged `drift_window_too_small` (`records: 0`,
+`required: 100`) at 03:00, 04:00, 05:00, and 06:00. No traffic has arrived
+since the 01:21 burst, so the size guard is skipping empty windows as designed.
+
+**Interpretation.** This closes the last unexercised edge of the platform
+runtime. It is unrelated to Phase 3F, which was deployed two hours later; the
+two share only the date.

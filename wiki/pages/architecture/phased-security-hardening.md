@@ -428,10 +428,18 @@ mtimes that `pip install -t` rewrites — so a deploy from a cold `cdk.out`
 republishes all four functions' code with no source change, which undermines the
 resource-level deploy reporting the repository requires. **Seven orphaned log
 groups** survive in dev, and every platform Lambda has a superseded
-`/aws/lambda/<function>` twin beside its Phase K `*Logs*` group. And **the
-drift → retrain edge has never fired**: both `RetrainTriggerFn` log groups report
-no events ever, so the closing edge of the drift loop is unexercised in this
-account.
+`/aws/lambda/<function>` twin beside its Phase K `*Logs*` group.
+
+The third 5C finding no longer holds. **The drift → retrain edge fired for the
+first time on 2026-08-08 at 02:00:40Z.** A `drift_violation` over 200 captured
+records (`tenure`, `MonthlyCharges`, and `TotalCharges` at PSI ≈ 12.4) produced
+`retrain_started`, and pipeline execution `k6hglww9i8xw` reached `Succeeded`.
+The challenger scored 0.8535 test AUC against the champion's 0.8679 and was
+rejected, so the champion stands. A second violation at 02:11:07Z logged
+`retrain_suppressed` on the six-hour cooldown. The closing edge of the drift
+loop, the promotion gate, and the retrain throttle are all now exercised in
+this account. Only the superseded `/aws/lambda/RetrainTriggerFn` twin still
+reports no events; the Phase K `*Logs*` group holds the run.
 
 Partial 3F is deployed and its observation window is open. The analyzer rule
 was proved live on 2026-08-08 with a manufactured finding; **the Config rule

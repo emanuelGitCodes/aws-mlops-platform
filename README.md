@@ -40,9 +40,12 @@ flowchart TB
 
     subgraph Ops["Operations"]
         EP --> CW[CloudWatch metrics, dashboard + 5xx alarm]
-        MM[Model Monitor capture<br/>deferred for serverless endpoint]
-        MM -. future violation event .-> RETRAIN[EventBridge + retrain Lambda<br/>wiring deployed]
-        RETRAIN -. StartPipelineExecution .-> PIPE
+        LI -->|one object per prediction| CAP[(S3 capture<br/>hour-partitioned)]
+        PRE -->|training distribution| BASE[(S3 baseline)]
+        CAP --> DRIFT[Lambda: PSI drift job<br/>hourly, min-sample gated]
+        BASE --> DRIFT
+        DRIFT -->|violation event| RETRAIN[EventBridge + retrain Lambda]
+        RETRAIN -->|StartPipelineExecution| PIPE
     end
 
     subgraph Security["Phased security hardening — 0-2 complete, 3 partial"]
@@ -60,15 +63,14 @@ flowchart TB
 
     classDef planned fill:#fff4cc,stroke:#b7791f,stroke-dasharray:5 5,color:#1a202c
     classDef done fill:#d5f5e3,stroke:#1e8449,color:#1a202c
-    class MM,RETRAIN,S2,S3,S4 planned
-    class S1,S1B done
+    class S3,S4 planned
+    class S1,S1B,S2,CAP,BASE,DRIFT,RETRAIN done
 ```
 
 Solid runtime arrows describe the current dev data path. Green nodes are
 delivered; dashed arrows and yellow nodes are deferred or approved future work.
-In particular, the retrain wiring exists, but built-in SageMaker Model Monitor
-capture is not active because serverless endpoints do not support
-`DataCaptureConfig`.
+Phase 5 least-privilege IAM is complete, so the `S2` node is delivered; only its
+KMS half remains, as Phase 4.
 
 ## Current operational loop
 
@@ -79,13 +81,22 @@ capture is not active because serverless endpoints do not support
 5. Registry approval (automatic in dev, manual in prod) triggers the deployment Lambda, which creates or updates the SageMaker serverless endpoint.
 6. API Gateway and the proxy Lambda validate and encode `/predict` requests before invoking the endpoint. The API evaluator can replay the labeled held-out fixture through this deployed serving path.
 
-The drift-to-retrain leg is intentionally incomplete today. CloudWatch provides
-endpoint invocations, latency, and error visibility, and the monitoring stack
-contains the violation-event-to-pipeline wiring. However, the serverless
-endpoint cannot produce SageMaker's built-in capture stream, so no Model Monitor
-schedule is supplying violation events. A future phase must choose another
-capture design or provisioned inference before calling this a closed automated
-drift loop.
+The drift-to-retrain leg is closed, and the platform owns both ends of it.
+SageMaker Model Monitor supports neither serverless endpoints nor new customers,
+so nothing here depends on it. The proxy Lambda writes each served record and
+its score to an hour-partitioned S3 capture prefix; the preprocessing step
+writes the training distribution as a baseline; and an hourly Lambda scores the
+previous hour against that baseline using the Population Stability Index in
+`src/common/drift.py`. When enough columns move it emits the platform's own
+violation event, which starts a training run.
+
+Two limits are deliberate and worth stating. A window holding fewer than
+`MIN_RECORDS` captured predictions is **skipped rather than scored**: a
+serverless endpoint is idle most of the time, and PSI over a handful of rows
+reports sampling noise. And because churn labels are never observed after a
+prediction, this loop detects that the input traffic changed — it cannot detect
+that the model got worse. See the
+[capture-design decision](wiki/pages/decisions/drift-capture-design.md).
 
 ## Repo map
 
@@ -96,8 +107,8 @@ drift loop.
 | `infra/security_checks.py` | cdk-nag gate: every acknowledgement is bound to one construct and names the phase that removes it |
 | `src/common/` | Single source of truth: `schema.py` (pydantic contract shared by ingestion and the inference API) and `features.py` (column order, accepted vocabulary, and encoding) |
 | `src/pipeline/` | SageMaker Pipeline definition + preprocess/evaluate scripts |
-| `src/ingestion/`, `src/serving/`, `src/monitoring/` | Lambda handlers (validate, proxy, endpoint deploy, drift retrain) |
-| `scripts/` | API evaluation, deployment verification, plus optional monitor/drift utilities for a compatible capture architecture |
+| `src/ingestion/`, `src/serving/`, `src/monitoring/` | Lambda handlers (validate, proxy with capture, endpoint deploy, drift evaluation, drift retrain) |
+| `scripts/` | API evaluation, deployment verification, and the drift-traffic demo helper |
 | `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
 | `.github/workflows/` | CI (lint/test/synth) and OIDC-federated deploy (dev → manual gate → prod) |
 
@@ -128,9 +139,11 @@ curl -X POST <ApiUrl> -H "x-api-key: <key>" -H "Content-Type: application/json" 
 # the API verification command shown in the next section.
 ```
 
-Do not run `setup_monitor.py` against the current serverless endpoint expecting
-built-in request/response capture. That path requires a compatible alternative
-capture design or a provisioned endpoint.
+Capture starts as soon as the Serving stack is deployed, and the drift job needs
+a baseline, so run the pipeline at least once before expecting a drift
+evaluation to score anything. `scripts/send_drift_traffic.py` sends
+distribution-shifted traffic through the API when you want to see the loop
+close on demand.
 
 ## Model evaluation reports
 
@@ -188,7 +201,7 @@ The helper is intentionally deterministic and does not call an LLM. It handles s
 | IaC | CDK (Python) | Type-checked infra, same language as the ML code |
 | CI auth | GitHub OIDC | No long-lived keys in secrets |
 | Pipeline via SDK | Not CloudFormation | SageMaker Pipelines are versioned documents and resolve live champion state; CDK owns the supporting IAM |
-| Serverless monitoring | Defer built-in capture | Keep the endpoint near-zero idle cost; choose another capture design before enabling Model Monitor |
+| Drift capture | Proxy-side capture + own PSI job | Model Monitor supports neither serverless endpoints nor new customers; owning it keeps the endpoint at near-zero idle cost and removes the hourly processing job |
 | Security rollout | Phase-by-phase | Audit and guardrails precede KMS, least privilege, IAM/SigV4, TLS, and WAF changes so failures stay attributable |
 
 ## Security and cost posture

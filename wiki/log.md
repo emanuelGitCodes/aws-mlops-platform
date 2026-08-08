@@ -3744,3 +3744,840 @@ rule. No code was changed here.
 `make wiki-index` rebuilt, `make wiki-lint` clean. Changed files scanned for
 account-identifying literals: none. No AWS credentials used and no AWS API
 called.
+
+## [2026-08-07] implement | The drift loop closes on a repository-owned PSI job
+
+### Objective
+
+Implement Option C from the
+[capture-design decision](pages/decisions/drift-capture-design.md): close the
+drift-to-retrain loop without SageMaker Model Monitor and without giving up the
+serverless endpoint's zero idle cost.
+
+### Scope
+
+New: `src/common/drift.py`, `src/monitoring/drift_handler.py`,
+`tests/unit/test_drift.py`, `tests/unit/test_drift_handler.py`. Changed:
+`src/serving/proxy_handler.py`, `src/monitoring/retrain_handler.py`,
+`src/pipeline/preprocess.py`, `src/pipeline/pipeline.py`,
+`infra/stacks/{shared,serving_stack,monitoring_stack}.py`,
+`infra/security_checks.py`, `infra/app.py`, and six test modules. Retired:
+`scripts/setup_monitor.py` and its test. Docs: `README.md`, `AGENTS.md`,
+three wiki pages. No AWS API was called and nothing is deployed.
+
+### What the loop is now
+
+The proxy writes each served record and its score to
+`capture/<YYYY>/<MM>/<DD>/<HH>/<uuid>.json` on the artifacts bucket. The
+preprocessing step writes the training distribution to a fixed baseline key.
+An hourly Lambda scores the previous hour against that baseline and emits
+`mlops.monitoring` / `Drift Evaluation Result` with `status: DriftDetected`
+when enough columns move. `RetrainTriggerFn` reacts to that instead of
+SageMaker's monitoring event.
+
+The statistic is the Population Stability Index over **raw** values, not the
+encoded vector — a moved column names itself that way, which an ordinal code
+cannot. Ten quantile bins per numeric column, `0.2` per column, `0.3` of
+columns to call the window drifted.
+
+### Three decisions the implementation forced
+
+**Capture writes to S3, never to the log group.** Routing it through
+`log_event` and a subscription filter would have been cheaper and would have
+reused the deployed one-line-per-event convention. Phase 7's checkpoint
+requires observability that does not log customer inputs, and a capture stream
+in the proxy's log group is exactly that. The roadmap wins.
+
+**Left-open bins, and this was a real defect.** The first implementation used
+`bisect_right`. A right-open bin puts a low-cardinality numeric column entirely
+in one bucket: `SeniorCitizen` holds 0 and 1, its only quantile edge is `0.0`,
+and every shift in that column was invisible. The failing test was a fixture
+whose constant baseline column reported zero drift against a very different
+constant. `bucket_of` now uses `bisect_left`, and
+`test_a_low_cardinality_numeric_column_still_separates` pins it.
+
+**A rejected challenger resets the baseline.** Every preprocessing run
+overwrites the fixed baseline key, including a run whose challenger loses the
+AUC gate. Deliberate: it stops a shift the model cannot beat from starting a
+retrain every hour. The cost is that a true positive is silenced by a failed
+attempt to answer it, and that is the first thing the observation window should
+look at.
+
+### Boundaries the change set holds
+
+- **The drift job has its own execution role.** This closes the Phase 5D
+  follow-up about Model Monitor sharing the pipeline role, by never creating
+  the shared-role condition. `DriftEvaluationFn` reads the baseline and the
+  capture prefix, lists that prefix under a `StringLike` condition, puts events
+  on the default bus, and writes nothing at all. A drift evaluation that could
+  write the capture prefix could forge the evidence it reports on;
+  `test_the_drift_lambda_reads_capture_and_never_writes_it` asserts no `s3:Put`
+  or `s3:Delete` appears in the monitoring stack.
+- **The proxy gained exactly `s3:PutObject` under `capture/*`.** No `Get`, no
+  `Delete`. It cannot read the model artifact it serves and cannot replace a
+  captured record. This re-opened a role Phase 5A scoped, so the serving IAM
+  fingerprint moved; both pinned logical IDs, `ModelExecutionRole` and
+  `ProxyFnRole`, are unchanged, so the deployed `AWS::SageMaker::Model` is not
+  stranded.
+- **A capture failure cannot fail a prediction.** The write happens after the
+  response is final and is caught; it logs `capture_failed` and returns.
+- **A short window is skipped, not scored.** `MIN_RECORDS` defaults to 100.
+  A serverless endpoint is idle most of the time, and PSI over a handful of
+  rows is sampling noise. `skipped: insufficient_records` and a no-drift result
+  are distinct outcomes in the log, which is the point.
+- The window is the hours *before* the current one, so a partial hour is never
+  scored and no record is scored twice.
+
+### Verification
+
+`make lint`, `make typecheck`, `make docs-sync` clean. `make test`: **278
+passed**, coverage `93.2458%`, floor raised `92.63 → 93.24`. `make synth-all`
+clean for dev and prod, which is the cdk-nag gate — two new acknowledgements,
+both naming Phase 4 as the point that re-evaluates them when the bucket moves
+to a customer-managed key. IAM fingerprint baseline updated for `serving` and
+`monitoring` with the logical IDs reviewed. `make wiki-lint` clean.
+
+### Decision and next checkpoint
+
+**Nothing is deployed.** The loop has never run in AWS, so `MIN_RECORDS`, both
+thresholds, and the hourly cadence are unvalidated against real traffic. Under
+the operating rule the next steps are a reviewed `cdk diff`, a scoped dev
+deploy of Serving and Monitoring, a pipeline run to write the first baseline,
+`scripts/send_drift_traffic.py` to force a violation, and an observation window
+that watches for the baseline-reset behaviour above.
+
+Two limits are structural rather than open work, and are recorded on the
+decision page: ground truth never arrives, so this loop detects changed input
+traffic and never a worse model; and `scripts/setup_monitor.py` is gone, so
+there is no path back to Model Monitor without the eligibility pre-flight that
+page describes.
+
+## [2026-08-07] deploy | Drift loop deployed to dev; the baseline is not yet written
+
+### Objective
+
+Deploy the drift loop to dev under the operating rule, with a reviewed diff
+before any mutation, and resource-level evidence after it.
+
+### Scope
+
+`Mlops-Dev-Data`, `Mlops-Dev-Serving`, `Mlops-Dev-Monitoring`, in that order.
+Data first, because both other stacks import a new export from it. Identity:
+`mlops-deployer` for the diff and the deploys, `mlops-security-auditor` for
+verification, `aws-admin` for the budget and CloudTrail reads the auditor is
+denied.
+
+### Pre-flight baseline
+
+Endpoint `InService`, last modified 2026-08-05T22:21Z. Six security alarms
+`OK`. `mlops-dev-endpoint-5xx` `INSUFFICIENT_DATA`, which is the known
+unfixed gap rather than a new symptom: it leaves `TreatMissingData` unset and
+the endpoint is idle.
+
+### The diff, before deploying
+
+- **Data:** one added output, `ExportsOutputRefArtifactsBucket…`. No resource
+  change. The bucket *ARN* export already existed; the drift Lambda and the
+  proxy need the bucket *name*.
+- **Serving:** exactly one IAM statement added — `s3:PutObject` on
+  `<artifacts>/capture/*` for `ProxyFnRole`. `ProxyFn` gains two environment
+  variables and a new asset hash. `DeployFn` shows an asset-hash change only,
+  because both share the bundled `src/` asset. **No role replaced**, and
+  `ModelExecutionRole` untouched.
+- **Monitoring:** six resources added — log group, role, policy, function,
+  schedule rule, invoke permission. Two updated: `RetrainTriggerFn` (asset)
+  and `DriftViolationRule`, whose pattern moves from
+  `aws.sagemaker` / `SageMaker Model Monitor Execution Status Change` /
+  `MonitoringExecutionStatus` to `mlops.monitoring` / `Drift Evaluation Result`
+  / `status`. Nothing deleted, nothing replaced.
+
+### What the deploy actually changed
+
+From `make verify-deploy SINCE=2026-08-07`, not from stack status:
+
+```
+Mlops-Dev-Monitoring   6 CREATE_COMPLETE, 2 UPDATE_COMPLETE
+Mlops-Dev-Serving      3 UPDATE_COMPLETE (DeployFn, ProxyFn, ProxyFnRole policy)
+Mlops-Dev-Data         (no resources changed -- metadata-only or no-op update)
+```
+
+The Data line is the case this rule exists for. The stack reports
+`UPDATE_COMPLETE` and modified no resource; only the export was added.
+
+### Live checks
+
+**Serving and capture.** `make smoke` passed 6 of 6 against the deployed API.
+Two capture objects landed under `capture/2026/08/07/17/`, one per successful
+prediction. The smoke suite also exercises the rejection paths, and those
+produced no object — a rejected request is never captured, as intended. A
+captured object holds `captured_at`, all nineteen raw feature columns, and the
+score.
+
+**Drift evaluation.** A direct invocation returned
+`{"skipped": "insufficient_records", "records": 0}` and logged
+`{"event": "drift_window_too_small", "records": 0, "required": 100}`. Zero is
+correct: the window is the hour *before* the current one, and the captures are
+in the current hour.
+
+That invocation also proved an ordering property the design did not state
+explicitly. The baseline does not exist yet, and the handler returned without
+error, because the sample-size check runs before `read_baseline`. A missing
+baseline is therefore not a failure mode while traffic is below `MIN_RECORDS`.
+
+**Alarms.** `iam-policy-changes` fired at 17:00:12Z and **self-cleared at
+17:07:12Z**, seven minutes later. Phase 5D's deploy on 08-05 took five. The
+SNS email was delivered, so the Phase 2C detection path is live-proven again.
+CloudTrail attributes the fire entirely to this deploy: `CreateRole` at
+16:59:03Z, `PutRolePolicy` at 16:57:54Z and 16:59:22Z, all by
+`AWSCloudFormation`. The other five alarms `OK`. `mlops-dev-endpoint-5xx`
+unchanged at `INSUFFICIENT_DATA`.
+
+Two readings of that alarm are worth keeping, because both invite a wrong
+conclusion:
+
+- **The alarm email names `16:55:00` as the datapoint.** That is the start of
+  the five-minute period, not an event time. The period contains all three IAM
+  calls above. Read as an event time it looks like the alarm fired on something
+  that predates the deploy.
+- **The metric summed 1.0 in the 16:55 period and 1.0 in the 17:00 period.**
+  Two matches total, which is exactly the two `PutRolePolicy` calls;
+  `CreateRole` is correctly not in the CIS filter set. The split across two
+  periods is CloudTrail-to-Logs delivery lag — the second call was delivered
+  after its period closed. This is the same late-datapoint effect the Phase 2E
+  closure recorded for `unauthorized-api-calls`, now observed on a second
+  detection.
+
+**Endpoint and budget.** Endpoint `InService`, last modified 2026-08-05T22:21Z
+— unchanged by this deploy. Budget `$20` intact, `$0.00` actual, `$1.496`
+forecast.
+
+### What is deployed and what is not
+
+Capture is live and the drift job runs on schedule. **The loop cannot yet
+complete.** The baseline does not exist, and the deployed pipeline definition
+does not write it: the `baseline` ProcessingOutput is in `src/pipeline/`, and
+that definition reaches AWS through an SDK upsert, not through CloudFormation.
+
+Two consequences, both unaddressed by this deploy:
+
+1. Until the pipeline is upserted **and** run once, no drift evaluation can
+   score anything.
+2. If captured traffic reaches `MIN_RECORDS` in an hour before that happens,
+   the handler will pass the sample-size check and fail on `NoSuchKey`. At the
+   current traffic level this is remote, but it is the one way this deploy can
+   produce an error rather than a skip.
+
+The upsert is deliberately not done here. It mutates the deployed pipeline
+definition, and a run in dev auto-approves its challenger, which can update
+the endpoint. That is a larger action than deploying the loop and belongs to
+its own decision.
+
+### Next checkpoint
+
+Upsert the pipeline with `--role-arn` and run it once to write the first
+baseline, then force a violation with `scripts/send_drift_traffic.py` and
+confirm the event reaches `RetrainTriggerFn`. The observation window should
+watch for the baseline-reset behaviour recorded on the decision page: a
+rejected challenger overwrites the baseline and can silence a true positive.
+
+## [2026-08-07] verify | First baseline written; the sample-size rule guards count, not diversity
+
+### Objective
+
+Write the first drift baseline by upserting and running the pipeline, then
+check the loop against real artifacts rather than fixtures.
+
+### Scope
+
+Pipeline `churn-training-pipeline-dev`, execution `bib1c66yrmkk`. The baseline
+object under the `monitor/baseline` prefix. Local scoring of real captured
+records and real curated records against that baseline.
+
+### The upsert needs an identity the platform does not have
+
+`mlops-deployer` cannot upsert the pipeline. `get_champion` calls
+`ListModelPackages`, and that identity is denied it:
+
+```
+AccessDeniedException ... user/mlops-deployer is not authorized to perform:
+sagemaker:ListModelPackages on resource: model-package/churn-model-group/*
+```
+
+The upsert ran under `aws-admin` instead. This is the same shape as the
+existing rule that deploying and verifying are different identities: there is a
+**third** out-of-band operator step, and it has no scoped identity of its own.
+Recorded as open work, not fixed here.
+
+### The run
+
+Execution `bib1c66yrmkk`, 17:35:16Z → 17:48:35Z, `Succeeded`.
+
+```
+Preprocess       Succeeded  17:35:17 -> 17:40:20
+Train            Succeeded  17:40:21 -> 17:43:29
+Evaluate         Succeeded  17:43:30 -> 17:48:34
+BeatsChampion    Succeeded  17:48:34 -> 17:48:35   outcome: False
+```
+
+The challenger lost to champion version 3. Nothing registered, nothing
+approved, and the endpoint was not touched — still on the config it has held
+since 2026-08-05T22:21Z.
+
+**This is the first live observation of the baseline-reset behaviour the
+decision page records.** The gate returned `False`, and the baseline was
+written anyway, because `Preprocess` runs before the gate and writes to a fixed
+key. The behaviour is deliberate — it stops a shift the model cannot beat from
+starting a retrain every hour — but it is now confirmed rather than predicted.
+
+### The baseline
+
+5,770 training rows. Nineteen columns with bucket counts, four numeric columns
+with quantile edges. `Contract` sums to the record count. `SeniorCitizen` has
+edges `[0.0, 1.0]` and buckets `4833`/`937`, so the two values separate
+cleanly; real quantiles gave it two edges rather than the single edge that
+motivated the left-open binning fix.
+
+### The defect this check found
+
+Scoring real data against the real baseline, with the shipped code:
+
+| Window | Result |
+|---|---|
+| 100 / 500 / 1000 real curated records | `drifted=False`, 0 of 19 columns moved |
+| 100 / 500 / 2000 identical records | `drifted=True`, 19 of 19 columns moved |
+
+The statistic is well calibrated on genuine traffic — no false positive at any
+of the three realistic window sizes. **`MIN_RECORDS` guards count, not
+diversity.** A window of identical records is a point mass, so every column's
+PSI explodes against the training distribution, and the
+`DRIFTED_COLUMN_FRACTION` rule cannot help: it counts moved columns, and all of
+them moved.
+
+This is reachable from inside this repository. `make smoke` posts
+`sample.json`. A health check or load test that calls `/predict` a hundred
+times in an hour would report full drift and start a billable retraining run.
+
+The unit tests missed it because every fixture window varies at least one
+column. `test_compare_reports_no_drift_against_the_same_population` uses a
+`spread`, so it never presented a single repeated record.
+
+### Decision and next checkpoint
+
+The loop is wired end to end and the baseline is live, but **it should not be
+left armed with this defect**: the schedule is hourly, and any repetitive
+caller trips it.
+
+Proposed fix, as its own gated change set: require a minimum number of
+*distinct* records in the window alongside `MIN_RECORDS`, and skip with a
+distinct outcome when the window is too uniform to score. Real traffic produces
+close to one distinct record per capture; the failure case produces one in
+total, so the two separate cleanly.
+
+Forcing a violation with `scripts/send_drift_traffic.py` is deliberately not
+done yet. That script does vary its records, so it would pass — but with this
+defect present, a pass would not distinguish a real detection from the
+uniformity artifact.
+
+## [2026-08-07] implement | Uniformity guard for the drift window, deployed to dev
+
+### Objective
+
+Fix the defect the first live check found: `MIN_RECORDS` guards the size of a
+drift window, not its diversity, so a repetitive caller trips a full violation.
+
+### Scope
+
+`src/common/drift.py`, `src/monitoring/drift_handler.py`,
+`tests/unit/conftest.py`, `tests/unit/test_drift.py`,
+`tests/unit/test_drift_handler.py`, `pyproject.toml`. Deployed
+`Mlops-Dev-Monitoring` only.
+
+### The fix
+
+`distinct_record_count` counts distinct feature vectors in a window. The
+handler skips with a **third** outcome, `uniform_records`, when that count
+falls below `MIN_DISTINCT_RECORDS`. Too few, too uniform, scored clean, and
+scored drifting are now four readings, and only the last may retrain.
+
+The threshold is 25, chosen from measurement rather than taste. Windows of 50,
+100, 200, 500, and 1000 real curated records were **100 percent distinct** at
+every size; the failure case is 1. Twenty-five sits between them with a wide
+margin on both sides.
+
+### The fixtures were the reason the defect shipped
+
+Adding the guard broke five existing tests, and that is the more useful
+finding. Every window fixture was built by repeating one record — `SHIFTED *
+200`, `spread(...)` varying a single column while the other eighteen stayed at
+the sample value. Those windows are point masses. **No drift statistic can be
+evaluated against a point mass**, because it reports total drift regardless of
+whether the detector works, so the tests could not distinguish a correct
+implementation from a broken one.
+
+One test was worse than weak. The stable-population case compared a baseline
+with *the same rows* it was built from. That comparison cannot fail.
+
+`tests/unit/conftest.py` gains `varied_records`, which draws from the real
+`FEATURE_VOCABULARY` and then applies overrides to shift chosen columns. The
+population-level tests now use two independent draws of one population, and the
+shift test asserts that untouched columns such as `gender` stay put — which is
+what separates a detected shift from detected uniformity.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **284 passed**, coverage
+`93.2752%`, floor raised `93.24 → 93.27`. `make synth-all` clean for dev and
+prod.
+
+The reviewed diff was **asset hash only** on both Lambdas — no IAM statement,
+no resource added or removed. `make verify-deploy` confirms exactly two
+resources changed:
+
+```
+Mlops-Dev-Monitoring   UPDATE_COMPLETE  DriftEvaluationFnBA02D79D
+                       UPDATE_COMPLETE  RetrainTriggerFn2698F1D9
+```
+
+A live invocation of the redeployed function returned
+`{"skipped": "insufficient_records", "records": 2}`, reading the two real
+captured records in the closed hour. The count guard is live.
+
+### What is still unproven live
+
+The **uniformity guard has not been exercised against real traffic**. Proving
+it needs a closed hour holding at least `MIN_RECORDS` captured predictions that
+are identical. Writing synthetic capture objects to reach that state was not
+done: fabricating records in a data store is a poor way to prove a data rule,
+and the sound test is the real one — post the `sample.json` payload through
+`/predict` about 120 times, let the hour close, and read the scheduled run's
+log for `drift_window_too_uniform`. That is precisely the health-check scenario
+the defect describes, so the test and the failure mode are the same event.
+
+Until that runs, the guard rests on unit evidence plus the measurement that set
+its threshold.
+
+### Note on the shared bundle
+
+`Serving` and `Ingestion` still carry the previous `src/` asset, because only
+`Monitoring` was deployed. Their next deploy will show an asset-hash-only diff.
+Nothing in their behaviour changed; the drift modules are inert for them.
+
+## [2026-08-07] verify | The uniformity guard rejected a real 120-record health-check window
+
+### Objective
+
+Prove the uniformity guard against real traffic rather than fixtures, by
+reproducing the exact failure the earlier check found.
+
+### Method
+
+The test and the failure mode are the same event. `sample.json` was posted
+through `/predict` 120 times at 18:07-18:09Z, which is what a health check on
+the endpoint looks like. Fabricating capture objects in S3 was deliberately not
+used: proving a data rule by writing fabricated data is weak evidence, and the
+real path was available.
+
+All 120 returned HTTP 200. The proxy log holds **120 `inference_response` and
+zero `capture_failed`**, and the capture prefix gained exactly 120 objects for
+hour 18 — one per prediction, no loss. Every score was byte-identical, which is
+the point mass the guard exists to reject.
+
+### Result
+
+The **scheduled** run at 19:00:34Z read the closed hour and skipped it:
+
+```
+{"event": "drift_window_too_uniform", "records": 120, "distinct": 1, "required": 25}
+```
+
+Unattended, on the hourly rule, with no operator in the loop.
+
+The negative evidence matters as much as the log line, because the failure mode
+was a spurious retrain:
+
+- `RetrainTriggerFn` has **zero log streams**. It has never been invoked.
+- The only pipeline execution today is `first baseline for the drift loop`.
+  Nothing started after the burst.
+- Endpoint `InService`, last modified 2026-08-05T22:21Z, untouched.
+- Six security alarms `OK`; `iam-policy-changes` cleared after the redeploy.
+
+Before the guard this window would have scored 19 of 19 columns drifted, fired
+a violation, and started a billable training run.
+
+### What this closes and what it does not
+
+The loop is now proven to **not** retrain in the three cases where it must not:
+too few records, a uniform window, and a window drawn from the training
+distribution.
+
+**It has never been proven to retrain when it should.** No violation event has
+ever been emitted, so the path from `PutEvents` through `DriftViolationRule` to
+`StartPipelineExecution` is still untested end to end — the rule pattern and the
+handler guard agree only by the unit assertion. Closing that needs
+`scripts/send_drift_traffic.py`, whose records are varied, and it costs a
+training run plus a possible endpoint update. Not done here.
+
+### A gap this window exposed
+
+**Captured objects have no expiry.** The capture prefix grows without bound,
+and the drift job reads only the last hour. 122 objects is nothing, but there
+is no lifecycle rule and no phase that adds one before 4C. Recorded, not fixed.
+
+## [2026-08-07] verify | The drift loop closed end to end, and the demo exposed a hole in the rule
+
+### Objective
+
+Prove the violation path — the one link with no live evidence — then tighten
+`scripts/send_drift_traffic.py` so its detection rests on the shift it names.
+
+### The loop closed
+
+200 shifted requests were sent at 19:44Z and captured into hour 19. The
+scheduled run at 20:00Z carried the whole chain with no operator in it:
+
+```
+drift_violation   record_count 200, every column over threshold
+retrain_started   execution xk0bvzv647ni
+pipeline          "drift-triggered retrain"  Executing -> Succeeded
+```
+
+`RetrainTriggerFn` was invoked for the first time in this platform's history.
+The three windows staged that day each exercised a different branch, and each
+behaved: hour 17 with 2 records skipped on count, hour 18 with 120 records and
+1 distinct skipped on uniformity, hour 19 with 200 diverse shifted records
+fired. The gate returned `False`, so nothing was promoted and the endpoint is
+unchanged since 2026-08-05T22:21Z.
+
+### Tightening the demo exposed a hole in the detection rule
+
+The old script repeated one fixed record and varied only tenure and charges.
+Sixteen of its nineteen drifted columns moved because the script **pinned**
+them, not because of the shift it advertises. Rebuilding the background from
+the real held-out `api_test` fixture — the same fixture `evaluate_api.py`
+replays — isolates the shift to the three intended columns.
+
+That isolation would have stopped the loop firing at all:
+
+```
+moved: MonthlyCharges, TotalCharges, tenure
+fraction 0.158  (rule needed >= 0.3)      DRIFTED: False
+max column PSI 12.65
+```
+
+Three of nineteen is under `DRIFTED_COLUMN_FRACTION`, so a shift with a PSI of
+**12.6** — sixty times the per-column threshold — scored clean. Those three
+columns carry most of the model's signal. The fraction rule alone cannot see a
+targeted shift, and the old demo only ever worked because it was not targeted.
+
+`SEVERE_COLUMN_PSI = 1.0` adds the second way in: many columns moved, or one
+moved severely. Windows drawn from the training population score every column
+under `COLUMN_PSI_THRESHOLD` and reach a maximum PSI of `0.067`, so the bar sits
+about fifteen times above observed noise.
+
+Two existing tests were overturned by the change, correctly. One asserted that
+a single moved column is never drift, which is no longer the contract; it is
+replaced by a pair that pin both sides — `Contract` skewed to 60 percent scores
+`0.662` and does not fire, `Contract` collapsed to one value scores `9.44` and
+does.
+
+### A claim on the decision page was wrong
+
+The page said every preprocessing run overwrites the baseline, so a rejected
+challenger resets it and stops a retrain storm. The drift-triggered run
+disproved it. `Preprocess` and `Train` are cached with `expire_after="P30D"`,
+and on unchanged curated data both were **cache hits of one second each**. The
+baseline object still carries its 13:37Z timestamp.
+
+So the protection claimed does not exist. While drifted traffic keeps arriving,
+the loop can retrain hourly, hit the cache, fail the gate, and never move its
+own reference. A cooldown after a retrain, or an uncached baseline refresh, is
+the fix. Neither is implemented, and the page is corrected.
+
+The cache did make this retrain nearly free: only `Evaluate` ran, for 5m20s.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **291 passed**, coverage
+`93.3538%`, floor raised `93.27 → 93.35`. Not yet deployed: this changes when
+the platform spends money on retraining, so it needs its own reviewed diff and
+deploy.
+
+## [2026-08-08] deploy | Severity rule and the isolated demo shift, live in dev
+
+### Scope
+
+`Mlops-Dev-Monitoring` only. The change is in `src/common/drift.py` and
+`scripts/send_drift_traffic.py`; the script is operator tooling and ships with
+the repository rather than the stack.
+
+### Pre-flight
+
+No unscored drifted window existed. The 200-record shifted hour was scored at
+20:00Z on 08-07 and every hour since is empty, so raising sensitivity could not
+re-fire on traffic already in flight. Capture holds 322 objects, none from
+08-08.
+
+### The diff and what changed
+
+Asset hash only on `DriftEvaluationFn` and `RetrainTriggerFn`. No IAM
+statement, no resource added or removed. `make verify-deploy SINCE=2026-08-08`
+confirms exactly those two resources.
+
+A live invocation returned `{"skipped": "insufficient_records", "records": 0}`,
+which is correct for an empty window.
+
+### What is proven and what is not
+
+The violation chain is proven end to end from the 08-07 run: capture, schedule,
+statistic, event, rule, retrain Lambda, pipeline execution.
+
+**The severity rule itself is not yet proven live.** Every live firing so far
+went through the drifted-column fraction, because the old script moved sixteen
+columns it did not intend to. Proving the new path needs the tightened script,
+whose window moves three columns with a maximum PSI far past
+`SEVERE_COLUMN_PSI` and a fraction under `DRIFTED_COLUMN_FRACTION`. That run
+starts another retrain, so it is a separate decision.
+
+### Standing risk, unchanged by this deploy
+
+The retrain-storm hole is still open. `Preprocess` is cached, so a
+drift-triggered retrain on unchanged curated data does not refresh the
+baseline. Sustained drifted traffic can therefore retrain every hour without
+ever moving the reference. A cooldown after a retrain, or an uncached baseline
+refresh, remains unbuilt.
+
+Captured objects still have no expiry.
+
+## [2026-08-08] implement | Retrain cooldown, and why the refresh fix would not have worked
+
+### Objective
+
+Close the retrain-storm hole: under sustained drift the hourly job fires every
+hour, and every violation starts a training run.
+
+### The fix I proposed earlier was wrong
+
+The earlier record offered two options — a cooldown, or an uncached baseline
+refresh. **The refresh cannot work, and the reason is structural.** The
+pipeline trains on `curated/telco/`. Captured traffic lands under the artifacts
+bucket's capture prefix. The two never meet, and no step copies one into the
+other.
+
+So a retrain on unchanged curated data produces the same model and, if the
+baseline were refreshed, a byte-identical baseline. Drifted API traffic cannot
+reach the training set, so the violation repeats whatever the run concludes.
+Refreshing the reference changes nothing; it would only have added cost.
+
+Retraining cannot end this shift on its own. Only newly ingested data changes
+the answer. The correct fix therefore throttles the actuation rather than
+touching the measurement.
+
+### The cooldown
+
+`src/monitoring/retrain_handler.py` reads the pipeline's most recent execution
+before starting one, and declines in two cases:
+
+- the latest execution is `Executing` or `Stopping`, so a run is already
+  answering this drift — a second one duplicates the cost and races the first
+  to the registry;
+- the latest execution started inside `RETRAIN_COOLDOWN_HOURS`, default 6.
+
+Six hours bounds sustained drift to four runs a day instead of twenty-four,
+while still allowing a same-day response once new data is ingested.
+
+**The drift job is unchanged.** It still scores the window and still emits the
+violation, because the drift is real and the signal should stay visible. Only
+the handler that spends money declines, and it logs `retrain_suppressed` with
+`in_flight` or `cooldown` as the reason. Detection reports; actuation throttles.
+
+The guard sits after the status check, so a non-violation event costs no API
+call — pinned by
+`test_a_non_violation_never_reaches_the_cooldown_lookup`.
+
+An empty execution history is not a cooldown. Without that case the very first
+violation in a fresh environment would be suppressed forever.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **298 passed**, coverage
+`93.3698%`, floor `93.35 → 93.36`. `make synth-all` clean for dev and prod.
+
+The reviewed diff adds exactly one action, `sagemaker:ListPipelineExecutions`,
+on the same pipeline ARN the role already held. No wildcard, no new resource.
+The monitoring IAM fingerprint moved and both logical IDs are unchanged.
+
+### Not deployed yet, deliberately
+
+The severity-rule test is in flight: 200 isolated-shift records were captured
+into hour 01 and are scored at 02:00Z. The last retrain started at 20:00Z on
+08-07, which is **exactly six hours** before that run — the cooldown boundary.
+Deploying now would land inside a running experiment and make its retrain leg
+ambiguous. The deploy waits for that result.
+
+## [2026-08-08] verify | Severity rule proven on isolated drift; cooldown deployed and proven
+
+### The severity rule fired, and the result is discriminating
+
+200 records with only `tenure`, `MonthlyCharges`, and `TotalCharges` shifted
+were captured into hour 01. The scheduled run at 02:00:38Z reported:
+
+```
+drifted_columns  : ['MonthlyCharges', 'TotalCharges', 'tenure']
+drifted_fraction : 0.157895   (fraction rule needs >= 0.3)   FAILS
+max_column_psi   : 12.647534  (severity rule needs >= 1.0)   PASSES
+```
+
+The fraction rule **could not** have produced this: three of nineteen is 0.158.
+The violation is attributable to the severity rule alone, which is what the
+earlier demo could never establish.
+
+The isolation is sharper than the design assumed. The three shifted columns
+score `12.648`, `12.455`, and `12.438`; the worst of the sixteen untouched
+columns scores `0.031`. That is a separation of about 400 times, against a
+per-column threshold of `0.2`.
+
+The local prediction matched the live result exactly — `tenure` predicted
+`12.647534`, observed `12.647534`. Predicting a live number to six decimal
+places from the deployed baseline and fixture is a useful check on the whole
+capture-to-statistic path, not just the threshold.
+
+`RetrainTriggerFn` started execution `k6hglww9i8xw` two seconds later. That run
+repeated the cached pattern: `Preprocess` and `Train` one second each,
+`Evaluate` seven minutes, gate `False`, endpoint unchanged since
+2026-08-05T22:21Z. The baseline was again not refreshed, which is the third
+observation of that behaviour.
+
+### The cooldown is deployed and proven
+
+Deployed 02:09:58Z, after the run above finished so the in-flight branch could
+not confound it. `make verify-deploy` confirms three resources:
+`DriftEvaluationFn`, `RetrainTriggerFn`, and the retrain role's policy.
+
+The component check cost nothing. Nine minutes after `k6hglww9i8xw` started,
+the handler was invoked directly with a violation event:
+
+```
+response: {"suppressed": ".../execution/k6hglww9i8xw"}
+log:      {"event": "retrain_suppressed", "pipeline": "churn-training-pipeline-dev",
+           "reason": "cooldown", "latest_status": "Succeeded", "cooldown_hours": 6}
+```
+
+No new execution was created; the pipeline still shows exactly the two runs
+from 20:00Z and 02:00Z. Before this change that violation would have started a
+third.
+
+### The loop's live evidence is now complete
+
+Every branch has fired against real traffic on the real schedule:
+
+| Window | Records | Distinct | Outcome |
+|---|---|---|---|
+| 2 records | 2 | 2 | `insufficient_records` |
+| Repeated payload | 120 | 1 | `uniform_records` |
+| Training population | 200 | 200 | scored, no drift |
+| Broad shift | 200 | 200 | violation via the fraction rule |
+| Isolated severe shift | 200 | 200 | violation via the severity rule |
+| Violation inside the cooldown | — | — | `retrain_suppressed` |
+
+### Still open
+
+Captured objects have no expiry, and the prefix now holds 522. The drift job
+reads only the last hour, so everything older is dead weight with no lifecycle
+rule and no phase that adds one before 4C.
+
+## [2026-08-08] verify | Two limits the retrain logs exposed
+
+### A drift-triggered retrain re-evaluates a bit-identical model
+
+The `Evaluate` step of execution `k6hglww9i8xw` logged:
+
+```
+challenger_model_artifact : .../training/pipelines-bib1c66yrmkk-Train-.../model.tar.gz
+challenger_test_auc       : 0.8535
+champion_test_auc         : 0.8679385964912282
+promotion_decision        : reject
+```
+
+The artifact path names execution **`bib1c66yrmkk`** — the 13:35Z baseline run,
+not this one. `Train` was a cache hit, so the challenger under evaluation is
+the same `model.tar.gz` that was already trained, evaluated, and rejected
+hours earlier. The verdict was deterministic before the run started.
+
+This sharpens the earlier finding. It is not only that the baseline fails to
+refresh: on unchanged curated data the whole retrain produces a bit-identical
+model and pays seven minutes of `Evaluate` to re-derive a known answer.
+`Evaluate` is deliberately uncached, because the champion can change
+independently of the pipeline's inputs — that rationale holds in general, and
+in this loop it means every futile retrain still costs a processing job.
+
+The cooldown bounds this to four runs a day. Each of those four remains
+provably pointless until new data reaches `curated/telco/`. A stronger gate
+would compare the resolved challenger artifact against the champion's and skip
+evaluation when they match, or condition the retrain on curated data having
+changed. Neither is implemented.
+
+### The drift job has a hard ceiling around five thousand records an hour
+
+The 200-record window took **12,410 ms**, of which 455 ms was initialisation.
+That is **59.8 ms per record**, because `read_captured` issues one
+`GetObject` per captured object.
+
+The function's timeout is 300 seconds, so it exhausts its budget at roughly
+**5,000 records in a window** and then fails rather than reporting. At the
+current traffic level this is remote, but it is a real ceiling and it is
+invisible until crossed: a busy hour would produce a Lambda timeout, not a
+drift verdict.
+
+The fix is to stop reading objects one at a time — concurrent reads, or a
+single rolled-up object per hour written by a small aggregation step. Recorded,
+not implemented. Neither the timeout nor the per-object read is tuned; 512 MB
+is ample, with 100 MB used.
+
+## [2026-08-08] implement | Captured predictions expire after 30 days
+
+### Objective
+
+Close the last recorded gap in the drift loop: the capture prefix grew without
+bound, and no phase added a lifecycle rule before 4C.
+
+### The rule
+
+`ExpireCapturedPredictions` on the artifacts bucket, scoped to the `capture/`
+prefix, expiring at `capture_retention_days` — a new typed key in
+`PlatformConfig`, 30 in both environments.
+
+**The prefix scope is the whole safety argument.** The same bucket holds
+`model.tar.gz`, the evaluation report bundles, and the drift baseline. An
+unscoped rule would strand the endpoint at its next cold start and leave the
+drift job with nothing to compare against.
+`test_the_baseline_and_model_artifacts_are_outside_the_expiring_prefix` pins
+that the three live prefixes sit outside `capture/`, so a rename on either
+side fails a test rather than deleting a live artifact.
+
+The rule carries a second duration because the bucket is versioned. Expiring a
+current version leaves a noncurrent one behind, which stays billable after the
+object disappears from a listing. `NoncurrentVersionExpiration` of one day
+removes it.
+
+Thirty days is not a drift-job requirement — the job reads one hour. It bounds
+how far back a past violation can be investigated, and it matches the pipeline
+cache's `P30D`.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **300 passed**, coverage
+`93.3779%`, floor `93.36 → 93.37`. `make synth-all` clean for dev and prod.
+
+The reviewed diff adds one property to one bucket:
+
+```
+[~] AWS::S3::Bucket ArtifactsBucket ArtifactsBucket2AAC5544
+ └─ [+] LifecycleConfiguration
+     {"Rules":[{"ExpirationInDays":30,"Id":"ExpireCapturedPredictions",
+       "NoncurrentVersionExpiration":{"NoncurrentDays":1},
+       "Prefix":"capture/","Status":"Enabled"}]}
+```
+
+Same logical ID, so this is an in-place update. The bucket holds live data
+under `RemovalPolicy.RETAIN`, and a replacement would have been the one
+unacceptable outcome here.

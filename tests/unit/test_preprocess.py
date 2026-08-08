@@ -47,3 +47,20 @@ def test_preprocess_writes_raw_labeled_api_test_fixture(tmp_path):
     assert [row["row_id"] for row in fixture] == [0, 1, 2]
     assert {key for key in fixture[0]["record"]} == set(FEATURE_COLUMNS)
     assert fixture[0]["label"] in {0, 1}
+
+
+def test_preprocess_writes_the_drift_baseline(tmp_path):
+    from src.common.drift import compare
+
+    records = [{**VALID, "Churn": "No", "tenure": value} for value in range(40)]
+    splits = split_records(records)
+    write_preprocessed_splits(splits, str(tmp_path))
+
+    baseline = json.loads((tmp_path / "baseline" / "baseline.json").read_text())
+    # The baseline describes the training split alone. Validation and test
+    # rows are data the model never learned.
+    assert baseline["record_count"] == len(splits["train"])
+    assert "tenure" in baseline["edges"]
+
+    # It has to be usable by the drift job exactly as written.
+    assert compare(baseline, splits["train"])["drifted"] is False

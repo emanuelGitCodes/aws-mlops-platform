@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from aws_cdk import RemovalPolicy, Stack
+from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_budgets as budgets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
@@ -10,7 +10,7 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig
+from infra.stacks.shared import CAPTURE_PREFIX, PlatformConfig
 
 
 def _bucket(
@@ -72,6 +72,21 @@ class DataStack(Stack):
             "ArtifactsBucket",
             access_log_bucket=access_log_bucket,
             access_log_prefix="artifacts/",
+        )
+        # The proxy writes one object per prediction, so this prefix grows
+        # without bound. Scope the rule to it by prefix: the same bucket holds
+        # `model.tar.gz`, the evaluation reports, and the drift baseline, and
+        # expiring any of those would break the endpoint or the drift job.
+        #
+        # The bucket is versioned, so expiring a current version leaves a
+        # noncurrent one behind. Without the second duration the objects stay
+        # billable after they disappear from a listing.
+        self.artifacts_bucket.add_lifecycle_rule(
+            id="ExpireCapturedPredictions",
+            enabled=True,
+            prefix=f"{CAPTURE_PREFIX}/",
+            expiration=Duration.days(config["capture_retention_days"]),
+            noncurrent_version_expiration=Duration.days(1),
         )
 
         if config["security"]["account_budget"]:

@@ -91,6 +91,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         app,
         f"{prefix}-Monitoring",
         alert_topic=security.alert_topic,
+        artifacts_bucket=data.artifacts_bucket,
         config=config,
     )
 

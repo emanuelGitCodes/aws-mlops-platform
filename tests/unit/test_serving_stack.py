@@ -196,8 +196,39 @@ def test_the_proxy_role_carries_no_managed_policy(stacks):
         for s in statements
         for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
     }
-    # The two log actions plus the one business permission. There is no
-    # logs:CreateLogGroup, because CDK creates the group.
-    assert actions == {"logs:CreateLogStream", "logs:PutLogEvents", "sagemaker:InvokeEndpoint"}
+    # The two log actions, the one business permission, and the capture write.
+    # There is no logs:CreateLogGroup, because CDK creates the group.
+    assert actions == {
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "sagemaker:InvokeEndpoint",
+        "s3:PutObject",
+    }
     for statement in statements:
         assert statement["Resource"] != "*"
+
+
+def test_the_proxy_may_write_capture_and_read_nothing(stacks):
+    """A serverless endpoint has no data capture, so the proxy is the capture
+    point. Its role must not gain read access to the bucket it writes into."""
+    template = stacks["serving"]
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "src.serving.proxy_handler.handler",
+            "Environment": {"Variables": Match.object_like({"CAPTURE_PREFIX": "capture"})},
+        },
+    )
+
+    proxy_policy = next(
+        policy
+        for policy in template.find_resources("AWS::IAM::Policy").values()
+        if any(
+            statement["Action"] == "sagemaker:InvokeEndpoint"
+            for statement in policy["Properties"]["PolicyDocument"]["Statement"]
+        )
+    )
+    actions = [s["Action"] for s in proxy_policy["Properties"]["PolicyDocument"]["Statement"]]
+    flat = [a for entry in actions for a in ([entry] if isinstance(entry, str) else entry)]
+    assert "s3:PutObject" in flat
+    assert not [a for a in flat if a.startswith("s3:Get") or a.startswith("s3:Delete")]

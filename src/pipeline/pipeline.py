@@ -38,6 +38,16 @@ PROCESSING_INSTANCE_TYPE = "ml.m5.large"
 TRAINING_INSTANCE_TYPE = "ml.m5.large"
 INFERENCE_INSTANCE_TYPES = ["ml.m5.large"]
 
+# The drift Lambda reads one fixed key, so the baseline output overrides the
+# default execution-scoped destination. `infra/stacks/shared.py` repeats this
+# prefix for the IAM grant and the Lambda environment; `src/pipeline/` cannot
+# import `infra`, so `tests/unit/test_pipeline.py` pins the two together.
+#
+# Every preprocessing run replaces this object. A rejected challenger resets it
+# too, which stops a shift the model cannot beat from starting a retrain every
+# hour.
+BASELINE_DESTINATION_PREFIX = "monitor/baseline"
+
 # These are strings, because SageMaker stringifies every hyperparameter value.
 # The annotation is explicit, because dict is invariant. A bare dict[str, str]
 # does not satisfy the SDK's dict[str, str | PipelineVariable].
@@ -106,8 +116,15 @@ def build_pipeline(
         dependencies=["src"],
         inputs=[ProcessingInput(source=input_data, destination="/opt/ml/processing/input")],
         outputs=[
-            ProcessingOutput(output_name=n, source=f"/opt/ml/processing/{n}")
-            for n in ("train", "validation", "test", "api_test")
+            *(
+                ProcessingOutput(output_name=n, source=f"/opt/ml/processing/{n}")
+                for n in ("train", "validation", "test", "api_test")
+            ),
+            ProcessingOutput(
+                output_name="baseline",
+                source="/opt/ml/processing/baseline",
+                destination=f"s3://{artifacts_bucket}/{BASELINE_DESTINATION_PREFIX}",
+            ),
         ],
     )
     preprocess = ProcessingStep(

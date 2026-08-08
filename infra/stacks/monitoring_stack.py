@@ -1,9 +1,11 @@
-"""Monitoring and the closed loop: a Model Monitor violation starts the retrain
-Lambda, which calls StartPipelineExecution. Also the operator dashboard.
+"""Monitoring and the closed loop: the drift Lambda scores a capture window,
+emits a violation event, and the retrain Lambda calls StartPipelineExecution.
+Also the operator dashboard.
 
-`scripts/setup_monitor.py` creates the Model Monitor baseline and schedule. It
-uses the SDK, because it needs a live endpoint and captured traffic. This stack
-owns the alarm wiring and the dashboard.
+The platform owns both ends of this loop. SageMaker Model Monitor supports
+neither serverless endpoints nor new customers, so the statistic lives in
+`src/common/drift.py`, the baseline comes from the preprocessing step, and the
+capture objects come from the proxy Lambda.
 """
 
 from typing import Any
@@ -11,11 +13,27 @@ from typing import Any
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_cloudwatch as cw
 from aws_cdk import aws_cloudwatch_actions as cw_actions
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig, platform_lambda, sagemaker_event_rule
+from infra.stacks.shared import (
+    BASELINE_KEY,
+    CAPTURE_PREFIX,
+    PlatformConfig,
+    lambda_event_rule,
+    platform_lambda,
+)
+
+# These three repeat `src/common/drift.py`. Keep them literals. Importing a
+# handler here would run its module-level os.environ lookups during synth.
+# tests/unit/test_monitoring_stack.py asserts that the two sides agree.
+DRIFT_EVENT_SOURCE = "mlops.monitoring"
+DRIFT_EVENT_DETAIL_TYPE = "Drift Evaluation Result"
+DRIFT_STATUS = "DriftDetected"
 
 
 class MonitoringStack(Stack):
@@ -25,6 +43,7 @@ class MonitoringStack(Stack):
         construct_id: str,
         *,
         alert_topic: sns.ITopic,
+        artifacts_bucket: s3.IBucket,
         config: PlatformConfig,
         **kwargs: Any,
     ) -> None:
@@ -33,10 +52,68 @@ class MonitoringStack(Stack):
         endpoint_name = config["endpoint_name"]
         pipeline_name = config["pipeline_name"]
 
-        # Model Monitor emits an event on a violation. The loop keys off the
-        # monitoring-schedule status change event. The handler is real source
-        # in src/monitoring, not an inline string, so ruff, mypy, and pytest
-        # all see it.
+        # Scores one capture window against the training baseline. It carries
+        # its own role rather than sharing the pipeline role, so a drift
+        # evaluation can never reach what a training run can.
+        drift_fn = platform_lambda(
+            self,
+            "DriftEvaluationFn",
+            config=config,
+            least_privilege_logs=True,
+            handler="src.monitoring.drift_handler.handler",
+            # Reading an hour of capture objects one at a time is the slow
+            # part, not the statistic.
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            environment={
+                "ARTIFACTS_BUCKET": artifacts_bucket.bucket_name,
+                "BASELINE_KEY": BASELINE_KEY,
+                "CAPTURE_PREFIX": CAPTURE_PREFIX,
+            },
+        )
+        # Read the baseline and the capture window. The job never writes, so a
+        # compromised drift evaluation cannot forge the record it reads.
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:GetObject"],
+                resources=[
+                    artifacts_bucket.arn_for_objects(BASELINE_KEY),
+                    artifacts_bucket.arn_for_objects(f"{CAPTURE_PREFIX}/*"),
+                ],
+            )
+        )
+        # `ListBucket` takes the bucket ARN, so the prefix condition is what
+        # keeps this off the rest of the bucket.
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[artifacts_bucket.bucket_arn],
+                conditions={"StringLike": {"s3:prefix": [f"{CAPTURE_PREFIX}/*"]}},
+            )
+        )
+        # The default bus. `events:PutEvents` takes the bus ARN, and the source
+        # is not a resource, so the rule below is what stops any other consumer
+        # acting on this event.
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["events:PutEvents"],
+                resources=[
+                    self.format_arn(service="events", resource="event-bus", resource_name="default")
+                ],
+            )
+        )
+
+        # The schedule is the same config key the Model Monitor schedule used.
+        events.Rule(
+            self,
+            "DriftEvaluationSchedule",
+            schedule=events.Schedule.expression(config["monitor"]["schedule_cron"]),
+            targets=[targets.LambdaFunction(drift_fn)],
+        )
+
+        # A violation starts a training run. The handler is real source in
+        # src/monitoring, not an inline string, so ruff, mypy, and pytest all
+        # see it.
         retrain_fn = platform_lambda(
             self,
             "RetrainTriggerFn",
@@ -45,9 +122,15 @@ class MonitoringStack(Stack):
             timeout=Duration.minutes(1),
             environment={"PIPELINE_NAME": pipeline_name},
         )
+        # `ListPipelineExecutions` is what the cooldown reads. Without it the
+        # handler cannot tell whether a run is already answering this drift,
+        # and a shift that persists starts a run every hour.
         retrain_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:StartPipelineExecution"],
+                actions=[
+                    "sagemaker:StartPipelineExecution",
+                    "sagemaker:ListPipelineExecutions",
+                ],
                 resources=[
                     self.format_arn(
                         service="sagemaker",
@@ -58,18 +141,12 @@ class MonitoringStack(Stack):
             )
         )
 
-        sagemaker_event_rule(
+        lambda_event_rule(
             self,
             "DriftViolationRule",
-            detail_type="SageMaker Model Monitor Execution Status Change",
-            detail={
-                "MonitoringScheduleName": [{"prefix": endpoint_name}],
-                # This must equal retrain_handler.VIOLATION_STATUS. Keep it a
-                # literal. Importing the handler here would run its
-                # module-level os.environ lookups during synth.
-                # tests/unit/test_monitoring_stack.py asserts that they agree.
-                "MonitoringExecutionStatus": ["CompletedWithViolations"],
-            },
+            source=DRIFT_EVENT_SOURCE,
+            detail_type=DRIFT_EVENT_DETAIL_TYPE,
+            detail={"status": [DRIFT_STATUS]},
             handler=retrain_fn,
         )
 

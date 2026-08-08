@@ -103,17 +103,17 @@ Look here **before** writing anything new:
 
 | Path | Contents |
 |---|---|
-| `src/common/` | Shared code — the **only** place for cross-module shared logic. `features.py` owns the whole raw-value contract (`FEATURE_COLUMNS`, `LABEL_COLUMN`, `FEATURE_VOCABULARY`, encoding); `schema.py` is the Pydantic runtime contract (`CustomerRecord`); `events.py` is `log_event`, the one-JSON-line-per-event convention. |
+| `src/common/` | Shared code — the **only** place for cross-module shared logic. `features.py` owns the whole raw-value contract (`FEATURE_COLUMNS`, `LABEL_COLUMN`, `FEATURE_VOCABULARY`, encoding); `schema.py` is the Pydantic runtime contract (`CustomerRecord`); `events.py` is `log_event`, the one-JSON-line-per-event convention; `drift.py` is the PSI drift statistic, shared by the preprocessing step and the drift Lambda. |
 | `src/ingestion/` | Schema-validation Lambda (`validate_handler.py`) |
 | `src/serving/` | Endpoint-deploy Lambda (`deploy_handler.py`), inference proxy Lambda (`proxy_handler.py`) |
-| `src/monitoring/` | Retrain Lambda (`retrain_handler.py`) — Model Monitor violation → new pipeline execution; the closing edge of the drift loop |
+| `src/monitoring/` | Drift Lambda (`drift_handler.py`) — scores a capture window and emits the violation event; retrain Lambda (`retrain_handler.py`) — violation → new pipeline execution. Together the closing edge of the drift loop |
 | `src/pipeline/` | `preprocess.py`, `evaluate.py`, the pipeline definition (`pipeline.py`), and `evaluation_runtime/` (the FrameworkProcessor entrypoint) |
 | `infra/app.py` | CDK entrypoint. `load_config()`, `stack_prefix()`, `build_app()` — the single source of the config loader, the stack-name formula, and the dependency graph; the tests import all three. |
 | `infra/security_checks.py` | cdk-nag gate plus every acknowledgement, each bound to one construct and naming the phase that removes it |
 | `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
 | `infra/policies/` | `mlops-cloudformation-execution-policy.json` — the repository-owned CloudFormation execution policy, version-pinned and fingerprint-tested |
-| `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `setup_monitor.py`, `send_drift_traffic.py`, `wiki.py` |
+| `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py` |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL`/`API_KEY` are set |
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |

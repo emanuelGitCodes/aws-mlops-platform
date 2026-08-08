@@ -1,3 +1,4 @@
+import datetime
 import json
 from unittest import mock
 
@@ -11,7 +12,8 @@ EXECUTION_ARN = "arn:aws:sagemaker:us-east-1:123456789012:pipeline/test-pipeline
 
 
 def _event(status: str) -> dict:
-    return {"detail": {"MonitoringScheduleName": "x", "MonitoringExecutionStatus": status}}
+    """One drift event as `src.monitoring.drift_handler` emits it."""
+    return {"detail": {"drifted_columns": ["tenure"], "status": status}}
 
 
 def test_violation_starts_the_pipeline():
@@ -20,7 +22,8 @@ def test_violation_starts_the_pipeline():
         mock.patch("builtins.print") as log,
     ):
         sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
-        result = retrain_handler.handler(_event("CompletedWithViolations"), None)
+        sm.list_pipeline_executions.return_value = {"PipelineExecutionSummaries": []}
+        result = retrain_handler.handler(_event(retrain_handler.VIOLATION_STATUS), None)
 
     assert result == {"retrain_started": EXECUTION_ARN}
     call = sm.start_pipeline_execution.call_args.kwargs
@@ -33,12 +36,13 @@ def test_violation_starts_the_pipeline():
     }
 
 
-@pytest.mark.parametrize("status", ["Completed", "Failed", "Stopped", "InProgress", None])
+@pytest.mark.parametrize("status", ["CompletedWithViolations", "Evaluated", None])
 def test_non_violation_statuses_do_not_retrain(status):
     """Only a violation may retrain: every other outcome is a no-op.
 
-    Retraining on `Completed` would put the pipeline in a loop, and each run
-    costs a training job.
+    Retraining on an evaluated window with no drift would put the pipeline in
+    a loop, and each run costs a training job. `CompletedWithViolations` is
+    Model Monitor's word, which nothing in this loop emits any more.
     """
     with mock.patch.object(retrain_handler, "sm") as sm:
         result = retrain_handler.handler(_event(status), None)
@@ -54,3 +58,82 @@ def test_missing_status_is_skipped_not_an_error():
 
     assert result == {"skipped": None}
     sm.start_pipeline_execution.assert_not_called()
+
+
+def _summary(status="Succeeded", hours_ago=99.0, arn=EXECUTION_ARN):
+    return {
+        "PipelineExecutionSummaries": [
+            {
+                "PipelineExecutionArn": arn,
+                "PipelineExecutionStatus": status,
+                "StartTime": datetime.datetime.now(datetime.UTC)
+                - datetime.timedelta(hours=hours_ago),
+            }
+        ]
+    }
+
+
+def _violation(sm):
+    with mock.patch.object(retrain_handler, "sm", sm), mock.patch("builtins.print"):
+        return retrain_handler.handler(_event(retrain_handler.VIOLATION_STATUS), None)
+
+
+def test_a_run_already_in_flight_suppresses_a_second_one():
+    """Two runs against one pipeline duplicate the cost and race each other."""
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _summary(status="Executing", hours_ago=0.1)
+
+    assert _violation(sm) == {"suppressed": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_not_called()
+
+
+def test_a_recent_run_suppresses_the_next_violation():
+    """The storm case. Retraining cannot end a shift on its own, because the
+    pipeline trains on curated data and the shift is in captured traffic."""
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _summary(
+        status="Succeeded", hours_ago=retrain_handler.RETRAIN_COOLDOWN_HOURS - 1
+    )
+
+    assert _violation(sm) == {"suppressed": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_not_called()
+
+
+def test_a_violation_after_the_cooldown_retrains():
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _summary(
+        status="Succeeded", hours_ago=retrain_handler.RETRAIN_COOLDOWN_HOURS + 1
+    )
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    assert _violation(sm) == {"retrain_started": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_called_once()
+
+
+def test_the_first_ever_violation_retrains():
+    """No execution history must not read as a cooldown."""
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = {"PipelineExecutionSummaries": []}
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    assert _violation(sm) == {"retrain_started": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_called_once()
+
+
+def test_suppression_is_logged_with_its_reason():
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _summary(status="Executing", hours_ago=0.1)
+    with mock.patch.object(retrain_handler, "sm", sm), mock.patch("builtins.print") as log:
+        retrain_handler.handler(_event(retrain_handler.VIOLATION_STATUS), None)
+
+    logged = json.loads(log.call_args.args[0])
+    assert logged["event"] == "retrain_suppressed"
+    assert logged["reason"] == "in_flight"
+
+
+def test_a_non_violation_never_reaches_the_cooldown_lookup():
+    """The guard order matters: a non-violation must cost no API call."""
+    sm = mock.Mock()
+    with mock.patch.object(retrain_handler, "sm", sm):
+        retrain_handler.handler(_event("Evaluated"), None)
+    sm.list_pipeline_executions.assert_not_called()

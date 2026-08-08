@@ -81,3 +81,30 @@ class ClientError(Exception):
     def __init__(self, code: str, message: str = "") -> None:
         super().__init__(f"{code}: {message}")
         self.response = {"Error": {"Code": code, "Message": message}}
+
+
+def varied_records(count: int, seed: int = 0, **overrides):
+    """Generate `count` diverse records drawn from the feature vocabulary.
+
+    Windows built by repeating one record are a point mass, and every drift
+    statistic reports total drift against them. Fixtures that repeat a record
+    therefore cannot tell a working detector from a broken one. Draw from the
+    real vocabulary instead, then apply `overrides` to shift chosen columns.
+    """
+    import random
+
+    from src.common.features import FEATURE_VOCABULARY
+
+    rng = random.Random(seed)
+    records = []
+    for _ in range(count):
+        record = dict(VALID)
+        for column, values in FEATURE_VOCABULARY.items():
+            record[column] = rng.choice(sorted(values))
+        record["SeniorCitizen"] = rng.choice([0, 0, 0, 1])
+        record["tenure"] = rng.randint(0, 72)
+        record["MonthlyCharges"] = round(rng.uniform(18.0, 120.0), 2)
+        record["TotalCharges"] = round(record["tenure"] * record["MonthlyCharges"], 2)
+        record.update(overrides)
+        records.append(record)
+    return records

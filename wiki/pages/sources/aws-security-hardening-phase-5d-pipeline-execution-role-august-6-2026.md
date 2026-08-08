@@ -3,7 +3,7 @@ type: "source"
 title: "AWS security hardening Phase 5D pipeline execution role — August 6, 2026"
 created: "2026-08-06"
 updated: "2026-08-06"
-sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/shared.py", "../../../infra/security_checks.py", "../../../src/pipeline/pipeline.py", "../../../scripts/setup_monitor.py", "../../../tests/unit/test_training_stack.py", "../../../tests/unit/test_security_checks.py"]
+sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/shared.py", "../../../infra/security_checks.py", "../../../src/pipeline/pipeline.py", "../../../tests/unit/test_training_stack.py", "../../../tests/unit/test_security_checks.py"]
 summary: "The last role off AmazonSageMakerFullAccess, and the phase that showed CloudTrail enumerates a role's API surface but not its authorization surface."
 ---
 # AWS security hardening Phase 5D pipeline execution role — August 6, 2026

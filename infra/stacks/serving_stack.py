@@ -11,10 +11,11 @@ from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
 from infra.stacks.shared import (
+    CAPTURE_PREFIX,
     MODEL_ARTIFACT_PREFIX,
     PlatformConfig,
+    lambda_event_rule,
     platform_lambda,
-    sagemaker_event_rule,
     sagemaker_execution_role,
 )
 
@@ -167,7 +168,7 @@ class ServingStack(Stack):
             iam.PolicyStatement(actions=["iam:PassRole"], resources=[model_exec_role.role_arn])
         )
 
-        sagemaker_event_rule(
+        lambda_event_rule(
             self,
             "ModelApprovedRule",
             detail_type="SageMaker Model Package State Change",
@@ -188,12 +189,26 @@ class ServingStack(Stack):
             code=code,
             timeout=Duration.seconds(29),
             memory_size=256,
-            environment={"ENDPOINT_NAME": endpoint_name},
+            environment={
+                "ENDPOINT_NAME": endpoint_name,
+                "CAPTURE_BUCKET": artifacts_bucket.bucket_name,
+                "CAPTURE_PREFIX": CAPTURE_PREFIX,
+            },
         )
         proxy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:InvokeEndpoint"],
                 resources=[endpoint_arn],
+            )
+        )
+        # A serverless endpoint has no data capture, so the proxy is the
+        # capture point. Write only, and only under the capture prefix: this
+        # role must not be able to read the model artifact it serves, or to
+        # replace a captured record once written.
+        proxy_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:PutObject"],
+                resources=[artifacts_bucket.arn_for_objects(f"{CAPTURE_PREFIX}/*")],
             )
         )
 

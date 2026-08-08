@@ -235,6 +235,19 @@ ACKNOWLEDGEMENTS = (
             "under one SageMaker-owned group, which is what PutLogEvents requires."
         ),
     ),
+    Acknowledgement(
+        "serving",
+        "ProxyFnRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket"
+            "2AAC5544ArnD57FAE19/capture/*]"
+        ),
+        (
+            "The proxy is the capture point, because a serverless endpoint has no data "
+            "capture; PutObject writes one generated key per prediction and reads nothing. "
+            "Phase 4 re-evaluates this grant when the bucket moves to a customer-managed key."
+        ),
+    ),
     # Deploy role. Three ARNs remain, and each trailing wildcard is
     # unavoidable. `deploy_handler` suffixes every model and endpoint-config
     # name with the epoch second, and the model package is addressed by version
@@ -327,9 +340,25 @@ ACKNOWLEDGEMENTS = (
     ),
     Acknowledgement(
         "monitoring",
-        "RetrainTriggerFn",
-        "AwsSolutions::AwsSolutions-L1",
-        "Python 3.12 is the deployed baseline; review runtime in Phase 7.",
+        "DriftEvaluationFnRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket"
+            "2AAC5544ArnD57FAE19/capture/*]"
+        ),
+        (
+            "The drift job reads a window of capture objects whose keys are generated per "
+            "prediction; the grant is GetObject only, and ListBucket carries a prefix condition. "
+            "Phase 4 re-evaluates this grant when the bucket moves to a customer-managed key."
+        ),
+    ),
+    *(
+        Acknowledgement(
+            "monitoring",
+            function,
+            "AwsSolutions::AwsSolutions-L1",
+            "Python 3.12 is the deployed baseline; review runtime in Phase 7.",
+        )
+        for function in ("RetrainTriggerFn", "DriftEvaluationFn")
     ),
 )
 

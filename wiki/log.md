@@ -5050,3 +5050,100 @@ read only on Lambda, so every cold start would recompile pydantic. That trade
 is a deliberate decision, not a cleanup, and it is not taken here.
 
 **Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] implement | Sub-phase 2G merged, not deployed
+
+**Objective.** Close the `3 of 3` reach-back edge on
+`mlops-<env>-security-unauthorized-api-calls`.
+
+**Scope.** `infra/stacks/security_stack.py`,
+`tests/unit/test_security_stack.py`, `pyproject.toml`. Merged as PR #54. **No
+AWS resource is changed.** The live alarm still carries a plain metric.
+
+**The premise was re-measured first, and it nearly did not survive.** Every
+metric filter already sets `default_value=0`, and has since Phase 2C on
+2026-07-12 — before the 2E observation that produced this sub-phase. That
+should make the series dense and the sub-phase unnecessary. It does not.
+Measured with `get-metric-data` over the 24 hours to 2026-08-08T17:00Z at 300s
+periods: the raw metric returned **283** datapoints, the window holds **288**
+periods, and `FILL(m1, 0)` returned **288**.
+
+**Interpretation.** `default_value` publishes a zero only for a period the log
+group received events in. CloudTrail delivers nothing in some five-minute
+periods, so no datapoint exists at all — five such gaps in a day. Alarm
+evaluation skips a gap and reaches back to the datapoint before it, which is
+how three datapoints span more than three consecutive periods. Read
+`default_value=0` as "dense while traffic flows", not "dense".
+
+**Change.** A `fill_missing` field on `SecurityDetection`, default `False`, set
+only on this detection. The alarm moves from `cloudwatch.Metric` to a
+`MathExpression`, so the reviewed diff rewrites the resource rather than setting
+a property: `MetricName`, `Namespace`, `Period`, and `Statistic` leave, and a
+`Metrics` array arrives. One resource, one stack. A test asserts exactly one
+alarm carries a `Metrics` array, so a later edit cannot convert the siblings
+quietly.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 308 passed, and the floor moved `93.46 → 93.48`. Hosted CI
+green. **`make deploy-stack` was not run.**
+
+**Decision and next checkpoint.** The deploy waits for 2F's observation window,
+under the one-sub-phase-at-a-time rule. Expect the deploy to page this alarm on
+its own calls — the 3C precedent — and to put it briefly through
+`INSUFFICIENT_DATA` while the resource is rewritten.
+
+## [2026-08-08] implement | Phase 6 merged, not deployed
+
+**Objective.** Replace the API key in front of `/predict` with SigV4.
+
+**Scope.** `infra/stacks/serving_stack.py`, `scripts/evaluate_api.py`,
+`scripts/send_drift_traffic.py`, `Makefile`, three test files. Merged as PR #53.
+**No AWS resource is changed.** The live method still reports
+`authorizationType: NONE` with `apiKeyRequired: true`.
+
+**The response contract holds, structurally.** The proxy reads one field from
+the API Gateway event, `event.get("body")`, and composes every response itself.
+Under `AWS_PROXY` integration API Gateway returns that dict verbatim, so an
+authorized call returns identical bytes on 200, 400, 422, 502, and 503. Only
+API Gateway's own auth-failure bodies change, and those were never the proxy's.
+
+**The trap this phase carries.** Rate 10 and burst 20 lived on the usage plan,
+which existed only to hold the API key. Deleting the key takes the plan and the
+throttle with it. The limits move to the stage in the same change set. A test
+pins the stage values and the absence of both the key and the plan, because the
+failure mode is an auth-only-looking diff that silently drops a control.
+
+**The permission question, resolved before any code.** `execute-api:Invoke`
+authorizes the caller at request time; `MLOpsCloudFormationExecutionPolicy`
+authorizes CloudFormation at deploy time. Different sides of the boundary, so
+the grant never belongs in that policy. The policy already grants every
+`apigateway:` action the deploy needs, so **Phase 6 rotates nothing and spends
+no version slot**. `iam simulate-principal-policy` returns `allowed` for the
+operator identity, which inherits `AdministratorAccess`.
+
+**A finding outside the phase.** The account has **no OIDC provider and no role
+trusting GitHub**, checked against the provider list and every role's trust
+policy. `deploy.yml`'s OIDC path has therefore never run; every deploy has been
+local. When that role is created it will need `execute-api:Invoke` explicitly,
+because it will not be an administrator.
+
+**Two problems the work surfaced.** `send_drift_traffic.py` was a second call
+site of `post_prediction`; mypy caught it, and it was updated in place rather
+than forked. And once `main()` built a real `boto3.Session`, the CLI tests left
+sagemaker holding a live default session and `tests/unit/test_pipeline.py`
+reached S3 for real. The tests now sign with offline botocore `Credentials`,
+which removes the pollution and keeps `sign_headers` exercised.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 309 passed after the merge with `main`, and the floor is
+`93.52`. **Neither branch's floor was correct once both were in one tree** —
+2G measured `93.4847` and Phase 6 `93.5080`, and the merged tree measures
+`93.5273`. Hosted CI green. **`make deploy-stack` was not run.**
+
+**Decision and next checkpoint.** Deploy `Mlops-Dev-Serving` only after 2G's
+window closes. The deploy breaks every `x-api-key` caller by design. Note the
+ordering trap: `make smoke` on `main` signs with SigV4 while the deployed API
+still wants the key, and 2F's window needs `make smoke` to prove
+`endpoint-silent` clears.
+
+**Verification of this entry.** `python scripts/wiki.py lint`.

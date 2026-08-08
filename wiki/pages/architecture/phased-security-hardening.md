@@ -134,17 +134,28 @@ the boundary.
   evaluated straight over history and settled `OK`, reporting 19 missing
   datapoints treated as breaching against 5 real ones — so a single invocation
   anywhere in the window holds it `OK`.
-- **Phase 2G: open, not started.** Give the `UnauthorizedApiCalls` metric a
-  `Fill` so an undelivered five-minute datapoint counts as zero. Today
-  CloudWatch reaches back past a gap to assemble three datapoints, so the
-  `3 of 3` rule that Phase 2E installed does not strictly mean fifteen
-  consecutive minutes under lagging delivery. The mechanism carries the risk:
-  `FILL` is a metric-math function, so the alarm moves from a plain
-  `cloudwatch.Metric` to a math expression over the metric-filter metric. That
-  rewrites the alarm resource rather than changing one property, and the five
-  sibling alarms in `SECURITY_DETECTIONS` must stay untouched. The
-  false-negative this closes is narrow — the alarm reports its true positives
-  correctly today, and what is imprecise is the claimed meaning of `3 of 3`.
+- **Phase 2G: merged 2026-08-08, not deployed.**
+  `mlops-<env>-security-unauthorized-api-calls` evaluates `FILL(m1, 0)` over
+  the metric-filter metric. `FILL` is metric math, so the alarm moves from a
+  plain `cloudwatch.Metric` to a math expression, which rewrites the alarm
+  resource rather than changing one property. The five sibling detections keep
+  the plain form, gated by a `fill_missing` field that defaults to `False`, and
+  a test asserts that exactly one alarm carries a `Metrics` array.
+
+  **The premise was re-measured before the code was written, and it survived a
+  correction.** Every metric filter already sets `default_value=0`, and has
+  since Phase 2C on 2026-07-12 — before the 2E observation that produced this
+  sub-phase. The metric is therefore dense in principle. It is not dense in
+  fact: over the 24 hours to 2026-08-08T17:00Z the raw metric returned 283
+  datapoints against 288 periods, and `FILL(m1, 0)` returned 288. **The
+  `default_value` publishes a zero only for a period the log group received
+  events in**, and CloudTrail delivers nothing in some five-minute periods. Five
+  real gaps in a day, each one a place alarm evaluation can skip and reach back
+  past.
+
+  The correction this closes is narrow. The alarm reports its true positives
+  correctly today and always did. What was imprecise is the claimed meaning of
+  `3 of 3` under lagging delivery.
 
   Both sub-phases revise a detection contract, so both follow the Phase 2E
   gate in full: a pre-flight baseline of the live alarm state, tests, a
@@ -348,19 +359,42 @@ the boundary.
   through a healthy delivery**, which is the negative half of its contract.
   See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
-- **Phases 4 and 6–9: not started.** No Security Hub, KMS data-key work,
-  API-authentication change, WAF, or identity change is deployed by this
-  checkpoint. Full 3F — GuardDuty and Security Hub findings — follows the
-  deferred services.
+- **Phase 6: merged 2026-08-08, not deployed.** `POST /predict` takes
+  `AWS_IAM` authorization. The caller signs with SigV4 and needs
+  `execute-api:Invoke` on the method, so an unsigned call fails at API Gateway
+  and never reaches the proxy Lambda. `evaluate_api.py` and
+  `send_drift_traffic.py` sign with botocore `SigV4Auth` and keep their urllib
+  transport, so no dependency arrives; both take `--profile` and `--region` in
+  place of `--api-key`.
+
+  **The response contract is unchanged, and the reason is structural.** The
+  proxy reads one field from the event, `event.get("body")`, and composes every
+  response itself. Under `AWS_PROXY` integration API Gateway returns that dict
+  verbatim, so 200, 400, 422, 502, and 503 are byte-identical. Only API
+  Gateway's own auth-failure bodies differ.
+
+  **Deleting the API key removes the throttle unless the change moves it.** The
+  usage plan carried rate 10 and burst 20 and existed only to hold the key. The
+  limits move to the stage in the same change set, and a test pins both the
+  stage values and the absence of the key and the plan.
+
+  `execute-api:Invoke` authorizes the caller at request time, not CloudFormation
+  at deploy time, so it never belongs in the execution policy. That policy
+  already grants every `apigateway:` action this deploy needs. **Phase 6 spends
+  no IAM policy version slot.**
+- **Phases 4 and 7–9: not started.** No Security Hub, KMS data-key work, WAF,
+  or identity change is deployed by this checkpoint. Full 3F — GuardDuty and
+  Security Hub findings — follows the deferred services.
 
 ### Stable interfaces and deliberate breakpoints
 
 - The `/predict` JSON request, JSON response, and `score >= 0.50` churn rule do
   not change.
 - S3 data and evaluation paths do not change.
-- Phase 6 deliberately breaks the `x-api-key` calling convention. API tooling
-  gains AWS profile/Region selection and signs requests with temporary
-  credentials. There is no permanent legacy API-key route.
+- Phase 6 breaks the `x-api-key` calling convention. API tooling takes AWS
+  profile and Region selection and signs requests with temporary credentials.
+  There is no permanent legacy API-key route. The break is merged and reaches
+  callers at the Serving deploy, not at the merge.
 - Paid security services remain limited to `us-east-1` during dev. Production
   and multi-Region expansion require a later manual decision.
 - WAF begins in count mode. Each managed rule moves to blocking independently
@@ -557,9 +591,26 @@ faithfully, and a changed hash here means changed source.
 The window closes on: `endpoint-silent` reaching `ALARM` after a full idle
 window and clearing on real traffic, the 5xx alarm holding `OK` while idle and
 still paging on a forced 5xx, the six security alarms unchanged, `/predict`
-working, and the `$20` budget intact. **2G stays not started** — the operating
-rule allows one sub-phase in validation at a time. It waits on neither the
-paid-plan decision nor a policy version slot.
+working, and the `$20` budget intact.
+
+**Two change sets now sit on `main` and not in the account: 2G and Phase 6.**
+Merging is not landing. `deploy.yml` is `workflow_dispatch` only and the account
+carries no OIDC provider, so nothing reaches AWS without a deliberate local
+deploy. The live `POST /predict` still reports `authorizationType: NONE` with
+`apiKeyRequired: true`, and the live `unauthorized-api-calls` alarm still
+carries a plain metric.
+
+**A single `make deploy` would ship both at once.** That breaks the
+one-sub-phase-at-a-time rule and takes the `x-api-key` break in the same change
+set. Deploy each with `make deploy-stack`, in this order: 2F's window closes,
+then `Mlops-Dev-Security` for 2G with its own window, then `Mlops-Dev-Serving`
+for Phase 6.
+
+One trap follows from the gap. **`make smoke` on `main` signs with SigV4 while
+the deployed API still wants the key.** A 403 from it today means the tooling
+moved ahead of the account, not that the endpoint is broken. 2F's window needs
+`make smoke` to prove `endpoint-silent` clears, so run that check from a
+checkout of the deployed state.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and

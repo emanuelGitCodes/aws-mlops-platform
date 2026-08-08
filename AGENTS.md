@@ -103,9 +103,11 @@ the Make targets rather than restating them: `install`, `lint`, `typecheck`,
 of full history in a separate job. All are blocking.
 
 `.github/workflows/deploy.yml` is `workflow_dispatch` only: dev deploy +
-smoke, then a prod job gated on the GitHub `prod` environment's manual
-approval. It assumes a role through OIDC federation and uses no long-lived AWS
-key. **It has never run.** The account gained its OIDC provider on 2026-08-08,
+smoke, then a prod job that names the GitHub `prod` environment. It assumes a
+role through OIDC federation and uses no long-lived AWS key. **It has never
+run**, and **no environment carries a protection rule**: `dev` has none and
+`prod` does not exist, so naming an environment scopes the OIDC subject claim
+and requires no review. The account gained its OIDC provider on 2026-08-08,
 but `CicdStack` — which creates the roles the workflow assumes — is not
 deployed, so every deployment so far came from a workstation.
 

@@ -24,8 +24,8 @@ def test_the_trust_names_one_github_environment(stacks):
     """The `sub` claim is the whole boundary.
 
     A `repo:<repo>:*` subject lets any branch or pull request in the repository
-    assume this role. A ref-scoped subject ignores the GitHub environment, so it
-    also ignores the prod approval gate.
+    assume this role. A ref-scoped subject ignores the GitHub environment, and
+    with it any protection rule the environment carries.
     """
     statement = _trust(stacks["cicd"])
     conditions = statement["Condition"]["StringEquals"]

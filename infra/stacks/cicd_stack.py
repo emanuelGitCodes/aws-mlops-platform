@@ -3,9 +3,14 @@
 `.github/workflows/deploy.yml` assumes a role here through OIDC federation.
 No long-lived AWS key exists for CI, and none may be created.
 
-The trust is scoped to one GitHub environment per role. The prod environment
-carries a manual approval gate, so the prod role is reachable only by a job
-that passed it. A branch-scoped trust does not reach that gate.
+The trust is scoped to one GitHub environment per role, so a role is reachable
+only by a job that names its environment. A branch-scoped trust would not carry
+that limit.
+
+**The environments carry no protection rules today.** GitHub creates a missing
+environment on demand with none, so naming `prod` does not by itself require a
+review. Add a required reviewer to the `prod` environment before treating this
+trust as an approval gate.
 """
 
 from typing import Any
@@ -72,7 +77,7 @@ class CicdStack(Stack):
                         f"{GITHUB_OIDC_DOMAIN}:aud": STS_AUDIENCE,
                         # A `repo:<repo>:*` subject lets any branch or pull
                         # request in the repository assume this role. A
-                        # ref-scoped subject does not reach the approval gate.
+                        # ref-scoped subject ignores the environment entirely.
                         f"{GITHUB_OIDC_DOMAIN}:sub": (f"repo:{repository}:environment:{env_name}"),
                     }
                 },

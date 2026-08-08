@@ -5230,11 +5230,17 @@ environment, `mlops-<env>-github-deploy`.
 **The trust is the whole boundary.** `StringEquals` on
 `token.actions.githubusercontent.com:sub` =
 `repo:<repo>:environment:<env>`, plus `aud` = `sts.amazonaws.com`. Naming the
-**environment** rather than a branch means the prod role is reachable only by a
-job that passed the prod environment's approval gate. A `repo:<repo>:*` subject
-would let any branch or pull request assume it, and a ref-scoped subject would
-ignore the gate. Tests assert the exact subject, the absence of any
+**environment** rather than a branch means a role is reachable only by a job
+that names its environment. A `repo:<repo>:*` subject would let any branch or
+pull request assume it. Tests assert the exact subject, the absence of any
 `StringLike`, and that the rendered trust policy contains no `*`.
+
+**Corrected the same day: the approval gate this scoping was chosen for does
+not exist.** The `dev` environment carries zero protection rules and `prod` is
+not defined at all. GitHub creates a missing environment on demand with no
+rules, so a prod job would run unreviewed and still receive
+`sub = repo:<repo>:environment:prod`. The condition works; it currently gates
+on nothing.
 
 **The provider is account-wide**, so it repeats the `account_budget` collision:
 dev owns it under `cicd.owns_oidc_provider`, prod reads it by ARN, and a test
@@ -5348,5 +5354,45 @@ Explorer `GetCostAndUsage` and `GetCostForecast` from `aws-admin`, all
 opt-in rather than a platform permission fault, and it still counts toward
 `unauthorized-api-calls`. Routine Billing console use therefore contributes
 datapoints to that alarm.
+
+**Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The GitHub environments carry no protection rules
+
+**Objective.** Confirm whether repository visibility forces a change for OIDC,
+and whether the approval gate the `CicdStack` trust relies on exists.
+
+**Scope.** Read-only GitHub API. No AWS or repository change.
+
+**Visibility is not a constraint.** The repository is private, and GitHub issues
+an OIDC token to a private repository exactly as it does to a public one. The
+`sub` claim format and the trust policy are unchanged. **Nothing in this design
+requires the project to be open source.**
+
+**The gate does not exist.** `GET /repos/<owner>/<repo>/environments` returns
+`dev` with **zero** protection rules, and no `prod` environment at all.
+
+**Interpretation.** The environment-scoped subject was chosen so that the prod
+role could only be assumed by a job that passed a manual review. A workflow job
+that names a missing environment causes GitHub to create it with no rules, so
+the prod job would run unreviewed and still receive
+`sub = repo:<repo>:environment:prod`. The IAM condition is satisfied and the
+review never happens. **The boundary is sound and currently unbacked.**
+
+**Where visibility does interact.** Environment protection rules — required
+reviewers, wait timers, branch restrictions — are free on public repositories
+and have required a paid plan on private ones. The account plan was not
+readable through the API, so confirm this in Settings before choosing a path.
+
+**Options, in order of preference.** Add a required reviewer to a new `prod`
+environment on the current plan. Upgrade the plan if protection rules are
+gated. Make the repository public, which makes the rules free — feasible, since
+history is scrubbed and CI scans it, but far larger than this one gate warrants.
+
+**Decision and next checkpoint.** No plan change taken. Five statements that
+asserted the gate were corrected to describe what is configured:
+`infra/stacks/cicd_stack.py`, `tests/unit/test_cicd_stack.py`,
+`.github/workflows/deploy.yml`, `AGENTS.md`, and the `CicdStack` log entry
+above. Restore the stronger wording only after a required reviewer exists.
 
 **Verification.** `python scripts/wiki.py lint`.

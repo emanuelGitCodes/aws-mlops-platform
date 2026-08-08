@@ -370,11 +370,43 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         assert alarm["ComparisonOperator"] == "GreaterThanOrEqualToThreshold"
         assert alarm["EvaluationPeriods"] == periods
         assert alarm.get("DatapointsToAlarm") == datapoints
+        assert alarm["Threshold"] == 1
+        assert alarm["TreatMissingData"] == "notBreaching"
+        if slug == "unauthorized-api-calls":
+            # A filled alarm carries a Metrics array. Its MetricStat holds the
+            # three properties asserted below.
+            continue
         assert alarm["Namespace"] == "MLOps/Security"
         assert alarm["Period"] == 300
         assert alarm["Statistic"] == "Sum"
-        assert alarm["Threshold"] == 1
-        assert alarm["TreatMissingData"] == "notBreaching"
+        assert "Metrics" not in alarm
     assert {alarm["AlarmName"].split("-security-", 1)[1] for alarm in alarms} == set(
         expected_evaluation
     )
+
+
+def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
+    """A gap lets alarm evaluation reach back past it, so three datapoints can
+    span more than three consecutive periods. FILL closes the gaps."""
+    alarms = [
+        resource["Properties"]
+        for resource in stacks["security"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    ]
+    filled = [alarm for alarm in alarms if "Metrics" in alarm]
+    assert len(filled) == 1
+    assert filled[0]["AlarmName"].endswith("-security-unauthorized-api-calls")
+
+    metrics = filled[0]["Metrics"]
+    expression = next(entry for entry in metrics if "Expression" in entry)
+    stat = next(entry for entry in metrics if "MetricStat" in entry)
+    assert expression["Expression"] == "FILL(m1, 0)"
+    assert expression["Id"] == "expr_1"
+    assert stat["Id"] == "m1"
+    assert stat["ReturnData"] is False
+    assert stat["MetricStat"]["Metric"] == {
+        "MetricName": "UnauthorizedApiCalls",
+        "Namespace": "MLOps/Security",
+    }
+    assert stat["MetricStat"]["Period"] == 300
+    assert stat["MetricStat"]["Stat"] == "Sum"

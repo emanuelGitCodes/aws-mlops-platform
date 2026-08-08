@@ -38,6 +38,12 @@ class SecurityDetection:
     # no DatapointsToAlarm property at all.
     evaluation_periods: int = 1
     datapoints_to_alarm: int | None = None
+    # The filter's default_value publishes a zero only for a period the log
+    # group received events in. CloudTrail delivers nothing in some periods, so
+    # the series has gaps. Alarm evaluation skips a gap and reaches back to the
+    # datapoint before it, which lets non-consecutive periods satisfy a
+    # consecutive rule. FILL replaces each gap with a zero.
+    fill_missing: bool = False
 
 
 SECURITY_DETECTIONS = (
@@ -55,6 +61,7 @@ SECURITY_DETECTIONS = (
         # three consecutive five-minute datapoints still does.
         evaluation_periods=3,
         datapoints_to_alarm=3,
+        fill_missing=True,
     ),
     SecurityDetection(
         "IamPolicyChanges",
@@ -455,6 +462,19 @@ class SecurityStack(Stack):
                 metric_namespace="MLOps/Security",
                 metric_value="1",
             )
+            filtered_metric = cloudwatch.Metric(
+                metric_name=detection.metric_name,
+                namespace="MLOps/Security",
+                period=Duration.minutes(5),
+                statistic="Sum",
+            )
+            alarm_metric: cloudwatch.IMetric = filtered_metric
+            if detection.fill_missing:
+                alarm_metric = cloudwatch.MathExpression(
+                    expression="FILL(m1, 0)",
+                    period=Duration.minutes(5),
+                    using_metrics={"m1": filtered_metric},
+                )
             alarm = cloudwatch.Alarm(
                 self,
                 f"{detection.metric_name}Alarm",
@@ -465,12 +485,7 @@ class SecurityStack(Stack):
                 ),
                 datapoints_to_alarm=detection.datapoints_to_alarm,
                 evaluation_periods=detection.evaluation_periods,
-                metric=cloudwatch.Metric(
-                    metric_name=detection.metric_name,
-                    namespace="MLOps/Security",
-                    period=Duration.minutes(5),
-                    statistic="Sum",
-                ),
+                metric=alarm_metric,
                 threshold=1,
                 treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
             )

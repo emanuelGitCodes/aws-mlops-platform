@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-06"
+updated: "2026-08-08"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -108,6 +108,37 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
+- **Phase 2F: open, not started.** Set `TreatMissingData` on
+  `mlops-<env>-endpoint-5xx`, which is built in `infra/stacks/monitoring_stack.py`
+  and is the only alarm in the repository that leaves the property unset. It
+  therefore defaults to `missing` and reads `INSUFFICIENT_DATA` while the
+  serverless endpoint is idle. The sub-phase chooses between `NOT_BREACHING`,
+  which reads `OK` while idle, and `IGNORE`, which holds the last state. Note
+  the limit before choosing: **neither value distinguishes "healthy and idle"
+  from "not reporting"**, because both suppress the one state that marks
+  absent data. Separating them needs a second signal, such as an alarm on
+  invocation volume. State in the change set whether the sub-phase takes that
+  second signal or accepts the limit.
+- **Phase 2G: open, not started.** Give the `UnauthorizedApiCalls` metric a
+  `Fill` so an undelivered five-minute datapoint counts as zero. Today
+  CloudWatch reaches back past a gap to assemble three datapoints, so the
+  `3 of 3` rule that Phase 2E installed does not strictly mean fifteen
+  consecutive minutes under lagging delivery. The mechanism carries the risk:
+  `FILL` is a metric-math function, so the alarm moves from a plain
+  `cloudwatch.Metric` to a math expression over the metric-filter metric. That
+  rewrites the alarm resource rather than changing one property, and the five
+  sibling alarms in `SECURITY_DETECTIONS` must stay untouched. The
+  false-negative this closes is narrow — the alarm reports its true positives
+  correctly today, and what is imprecise is the claimed meaning of `3 of 3`.
+
+  Both sub-phases revise a detection contract, so both follow the Phase 2E
+  gate in full: a pre-flight baseline of the live alarm state, tests, a
+  reviewed named diff, its own commit, a scoped dev deploy, `make verify-deploy`
+  at resource level, live checks, an observation window, and an explicit
+  go/no-go. Each window must cover one idle period and one real fire, and must
+  confirm that the other alarms, `/predict`, and the `$20` budget are
+  unchanged. Neither sub-phase rotates the execution policy, so neither
+  consumes an IAM version slot.
 - **Phase 3-prep: complete.** Six all-false `security.services` enablement
   flags, an empty flag-gated `Mlops-Dev-SecurityMonitoring` stack
   (`CREATE_COMPLETE`, metadata only), and execution policy `v7` with the
@@ -327,7 +358,8 @@ the boundary.
   sub-phase — pre-flight baseline, tests, reviewed named diff, scoped
   deployment, resource-level verification, live checks, and an observation
   window — rather than a drive-by edit, exactly as the 07-24 finding
-  required.
+  required. Sub-phases 2F and 2G are the next two revisions under that
+  precedent, and each takes the same gate.
 
 ### Next checkpoint
 
@@ -355,7 +387,7 @@ as the first 3-of-3 true positive was a late-datapoint artifact, not a
 sustained burst — CloudWatch reached back past an undelivered datapoint to
 assemble three. Consequently `3 of 3` does not strictly mean fifteen
 consecutive minutes under lagging delivery; closing that edge with a metric
-`Fill` is a detection-contract change deferred to its own gated sub-phase.
+`Fill` is a detection-contract change, and it is now open as sub-phase 2G.
 
 Sub-phase 3C's observation window **closed on 2026-08-05 as a go**, roughly 48
 hours after deployment, with all four criteria met: snapshots delivered on
@@ -395,7 +427,7 @@ That closure also recorded a gap it deliberately did not fix.
 the time, on a serverless endpoint — while the six security alarms all set
 `notBreaching`. The inference tripwire therefore cannot distinguish "healthy and
 idle" from "not reporting". Changing it is a detection-contract change, so under
-the Phase 2E precedent it belongs in its own gated sub-phase.
+the Phase 2E precedent it takes its own gated sub-phase, now open as 2F.
 
 5C (`DeployFn`) landed on 2026-08-06 and took both its managed log policy and
 its `Resource: "*"` SageMaker statement in one change set, leaving Phase 3E's
@@ -453,6 +485,11 @@ next cleanup — one of them the GuardDuty actions when the trigger in
 arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
+Two alarm-truthfulness sub-phases are now open, **2F** and **2G**, and neither
+waits on the paid-plan decision or on a policy version slot. Both are eligible
+once the 3F window closes, and the operating rule allows only one of them to be
+in validation at a time.
+
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and
 deploy, and finding/trial/alarm/budget/`/predict` verification.

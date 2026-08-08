@@ -4847,3 +4847,40 @@ The analyzer rule is now proved on every link: finding created → rule matched 
 target invoked without failure → topic published → notification delivered →
 subscriber received. Only the Config delivery-failure rule remains unproved,
 by choice.
+
+## [2026-08-08] plan | Sub-phases 2F and 2G opened
+
+**Objective.** Turn two recorded but unscoped alarm defects into gated
+sub-phases under the Phase 2E precedent. Both were prose deferrals with no
+identifier, so neither could be scheduled.
+
+**Scope.** `wiki/pages/architecture/phased-security-hardening.md` only. No code
+was changed, and no AWS resource was touched.
+
+**2F — `mlops-<env>-endpoint-5xx` `TreatMissingData`.** Verified in the
+repository rather than from the record: `infra/stacks/` has exactly two
+`Alarm(` call sites, `monitoring_stack.py:187` and `security_stack.py:458`.
+The security alarms set `NOT_BREACHING`; the 5xx alarm sets nothing, so the
+claim that it is the only alarm leaving the property unset is now checked, not
+assumed. The sub-phase chooses `NOT_BREACHING` or `IGNORE`.
+
+**2G — `UnauthorizedApiCalls` metric `Fill`.** `security_stack.py:51` still
+carries `evaluation_periods=3, datapoints_to_alarm=3` with no fill.
+
+**Interpretation.** The two are not the same kind of defect, and the sub-phase
+entries now say so. 2F is a false state: the alarm cannot distinguish healthy
+and idle from not reporting. 2G is a false claim about a true alarm: the
+detection works, but `3 of 3` does not mean fifteen consecutive minutes under
+lagging delivery. Two constraints were recorded with them. Neither
+`TreatMissingData` value separates idle from silent, so 2F needs a second
+signal or an accepted limit. `FILL` is metric math, so 2G rewrites the alarm
+resource instead of setting a property, which is the larger blast radius of
+the two.
+
+**Decision and next checkpoint.** Both stay not started. Neither waits on the
+paid-plan decision, and neither rotates the execution policy, so neither
+consumes one of the two free IAM version slots. The 3F observation window
+stays open by decision, and the operating rule allows only one sub-phase in
+validation at a time, so 2F and 2G are eligible after 3F reaches its go/no-go.
+
+**Verification.** `python scripts/wiki.py lint`.

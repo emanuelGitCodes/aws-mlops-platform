@@ -2,9 +2,17 @@
 
 import json
 
+import pytest
+
 from tests.unit.conftest import REPO_ROOT
 
-POLICY_PATH = REPO_ROOT / "infra" / "policies" / "mlops-cloudformation-execution-policy.json"
+POLICY_DIR = REPO_ROOT / "infra" / "policies"
+POLICY_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy.json"
+# The execution boundary spans two managed policies. AWS caps one managed
+# policy at 6144 characters, and the first reached that ceiling on 2026-08-08.
+# Both attach to the same CloudFormation execution role, so the grants union.
+EXTENSION_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy-extension.json"
+POLICY_SIZE_QUOTA = 6144
 
 
 def _statement(document, sid):
@@ -151,3 +159,51 @@ def test_config_recorder_can_pass_only_its_own_service_linked_role():
     assert statement["Condition"] == {
         "StringEquals": {"iam:PassedToService": "config.amazonaws.com"}
     }
+
+
+def _rendered_size(path):
+    """Return the size IAM measures: compact JSON with the account filled in.
+
+    IAM ignores whitespace, so an indented file is not what counts. The
+    placeholder is longer than a real account id, so substituting it keeps the
+    measurement honest rather than pessimistic.
+    """
+    document = path.read_text().replace("${AWS_ACCOUNT_ID}", "123456789012")
+    return len(json.dumps(json.loads(document), separators=(",", ":")))
+
+
+@pytest.mark.parametrize("path", [POLICY_PATH, EXTENSION_PATH])
+def test_each_policy_document_fits_the_aws_size_quota(path):
+    """A rotation that exceeds 6144 fails with LimitExceeded, and the failure
+    arrives at the AWS API rather than in CI. Measure it here instead."""
+    size = _rendered_size(path)
+
+    assert size <= POLICY_SIZE_QUOTA, (
+        f"{path.name} is {size} of {POLICY_SIZE_QUOTA} bytes. Move a statement "
+        "to the other document rather than trimming a grant to fit."
+    )
+
+
+def test_no_statement_id_is_reused_across_the_two_documents():
+    """Two documents, one boundary. A duplicated Sid makes it ambiguous which
+    file owns a grant, and a reader can then edit the wrong one."""
+    main = {statement["Sid"] for statement in json.loads(POLICY_PATH.read_text())["Statement"]}
+    extension = {
+        statement["Sid"] for statement in json.loads(EXTENSION_PATH.read_text())["Statement"]
+    }
+
+    assert main and extension
+    assert main.isdisjoint(extension)
+
+
+def test_the_extension_carries_the_oidc_provider_lifecycle():
+    """CicdStack creates an AWS::IAM::OIDCProvider. Without these actions the
+    stack fails at create, and the grants do not fit in the main document."""
+    statement = _statement(json.loads(EXTENSION_PATH.read_text()), "GitHubOidcProviderLifecycle")
+
+    assert {"iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider"} <= set(
+        statement["Action"]
+    )
+    assert statement["Resource"] == (
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+    )

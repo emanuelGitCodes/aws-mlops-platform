@@ -5257,3 +5257,47 @@ because AWS validates the certificate against its own trusted CAs. If
 `CreateOpenIDConnectProvider` rejects that, the fix is a thumbprint list.
 
 **Verification of these entries.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] implement | The execution boundary splits across two policies
+
+**Objective.** Land the OIDC provider grants that the failed rotation could not
+fit, and remove the size ceiling as a recurring blocker.
+
+**Decision.** Split, rather than trim the statement or drop the unused
+`securityhub:` actions. Both alternatives left less headroom than Phase 4's KMS
+grant needs — two bytes and 123 bytes — so each bought one deploy and re-raised
+the same failure at the next phase.
+
+**Scope.** New `infra/policies/mlops-cloudformation-execution-policy-extension.json`
+and new live policy `MLOpsCloudFormationExecutionPolicyExtension`, attached to
+`cdk-hnb659fds-cfn-exec-role-*`. Identity `aws-admin`.
+
+**The main policy was not rotated, and that is the point of this shape.** The
+OIDC statement moved out of the main document rather than the main document
+being rebalanced, so the repository file returned to exactly what is deployed.
+A normalised diff against live `v11` reports **identical**. The version slots
+stay at three of five, `v11` stays default, and the deployed boundary was never
+at risk during the change.
+
+**Live checks.** `create-policy` returned `v1` at 21:15:29Z.
+`attach-role-policy` succeeded, and the execution role now lists both policies.
+A normalised diff of the live extension against the rendered repository file
+reports **identical**.
+
+**Sizes.** Main 5888 of 6144 bytes, 256 free. Extension 492 of 6144, 5652 free.
+New grants belong in the extension; the main document cannot take one.
+
+**Regression.** `make test` now measures **each** document against the 6144
+quota and fails with the byte count and a pointer to the other file. The
+previous failure arrived from the AWS API during a rotation, which is the worst
+place to learn it. A second test asserts no `Sid` is reused across the two
+files, so a reader cannot be unsure which file owns a grant.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 320 passed at the `93.63` floor. `python scripts/wiki.py
+lint` healthy.
+
+**Decision and next checkpoint.** `CicdStack` is now deployable as far as
+permissions go. It stays undeployed behind 2F's observation window, 2G, and
+Phase 6. The first deploy still has to settle whether
+`CreateOpenIDConnectProvider` accepts a provider with no `ThumbprintList`.

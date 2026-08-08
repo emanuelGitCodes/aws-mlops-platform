@@ -11,6 +11,11 @@ serverless:
   max_concurrency: 5
 monitor:
   schedule_cron: "cron(0 * ? * * *)"   # hourly
+  # Hours of zero endpoint invocations before the silence alarm pages. This
+  # environment has no traffic floor, so an idle endpoint reaches the alarm
+  # state on its own. Read `endpoint-silent` in ALARM here as "nobody called
+  # it", not as a fault.
+  silence_alarm_hours: 24
 budget_usd: 20
 log_retention_days: 14
 # Days a captured prediction survives under the `capture/` prefix. The drift

@@ -5147,3 +5147,113 @@ still wants the key, and 2F's window needs `make smoke` to prove
 `endpoint-silent` clears.
 
 **Verification of this entry.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The execution policy is out of room, not out of slots
+
+**Objective.** Rotate `MLOpsCloudFormationExecutionPolicy` to add the GitHub
+OIDC provider actions `CicdStack` needs. The rotation failed, and the failure
+corrects a constraint this wiki has tracked since Phase 2A.
+
+**Identity.** `aws-admin`. `mlops-security-auditor` cannot write IAM.
+
+**Pre-flight, which passed.** The live default `v11` was fetched, normalised,
+and compared against the repository JSON with the new statement removed. The
+two were **identical** — no drift, so the rotation would have added exactly one
+statement.
+
+**The failure.**
+
+```
+LimitExceeded: Cannot exceed quota for PolicySize: 6144
+```
+
+**Nothing changed.** `CreatePolicyVersion` is atomic, so the live default is
+still `v11` and the slot count is still three of five.
+
+**Measurements.** Sizes are the compact JSON form, which is how IAM counts.
+
+| Document | Bytes |
+|---|---|
+| Live `v11`, seven statements | 5888 |
+| Proposed, eight statements | 6337 |
+| Quota | 6144 |
+| Headroom before the attempt | 256 |
+| Size of the new statement | 448 |
+
+Per statement: `ApplicationServices` 4118, `GitHubOidcProviderLifecycle` 448,
+`ApplicationRoleLifecycle` 347, `PassOnlyApplicationRoles` 343,
+`AccessAnalyzerServiceLinkedRole` 304, `PassConfigServiceLinkedRole` 260,
+`ConfigServiceLinkedRole` 248, `ConfigServiceLinkedRoleCleanup` 223.
+
+**Interpretation, and the correction it forces.** The roadmap's standing note
+said two grants still fit in the version slots. **Slots were never the first
+limit reached.** At 5888 bytes the policy had 256 bytes of headroom, and no
+useful grant is that small — the OIDC statement alone needs 448. The slot
+count remains true and remains worth tracking; it is simply not what blocks the
+next change.
+
+**Two smaller findings.** The policy holds **zero** `guardduty:` actions, so
+the open question about a deliberate GuardDuty divergence is stale — enabling
+the service means adding actions that now do not fit. And the policy is
+attached to exactly one role, `cdk-hnb659fds-cfn-exec-role-*`, which carries no
+other managed policy and has room for nine more.
+
+**The three options, costed.**
+
+1. **Trim the statement to `Create`, `Delete`, `Get`.** Total 6142, fitting by
+   two bytes. Drops `Tag` and `Untag`, so a tagged provider breaks the deploy.
+   Survives no further grant.
+2. **Drop the ten `securityhub:` actions**, 316 bytes, for a service disabled
+   in both environments. Total 6021, leaving 123 bytes. Phase 3D must then put
+   them back, and they will not fit.
+3. **Split into a second managed policy** on the same role. Removes the ceiling
+   as a recurring problem. Changes the repository's single-file,
+   fingerprint-tested policy model and the pages that describe it.
+
+**Decision and next checkpoint.** **None taken.** Options 1 and 2 both leave
+less headroom than Phase 4's KMS grant needs, so each buys one deploy and
+re-raises this failure. `CicdStack` stays undeployable until this is settled.
+
+## [2026-08-08] implement | CicdStack built, on a branch, not merged
+
+**Objective.** Give `.github/workflows/deploy.yml` an identity to assume, so
+deployment stops depending on a workstation.
+
+**Scope.** New `infra/stacks/cicd_stack.py`, wired in `infra/app.py`, plus
+`cicd` config on both environments, the execution policy JSON, and
+`tests/unit/test_cicd_stack.py`. On branch `claude/cicd-oidc-role`. **Not
+merged and not deployed.**
+
+**What it creates.** One account-wide `AWS::IAM::OIDCProvider` and one role per
+environment, `mlops-<env>-github-deploy`.
+
+**The trust is the whole boundary.** `StringEquals` on
+`token.actions.githubusercontent.com:sub` =
+`repo:<repo>:environment:<env>`, plus `aud` = `sts.amazonaws.com`. Naming the
+**environment** rather than a branch means the prod role is reachable only by a
+job that passed the prod environment's approval gate. A `repo:<repo>:*` subject
+would let any branch or pull request assume it, and a ref-scoped subject would
+ignore the gate. Tests assert the exact subject, the absence of any
+`StringLike`, and that the rendered trust policy contains no `*`.
+
+**The provider is account-wide**, so it repeats the `account_budget` collision:
+dev owns it under `cicd.owns_oidc_provider`, prod reads it by ARN, and a test
+asserts prod creates none.
+
+**A design correction the tests forced.** The role's two grants first composed
+their ARNs locally, which produced wildcards over the generated stack id and
+the generated REST API id, and two cdk-nag acknowledgements that could never
+expire. `test_security_acknowledgements_are_exact_and_expiring` requires every
+acknowledgement to name the phase that removes it, and neither could. The stack
+now imports both exact ARNs from Serving instead. Zero acknowledgements added,
+at the cost of a `Cicd → Serving` dependency.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 316 passed, and the floor moves `93.52 → 93.63`. The
+reviewed diff shows three new resources and no wildcard in either grant.
+
+**One claim only a deploy can settle.** The provider omits `ThumbprintList`,
+because AWS validates the certificate against its own trusted CAs. If
+`CreateOpenIDConnectProvider` rejects that, the fix is a thumbprint list.
+
+**Verification of these entries.** `python scripts/wiki.py lint`.

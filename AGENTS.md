@@ -41,12 +41,19 @@ trusting this summary, which is coarse by design.
   and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
   Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
   `security_checks.py` acknowledgement naming Phase 5.
-- Phase 4 (KMS) and Phases 6–9 are not started.
+- Phase 6 (SigV4 on `/predict`) and sub-phase 2G are **merged and not
+  deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
+  and the account holds no OIDC provider, so `main` runs ahead of the account
+  until someone deploys each stack singly. Phase 4 (KMS) and Phases 7–9 are not
+  started.
 
-**IAM policy version pressure is tight.** Three of the five
-`MLOpsCloudFormationExecutionPolicy` version slots are used — the AWS policy
-name differs from the `mlops-cloudformation-execution-policy.json` filename.
-Two grants fit. After that, free a slot before adding another.
+**`MLOpsCloudFormationExecutionPolicy` has no room for another grant.** The AWS
+policy name differs from the `mlops-cloudformation-execution-policy.json`
+filename. Size is the binding limit, not version slots: the live document is
+5888 bytes against AWS's 6144 quota, so a rotation adding one eight-action
+statement fails with `LimitExceeded: Cannot exceed quota for PolicySize`. Three
+of five version slots are used, which is true and is not what blocks you. Do
+not add a statement until the split recorded in the wiki is decided.
 
 Two rules follow from the roadmap's operating rule and apply to any phase
 work you do:

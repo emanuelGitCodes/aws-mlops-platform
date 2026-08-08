@@ -4884,3 +4884,58 @@ stays open by decision, and the operating rule allows only one sub-phase in
 validation at a time, so 2F and 2G are eligible after 3F reaches its go/no-go.
 
 **Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | Phase 3F observation window closed as a go
+
+**Objective.** Close the partial 3F observation window with an explicit
+go/no-go, using resource-level and metric evidence rather than stack status.
+
+**Identity.** `mlops-security-auditor` for rules, alarms, analyzer, and stack
+status. `aws-admin` for CloudWatch metrics, Config status, and the budget —
+the auditor lacks `cloudwatch:GetMetricStatistics`, `budgets:ViewBudget`, and
+`config:ListConfigurationRecorders`. All three known gaps held again.
+
+**Window bounds.** `Mlops-Dev-SecurityMonitoring` reached `UPDATE_COMPLETE` at
+2026-08-08T04:00:37Z. The window therefore ran about eleven hours, not the two
+to three the proof timestamps suggest at a glance, and not the 48 hours the 3C
+and 5A windows ran.
+
+**Evidence.** Both rules `ENABLED`. Over the window the analyzer rule recorded
+`MatchedEvents` 1, `Invocations` 1, `FailedInvocations` 0; the Config rule
+recorded 0/0/0. The topic recorded four published, four delivered,
+`NumberOfNotificationsFailed` 0. The recorder reports `recording: true` and
+`lastStatus: SUCCESS`. The analyzer is `ACTIVE` with zero active findings. The
+six security alarms are `OK`; `mlops-dev-security-s3-bucket-policy-changes`
+self-cleared at 13:20:51Z after the test's own writes, a true positive in the
+2E and 3C pattern. `make smoke` passed 6. Month-to-date cost is `$0.00` and the
+`$20` budget is intact at `$0.00` actual against a `$1.823` forecast.
+
+**Decision: go.** The window is short against precedent and closes anyway,
+because 3F's load-bearing proof does not accumulate. The risk was that the two
+new grants — topic policy and audit key — would fail at publish time, and
+`FailedInvocations` 0 on a real routed finding settles that in one event. More
+hours would have added cost data the budget already reports as zero.
+
+**Two findings the window produced.**
+
+1. **The Config rule gained its negative half.** A history delivery succeeded
+   at 11:47Z, inside the window and after the rules went live, and the rule
+   matched nothing. The rule is now known to stay silent through a healthy
+   delivery. That is not knowing it fires on a broken one, which stays
+   unproved by choice. Snapshot delivery is on a `TwentyFour_Hours` frequency
+   and its last success predates the deploy, so no post-deploy snapshot was
+   observed.
+2. **Finding `efcd6600` resolved on its own at 13:19:35Z**, about a minute
+   after the queue delete, closing the record's open question about
+   short-lived `ACTIVE` findings. The rule's match count stayed at 1 across
+   that transition. That is consistent with the `status ACTIVE` predicate, but
+   it is not proof of filtering: metrics cannot separate a resolution event
+   that was emitted and rejected from one that was never emitted.
+
+**Deliberately unchanged.** `mlops-dev-endpoint-5xx` still reads
+`INSUFFICIENT_DATA`. That is the 2F defect, not a 3F regression.
+
+**Next checkpoint.** Sub-phases 2F and 2G are now eligible, one at a time.
+Full 3F stays behind the paid-plan decision.
+
+**Verification.** `python scripts/wiki.py lint`.

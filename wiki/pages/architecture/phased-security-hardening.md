@@ -319,7 +319,8 @@ the boundary.
   one open gap was that nothing showed the proxy logging over a period or during
   an endpoint update, and 5B supplied both. See the
   [Phase 5A record](../sources/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md).
-- **Phase 3F: partial, deployed to dev 2026-08-08, observation open.** Two
+- **Phase 3F: partial, deployed to dev 2026-08-08, observation closed as a
+  go.** Two
   EventBridge rules route active external-access findings and Config history
   or snapshot delivery failures to the Phase 2 alert topic. The audit key and
   the topic each grant `events.amazonaws.com`, scoped to the
@@ -328,7 +329,9 @@ the boundary.
   changes and compliance events are deliberately unrouted. **The analyzer rule
   is proved live**: a manufactured public-access finding routed to the topic
   with `FailedInvocations` 0, which proves the topic grant and the key grant
-  together. The Config rule stays unexercised. See the
+  together. The Config rule never fired, but it was **observed staying silent
+  through a healthy delivery**, which is the negative half of its contract.
+  See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
 - **Phases 4 and 6–9: not started.** No Security Hub, KMS data-key work,
   API-authentication change, WAF, or identity change is deployed by this
@@ -473,10 +476,38 @@ loop, the promotion gate, and the retrain throttle are all now exercised in
 this account. Only the superseded `/aws/lambda/RetrainTriggerFn` twin still
 reports no events; the Phase K `*Logs*` group holds the run.
 
-Partial 3F is deployed and its observation window is open. The analyzer rule
-was proved live on 2026-08-08 with a manufactured finding; **the Config rule
-remains unproved**, because proving it means breaking the compliance evidence
-trail on purpose. Two constraints continue past it. First,
+**Partial 3F's observation window closed on 2026-08-08 as a go**, about eleven
+hours after the `Mlops-Dev-SecurityMonitoring` update completed at 04:00:37Z.
+Every criterion was met: both rules `ENABLED`, the analyzer rule at
+`MatchedEvents` 1 / `Invocations` 1 / `FailedInvocations` 0, the Config rule at
+0/0/0, the topic at four published and four delivered with
+`NumberOfNotificationsFailed` 0, the recorder `recording: true` and
+`lastStatus: SUCCESS`, the analyzer `ACTIVE` with zero active findings, the six
+security alarms `OK`, `make smoke` at 6 passed, month-to-date cost at `$0.00`,
+and the `$20` budget intact at `$0.00` actual against a `$1.823` forecast.
+
+**That window is shorter than the 48-hour precedent, and the reason it still
+closes is that its load-bearing proof does not accumulate over time.** The risk
+3F carried was that the two new grants — the topic policy and the audit key —
+would fail at the moment a rule tried to publish. `FailedInvocations` 0 on a
+real routed finding settles that in one event. A longer window would have added
+cost data the budget already reports as zero.
+
+**The Config rule gained its negative half.** A Config history delivery
+succeeded at 11:47Z, inside the window and after the rules went live, and the
+rule recorded no match against it. So the rule is now known to stay silent
+through a healthy delivery, which is not the same as knowing it fires on a
+broken one. Snapshot delivery is on a 24-hour frequency and its last success
+predates the deploy, so no post-deploy snapshot was observed.
+
+**The analyzer finding resolved on its own**, at 13:19:35Z, which settles the
+open question about short-lived `ACTIVE` findings for deleted resources. The
+rule's match count stayed at 1 across that transition. Read that as consistent
+with the pattern's `status ACTIVE` predicate rather than as proof of filtering:
+metrics cannot show whether a resolution event was emitted and rejected, or
+never emitted at all.
+
+Two constraints continue past it. First,
 **IAM policy version pressure is relieved but still tight**: `v6` and `v7` were
 deleted on 2026-08-07, leaving `v8`, `v10`, and the default `v11` in three of
 the five slots. 3F consumed none of them, so two grants still fit before the

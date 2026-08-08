@@ -4484,3 +4484,51 @@ Every branch has fired against real traffic on the real schedule:
 Captured objects have no expiry, and the prefix now holds 522. The drift job
 reads only the last hour, so everything older is dead weight with no lifecycle
 rule and no phase that adds one before 4C.
+
+## [2026-08-08] verify | Two limits the retrain logs exposed
+
+### A drift-triggered retrain re-evaluates a bit-identical model
+
+The `Evaluate` step of execution `k6hglww9i8xw` logged:
+
+```
+challenger_model_artifact : .../training/pipelines-bib1c66yrmkk-Train-.../model.tar.gz
+challenger_test_auc       : 0.8535
+champion_test_auc         : 0.8679385964912282
+promotion_decision        : reject
+```
+
+The artifact path names execution **`bib1c66yrmkk`** — the 13:35Z baseline run,
+not this one. `Train` was a cache hit, so the challenger under evaluation is
+the same `model.tar.gz` that was already trained, evaluated, and rejected
+hours earlier. The verdict was deterministic before the run started.
+
+This sharpens the earlier finding. It is not only that the baseline fails to
+refresh: on unchanged curated data the whole retrain produces a bit-identical
+model and pays seven minutes of `Evaluate` to re-derive a known answer.
+`Evaluate` is deliberately uncached, because the champion can change
+independently of the pipeline's inputs — that rationale holds in general, and
+in this loop it means every futile retrain still costs a processing job.
+
+The cooldown bounds this to four runs a day. Each of those four remains
+provably pointless until new data reaches `curated/telco/`. A stronger gate
+would compare the resolved challenger artifact against the champion's and skip
+evaluation when they match, or condition the retrain on curated data having
+changed. Neither is implemented.
+
+### The drift job has a hard ceiling around five thousand records an hour
+
+The 200-record window took **12,410 ms**, of which 455 ms was initialisation.
+That is **59.8 ms per record**, because `read_captured` issues one
+`GetObject` per captured object.
+
+The function's timeout is 300 seconds, so it exhausts its budget at roughly
+**5,000 records in a window** and then fails rather than reporting. At the
+current traffic level this is remote, but it is a real ceiling and it is
+invisible until crossed: a busy hour would produce a Lambda timeout, not a
+drift verdict.
+
+The fix is to stop reading objects one at a time — concurrent reads, or a
+single rolled-up object per hour written by a small aggregation step. Recorded,
+not implemented. Neither the timeout nor the per-object read is tuned; 512 MB
+is ample, with 100 MB used.

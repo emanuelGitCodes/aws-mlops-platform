@@ -87,10 +87,12 @@ nothing.
 
 ## Tensions or open questions
 
-- **The Config rule still has no live proof.** Proving it needs a
-  deliberately broken delivery, which interrupts the compliance evidence
-  trail for as long as it runs. That was judged too invasive for the value.
-  The rule's pattern is pinned by tests; its live path is not.
+- **The Config rule still has no live proof that it fires.** Proving that
+  needs a deliberately broken delivery, which interrupts the compliance
+  evidence trail for as long as it runs. That was judged too invasive for the
+  value. The rule's pattern is pinned by tests; its firing path is not. The
+  observation window did supply the negative half: a history delivery
+  succeeded at 11:47Z with the rules live, and the rule matched nothing.
 - **S3 rejects a bucket policy naming an account that does not exist**
   (`MalformedPolicy: Invalid principal in policy`). The first attempt used
   AWS's documentation placeholder `111122223333` and failed. Any future
@@ -100,7 +102,9 @@ nothing.
 - Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
   Access Analyzer resolves findings for deleted resources on a later pass, so
   a short-lived `ACTIVE` finding for a resource that no longer exists is
-  expected, not a leak.
+  expected, not a leak. **Closed.** The observation window recorded the finding
+  `RESOLVED` at 13:19:35Z, about one minute after the delete, and the analyzer
+  now reports zero active findings.
 - `mlops-security-auditor` cannot read CloudWatch metrics —
   `cloudwatch:GetMetricStatistics` is ungranted, so this evidence needed
   `aws-admin`. It sits alongside the known `config:ListConfigurationRecorders`

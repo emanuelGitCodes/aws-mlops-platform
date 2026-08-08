@@ -29,9 +29,10 @@ class ServerlessConfig(TypedDict):
 
 
 class MonitorConfig(TypedDict):
-    """``monitor:`` — Model Monitor scheduling."""
+    """``monitor:`` — the drift job schedule and the endpoint alarms."""
 
     schedule_cron: str
+    silence_alarm_hours: int
 
 
 class SecurityServicesConfig(TypedDict):

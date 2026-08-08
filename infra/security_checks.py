@@ -433,8 +433,7 @@ def apply_security_checks(
         target = construct.node.default_child or construct
         # A granular id carries its own `Action::`, `Resource::`, or `Policy::`
         # delimiter. A plain rule id carries only the leading namespace. The two
-        # take different registration paths and disagree about the namespace, so
-        # this line draws the distinction once.
+        # take different registration paths and disagree about the namespace.
         bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
         if "::" in bare_id:
             # A granular cdk-nag id embeds an ARN, and `acknowledge()` rejects

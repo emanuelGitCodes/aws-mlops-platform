@@ -188,7 +188,7 @@ def test_the_retrain_lambda_may_start_only_the_one_pipeline(stacks):
 def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
     template = stacks["monitoring"]
     template.resource_count_is("AWS::CloudWatch::Dashboard", 1)
-    template.resource_count_is("AWS::CloudWatch::Alarm", 1)
+    template.resource_count_is("AWS::CloudWatch::Alarm", 2)
 
     # An alarm with no action only changes colour in the console. This one
     # must page the same topic as the security alarms.
@@ -197,6 +197,24 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
         {
             "AlarmName": f"mlops-{CONFIG['env_name']}-endpoint-5xx",
             "MetricName": "Invocation5XXErrors",
+            "AlarmActions": [{"Fn::ImportValue": Match.any_value()}],
+            "TreatMissingData": "notBreaching",
+        },
+    )
+
+
+def test_the_silence_alarm_treats_absent_datapoints_as_breaching(stacks):
+    """SageMaker publishes no Invocations datapoint for an idle hour rather
+    than a zero. Any other TreatMissingData value detects nothing."""
+    stacks["monitoring"].has_resource_properties(
+        "AWS::CloudWatch::Alarm",
+        {
+            "AlarmName": f"mlops-{CONFIG['env_name']}-endpoint-silent",
+            "MetricName": "Invocations",
+            "ComparisonOperator": "LessThanThreshold",
+            "Period": 3600,
+            "EvaluationPeriods": CONFIG["monitor"]["silence_alarm_hours"],
+            "TreatMissingData": "breaching",
             "AlarmActions": [{"Fn::ImportValue": Match.any_value()}],
         },
     )

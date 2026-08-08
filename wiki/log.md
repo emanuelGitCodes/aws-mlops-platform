@@ -4939,3 +4939,114 @@ hours would have added cost data the budget already reports as zero.
 Full 3F stays behind the paid-plan decision.
 
 **Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] deploy | Sub-phase 2F deployed to dev, observation open
+
+**Objective.** Make the two endpoint alarms report an idle endpoint honestly,
+under the Phase 2E gate.
+
+**Scope.** `infra/stacks/monitoring_stack.py`, `infra/stacks/shared.py`
+(`MonitorConfig`), both `infra/config/*.yaml`,
+`tests/unit/test_monitoring_stack.py`, `pyproject.toml`. Stack
+`Mlops-Dev-Monitoring` only.
+
+**Change.** `mlops-<env>-endpoint-5xx` sets `TreatMissingData` to
+`NOT_BREACHING`. A new `mlops-<env>-endpoint-silent` alarms on `Invocations`
+`Sum` under 1, hourly period, over `monitor.silence_alarm_hours` periods, with
+`TreatMissingData` `BREACHING`. Dev's window is 24 hours, prod's is 6.
+
+**The decision this sub-phase was required to state.** The 2F entry demanded an
+explicit choice between taking a second signal and accepting the limit that no
+`TreatMissingData` value separates idle from silent. **It took the second
+signal.** The cost was stated in advance and is real: dev has no traffic floor,
+so `endpoint-silent` reaches `ALARM` there on a correctly working idle
+endpoint, and it pages the same topic as the security alarms. The 24-hour dev
+window bounds that to about one page per idle day rather than one per six
+hours.
+
+**Gate results.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 307 passed at `93.47%`, and the floor moves
+`93.45 → 93.47`. The named diff showed the two intended alarm changes plus two
+Lambda code republishes with no source change.
+
+**Deploy.** `Mlops-Dev-Monitoring` updated at 2026-08-08T15:48:43Z.
+`make verify-deploy SINCE=2026-08-08` reports four changed resources:
+`Endpoint5xxAlarm` updated, `EndpointSilentAlarm` created, `DriftEvaluationFn`
+and `RetrainTriggerFn` updated. Only the first two are 2F. This entry first
+attributed the other two to the 5C non-reproducible-asset defect. **That
+attribution is wrong and the correction is below**, dated the same day: the
+functions were carrying stale code, and the republish shipped it.
+
+**Live checks.** The 5xx alarm left `INSUFFICIENT_DATA` at 15:49:36Z, 48
+seconds after the deploy, with CloudWatch naming the cause: one missing
+datapoint `treated as [NonBreaching]`. The silence alarm evaluated over history
+and settled `OK` — 19 missing datapoints treated as breaching against 5 real
+ones — so one invocation anywhere in the window holds it `OK`. `make smoke`
+passed 6. All eight alarms now read `OK`.
+
+**Interpretation.** The alarm has 24 evaluation periods and no separate
+`DatapointsToAlarm`, so every one of the 24 hourly periods must breach. That is
+the intended contract: 24 consecutive idle hours, not 24 idle hours in any
+order.
+
+**Decision and next checkpoint.** The window is open. It closes on
+`endpoint-silent` reaching `ALARM` after a full idle window and clearing on
+real traffic, the 5xx alarm holding `OK` while idle and still paging on a
+forced 5xx, six security alarms unchanged, `/predict` working, and the budget
+intact. 2G stays not started under the one-at-a-time rule. **Dev observation
+windows now check seven alarms, not six**, and `endpoint-silent` in `ALARM`
+there means nobody called the endpoint.
+
+**Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The 5C asset-hash finding is withdrawn
+
+**Objective.** Fix the non-reproducible bundled Lambda asset hash recorded as a
+5C finding. The measurement refuted the finding instead, so nothing was fixed
+and the record is corrected.
+
+**Scope.** `infra/stacks/lambda_code.py` read only. No code changed. Six synths
+of `Mlops-Dev-Monitoring` into scratch output directories.
+
+**The claim under test.** Vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites, so a deploy from a cold `cdk.out` republishes all
+four functions with no source change.
+
+**Measurements.**
+
+1. Two synths into fresh output directories produce the **same** asset hash.
+2. Deleting every `src/**/__pycache__` does not move the hash. The exclusion in
+   `_ASSET_CONTENT` works.
+3. Adding a stray top-level file does not move the hash. The allowlist works.
+4. Six historical `src/` states each rebuild to their own stable hash:
+   `982de01^` → `fa8e4c`, `241eca8` → `99d9da`, `9c77230` → `034a9e`,
+   `b2a2f99` → `e014e5`, `8a21a8b` → `845071`, `66be85f` → `7de663`.
+5. The bundled output **does** contain `.pyc` files that differ between two
+   builds. `diff -r` reports differences in `__pycache__` and nowhere else.
+
+**Interpretation.** The finding mistook the hash input. **CDK fingerprints the
+source directory, not the bundled output.** Measurement 5 confirms the `.pyc`
+nondeterminism the finding described, and measurements 1 to 4 show it never
+reaches the hash. The real effect runs the other way: two builds produce the
+same S3 key with different bytes, and the first upload wins. That is a byte
+reproducibility gap, not a spurious-republish one, and it is the opposite
+failure mode to the one recorded.
+
+**What the 2F deploy actually showed.** `DriftEvaluationFn` and
+`RetrainTriggerFn` were republished because `Mlops-Dev-Monitoring` had not been
+deployed since `src/` last changed — most recently `982de01` on 2026-08-08,
+which rewrote handler comments. Both functions were carrying stale code. A
+changed asset hash means changed source, so the republish was correct and the
+earlier reading of it was not.
+
+**One loose end.** The deployed `a2abed` hash matches none of the six rebuilt
+states. `lambda_code.py`'s exclude list and bundling command are hash inputs
+too, and a past change to either moves the hash for the same `src/`. That was
+not bisected, and it does not affect the conclusion.
+
+**Decision and next checkpoint.** No code change. Removing the `.pyc` from the
+bundle with `pip --no-compile` would close the byte gap, but `/var/task` is
+read only on Lambda, so every cold start would recompile pydantic. That trade
+is a deliberate decision, not a cleanup, and it is not taken here.
+
+**Verification.** `python scripts/wiki.py lint`.

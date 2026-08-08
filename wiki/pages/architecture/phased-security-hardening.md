@@ -108,17 +108,32 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
-- **Phase 2F: open, not started.** Set `TreatMissingData` on
-  `mlops-<env>-endpoint-5xx`, which is built in `infra/stacks/monitoring_stack.py`
-  and is the only alarm in the repository that leaves the property unset. It
-  therefore defaults to `missing` and reads `INSUFFICIENT_DATA` while the
-  serverless endpoint is idle. The sub-phase chooses between `NOT_BREACHING`,
-  which reads `OK` while idle, and `IGNORE`, which holds the last state. Note
-  the limit before choosing: **neither value distinguishes "healthy and idle"
-  from "not reporting"**, because both suppress the one state that marks
-  absent data. Separating them needs a second signal, such as an alarm on
-  invocation volume. State in the change set whether the sub-phase takes that
-  second signal or accepts the limit.
+- **Phase 2F: deployed to dev 2026-08-08, observation open.**
+  `mlops-<env>-endpoint-5xx` now sets `TreatMissingData` to `NOT_BREACHING`.
+  It defaulted to `missing` and read `INSUFFICIENT_DATA` while the serverless
+  endpoint was idle. **The sub-phase took the second signal rather than
+  accepting the limit**, because `NOT_BREACHING` reads `OK` both when the
+  endpoint is idle and when it is silent. `mlops-<env>-endpoint-silent` carries
+  that signal: `Invocations` `Sum` under 1, on an hourly period, over
+  `monitor.silence_alarm_hours` periods. SageMaker publishes no `Invocations`
+  datapoint for an idle hour rather than a zero, so `BREACHING` is the only
+  `TreatMissingData` value that detects silence at all. A test pins that.
+
+  **The window is configuration, not a constant, because the alarm is only
+  meaningful where traffic is expected.** Dev has no traffic floor, so its
+  window is 24 hours and an idle endpoint reaches `ALARM` there on its own.
+  Prod is 6. Two consequences follow for anyone closing a later observation
+  window. **Dev now has seven alarms, not six**, and `endpoint-silent` in
+  `ALARM` there means "nobody called it", not a fault. The alarm also pages the
+  same topic as the security alarms, so it is a standing noise source in that
+  inbox.
+
+  Live behaviour matched on both alarms. The 5xx alarm left
+  `INSUFFICIENT_DATA` 48 seconds after the deploy, and CloudWatch named the
+  cause: one missing datapoint `treated as [NonBreaching]`. The silence alarm
+  evaluated straight over history and settled `OK`, reporting 19 missing
+  datapoints treated as breaching against 5 real ones — so a single invocation
+  anywhere in the window holds it `OK`.
 - **Phase 2G: open, not started.** Give the `UnauthorizedApiCalls` metric a
   `Fill` so an undelivered five-minute datapoint counts as zero. Today
   CloudWatch reaches back past a gap to assemble three datapoints, so the
@@ -457,13 +472,25 @@ today, and that is a success path only while the permission exists.
 The third run then closed 5C's window as a side effect — model package
 registered, auto-approved, endpoint `Updating` six seconds later.
 
-Three findings came out of 5C that belong to other change sets. The **bundled
-Lambda asset hash is not reproducible** — vendored `__pycache__/*.pyc` embed
-mtimes that `pip install -t` rewrites — so a deploy from a cold `cdk.out`
-republishes all four functions' code with no source change, which undermines the
-resource-level deploy reporting the repository requires. **Seven orphaned log
-groups** survive in dev, and every platform Lambda has a superseded
+Three findings came out of 5C that belong to other change sets. **Seven orphaned
+log groups** survive in dev, and every platform Lambda has a superseded
 `/aws/lambda/<function>` twin beside its Phase K `*Logs*` group.
+
+**The third 5C finding is withdrawn.** It claimed the bundled Lambda asset hash
+was not reproducible, because vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites, so a cold `cdk.out` republished all four functions
+with no source change. A measurement on 2026-08-08 refutes it. Two builds into
+fresh output directories produce identical asset hashes. Deleting every
+`src/**/__pycache__` does not move the hash, and neither does adding a stray
+top-level file, so both the exclusion and the allowlist work. Six historical
+`src/` states each rebuild to their own stable hash.
+
+The finding mistook the hash input. **CDK fingerprints the source directory,
+not the bundled output.** The `.pyc` files do differ between builds — that part
+was right — but they live only in the output, so they never reach the hash. The
+practical effect is the reverse of the one recorded: two builds produce the same
+S3 key with different bytes inside, and the first upload wins. That is a byte
+reproducibility gap, not a spurious-republish one.
 
 The third 5C finding no longer holds. **The drift → retrain edge fired for the
 first time on 2026-08-08 at 02:00:40Z.** A `drift_violation` over 200 captured
@@ -516,10 +543,23 @@ next cleanup — one of them the GuardDuty actions when the trigger in
 arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
-Two alarm-truthfulness sub-phases are now open, **2F** and **2G**, and neither
-waits on the paid-plan decision or on a policy version slot. Both are eligible
-once the 3F window closes, and the operating rule allows only one of them to be
-in validation at a time.
+**2F is deployed to dev and its observation window is open.** `make
+verify-deploy SINCE=2026-08-08` reports four changed resources in
+`Mlops-Dev-Monitoring`: `Endpoint5xxAlarm` updated, `EndpointSilentAlarm`
+created, and `DriftEvaluationFn` and `RetrainTriggerFn` republished. **Only the
+first two are 2F**, but the other two are legitimate. The Monitoring stack had
+not been deployed since `src/` last changed, most recently by `982de01` on
+2026-08-08, so both functions were carrying stale code and the republish
+shipped it. An earlier reading of this deploy blamed the withdrawn 5C
+asset-hash finding. That was wrong: the asset hash tracks `src/` content
+faithfully, and a changed hash here means changed source.
+
+The window closes on: `endpoint-silent` reaching `ALARM` after a full idle
+window and clearing on real traffic, the 5xx alarm holding `OK` while idle and
+still paging on a forced 5xx, the six security alarms unchanged, `/predict`
+working, and the `$20` budget intact. **2G stays not started** — the operating
+rule allows one sub-phase in validation at a time. It waits on neither the
+paid-plan decision nor a policy version slot.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and

@@ -36,8 +36,7 @@ VIOLATION_STATUS = DRIFT_STATUS
 # `curated/telco/`, and captured traffic lands under the artifacts bucket's
 # capture prefix; the two never meet. A run therefore produces the same model
 # and the same baseline until new data is ingested, so the violation repeats
-# whatever the run concludes. Only newly ingested data changes the answer,
-# which is what this window is sized against.
+# whatever the run concludes. Only newly ingested data changes the answer.
 RETRAIN_COOLDOWN_HOURS = int(os.environ.get("RETRAIN_COOLDOWN_HOURS", "6"))
 
 # Statuses that mean a run is still going. Starting a second one against the

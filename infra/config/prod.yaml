@@ -16,6 +16,10 @@ monitor:
   # Each run is a SageMaker processing job on ml.m5.large, so an hourly
   # schedule is about 720 jobs a month and dominates the budget below.
   schedule_cron: "cron(0 * ? * * *)"
+  # Hours of zero endpoint invocations before the silence alarm pages. This
+  # value assumes traffic. An environment with no traffic floor reaches the
+  # alarm state on its own.
+  silence_alarm_hours: 6
 
 # `budget_usd` is inert while `security.account_budget` is false. Keep it set,
 # so the number is ready if budget ownership moves here.

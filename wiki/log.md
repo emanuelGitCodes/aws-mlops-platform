@@ -4413,3 +4413,74 @@ into hour 01 and are scored at 02:00Z. The last retrain started at 20:00Z on
 08-07, which is **exactly six hours** before that run — the cooldown boundary.
 Deploying now would land inside a running experiment and make its retrain leg
 ambiguous. The deploy waits for that result.
+
+## [2026-08-08] verify | Severity rule proven on isolated drift; cooldown deployed and proven
+
+### The severity rule fired, and the result is discriminating
+
+200 records with only `tenure`, `MonthlyCharges`, and `TotalCharges` shifted
+were captured into hour 01. The scheduled run at 02:00:38Z reported:
+
+```
+drifted_columns  : ['MonthlyCharges', 'TotalCharges', 'tenure']
+drifted_fraction : 0.157895   (fraction rule needs >= 0.3)   FAILS
+max_column_psi   : 12.647534  (severity rule needs >= 1.0)   PASSES
+```
+
+The fraction rule **could not** have produced this: three of nineteen is 0.158.
+The violation is attributable to the severity rule alone, which is what the
+earlier demo could never establish.
+
+The isolation is sharper than the design assumed. The three shifted columns
+score `12.648`, `12.455`, and `12.438`; the worst of the sixteen untouched
+columns scores `0.031`. That is a separation of about 400 times, against a
+per-column threshold of `0.2`.
+
+The local prediction matched the live result exactly — `tenure` predicted
+`12.647534`, observed `12.647534`. Predicting a live number to six decimal
+places from the deployed baseline and fixture is a useful check on the whole
+capture-to-statistic path, not just the threshold.
+
+`RetrainTriggerFn` started execution `k6hglww9i8xw` two seconds later. That run
+repeated the cached pattern: `Preprocess` and `Train` one second each,
+`Evaluate` seven minutes, gate `False`, endpoint unchanged since
+2026-08-05T22:21Z. The baseline was again not refreshed, which is the third
+observation of that behaviour.
+
+### The cooldown is deployed and proven
+
+Deployed 02:09:58Z, after the run above finished so the in-flight branch could
+not confound it. `make verify-deploy` confirms three resources:
+`DriftEvaluationFn`, `RetrainTriggerFn`, and the retrain role's policy.
+
+The component check cost nothing. Nine minutes after `k6hglww9i8xw` started,
+the handler was invoked directly with a violation event:
+
+```
+response: {"suppressed": ".../execution/k6hglww9i8xw"}
+log:      {"event": "retrain_suppressed", "pipeline": "churn-training-pipeline-dev",
+           "reason": "cooldown", "latest_status": "Succeeded", "cooldown_hours": 6}
+```
+
+No new execution was created; the pipeline still shows exactly the two runs
+from 20:00Z and 02:00Z. Before this change that violation would have started a
+third.
+
+### The loop's live evidence is now complete
+
+Every branch has fired against real traffic on the real schedule:
+
+| Window | Records | Distinct | Outcome |
+|---|---|---|---|
+| 2 records | 2 | 2 | `insufficient_records` |
+| Repeated payload | 120 | 1 | `uniform_records` |
+| Training population | 200 | 200 | scored, no drift |
+| Broad shift | 200 | 200 | violation via the fraction rule |
+| Isolated severe shift | 200 | 200 | violation via the severity rule |
+| Violation inside the cooldown | — | — | `retrain_suppressed` |
+
+### Still open
+
+Captured objects have no expiry, and the prefix now holds 522. The drift job
+reads only the last hour, so everything older is dead weight with no lifecycle
+rule and no phase that adds one before 4C.

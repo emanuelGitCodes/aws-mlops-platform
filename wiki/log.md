@@ -4972,10 +4972,10 @@ Lambda code republishes with no source change.
 **Deploy.** `Mlops-Dev-Monitoring` updated at 2026-08-08T15:48:43Z.
 `make verify-deploy SINCE=2026-08-08` reports four changed resources:
 `Endpoint5xxAlarm` updated, `EndpointSilentAlarm` created, `DriftEvaluationFn`
-and `RetrainTriggerFn` updated. **The two functions are the 5C
-non-reproducible-asset defect, not 2F.** This is the first deploy where that
-defect visibly inflates a resource-level report, which is the exact reporting
-the repository requires — worth fixing before it misleads a later window.
+and `RetrainTriggerFn` updated. Only the first two are 2F. This entry first
+attributed the other two to the 5C non-reproducible-asset defect. **That
+attribution is wrong and the correction is below**, dated the same day: the
+functions were carrying stale code, and the republish shipped it.
 
 **Live checks.** The 5xx alarm left `INSUFFICIENT_DATA` at 15:49:36Z, 48
 seconds after the deploy, with CloudWatch naming the cause: one missing
@@ -4996,5 +4996,57 @@ forced 5xx, six security alarms unchanged, `/predict` working, and the budget
 intact. 2G stays not started under the one-at-a-time rule. **Dev observation
 windows now check seven alarms, not six**, and `endpoint-silent` in `ALARM`
 there means nobody called the endpoint.
+
+**Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The 5C asset-hash finding is withdrawn
+
+**Objective.** Fix the non-reproducible bundled Lambda asset hash recorded as a
+5C finding. The measurement refuted the finding instead, so nothing was fixed
+and the record is corrected.
+
+**Scope.** `infra/stacks/lambda_code.py` read only. No code changed. Six synths
+of `Mlops-Dev-Monitoring` into scratch output directories.
+
+**The claim under test.** Vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites, so a deploy from a cold `cdk.out` republishes all
+four functions with no source change.
+
+**Measurements.**
+
+1. Two synths into fresh output directories produce the **same** asset hash.
+2. Deleting every `src/**/__pycache__` does not move the hash. The exclusion in
+   `_ASSET_CONTENT` works.
+3. Adding a stray top-level file does not move the hash. The allowlist works.
+4. Six historical `src/` states each rebuild to their own stable hash:
+   `982de01^` → `fa8e4c`, `241eca8` → `99d9da`, `9c77230` → `034a9e`,
+   `b2a2f99` → `e014e5`, `8a21a8b` → `845071`, `66be85f` → `7de663`.
+5. The bundled output **does** contain `.pyc` files that differ between two
+   builds. `diff -r` reports differences in `__pycache__` and nowhere else.
+
+**Interpretation.** The finding mistook the hash input. **CDK fingerprints the
+source directory, not the bundled output.** Measurement 5 confirms the `.pyc`
+nondeterminism the finding described, and measurements 1 to 4 show it never
+reaches the hash. The real effect runs the other way: two builds produce the
+same S3 key with different bytes, and the first upload wins. That is a byte
+reproducibility gap, not a spurious-republish one, and it is the opposite
+failure mode to the one recorded.
+
+**What the 2F deploy actually showed.** `DriftEvaluationFn` and
+`RetrainTriggerFn` were republished because `Mlops-Dev-Monitoring` had not been
+deployed since `src/` last changed — most recently `982de01` on 2026-08-08,
+which rewrote handler comments. Both functions were carrying stale code. A
+changed asset hash means changed source, so the republish was correct and the
+earlier reading of it was not.
+
+**One loose end.** The deployed `a2abed` hash matches none of the six rebuilt
+states. `lambda_code.py`'s exclude list and bundling command are hash inputs
+too, and a past change to either moves the hash for the same `src/`. That was
+not bisected, and it does not affect the conclusion.
+
+**Decision and next checkpoint.** No code change. Removing the `.pyc` from the
+bundle with `pip --no-compile` would close the byte gap, but `/var/task` is
+read only on Lambda, so every cold start would recompile pydantic. That trade
+is a deliberate decision, not a cleanup, and it is not taken here.
 
 **Verification.** `python scripts/wiki.py lint`.

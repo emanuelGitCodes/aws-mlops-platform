@@ -472,13 +472,25 @@ today, and that is a success path only while the permission exists.
 The third run then closed 5C's window as a side effect — model package
 registered, auto-approved, endpoint `Updating` six seconds later.
 
-Three findings came out of 5C that belong to other change sets. The **bundled
-Lambda asset hash is not reproducible** — vendored `__pycache__/*.pyc` embed
-mtimes that `pip install -t` rewrites — so a deploy from a cold `cdk.out`
-republishes all four functions' code with no source change, which undermines the
-resource-level deploy reporting the repository requires. **Seven orphaned log
-groups** survive in dev, and every platform Lambda has a superseded
+Three findings came out of 5C that belong to other change sets. **Seven orphaned
+log groups** survive in dev, and every platform Lambda has a superseded
 `/aws/lambda/<function>` twin beside its Phase K `*Logs*` group.
+
+**The third 5C finding is withdrawn.** It claimed the bundled Lambda asset hash
+was not reproducible, because vendored `__pycache__/*.pyc` embed mtimes that
+`pip install -t` rewrites, so a cold `cdk.out` republished all four functions
+with no source change. A measurement on 2026-08-08 refutes it. Two builds into
+fresh output directories produce identical asset hashes. Deleting every
+`src/**/__pycache__` does not move the hash, and neither does adding a stray
+top-level file, so both the exclusion and the allowlist work. Six historical
+`src/` states each rebuild to their own stable hash.
+
+The finding mistook the hash input. **CDK fingerprints the source directory,
+not the bundled output.** The `.pyc` files do differ between builds — that part
+was right — but they live only in the output, so they never reach the hash. The
+practical effect is the reverse of the one recorded: two builds produce the same
+S3 key with different bytes inside, and the first upload wins. That is a byte
+reproducibility gap, not a spurious-republish one.
 
 The third 5C finding no longer holds. **The drift → retrain edge fired for the
 first time on 2026-08-08 at 02:00:40Z.** A `drift_violation` over 200 captured
@@ -535,10 +547,12 @@ positives on its own work.
 verify-deploy SINCE=2026-08-08` reports four changed resources in
 `Mlops-Dev-Monitoring`: `Endpoint5xxAlarm` updated, `EndpointSilentAlarm`
 created, and `DriftEvaluationFn` and `RetrainTriggerFn` republished. **Only the
-first two are 2F.** The two functions carry no source change; they are the
-non-reproducible bundled-asset hash recorded as a 5C finding, and this deploy
-is the first to show that defect inflating a resource-level report. Read it as
-the known artefact, not as 2F touching the drift loop.
+first two are 2F**, but the other two are legitimate. The Monitoring stack had
+not been deployed since `src/` last changed, most recently by `982de01` on
+2026-08-08, so both functions were carrying stale code and the republish
+shipped it. An earlier reading of this deploy blamed the withdrawn 5C
+asset-hash finding. That was wrong: the asset hash tracks `src/` content
+faithfully, and a changed hash here means changed source.
 
 The window closes on: `endpoint-silent` reaching `ALARM` after a full idle
 window and clearing on real traffic, the 5xx alarm holding `OK` while idle and

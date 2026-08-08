@@ -11,6 +11,7 @@ import yaml
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from infra.security_checks import apply_security_checks
+from infra.stacks.cicd_stack import CicdStack
 from infra.stacks.data_stack import DataStack
 from infra.stacks.ingestion_stack import IngestionStack
 from infra.stacks.monitoring_stack import MonitoringStack
@@ -87,6 +88,13 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         package_group_name=registry.package_group_name,
         config=config,
     )
+    cicd = CicdStack(
+        app,
+        f"{prefix}-Cicd",
+        config=config,
+        predict_execute_api_arn=serving.predict_execute_api_arn,
+        serving_stack_arn=serving.stack_id,
+    )
     monitoring = MonitoringStack(
         app,
         f"{prefix}-Monitoring",
@@ -104,6 +112,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         "registry": registry,
         "serving": serving,
         "monitoring": monitoring,
+        "cicd": cicd,
     }
     apply_security_checks(app, stacks, config, prefix)
     return stacks

@@ -62,6 +62,16 @@ class SecurityConfig(TypedDict):
     services: SecurityServicesConfig
 
 
+class CicdConfig(TypedDict):
+    """``cicd:`` — the GitHub Actions deployment identity."""
+
+    github_repository: str
+    # The OIDC provider is one account-wide resource. Two environments that
+    # both create it collide, in the way `account_budget` describes. Dev owns
+    # it, and prod reads it by ARN.
+    owns_oidc_provider: bool
+
+
 class PlatformConfig(TypedDict):
     """One environment's complete config, as loaded from YAML."""
 
@@ -78,6 +88,7 @@ class PlatformConfig(TypedDict):
     # anything older only serves an investigation of a past violation.
     capture_retention_days: int
     security: SecurityConfig
+    cicd: CicdConfig
 
 
 # S3 prefixes shared between a writer and an IAM grant. A rename in one place

@@ -234,5 +234,12 @@ class ServingStack(Stack):
             authorization_type=apigw.AuthorizationType.IAM,
         )
 
+        # The CI deploy role grants `execute-api:Invoke` on exactly this route.
+        # Exporting the ARN keeps that grant free of a wildcard over the
+        # generated REST API id.
+        self.predict_execute_api_arn = api.arn_for_execute_api(
+            method="POST", path="/predict", stage=config["env_name"]
+        )
+
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))
         CfnOutput(self, "EndpointName", value=endpoint_name)

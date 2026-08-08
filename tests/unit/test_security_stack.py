@@ -244,8 +244,8 @@ def test_security_audit_foundation(stacks):
         assert "aws:SourceAccount" in statement["Condition"]["StringEquals"]
         assert "aws:SourceArn" in statement["Condition"]["ArnLike"]
 
-    # Both EventBridge grants name the rule prefix, never a bare wildcard.
-    # A wildcard would let any rule in the account publish to the alert topic.
+    # Both EventBridge grants name the rule prefix. A wildcard here lets any
+    # rule in the account publish to the alert topic.
     for document, sid in (
         (topic_policy, "AllowEventBridgePublish"),
         (key_policy, "AllowEventBridgeEncryptedAlerts"),

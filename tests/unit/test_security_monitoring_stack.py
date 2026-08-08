@@ -20,7 +20,7 @@ from tests.unit.conftest import CONFIG
 def test_security_monitoring_enables_only_the_unpaid_phase_3_services(stacks):
     """Dev enables the analyzer, Config, account BPA, and alert routing.
 
-    GuardDuty and Security Hub stay off behind the paid-plan decision.
+    GuardDuty and Security Hub stay off. Both bill monthly.
     """
     services = CONFIG["security"]["services"]
     assert services["access_analyzer"] is True
@@ -420,20 +420,16 @@ def test_alert_routing_covers_both_enabled_finding_sources(stacks):
 def test_rule_names_stay_inside_the_granted_prefix(stacks):
     """The topic and the key grant `mlops-<env>-security-*` and nothing wider.
 
-    A rule named outside the prefix matches its events and then fails to
-    publish them, which looks the same as no findings.
+    A rule named outside the prefix matches its events, then fails to publish
+    them.
     """
     for name in _security_rules(stacks["security_monitoring"]):
         assert name.startswith("mlops-dev-security-")
 
 
 def test_every_rule_targets_only_the_shared_alert_topic(stacks):
-    """A second target would send findings somewhere this phase never
-    reviewed.
-
-    The ARN arrives as a cross-stack import, so the rules cannot drift onto a
-    topic this repository does not own.
-    """
+    """Each rule holds one target, and the ARN arrives as a cross-stack
+    import."""
     for properties in _security_rules(stacks["security_monitoring"]).values():
         targets = properties["Targets"]
         assert len(targets) == 1
@@ -442,7 +438,7 @@ def test_every_rule_targets_only_the_shared_alert_topic(stacks):
 
 
 def test_access_analyzer_rule_skips_resolved_and_deleted_findings(stacks):
-    """A resolved or deleted finding describes work that is already done."""
+    """A resolved or a deleted finding must not reach the topic."""
     rules = _security_rules(stacks["security_monitoring"])
     pattern = rules["mlops-dev-security-access-analyzer-findings"]["EventPattern"]
     assert pattern["source"] == ["aws.access-analyzer"]
@@ -451,7 +447,7 @@ def test_access_analyzer_rule_skips_resolved_and_deleted_findings(stacks):
 
 
 def test_config_rule_routes_delivery_failures_and_not_item_changes(stacks):
-    """Item-change routing would email one message per recorded change."""
+    """Item-change routing emails one message per recorded change."""
     rules = _security_rules(stacks["security_monitoring"])
     pattern = rules["mlops-dev-security-config-delivery-failures"]["EventPattern"]
     assert pattern["source"] == ["aws.config"]
@@ -464,8 +460,7 @@ def test_config_rule_routes_delivery_failures_and_not_item_changes(stacks):
 
 
 def test_routing_a_disabled_source_creates_no_rule_for_it():
-    """A rule for a switched-off service matches nothing, and a silent rule
-    reads the same as a working one."""
+    """A rule for a switched-off service matches nothing."""
     config = load_config("dev")
     config["security"]["services"]["config_recorder"] = False
 

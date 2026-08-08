@@ -147,10 +147,9 @@ class SecurityStack(Stack):
             resource="budget",
             resource_name="*",
         )
-        # Every security rule this account creates is named with this prefix.
-        # The grants below are scoped to the pattern, not to a rule reference,
-        # because the rules live in the SecurityMonitoring stack. A reference
-        # would make this stack depend on the stack that already depends on it.
+        # Every security rule in this account carries this name prefix. The
+        # rules live in the SecurityMonitoring stack, which depends on this
+        # stack. A rule reference here reverses that and creates a cycle.
         security_rule_arn = self.format_arn(
             service="events",
             resource="rule",

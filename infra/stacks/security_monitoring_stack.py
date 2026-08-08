@@ -68,8 +68,8 @@ ACCOUNT_BPA_CONFIGURATION = {
     "RestrictPublicBuckets": True,
 }
 
-# Route a finding only while it is live. A deleted finding and a resolved one
-# both describe work that is already done.
+# The analyzer emits an event when a finding appears, when its status changes,
+# and when it is deleted. These two fields select the live findings.
 ACCESS_ANALYZER_FINDING_PATTERN = {
     "source": ["aws.access-analyzer"],
     "detail-type": ["Access Analyzer Finding"],
@@ -77,13 +77,10 @@ ACCESS_ANALYZER_FINDING_PATTERN = {
 }
 
 # Config writes its history and snapshots to the audit bucket. A failed
-# delivery breaks that evidence trail without stopping the recorder, so no
-# other control reports it.
+# delivery stops that evidence and leaves the recorder running.
 #
-# Configuration item changes are not routed. Continuous recording emits one
-# event per change across about 100 resources, and the target is an email
-# topic. Compliance events are not routed either, because this account
-# deploys no Config rules for them to come from.
+# Item-change events arrive one per change, for every recorded resource.
+# Compliance events need Config rules. This account deploys none.
 CONFIG_DELIVERY_FAILURE_PATTERN = {
     "source": ["aws.config"],
     "detail-type": [
@@ -286,8 +283,7 @@ class SecurityMonitoringStack(Stack):
 
         if services["eventbridge_alerts"]:
             # A source routes only while its own service runs. A rule for a
-            # service this account has switched off matches nothing, and a
-            # silent rule reads the same as a working one.
+            # stopped service matches nothing.
             routed_sources = (
                 (
                     "AccessAnalyzerFindingRule",
@@ -314,7 +310,7 @@ class SecurityMonitoringStack(Stack):
                     event_pattern=pattern,
                     # The topic policy and the audit key grant publication to
                     # this name prefix. A rule named outside it matches its
-                    # events and then fails to deliver them.
+                    # events, then fails to deliver them.
                     name=f"mlops-{self.env_name}-security-{slug}",
                     state="ENABLED",
                     targets=[

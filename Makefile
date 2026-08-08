@@ -117,12 +117,8 @@ smoke:
 			{ echo "$$stack: no $$1" >&2; exit 1; }; \
 	}; \
 	url=$$(stack_output ApiUrl); require ApiUrl "$$url"; \
-	key_id=$$(stack_output ApiKeyId); require ApiKeyId "$$key_id"; \
-	api_key=$$(aws apigateway get-api-key --api-key "$$key_id" \
-		--include-value --query value --output text); \
-	require "value for API key $$key_id" "$$api_key"; \
 	echo "smoke testing $$url"; \
-	API_URL="$$url" API_KEY="$$api_key" \
+	API_URL="$$url" \
 		uv run --locked --extra dev pytest tests/integration -q
 
 wiki-init:

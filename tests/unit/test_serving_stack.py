@@ -9,10 +9,24 @@ from tests.unit.conftest import CONFIG
 def test_serving_endpoint_auth_and_least_privilege(stacks):
     template = stacks["serving"]
 
-    # The public method requires an API key.
+    # The public method requires a SigV4 signature.
     template.has_resource_properties(
         "AWS::ApiGateway::Method",
-        {"HttpMethod": "POST", "ApiKeyRequired": True},
+        {"HttpMethod": "POST", "AuthorizationType": "AWS_IAM"},
+    )
+    # The API key and its usage plan are gone. The throttle they carried moved
+    # to the stage, so removing them must not remove the rate limit.
+    template.resource_count_is("AWS::ApiGateway::ApiKey", 0)
+    template.resource_count_is("AWS::ApiGateway::UsagePlan", 0)
+    template.has_resource_properties(
+        "AWS::ApiGateway::Stage",
+        {
+            "MethodSettings": Match.array_with(
+                [
+                    Match.object_like({"ThrottlingRateLimit": 10, "ThrottlingBurstLimit": 20}),
+                ]
+            )
+        },
     )
     # The proxy role may invoke only the one endpoint.
     template.has_resource_properties(

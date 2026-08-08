@@ -2,13 +2,16 @@
 execution.
 
 Examples:
-    API_URL=https://.../predict API_KEY=... \\
+    API_URL=https://.../predict \\
       uv run --locked --extra dev python scripts/evaluate_api.py \\
       --pipeline-execution-arn <arn>
 
-    API_URL=https://.../predict API_KEY=... \\
+    API_URL=https://.../predict \\
       uv run --locked --extra dev python scripts/evaluate_api.py \\
-      --fixture-s3-uri s3://bucket/path/api_test/ --all
+      --fixture-s3-uri s3://bucket/path/api_test/ --all --profile mlops-admin
+
+The caller signs each request with SigV4 and needs `execute-api:Invoke` on the
+method. Credentials come from the named profile, or from the default chain.
 """
 
 import argparse
@@ -23,6 +26,8 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 
 # This lets the file-path invocation above import the repository package. The
 # caller does not have to set PYTHONPATH.
@@ -101,27 +106,60 @@ def select_records(
     return sorted(selected, key=lambda item: item["row_id"])
 
 
+def sign_headers(
+    api_url: str, body: bytes, session: boto3.Session, region: str | None = None
+) -> dict[str, str]:
+    """Return the SigV4 headers for one POST to the API.
+
+    The signature covers the body, so a caller must sign the exact bytes it
+    sends. The service name for API Gateway is `execute-api`.
+    """
+    credentials = session.get_credentials()
+    if credentials is None:
+        raise ApiEvaluationError("no AWS credentials found for signing")
+    signing_region = region or session.region_name
+    if not signing_region:
+        raise ApiEvaluationError("no AWS region found for signing")
+    request = AWSRequest(
+        method="POST",
+        url=api_url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    SigV4Auth(credentials, "execute-api", signing_region).add_auth(request)
+    return dict(request.headers)
+
+
 def post_prediction(
-    api_url: str, api_key: str, record: dict[str, Any], timeout: float = 15.0
+    api_url: str,
+    record: dict[str, Any],
+    session: boto3.Session,
+    region: str | None = None,
+    timeout: float = 15.0,
 ) -> dict[str, Any]:
     """POST one record to /predict and return the parsed JSON response."""
+    body = json.dumps(record).encode()
     request = urllib.request.Request(
         api_url,
-        data=json.dumps(record).encode(),
-        headers={"Content-Type": "application/json", "x-api-key": api_key},
+        data=body,
+        headers=sign_headers(api_url, body, session, region),
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        body: dict[str, Any] = json.loads(response.read())
-    return body
+        payload: dict[str, Any] = json.loads(response.read())
+    return payload
 
 
 def invoke_prediction(
-    api_url: str, api_key: str, record: dict[str, Any], timeout: float = 15.0
+    api_url: str,
+    record: dict[str, Any],
+    session: boto3.Session,
+    region: str | None = None,
+    timeout: float = 15.0,
 ) -> dict[str, Any]:
     """Call /predict. Validate the probability and the thresholded class."""
     try:
-        payload = post_prediction(api_url, api_key, record, timeout=timeout)
+        payload = post_prediction(api_url, record, session, region, timeout=timeout)
     except urllib.error.HTTPError as error:
         raise ApiEvaluationError(f"API returned HTTP {error.code}") from error
     except (OSError, json.JSONDecodeError) as error:
@@ -145,7 +183,8 @@ def invoke_prediction(
 def evaluate_api_records(
     records: list[dict[str, Any]],
     api_url: str,
-    api_key: str,
+    session: boto3.Session,
+    region: str | None = None,
     limit: int = 25,
     all_records: bool = False,
 ) -> dict[str, Any]:
@@ -154,7 +193,7 @@ def evaluate_api_records(
     selected = select_records(records, limit=limit, all_records=all_records)
     labels, scores = [], []
     for fixture in selected:
-        result = invoke_prediction(api_url, api_key, fixture["record"])
+        result = invoke_prediction(api_url, fixture["record"], session, region)
         labels.append(int(fixture["label"]))
         scores.append(result["score"])
     return {
@@ -172,22 +211,24 @@ def main(argv: list[str] | None = None) -> None:
     source.add_argument("--fixture-s3-uri")
     source.add_argument("--pipeline-execution-arn")
     parser.add_argument("--api-url", default=os.getenv("API_URL"))
-    parser.add_argument("--api-key", default=os.getenv("API_KEY"))
     parser.add_argument("--region", default=os.getenv("AWS_REGION"))
+    parser.add_argument("--profile", default=os.getenv("AWS_PROFILE"))
     parser.add_argument("--limit", type=int, default=25)
     parser.add_argument("--all", action="store_true", dest="all_records")
     parser.add_argument("--output", help="optional local JSON report path")
     args = parser.parse_args(argv)
-    if not args.api_url or not args.api_key:
-        parser.error("--api-url/API_URL and --api-key/API_KEY are required")
+    if not args.api_url:
+        parser.error("--api-url/API_URL is required")
 
+    session = boto3.Session(profile_name=args.profile, region_name=args.region)
     fixture_s3_uri = args.fixture_s3_uri or resolve_fixture_s3_uri(
         args.pipeline_execution_arn, args.region
     )
     report = evaluate_api_records(
         load_fixture(fixture_s3_uri, args.region),
         api_url=args.api_url,
-        api_key=args.api_key,
+        session=session,
+        region=args.region,
         limit=args.limit,
         all_records=args.all_records,
     )

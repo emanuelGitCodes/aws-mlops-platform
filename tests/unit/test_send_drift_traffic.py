@@ -85,6 +85,9 @@ def _run_main(argv, post, fixture=FIXTURE):
         mock.patch.object(send_drift_traffic, "post_prediction", post),
         mock.patch.object(send_drift_traffic, "load_fixture", return_value=fixture),
         mock.patch.object(send_drift_traffic, "resolve_fixture_s3_uri", return_value="s3://b/f"),
+        # main() builds a signing session. A live one would leave sagemaker
+        # holding a real default session for tests/unit/test_pipeline.py.
+        mock.patch.object(send_drift_traffic.boto3, "Session"),
         mock.patch("builtins.print"),
     ):
         send_drift_traffic.main()
@@ -97,8 +100,6 @@ def test_main_sends_the_requested_number_of_records():
             "send_drift_traffic.py",
             "--api-url",
             "https://x.test",
-            "--api-key",
-            "k",
             "--pipeline-execution-arn",
             "arn:aws:sagemaker:us-east-1:123456789012:pipeline/p/execution/e",
             "-n",
@@ -108,11 +109,11 @@ def test_main_sends_the_requested_number_of_records():
     )
 
     assert post.call_count == 5
-    for record in [call.args[2] for call in post.call_args_list]:
+    for record in [call.args[1] for call in post.call_args_list]:
         CustomerRecord.model_validate(record)
 
 
-def test_main_requires_an_api_url_and_key():
+def test_main_requires_an_api_url():
     with pytest.raises(SystemExit):
         _run_main(
             ["send_drift_traffic.py", "--fixture-s3-uri", "s3://b/f"],
@@ -130,8 +131,6 @@ def test_main_rejects_a_fixture_that_no_longer_matches_the_schema():
                 "send_drift_traffic.py",
                 "--api-url",
                 "https://x.test",
-                "--api-key",
-                "k",
                 "--fixture-s3-uri",
                 "s3://b/f",
             ],

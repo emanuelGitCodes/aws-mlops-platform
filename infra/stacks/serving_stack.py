@@ -216,9 +216,8 @@ class ServingStack(Stack):
             self,
             "ChurnApi",
             rest_api_name=f"churn-api-{config['env_name']}",
-            # The rate and burst limits were attached to the usage plan that
-            # carried the API key. The key is gone, so they belong to the stage.
-            # Without this the API keeps only the account-wide default.
+            # The stage carries the rate and burst limits. Without them the API
+            # keeps only the account-wide default.
             deploy_options=apigw.StageOptions(
                 stage_name=config["env_name"],
                 throttling_rate_limit=10,

@@ -50,8 +50,8 @@ def _post(payload=None, *, sign=True, tamper=False, raw=None):
     if sign:
         headers = _sign(url, body)
     if tamper:
-        # Signing the real body and sending another proves the signature covers
-        # the payload, not only the headers.
+        # The headers are signed for the payload above. This sends other bytes
+        # under them.
         body = json.dumps({**VALID, "tenure": 999}).encode()
     request = urllib.request.Request(url, data=body, headers=headers)
     try:

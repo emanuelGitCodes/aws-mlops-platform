@@ -14,8 +14,7 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
         "AWS::ApiGateway::Method",
         {"HttpMethod": "POST", "AuthorizationType": "AWS_IAM"},
     )
-    # The API key and its usage plan are gone. The throttle they carried moved
-    # to the stage, so removing them must not remove the rate limit.
+    # The API has no key and no usage plan. The stage carries the rate limit.
     template.resource_count_is("AWS::ApiGateway::ApiKey", 0)
     template.resource_count_is("AWS::ApiGateway::UsagePlan", 0)
     template.has_resource_properties(

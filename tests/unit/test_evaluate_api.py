@@ -12,11 +12,10 @@ from tests.unit.conftest import VALID
 def _session():
     """A stand-in for a boto3 session that signs without reaching AWS.
 
-    The credentials are real botocore objects, so SigV4Auth runs its true
-    signing path offline. Building a real session instead would leave sagemaker
-    holding a live default session, and tests/unit/test_pipeline.py then
-    reaches S3 for real. Keep the literals short: a longer secret reads to the
-    gitleaks rules as a real credential.
+    The credentials are real botocore objects, so SigV4Auth signs offline. A
+    real session leaves sagemaker holding a live default session, and
+    tests/unit/test_pipeline.py then reaches S3 for real. Keep the literals
+    short: a longer secret reads to the gitleaks rules as a real credential.
     """
     session = mock.MagicMock()
     session.region_name = "us-east-1"

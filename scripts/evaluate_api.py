@@ -111,7 +111,7 @@ def sign_headers(
 ) -> dict[str, str]:
     """Return the SigV4 headers for one POST to the API.
 
-    The signature covers the body, so a caller must sign the exact bytes it
+    The signature covers the body. A caller must sign the exact bytes it
     sends. The service name for API Gateway is `execute-api`.
     """
     credentials = session.get_credentials()

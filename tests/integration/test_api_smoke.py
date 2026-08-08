@@ -4,8 +4,8 @@ Run manually or from CI after a deploy:
     API_URL=... pytest tests/integration -q
 Skipped when the env var isn't set (e.g. during unit CI).
 
-The caller signs with SigV4, so credentials come from the ambient AWS session
-and the identity needs `execute-api:Invoke` on the method.
+Each test signs its request with SigV4. Credentials come from the ambient AWS
+session. That identity needs `execute-api:Invoke` on the method.
 
 These tests cover every status the public path reaches from outside: 200, the
 422 and 400 request rejections, and the 403 from the SigV4 boundary.

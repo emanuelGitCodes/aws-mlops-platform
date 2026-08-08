@@ -4,8 +4,8 @@ job reports drift and the retrain loop fires where you can see it.
     uv run --locked --extra dev python scripts/send_drift_traffic.py \\
         --api-url <api-url> --pipeline-execution-arn <arn> -n 200
 
-Each request is signed with SigV4, so the caller needs `execute-api:Invoke` on
-the method.
+The script signs each request with SigV4. The caller needs
+`execute-api:Invoke` on the method.
 
 The background records come from the same held-out `api_test` fixture that
 ``evaluate_api.py`` replays, and only the tenure and charge columns are

@@ -137,8 +137,8 @@ def test_pass_role_stays_scoped_to_application_roles_and_services():
 
 
 def test_config_recorder_can_pass_only_its_own_service_linked_role():
-    """Config validates that the caller may pass the role. Without this grant
-    the recorder create fails with AccessDeniedException. PassOnlyApplicationRoles
+    """Config validates that the caller may pass the role. An ungranted
+    recorder create fails with AccessDeniedException. PassOnlyApplicationRoles
     is scoped to Mlops-Dev-* and never covered it."""
     document = json.loads(POLICY_PATH.read_text())
     statement = _statement(document, "PassConfigServiceLinkedRole")

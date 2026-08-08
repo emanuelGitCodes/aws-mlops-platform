@@ -365,8 +365,8 @@ class SecurityStack(Stack):
             ):
                 audit_bucket.add_to_resource_policy(statement)
 
-            # The bucket is KMS-encrypted. Without this grant, delivery fails
-            # with AccessDenied on the key, not on the bucket.
+            # Config encrypts each snapshot with this key. An ungranted
+            # delivery fails with AccessDenied on the key, not on the bucket.
             audit_key.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AllowConfigSnapshotEncryption",

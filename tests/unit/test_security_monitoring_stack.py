@@ -210,9 +210,8 @@ def test_account_bpa_blocks_all_four_public_access_routes(stacks):
 def test_enabling_an_unimplemented_service_flag_fails_loudly(flag):
     """A flag with no CDK behind it must raise. It must not deploy nothing.
 
-    Without this, flipping e.g. security_hub to true would synth and deploy
-    cleanly while creating no resource at all -- the security service would
-    look enabled and not be.
+    An unguarded flag synths and deploys cleanly while creating no resource.
+    The security service then looks enabled and is not.
     """
     config = load_config("dev")
     config["security"]["services"][flag] = True
@@ -274,9 +273,9 @@ def test_disabling_a_phase_3_flag_still_synthesizes():
     stuck.
 
     Acknowledgements are matched to real constructs, so one naming a flag-gated
-    Phase 3 construct fails synthesis the moment that flag goes false -- which is
-    exactly the rollback path. Without requires_flag, flipping account_bpa
-    back off would leave the environment unable to synthesize the revert.
+    Phase 3 construct fails synthesis the moment that flag goes false. That is
+    the rollback path. An acknowledgement with no requires_flag leaves the
+    environment unable to synthesize the revert.
     """
     config = load_config("dev")
     config["security"]["services"]["account_bpa"] = False

@@ -134,7 +134,7 @@ class TrainingStack(Stack):
         # group, which stops the pipeline writing lineage into a foreign group.
         # `CreateModelPackageGroup` is granted because the SDK always calls it
         # first. The group exists, so the call returns `ValidationException`.
-        # Without the grant it returns `AccessDenied` and the step fails.
+        # An ungranted call returns `AccessDenied`, and the step fails.
         package_group_name = config["model_package_group"]
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(

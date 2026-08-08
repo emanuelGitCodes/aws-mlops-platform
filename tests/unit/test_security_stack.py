@@ -212,8 +212,8 @@ def test_security_audit_foundation(stacks):
         "AllowRegionalCloudWatchLogsEncryption",
         "AllowCloudWatchEncryptedAlerts",
         "AllowBudgetsEncryptedAlerts",
-        # Without this grant, Config cannot write snapshots into the
-        # KMS-encrypted audit bucket. It fails on the key, not the bucket.
+        # Config writes snapshots into the KMS-encrypted audit bucket. An
+        # ungranted write fails on the key, not the bucket.
         "AllowConfigSnapshotEncryption",
         # The alert topic is encrypted, so a routed finding fails on the key
         # before it reaches a subscriber.

@@ -4633,3 +4633,87 @@ The deletion needs `aws-admin` — the auditor profile is read-only.
 
 Found 23 matching page(s).
 
+
+## [2026-08-08] update | Phase 3F partial alert routing deployed to dev
+
+**Objective.** Route the Phase 3 findings this account actually produces to
+the Phase 2 SNS alert topic, and close every part of Phase 3 that the
+paid-plan decision does not block.
+
+**Scope.** `infra/stacks/security_monitoring_stack.py` (two `events.CfnRule`
+resources, the `eventbridge_alerts` flag added to `IMPLEMENTED_SERVICE_FLAGS`),
+`infra/stacks/security_stack.py` (one audit-key grant, one topic-policy
+grant), `infra/config/dev.yaml`, and the two stack test modules. Deployed
+stacks: `Mlops-Dev-Security`, then `Mlops-Dev-SecurityMonitoring`.
+
+**Identity and environment.** `mlops-deployer` for both deploys,
+`mlops-security-auditor` for verification and the live reads. Region
+`us-east-1`, dev only.
+
+### What was built
+
+| Rule | Pattern |
+|---|---|
+| `mlops-dev-security-access-analyzer-findings` | `aws.access-analyzer`, `Access Analyzer Finding`, `status` `ACTIVE`, `isDeleted` `false` |
+| `mlops-dev-security-config-delivery-failures` | `aws.config`, history and snapshot delivery status, `messageType` the two `*DeliveryFailed` values |
+
+Configuration item changes are not routed: continuous recording emits one
+event per change across about 100 resources, into an email topic. Compliance
+events are not routed: this account deploys no Config rules to produce them.
+Both exclusions are asserted in tests.
+
+Each source routes only while its own service flag is true. Prod keeps every
+flag false and synthesizes to `CDKMetadata` alone.
+
+### The grant scoping
+
+The rules live in `SecurityMonitoring`, which already depends on `Security`
+for the topic ARN. Scoping the grants to a rule reference would close that
+into a cycle, so both name the prefix `:rule/mlops-<env>-security-*` under
+`ArnLike`, with `aws:SourceAccount` alongside. The prefix is therefore load-
+bearing: a rule named outside it matches its events and then fails to publish
+them. A test pins the prefix on the rule side and on both grant sides.
+
+**No policy rotation was needed.** `ApplicationServices` already grants
+`events:PutRule`, `events:PutTargets`, `sns:SetTopicAttributes` and the rest,
+because the platform's own EventBridge and SNS resources needed them first.
+The version slots freed on 2026-08-07 stay banked at three of five used.
+
+### Verification
+
+`make lint`, `make typecheck`, `make security` clean. `make test`: **306
+passed**, coverage `93.4534%`, floor `93.37 → 93.45`. cdk-nag passes both
+environments with no new acknowledgement.
+
+`make verify-deploy SINCE=2026-08-08` under `mlops-security-auditor` reports
+exactly the intended four resources:
+
+```
+Mlops-Dev-SecurityMonitoring  [UPDATE_COMPLETE]
+    CREATE_COMPLETE          AccessAnalyzerFindingRule
+    CREATE_COMPLETE          ConfigDeliveryFailureRule
+Mlops-Dev-Security  [UPDATE_COMPLETE]
+    UPDATE_COMPLETE          AuditKeyB2DBB069
+    UPDATE_COMPLETE          SecurityAlertsTopicPolicy1E6023E3
+```
+
+`aws events describe-rule` confirms both rules `ENABLED` with the intended
+patterns, and `list-targets-by-rule` confirms one target each, the alert topic.
+
+### Interpretation and the open gap
+
+Neither rule has fired. `list-findings` returns zero `ACTIVE` findings, the
+recorder reports `recording: true` and `lastStatus: SUCCESS`, and both
+delivery channels report `SUCCESS`. Every source is healthy with nothing to
+report, so the path is deployed and unexercised — the same shape of gap the
+drift → retrain edge carries.
+
+Live proof requires manufacturing a signal: a cross-account principal on a
+low-value bucket for the analyzer rule, reverted after, which also pages
+`iam-policy-changes`; or a deliberately broken delivery for the Config rule.
+Neither was run.
+
+**Decision and next checkpoint.** Phase 3 is now complete except `guardduty`
+and `security_hub`, both waiting on the explicit paid-plan upgrade decision.
+The 3F observation window is open. Prod remains all-false. Phase 4 (KMS) is
+next once 3F closes as a go.

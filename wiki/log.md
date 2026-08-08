@@ -4301,3 +4301,49 @@ The cache did make this retrain nearly free: only `Evaluate` ran, for 5m20s.
 `93.3538%`, floor raised `93.27 → 93.35`. Not yet deployed: this changes when
 the platform spends money on retraining, so it needs its own reviewed diff and
 deploy.
+
+## [2026-08-08] deploy | Severity rule and the isolated demo shift, live in dev
+
+### Scope
+
+`Mlops-Dev-Monitoring` only. The change is in `src/common/drift.py` and
+`scripts/send_drift_traffic.py`; the script is operator tooling and ships with
+the repository rather than the stack.
+
+### Pre-flight
+
+No unscored drifted window existed. The 200-record shifted hour was scored at
+20:00Z on 08-07 and every hour since is empty, so raising sensitivity could not
+re-fire on traffic already in flight. Capture holds 322 objects, none from
+08-08.
+
+### The diff and what changed
+
+Asset hash only on `DriftEvaluationFn` and `RetrainTriggerFn`. No IAM
+statement, no resource added or removed. `make verify-deploy SINCE=2026-08-08`
+confirms exactly those two resources.
+
+A live invocation returned `{"skipped": "insufficient_records", "records": 0}`,
+which is correct for an empty window.
+
+### What is proven and what is not
+
+The violation chain is proven end to end from the 08-07 run: capture, schedule,
+statistic, event, rule, retrain Lambda, pipeline execution.
+
+**The severity rule itself is not yet proven live.** Every live firing so far
+went through the drifted-column fraction, because the old script moved sixteen
+columns it did not intend to. Proving the new path needs the tightened script,
+whose window moves three columns with a maximum PSI far past
+`SEVERE_COLUMN_PSI` and a fraction under `DRIFTED_COLUMN_FRACTION`. That run
+starts another retrain, so it is a separate decision.
+
+### Standing risk, unchanged by this deploy
+
+The retrain-storm hole is still open. `Preprocess` is cached, so a
+drift-triggered retrain on unchanged curated data does not refresh the
+baseline. Sustained drifted traffic can therefore retrain every hour without
+ever moving the reference. A cooldown after a retrain, or an uncached baseline
+refresh, remains unbuilt.
+
+Captured objects still have no expiry.

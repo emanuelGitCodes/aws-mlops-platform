@@ -2,8 +2,10 @@
 job reports drift and the retrain loop fires where you can see it.
 
     uv run --locked --extra dev python scripts/send_drift_traffic.py \\
-        --api-url <api-url> --api-key <key> \\
-        --pipeline-execution-arn <arn> -n 200
+        --api-url <api-url> --pipeline-execution-arn <arn> -n 200
+
+The script signs each request with SigV4. The caller needs
+`execute-api:Invoke` on the method.
 
 The background records come from the same held-out `api_test` fixture that
 ``evaluate_api.py`` replays, and only the tenure and charge columns are
@@ -26,6 +28,8 @@ from typing import Any
 # This lets the file-path invocation above import the repository package. The
 # caller does not have to set PYTHONPATH.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import boto3
 
 from scripts.evaluate_api import load_fixture, post_prediction, resolve_fixture_s3_uri
 from src.common.features import FEATURE_COLUMNS
@@ -67,12 +71,13 @@ def main(argv: list[str] | None = None) -> None:
     source.add_argument("--fixture-s3-uri")
     source.add_argument("--pipeline-execution-arn")
     parser.add_argument("--api-url", default=os.getenv("API_URL"))
-    parser.add_argument("--api-key", default=os.getenv("API_KEY"))
     parser.add_argument("--region", default=os.getenv("AWS_REGION"))
+    parser.add_argument("--profile", default=os.getenv("AWS_PROFILE"))
     parser.add_argument("-n", type=int, default=200)
     args = parser.parse_args(argv)
-    if not args.api_url or not args.api_key:
-        parser.error("--api-url/API_URL and --api-key/API_KEY are required")
+    if not args.api_url:
+        parser.error("--api-url/API_URL is required")
+    session = boto3.Session(profile_name=args.profile, region_name=args.region)
 
     fixture_s3_uri = args.fixture_s3_uri or resolve_fixture_s3_uri(
         args.pipeline_execution_arn, args.region
@@ -87,7 +92,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"background records: {fixture_s3_uri}")
     print(f"shifting {', '.join(SHIFTED_COLUMNS)} across {args.n} requests")
     for index, record in enumerate(window):
-        body = post_prediction(args.api_url, args.api_key, record)
+        body = post_prediction(args.api_url, record, session, args.region)
         if index % 50 == 0:
             print(index, body)
 

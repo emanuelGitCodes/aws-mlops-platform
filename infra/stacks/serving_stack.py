@@ -216,21 +216,23 @@ class ServingStack(Stack):
             self,
             "ChurnApi",
             rest_api_name=f"churn-api-{config['env_name']}",
-            deploy_options=apigw.StageOptions(stage_name=config["env_name"]),
+            # The stage carries the rate and burst limits. Without them the API
+            # keeps only the account-wide default.
+            deploy_options=apigw.StageOptions(
+                stage_name=config["env_name"],
+                throttling_rate_limit=10,
+                throttling_burst_limit=20,
+            ),
         )
         predict = api.root.add_resource("predict")
-        predict.add_method("POST", apigw.LambdaIntegration(proxy_fn), api_key_required=True)
-
-        key = api.add_api_key("ClientKey")
-        plan = api.add_usage_plan(
-            "UsagePlan",
-            throttle=apigw.ThrottleSettings(rate_limit=10, burst_limit=20),
+        # The caller signs with SigV4 and needs `execute-api:Invoke` on this
+        # method. An unsigned call fails at API Gateway and never reaches the
+        # proxy Lambda.
+        predict.add_method(
+            "POST",
+            apigw.LambdaIntegration(proxy_fn),
+            authorization_type=apigw.AuthorizationType.IAM,
         )
-        plan.add_api_key(key)
-        plan.add_api_stage(stage=api.deployment_stage)
 
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))
         CfnOutput(self, "EndpointName", value=endpoint_name)
-        # The id only. Never output the key value. `make smoke` and operators
-        # read it with `apigateway get-api-key --include-value`.
-        CfnOutput(self, "ApiKeyId", value=key.key_id)

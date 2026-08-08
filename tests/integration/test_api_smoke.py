@@ -1,11 +1,14 @@
 """Post-deploy smoke test: hits the live /predict endpoint.
 
 Run manually or from CI after a deploy:
-    API_URL=... API_KEY=... pytest tests/integration -q
-Skipped when the env vars aren't set (e.g. during unit CI).
+    API_URL=... pytest tests/integration -q
+Skipped when the env var isn't set (e.g. during unit CI).
+
+Each test signs its request with SigV4. Credentials come from the ambient AWS
+session. That identity needs `execute-api:Invoke` on the method.
 
 These tests cover every status the public path reaches from outside: 200, the
-422 and 400 request rejections, and the 403 from the API key boundary.
+422 and 400 request rejections, and the 403 from the SigV4 boundary.
 
 The 503 and 502 mappings are absent. Both need the SageMaker endpoint to be
 missing, mid-update, or answering with something other than a probability, and
@@ -18,36 +21,48 @@ import os
 import urllib.error
 import urllib.request
 
+import boto3
 import pytest
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 
 from src.common.features import DEFAULT_THRESHOLD
 from tests.unit.test_schema import VALID
 
-pytestmark = pytest.mark.skipif(
-    not (os.getenv("API_URL") and os.getenv("API_KEY")),
-    reason="API_URL/API_KEY not set",
-)
+pytestmark = pytest.mark.skipif(not os.getenv("API_URL"), reason="API_URL not set")
 
 
-def _post(payload=None, *, api_key=None, send_key=True, raw=None):
-    """POST to /predict, returning (status, body) rather than raising on 4xx."""
-    headers = {"Content-Type": "application/json"}
-    if send_key:
-        headers["x-api-key"] = api_key or os.environ["API_KEY"]
-    request = urllib.request.Request(
-        os.environ["API_URL"],
-        data=raw if raw is not None else json.dumps(payload).encode(),
-        headers=headers,
+def _sign(url, body):
+    """Return SigV4 headers for one POST. The signature covers the body."""
+    session = boto3.Session()
+    request = AWSRequest(
+        method="POST", url=url, data=body, headers={"Content-Type": "application/json"}
     )
+    SigV4Auth(session.get_credentials(), "execute-api", session.region_name).add_auth(request)
+    return dict(request.headers)
+
+
+def _post(payload=None, *, sign=True, tamper=False, raw=None):
+    """POST to /predict, returning (status, body) rather than raising on 4xx."""
+    url = os.environ["API_URL"]
+    body = raw if raw is not None else json.dumps(payload).encode()
+    headers = {"Content-Type": "application/json"}
+    if sign:
+        headers = _sign(url, body)
+    if tamper:
+        # The headers are signed for the payload above. This sends other bytes
+        # under them.
+        body = json.dumps({**VALID, "tenure": 999}).encode()
+    request = urllib.request.Request(url, data=body, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.status, json.loads(response.read())
     except urllib.error.HTTPError as error:
-        body = error.read()
+        raw_body = error.read()
         try:
-            return error.code, json.loads(body)
+            return error.code, json.loads(raw_body)
         except json.JSONDecodeError:
-            return error.code, {"raw": body.decode(errors="replace")}
+            return error.code, {"raw": raw_body.decode(errors="replace")}
 
 
 def test_predict_returns_probability():
@@ -80,16 +95,16 @@ def test_a_non_json_body_is_rejected():
     assert "JSON" in body["error"]
 
 
-def test_the_model_is_not_reachable_without_a_key():
-    """The API key is the only boundary in front of the model until Phase 6."""
-    status, _ = _post(VALID, send_key=False)
+def test_the_model_is_not_reachable_without_a_signature():
+    """SigV4 is the only boundary in front of the model."""
+    status, _ = _post(VALID, sign=False)
 
     assert status == 403
 
 
-def test_a_wrong_api_key_is_rejected():
-    # Keep this under ten characters. Beside `api_key=`, a longer literal
-    # reads to the gitleaks `generic-api-key` rule as a real key.
-    status, _ = _post(VALID, api_key="wrong")
+def test_a_body_changed_after_signing_is_rejected():
+    """The signature covers the payload. A replayed header set with a new body
+    must not authorize."""
+    status, _ = _post(VALID, tamper=True)
 
     assert status == 403

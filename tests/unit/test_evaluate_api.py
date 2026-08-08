@@ -3,9 +3,24 @@ import urllib.error
 from unittest import mock
 
 import pytest
+from botocore.credentials import Credentials
 
 from scripts import evaluate_api
 from tests.unit.conftest import VALID
+
+
+def _session():
+    """A stand-in for a boto3 session that signs without reaching AWS.
+
+    The credentials are real botocore objects. SigV4Auth signs offline. A real
+    session leaves sagemaker holding a live default session, and
+    tests/unit/test_pipeline.py then reaches S3 for real. Keep the literals
+    short: a longer secret reads to the gitleaks rules as a real credential.
+    """
+    session = mock.MagicMock()
+    session.region_name = "us-east-1"
+    session.get_credentials.return_value = Credentials("akid", "sk")
+    return session
 
 
 def _fixture(label: int, row_id: int) -> dict:
@@ -140,7 +155,9 @@ def test_evaluate_api_records_reports_labeled_endpoint_results():
         {"score": 0.9, "prediction": 1},
     ]
     with mock.patch.object(evaluate_api, "invoke_prediction", side_effect=responses):
-        report = evaluate_api.evaluate_api_records(records, "https://example.test/predict", "key")
+        report = evaluate_api.evaluate_api_records(
+            records, "https://example.test/predict", _session()
+        )
 
     assert report["source"] == "deployed_api"
     assert report["evaluated_record_count"] == 4
@@ -154,14 +171,14 @@ def test_invoke_prediction_rejects_mismatched_score_and_classification():
     response.__enter__.return_value = response
     with mock.patch("urllib.request.urlopen", return_value=response):
         with pytest.raises(evaluate_api.ApiEvaluationError, match="does not match"):
-            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+            evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
 
 
 def test_invoke_prediction_reports_http_failure():
     error = urllib.error.HTTPError("https://example.test/predict", 503, "unavailable", {}, None)
     with mock.patch("urllib.request.urlopen", side_effect=error):
         with pytest.raises(evaluate_api.ApiEvaluationError, match="HTTP 503"):
-            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+            evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
 
 
 def _responding(payload: dict):
@@ -173,7 +190,7 @@ def _responding(payload: dict):
 
 def test_invoke_prediction_returns_score_and_class_on_a_valid_response():
     with _responding({"churn_probability": 0.8, "churn": True}):
-        result = evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+        result = evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
 
     assert result == {"score": 0.8, "prediction": 1}
 
@@ -181,7 +198,7 @@ def test_invoke_prediction_returns_score_and_class_on_a_valid_response():
 def test_invoke_prediction_reports_a_transport_failure():
     with mock.patch("urllib.request.urlopen", side_effect=OSError("connection reset")):
         with pytest.raises(evaluate_api.ApiEvaluationError, match="request failed"):
-            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+            evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
 
 
 @pytest.mark.parametrize(
@@ -198,7 +215,7 @@ def test_invoke_prediction_rejects_contract_violations(payload, expected):
     """A bool is an int in Python, so `churn_probability: true` must not pass as a score."""
     with _responding(payload):
         with pytest.raises(evaluate_api.ApiEvaluationError, match=expected):
-            evaluate_api.invoke_prediction("https://example.test/predict", "key", VALID)
+            evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
 
 
 def test_select_records_requires_room_for_both_classes():
@@ -228,10 +245,9 @@ def test_main_evaluates_an_explicit_fixture_and_prints_the_report(capsys):
     with (
         mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]) as load,
         mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+        mock.patch.object(evaluate_api.boto3, "Session", return_value=_session()),
     ):
-        evaluate_api.main(
-            ["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p", "--api-key", "k"]
-        )
+        evaluate_api.main(["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p"])
 
     report = json.loads(capsys.readouterr().out)
     # The report echoes the URI, so a saved run records what it read.
@@ -251,10 +267,9 @@ def test_main_resolves_the_fixture_from_a_pipeline_execution(capsys):
         ) as resolve,
         mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]),
         mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+        mock.patch.object(evaluate_api.boto3, "Session", return_value=_session()),
     ):
-        evaluate_api.main(
-            ["--pipeline-execution-arn", "arn:exec", "--api-url", "https://x/p", "--api-key", "k"]
-        )
+        evaluate_api.main(["--pipeline-execution-arn", "arn:exec", "--api-url", "https://x/p"])
 
     assert resolve.call_args.args[0] == "arn:exec"
     assert json.loads(capsys.readouterr().out)["fixture_s3_uri"] == "s3://bucket/resolved"
@@ -265,6 +280,7 @@ def test_main_writes_the_report_when_output_is_given(tmp_path, capsys):
     with (
         mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]),
         mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+        mock.patch.object(evaluate_api.boto3, "Session", return_value=_session()),
     ):
         evaluate_api.main(
             [
@@ -272,8 +288,6 @@ def test_main_writes_the_report_when_output_is_given(tmp_path, capsys):
                 "s3://bucket/prefix",
                 "--api-url",
                 "https://x/p",
-                "--api-key",
-                "k",
                 "--output",
                 str(output),
             ]
@@ -286,16 +300,32 @@ def test_main_writes_the_report_when_output_is_given(tmp_path, capsys):
 @pytest.mark.parametrize(
     "argv",
     [
-        ["--fixture-s3-uri", "s3://bucket/prefix"],  # no credentials at all
-        ["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p"],  # no key
-        ["--api-url", "https://x/p", "--api-key", "k"],  # no fixture source
+        ["--fixture-s3-uri", "s3://bucket/prefix"],  # no API URL
+        ["--api-url", "https://x/p"],  # no fixture source
     ],
 )
 def test_main_refuses_to_run_without_a_complete_invocation(argv, monkeypatch):
-    """Missing credentials must fail here, not as an opaque 403 mid-evaluation."""
+    """A missing URL must fail here, not as an opaque error mid-evaluation."""
     monkeypatch.delenv("API_URL", raising=False)
-    monkeypatch.delenv("API_KEY", raising=False)
     with pytest.raises(SystemExit) as exit_info:
         evaluate_api.main(argv)
 
     assert exit_info.value.code == 2
+
+
+def test_signing_without_credentials_names_the_cause():
+    """botocore would raise NoCredentialsError from inside the signer. Say
+    which input was missing instead."""
+    session = _session()
+    session.get_credentials.return_value = None
+    with pytest.raises(evaluate_api.ApiEvaluationError, match="credentials"):
+        evaluate_api.sign_headers("https://x/p", b"{}", session)
+
+
+def test_signing_without_a_region_names_the_cause():
+    """SigV4 puts the region in the credential scope, so an unset region signs
+    a request the API rejects as a signature mismatch."""
+    session = _session()
+    session.region_name = None
+    with pytest.raises(evaluate_api.ApiEvaluationError, match="region"):
+        evaluate_api.sign_headers("https://x/p", b"{}", session)

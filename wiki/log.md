@@ -5301,3 +5301,52 @@ lint` healthy.
 permissions go. It stays undeployed behind 2F's observation window, 2G, and
 Phase 6. The first deploy still has to settle whether
 `CreateOpenIDConnectProvider` accepts a provider with no `ThumbprintList`.
+
+## [2026-08-08] query | Reading the audit trail generates audit trail
+
+**Objective.** Use a CloudWatch Logs Insights export of the audit log group as a
+second evidence surface for the policy split. It did not contain the change,
+and it exposed a log-volume pattern worth recording instead.
+
+**Scope.** A 10000-row export of `/aws/cloudtrail/mlops-dev-audit`, parsed
+locally. Read-only. No AWS resource was touched.
+
+**The export missed the change.** Its window runs 21:21:06Z to 21:30:29Z, and
+the split happened at 21:15:29Z and 21:15:39Z. The file holds **zero**
+`iam.amazonaws.com` events. An Insights export is capped at 10000 rows and
+truncates silently, so treat the row count as the limit and the time span as
+the consequence, never the reverse.
+
+**Why nine minutes filled ten thousand rows.** 9753 of the 10000 events are KMS
+`Decrypt`, every one carrying the encryption context
+`aws:logs:arn = /aws/cloudtrail/mlops-dev-audit`. The callers split between
+`logs.amazonaws.com` (5489) and `fas.s3.amazonaws.com` (4264).
+
+| Minute | Decrypt calls |
+|---|---|
+| 21:21 | 5457 |
+| 21:22 to 21:24 | 2 each |
+| 21:25 | 3002 |
+| 21:26 | 1280 |
+| 21:27 to 21:30 | 2 each |
+
+**Interpretation.** Querying the encrypted log group makes CloudWatch Logs call
+KMS `Decrypt` thousands of times. Each `Decrypt` is itself a management event,
+which CloudTrail writes back into that same encrypted group, which the next
+query must then decrypt. **An investigation inflates the artefact it
+investigates.** The bursts align with queries and the baseline sits at about
+two per minute, so the pattern is bounded rather than runaway — roughly 2880
+`Decrypt` events a day keep the trail flowing on their own.
+
+**Operational rule.** Filter `kms.amazonaws.com` out of an Insights query on
+this group unless KMS is the subject. Under the same 10000-row cap that moves
+coverage from nine minutes to about a week.
+
+**One alarm interaction.** Three `AccessDenied` events appear, all Cost
+Explorer `GetCostAndUsage` and `GetCostForecast` from `aws-admin`, all
+`IAM user access not activated`. That is Cost Explorer's separate IAM-user
+opt-in rather than a platform permission fault, and it still counts toward
+`unauthorized-api-calls`. Routine Billing console use therefore contributes
+datapoints to that alarm.
+
+**Verification.** `python scripts/wiki.py lint`.

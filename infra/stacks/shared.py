@@ -73,6 +73,9 @@ class PlatformConfig(TypedDict):
     monitor: MonitorConfig
     budget_usd: int
     log_retention_days: int
+    # Days a captured prediction survives. The drift job reads one hour, so
+    # anything older only serves an investigation of a past violation.
+    capture_retention_days: int
     security: SecurityConfig
 
 

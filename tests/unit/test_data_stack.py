@@ -137,3 +137,42 @@ def test_exactly_one_environment_owns_the_account_budget():
     """
     owners = [env for env in ("dev", "prod") if load_config(env)["security"]["account_budget"]]
     assert owners == ["dev"], f"expected dev to be the sole budget owner, got {owners}"
+
+
+def test_only_the_capture_prefix_expires(stacks):
+    """The artifacts bucket also holds `model.tar.gz`, the evaluation reports,
+    and the drift baseline. Expiring any of those breaks the endpoint or the
+    drift job, so the rule must be prefix-scoped."""
+    buckets = stacks["data"].find_resources("AWS::S3::Bucket")
+    with_rules = {
+        logical_id: bucket["Properties"]["LifecycleConfiguration"]["Rules"]
+        for logical_id, bucket in buckets.items()
+        if "LifecycleConfiguration" in bucket["Properties"]
+    }
+
+    # Exactly one bucket expires anything, and it is the artifacts bucket.
+    assert len(with_rules) == 1
+    logical_id, rules = next(iter(with_rules.items()))
+    assert logical_id.startswith("ArtifactsBucket")
+
+    assert len(rules) == 1
+    rule = rules[0]
+    assert rule["Prefix"] == "capture/"
+    assert rule["Status"] == "Enabled"
+    assert rule["ExpirationInDays"] == CONFIG["capture_retention_days"]
+    # The bucket is versioned, so the noncurrent version stays billable
+    # without this.
+    assert rule["NoncurrentVersionExpiration"]["NoncurrentDays"] == 1
+
+
+def test_the_baseline_and_model_artifacts_are_outside_the_expiring_prefix(stacks):
+    """A rename on either side would silently start expiring live artifacts."""
+    from infra.stacks.shared import (
+        BASELINE_KEY,
+        CAPTURE_PREFIX,
+        EVALUATION_REPORT_PREFIX,
+        MODEL_ARTIFACT_PREFIX,
+    )
+
+    for path in (BASELINE_KEY, MODEL_ARTIFACT_PREFIX, EVALUATION_REPORT_PREFIX):
+        assert not path.startswith(f"{CAPTURE_PREFIX}/")

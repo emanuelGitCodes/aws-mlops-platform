@@ -4532,3 +4532,52 @@ The fix is to stop reading objects one at a time — concurrent reads, or a
 single rolled-up object per hour written by a small aggregation step. Recorded,
 not implemented. Neither the timeout nor the per-object read is tuned; 512 MB
 is ample, with 100 MB used.
+
+## [2026-08-08] implement | Captured predictions expire after 30 days
+
+### Objective
+
+Close the last recorded gap in the drift loop: the capture prefix grew without
+bound, and no phase added a lifecycle rule before 4C.
+
+### The rule
+
+`ExpireCapturedPredictions` on the artifacts bucket, scoped to the `capture/`
+prefix, expiring at `capture_retention_days` — a new typed key in
+`PlatformConfig`, 30 in both environments.
+
+**The prefix scope is the whole safety argument.** The same bucket holds
+`model.tar.gz`, the evaluation report bundles, and the drift baseline. An
+unscoped rule would strand the endpoint at its next cold start and leave the
+drift job with nothing to compare against.
+`test_the_baseline_and_model_artifacts_are_outside_the_expiring_prefix` pins
+that the three live prefixes sit outside `capture/`, so a rename on either
+side fails a test rather than deleting a live artifact.
+
+The rule carries a second duration because the bucket is versioned. Expiring a
+current version leaves a noncurrent one behind, which stays billable after the
+object disappears from a listing. `NoncurrentVersionExpiration` of one day
+removes it.
+
+Thirty days is not a drift-job requirement — the job reads one hour. It bounds
+how far back a past violation can be investigated, and it matches the pipeline
+cache's `P30D`.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **300 passed**, coverage
+`93.3779%`, floor `93.36 → 93.37`. `make synth-all` clean for dev and prod.
+
+The reviewed diff adds one property to one bucket:
+
+```
+[~] AWS::S3::Bucket ArtifactsBucket ArtifactsBucket2AAC5544
+ └─ [+] LifecycleConfiguration
+     {"Rules":[{"ExpirationInDays":30,"Id":"ExpireCapturedPredictions",
+       "NoncurrentVersionExpiration":{"NoncurrentDays":1},
+       "Prefix":"capture/","Status":"Enabled"}]}
+```
+
+Same logical ID, so this is an in-place update. The bucket holds live data
+under `RemovalPolicy.RETAIN`, and a replacement would have been the one
+unacceptable outcome here.

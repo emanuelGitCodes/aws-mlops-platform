@@ -13,6 +13,10 @@ monitor:
   schedule_cron: "cron(0 * ? * * *)"   # hourly
 budget_usd: 20
 log_retention_days: 14
+# Days a captured prediction survives under the `capture/` prefix. The drift
+# job reads one hour, so this only bounds how far back a past violation can be
+# investigated. Nothing else in the artifacts bucket expires.
+capture_retention_days: 30
 security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]

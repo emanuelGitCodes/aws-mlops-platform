@@ -39,6 +39,20 @@ def test_the_trust_names_one_github_environment(stacks):
     assert "StringLike" not in statement["Condition"]
 
 
+def test_only_the_deploy_workflow_on_main_can_assume_the_role(stacks):
+    """The subject admits any workflow that names the environment, and write
+    access is enough to add one. These three claims narrow it to one file."""
+    conditions = _trust(stacks["cicd"])["Condition"]["StringEquals"]
+    repository = CONFIG["cicd"]["github_repository"]
+
+    assert conditions[f"{GITHUB_DOMAIN}:job_workflow_ref"] == (
+        f"{repository}/.github/workflows/deploy.yml@refs/heads/main"
+    )
+    assert conditions[f"{GITHUB_DOMAIN}:repository_owner"] == repository.split("/", 1)[0]
+    # A self-hosted runner executes on hardware this account does not control.
+    assert conditions[f"{GITHUB_DOMAIN}:runner_environment"] == "github-hosted"
+
+
 def test_the_trust_carries_no_wildcard(stacks):
     rendered = json.dumps(_trust(stacks["cicd"]))
 

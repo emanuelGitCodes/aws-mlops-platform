@@ -373,8 +373,8 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         assert alarm["Threshold"] == 1
         assert alarm["TreatMissingData"] == "notBreaching"
         if slug == "unauthorized-api-calls":
-            # A filled alarm carries a Metrics array. The plain properties
-            # below move inside its MetricStat.
+            # A filled alarm carries a Metrics array. Its MetricStat holds the
+            # three properties asserted below.
             continue
         assert alarm["Namespace"] == "MLOps/Security"
         assert alarm["Period"] == 300

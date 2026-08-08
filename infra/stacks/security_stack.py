@@ -40,8 +40,8 @@ class SecurityDetection:
     datapoints_to_alarm: int | None = None
     # The filter's default_value publishes a zero only for a period the log
     # group received events in. CloudTrail delivers nothing in some periods, so
-    # the series still has gaps. Alarm evaluation skips a gap and reaches back
-    # to the datapoint before it, which lets non-consecutive periods satisfy a
+    # the series has gaps. Alarm evaluation skips a gap and reaches back to the
+    # datapoint before it, which lets non-consecutive periods satisfy a
     # consecutive rule. FILL replaces each gap with a zero.
     fill_missing: bool = False
 

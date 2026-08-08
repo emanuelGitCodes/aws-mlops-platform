@@ -176,7 +176,7 @@ the boundary.
   recorder and delivery channel are mutually dependent so neither may depend
   on the other. The execution policy rotated twice and is live as `v11` with
   the GuardDuty actions removed and the CloudFormation read-back grants added;
-  `v5` and `v6` were deleted to free version slots and `v8` remains the
+  `v5` was deleted to free a version slot and `v8` remains the
   rollback target. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
 - **Phase 5B: complete; observation closed as a go 2026-08-05.** The model
@@ -424,10 +424,10 @@ no events ever, so the closing edge of the drift loop is unexercised in this
 account.
 
 Partial 3F (EventBridge routing of Access Analyzer and Config events) remains
-queued. Two constraints carry into it. First, **IAM policy version pressure is now
-binding**: four of five slots are used and two historical versions were
-deleted to get there, so any further grant must free a slot first — including
-the GuardDuty actions when the trigger in
+queued. Two constraints carry into it. First, **IAM policy version pressure is
+relieved but still tight**: `v6` and `v7` were deleted on 2026-08-07, leaving
+`v8`, `v10`, and the default `v11` in three of the five slots. Two grants fit
+before the next cleanup — one of them the GuardDuty actions when the trigger in
 [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md)
 arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true

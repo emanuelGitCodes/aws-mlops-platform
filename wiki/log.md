@@ -4581,3 +4581,51 @@ The reviewed diff adds one property to one bucket:
 Same logical ID, so this is an in-place update. The bucket holds live data
 under `RemovalPolicy.RETAIN`, and a replacement would have been the one
 unacceptable outcome here.
+
+## [2026-08-07] update | IAM execution-policy version slots freed for 3F
+
+Audited the five versions of the CloudFormation execution policy and deleted
+two. Three slots now hold `v8`, `v10`, and the default `v11`; two are free.
+Phase 3F is unblocked.
+
+### What the audit found
+
+Two recorded facts were wrong. The wiki said four of five slots were used;
+all five were. And it said `v5` and `v6` were both deleted during 3C; only
+`v5` was.
+
+The live versions, oldest first:
+
+| Version | Created | Statements | Change from the version before |
+|---|---|---|---|
+| v6 | 2026-07-12 | 3 | Pre-Phase-3 baseline |
+| v7 | 2026-07-15 | 5 | Added the two Config service-linked-role statements |
+| v8 | 2026-07-18 | 6 | Added `AccessAnalyzerServiceLinkedRole` |
+| v10 | 2026-08-03 | 6 | Narrowed `ApplicationServices` and both Config statements |
+| v11 | 2026-08-03 | 7 | Default. Added `PassConfigServiceLinkedRole` |
+
+`v9` never existed — version numbering is monotonic, not slot-based.
+
+The AWS policy name is `MLOpsCloudFormationExecutionPolicy`. The repository
+filename `mlops-cloudformation-execution-policy.json` is not the AWS name, and
+an ARN built from the filename returns `NoSuchEntity`.
+
+`infra/policies/mlops-cloudformation-execution-policy.json` matches live `v11`
+exactly, apart from the four `${AWS_ACCOUNT_ID}` placeholders the
+no-account-literals rule requires. The repository file is a faithful rollback
+source for the default version.
+
+### Why v6 and v7 went
+
+Neither is a usable rollback target. A rollback to `v7` drops the Access
+Analyzer grant and re-widens `ApplicationServices`, which is a 3B and 3C
+regression rather than a recovery. Both states stay reachable in git: `89e3daa`
+holds `v6` and `dbe6578` holds `v7`.
+
+`v8` and `v10` were kept. `v10` is the one-step rollback for `v11`. `v8` is the
+last pre-3C state and the only console-side undo for the 3C narrowing.
+
+### Identities
+
+The audit ran under `mlops-security-auditor`, which can read policy versions.
+The deletion needs `aws-admin` — the auditor profile is read-only.

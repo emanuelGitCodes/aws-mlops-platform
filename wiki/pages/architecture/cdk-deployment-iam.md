@@ -129,6 +129,26 @@ The ingestion path follows the same failure-isolation principle. S3 emits an eve
 
 ## Applying the execution policy
 
+**The execution boundary spans two managed policies, and the split is a size
+limit rather than a design preference.** AWS caps one managed policy at 6144
+characters. The main document reached 5888 on 2026-08-08, and a rotation adding
+one eight-action statement failed with `LimitExceeded: Cannot exceed quota for
+PolicySize: 6144`.
+
+| Document | Live policy |
+|---|---|
+| `mlops-cloudformation-execution-policy.json` | `MLOpsCloudFormationExecutionPolicy` |
+| `mlops-cloudformation-execution-policy-extension.json` | `MLOpsCloudFormationExecutionPolicyExtension` |
+
+Both attach to `cdk-hnb659fds-cfn-exec-role-*`, so CloudFormation evaluates the
+union. **Add a new grant to the extension**, which held 492 of 6144 bytes when
+it was created. The main document has 256 bytes free and cannot take one. A
+test measures both against the quota, so the next failure arrives in CI rather
+than at the AWS API.
+
+Statement ids are unique across both files, and a test asserts it. A duplicated
+`Sid` would leave a reader unsure which file owns a grant.
+
 The repository copy of the execution policy
 (`infra/policies/mlops-cloudformation-execution-policy.json`) parameterizes
 account-specific values such as `${AWS_ACCOUNT_ID}` using the `.env.example`

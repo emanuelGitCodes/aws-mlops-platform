@@ -14,11 +14,11 @@ drift→retrain loop — all defined in CDK. Python 3.12, dependencies managed
 with `uv`. The model (Telco churn, XGBoost) is deliberately simple; the
 engineering is the deliverable.
 
-Eight CDK stacks per environment, named `Mlops-<Env>-<Stack>` (the formula
+Nine CDK stacks per environment, named `Mlops-<Env>-<Stack>` (the formula
 lives once in `stack_prefix()` in `infra/app.py`). Both environments deploy
 into the same account — stacks are environment-agnostic, with no
 `env=cdk.Environment` — which is why `dev.yaml` and `prod.yaml` must not
-share account-scoped names (model package group, budget).
+share account-scoped names (model package group, budget, OIDC provider).
 
 ## Current status
 
@@ -31,22 +31,31 @@ trusting this summary, which is coarse by design.
 - Phases 0–2 are complete. Phase 3 is partial: the six enablement flags
   under `security.services` in `infra/config/*.yaml` flip one per sub-phase,
   and in dev `access_analyzer`, `config_recorder`, and `account_bpa` are
-  true. Prod stays all-false until a deliberate rollout. What remains is
-  3F (EventBridge routing), plus `guardduty` and `security_hub` behind the
-  paid-plan decision — enabling GuardDuty starts a 30-day free trial and
-  then bills monthly.
+  true, and `eventbridge_alerts` is true after 3F closed as a go on
+  2026-08-08. Prod stays all-false until a deliberate rollout. What remains is
+  `guardduty` and `security_hub` behind the paid-plan decision — enabling
+  GuardDuty starts a 30-day free trial and then bills monthly.
 - Phase 5 (replace broad IAM one role at a time) is **complete**: the proxy,
   model, deploy, and pipeline roles all passed their component checks by
   2026-08-06. Its mechanisms stay in place — the opt-in `least_privilege`
   and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
   Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
   `security_checks.py` acknowledgement naming Phase 5.
-- Phase 4 (KMS) and Phases 6–9 are not started.
+- Phase 6 (SigV4 on `/predict`) and sub-phase 2G are **merged and not
+  deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
+  and the account holds no OIDC provider, so `main` runs ahead of the account
+  until someone deploys each stack singly. Phase 4 (KMS) and Phases 7–9 are not
+  started.
 
-**IAM policy version pressure is tight.** Three of the five
-`MLOpsCloudFormationExecutionPolicy` version slots are used — the AWS policy
-name differs from the `mlops-cloudformation-execution-policy.json` filename.
-Two grants fit. After that, free a slot before adding another.
+**The execution boundary spans two managed policies. Add new grants to the
+extension.** AWS caps one managed policy at 6144 characters, and
+`MLOpsCloudFormationExecutionPolicy` reached 5888 with 256 bytes free — too
+little for any useful statement. `MLOpsCloudFormationExecutionPolicyExtension`
+carries the overflow and had 492 bytes in use when it was created. Both attach
+to `cdk-hnb659fds-cfn-exec-role-*`, so the grants union. The AWS policy names
+differ from the `mlops-cloudformation-execution-policy*.json` filenames. Size,
+not the three-of-five version slots, is what blocks a change; `make test`
+measures both documents against the quota.
 
 Two rules follow from the roadmap's operating rule and apply to any phase
 work you do:
@@ -78,7 +87,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Single-stack diff/deploy |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
 | `make verify-deploy` | What a deploy actually changed, per resource |
-| `make smoke` | `tests/integration` against the deployed API (resolves URL + key from stack outputs) |
+| `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
 
 `ENV=dev|prod` selects the environment for every CDK target.
@@ -94,9 +103,13 @@ the Make targets rather than restating them: `install`, `lint`, `typecheck`,
 of full history in a separate job. All are blocking.
 
 `.github/workflows/deploy.yml` is `workflow_dispatch` only: dev deploy +
-smoke, then a prod job gated on the GitHub `prod` environment's manual
-approval. Credentials come from OIDC role assumption; there are no
-long-lived AWS keys anywhere.
+smoke, then a prod job that names the GitHub `prod` environment. It assumes a
+role through OIDC federation and uses no long-lived AWS key. **It has never
+run**, and **no environment carries a protection rule**: `dev` has none and
+`prod` does not exist, so naming an environment scopes the OIDC subject claim
+and requires no review. The account gained its OIDC provider on 2026-08-08,
+but `CicdStack` — which creates the roles the workflow assumes — is not
+deployed, so every deployment so far came from a workstation.
 
 ## Code map — where things live
 
@@ -111,9 +124,9 @@ Look here **before** writing anything new:
 | `src/pipeline/` | `preprocess.py`, `evaluate.py`, the pipeline definition (`pipeline.py`), and `evaluation_runtime/` (the FrameworkProcessor entrypoint) |
 | `infra/app.py` | CDK entrypoint. `load_config()`, `stack_prefix()`, `build_app()` — the single source of the config loader, the stack-name formula, and the dependency graph; the tests import all three. |
 | `infra/security_checks.py` | cdk-nag gate plus every acknowledgement, each bound to one construct and naming the phase that removes it |
-| `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
+| `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring, cicd. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
-| `infra/policies/` | `mlops-cloudformation-execution-policy.json` — the repository-owned CloudFormation execution policy, version-pinned and fingerprint-tested |
+| `infra/policies/` | The repository-owned CloudFormation execution boundary, split across `mlops-cloudformation-execution-policy.json` and `-extension.json` because AWS caps one managed policy at 6144 characters. Version-pinned and fingerprint-tested |
 | `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py` |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL`/`API_KEY` are set |

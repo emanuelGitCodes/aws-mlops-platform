@@ -44,3 +44,7 @@ security:
     security_hub: false
     account_bpa: false
     eventbridge_alerts: false
+cicd:
+  github_repository: emanuelGitCodes/aws-mlops-platform
+  # This must stay false while dev is true. See the note in dev.yaml.
+  owns_oidc_provider: false

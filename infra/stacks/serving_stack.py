@@ -179,7 +179,7 @@ class ServingStack(Stack):
             handler=deploy_fn,
         )
 
-        # Public surface: API Gateway (API key) -> thin proxy Lambda.
+        # Public surface: API Gateway (SigV4) -> thin proxy Lambda.
         proxy_fn = platform_lambda(
             self,
             "ProxyFn",
@@ -232,6 +232,12 @@ class ServingStack(Stack):
             "POST",
             apigw.LambdaIntegration(proxy_fn),
             authorization_type=apigw.AuthorizationType.IAM,
+        )
+
+        # The CI deploy role grants `execute-api:Invoke` on this route. The
+        # REST API id is generated, so an ARN composed there needs a wildcard.
+        self.predict_execute_api_arn = api.arn_for_execute_api(
+            method="POST", path="/predict", stage=config["env_name"]
         )
 
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))

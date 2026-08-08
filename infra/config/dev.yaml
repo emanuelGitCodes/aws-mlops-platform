@@ -36,3 +36,9 @@ security:
     security_hub: false
     account_bpa: true
     eventbridge_alerts: true
+cicd:
+  github_repository: emanuelGitCodes/aws-mlops-platform
+  # Dev owns the account-wide OIDC provider. Prod must stay false. One
+  # account, two environment-agnostic apps, and one provider — the collision
+  # `security.account_budget` records.
+  owns_oidc_provider: true

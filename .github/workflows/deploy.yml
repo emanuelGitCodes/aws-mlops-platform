@@ -40,7 +40,9 @@ jobs:
   deploy-prod:
     needs: deploy-dev
     runs-on: ubuntu-latest
-    environment: prod   # The GitHub environment carries the approval gate.
+    # Naming the environment scopes the OIDC subject claim. It adds no review
+    # until the environment carries a required reviewer.
+    environment: prod
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -5147,3 +5147,252 @@ still wants the key, and 2F's window needs `make smoke` to prove
 `endpoint-silent` clears.
 
 **Verification of this entry.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The execution policy is out of room, not out of slots
+
+**Objective.** Rotate `MLOpsCloudFormationExecutionPolicy` to add the GitHub
+OIDC provider actions `CicdStack` needs. The rotation failed, and the failure
+corrects a constraint this wiki has tracked since Phase 2A.
+
+**Identity.** `aws-admin`. `mlops-security-auditor` cannot write IAM.
+
+**Pre-flight, which passed.** The live default `v11` was fetched, normalised,
+and compared against the repository JSON with the new statement removed. The
+two were **identical** — no drift, so the rotation would have added exactly one
+statement.
+
+**The failure.**
+
+```
+LimitExceeded: Cannot exceed quota for PolicySize: 6144
+```
+
+**Nothing changed.** `CreatePolicyVersion` is atomic, so the live default is
+still `v11` and the slot count is still three of five.
+
+**Measurements.** Sizes are the compact JSON form, which is how IAM counts.
+
+| Document | Bytes |
+|---|---|
+| Live `v11`, seven statements | 5888 |
+| Proposed, eight statements | 6337 |
+| Quota | 6144 |
+| Headroom before the attempt | 256 |
+| Size of the new statement | 448 |
+
+Per statement: `ApplicationServices` 4118, `GitHubOidcProviderLifecycle` 448,
+`ApplicationRoleLifecycle` 347, `PassOnlyApplicationRoles` 343,
+`AccessAnalyzerServiceLinkedRole` 304, `PassConfigServiceLinkedRole` 260,
+`ConfigServiceLinkedRole` 248, `ConfigServiceLinkedRoleCleanup` 223.
+
+**Interpretation, and the correction it forces.** The roadmap's standing note
+said two grants still fit in the version slots. **Slots were never the first
+limit reached.** At 5888 bytes the policy had 256 bytes of headroom, and no
+useful grant is that small — the OIDC statement alone needs 448. The slot
+count remains true and remains worth tracking; it is simply not what blocks the
+next change.
+
+**Two smaller findings.** The policy holds **zero** `guardduty:` actions, so
+the open question about a deliberate GuardDuty divergence is stale — enabling
+the service means adding actions that now do not fit. And the policy is
+attached to exactly one role, `cdk-hnb659fds-cfn-exec-role-*`, which carries no
+other managed policy and has room for nine more.
+
+**The three options, costed.**
+
+1. **Trim the statement to `Create`, `Delete`, `Get`.** Total 6142, fitting by
+   two bytes. Drops `Tag` and `Untag`, so a tagged provider breaks the deploy.
+   Survives no further grant.
+2. **Drop the ten `securityhub:` actions**, 316 bytes, for a service disabled
+   in both environments. Total 6021, leaving 123 bytes. Phase 3D must then put
+   them back, and they will not fit.
+3. **Split into a second managed policy** on the same role. Removes the ceiling
+   as a recurring problem. Changes the repository's single-file,
+   fingerprint-tested policy model and the pages that describe it.
+
+**Decision and next checkpoint.** **None taken.** Options 1 and 2 both leave
+less headroom than Phase 4's KMS grant needs, so each buys one deploy and
+re-raises this failure. `CicdStack` stays undeployable until this is settled.
+
+## [2026-08-08] implement | CicdStack built, on a branch, not merged
+
+**Objective.** Give `.github/workflows/deploy.yml` an identity to assume, so
+deployment stops depending on a workstation.
+
+**Scope.** New `infra/stacks/cicd_stack.py`, wired in `infra/app.py`, plus
+`cicd` config on both environments, the execution policy JSON, and
+`tests/unit/test_cicd_stack.py`. On branch `claude/cicd-oidc-role`. **Not
+merged and not deployed.**
+
+**What it creates.** One account-wide `AWS::IAM::OIDCProvider` and one role per
+environment, `mlops-<env>-github-deploy`.
+
+**The trust is the whole boundary.** `StringEquals` on
+`token.actions.githubusercontent.com:sub` =
+`repo:<repo>:environment:<env>`, plus `aud` = `sts.amazonaws.com`. Naming the
+**environment** rather than a branch means a role is reachable only by a job
+that names its environment. A `repo:<repo>:*` subject would let any branch or
+pull request assume it. Tests assert the exact subject, the absence of any
+`StringLike`, and that the rendered trust policy contains no `*`.
+
+**Corrected the same day: the approval gate this scoping was chosen for does
+not exist.** The `dev` environment carries zero protection rules and `prod` is
+not defined at all. GitHub creates a missing environment on demand with no
+rules, so a prod job would run unreviewed and still receive
+`sub = repo:<repo>:environment:prod`. The condition works; it currently gates
+on nothing.
+
+**The provider is account-wide**, so it repeats the `account_budget` collision:
+dev owns it under `cicd.owns_oidc_provider`, prod reads it by ARN, and a test
+asserts prod creates none.
+
+**A design correction the tests forced.** The role's two grants first composed
+their ARNs locally, which produced wildcards over the generated stack id and
+the generated REST API id, and two cdk-nag acknowledgements that could never
+expire. `test_security_acknowledgements_are_exact_and_expiring` requires every
+acknowledgement to name the phase that removes it, and neither could. The stack
+now imports both exact ARNs from Serving instead. Zero acknowledgements added,
+at the cost of a `Cicd → Serving` dependency.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 316 passed, and the floor moves `93.52 → 93.63`. The
+reviewed diff shows three new resources and no wildcard in either grant.
+
+**One claim only a deploy can settle.** The provider omits `ThumbprintList`,
+because AWS validates the certificate against its own trusted CAs. If
+`CreateOpenIDConnectProvider` rejects that, the fix is a thumbprint list.
+
+**Verification of these entries.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] implement | The execution boundary splits across two policies
+
+**Objective.** Land the OIDC provider grants that the failed rotation could not
+fit, and remove the size ceiling as a recurring blocker.
+
+**Decision.** Split, rather than trim the statement or drop the unused
+`securityhub:` actions. Both alternatives left less headroom than Phase 4's KMS
+grant needs — two bytes and 123 bytes — so each bought one deploy and re-raised
+the same failure at the next phase.
+
+**Scope.** New `infra/policies/mlops-cloudformation-execution-policy-extension.json`
+and new live policy `MLOpsCloudFormationExecutionPolicyExtension`, attached to
+`cdk-hnb659fds-cfn-exec-role-*`. Identity `aws-admin`.
+
+**The main policy was not rotated, and that is the point of this shape.** The
+OIDC statement moved out of the main document rather than the main document
+being rebalanced, so the repository file returned to exactly what is deployed.
+A normalised diff against live `v11` reports **identical**. The version slots
+stay at three of five, `v11` stays default, and the deployed boundary was never
+at risk during the change.
+
+**Live checks.** `create-policy` returned `v1` at 21:15:29Z.
+`attach-role-policy` succeeded, and the execution role now lists both policies.
+A normalised diff of the live extension against the rendered repository file
+reports **identical**.
+
+**Sizes.** Main 5888 of 6144 bytes, 256 free. Extension 492 of 6144, 5652 free.
+New grants belong in the extension; the main document cannot take one.
+
+**Regression.** `make test` now measures **each** document against the 6144
+quota and fails with the byte count and a pointer to the other file. The
+previous failure arrived from the AWS API during a rotation, which is the worst
+place to learn it. A second test asserts no `Sid` is reused across the two
+files, so a reader cannot be unsure which file owns a grant.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 320 passed at the `93.63` floor. `python scripts/wiki.py
+lint` healthy.
+
+**Decision and next checkpoint.** `CicdStack` is now deployable as far as
+permissions go. It stays undeployed behind 2F's observation window, 2G, and
+Phase 6. The first deploy still has to settle whether
+`CreateOpenIDConnectProvider` accepts a provider with no `ThumbprintList`.
+
+## [2026-08-08] query | Reading the audit trail generates audit trail
+
+**Objective.** Use a CloudWatch Logs Insights export of the audit log group as a
+second evidence surface for the policy split. It did not contain the change,
+and it exposed a log-volume pattern worth recording instead.
+
+**Scope.** A 10000-row export of `/aws/cloudtrail/mlops-dev-audit`, parsed
+locally. Read-only. No AWS resource was touched.
+
+**The export missed the change.** Its window runs 21:21:06Z to 21:30:29Z, and
+the split happened at 21:15:29Z and 21:15:39Z. The file holds **zero**
+`iam.amazonaws.com` events. An Insights export is capped at 10000 rows and
+truncates silently, so treat the row count as the limit and the time span as
+the consequence, never the reverse.
+
+**Why nine minutes filled ten thousand rows.** 9753 of the 10000 events are KMS
+`Decrypt`, every one carrying the encryption context
+`aws:logs:arn = /aws/cloudtrail/mlops-dev-audit`. The callers split between
+`logs.amazonaws.com` (5489) and `fas.s3.amazonaws.com` (4264).
+
+| Minute | Decrypt calls |
+|---|---|
+| 21:21 | 5457 |
+| 21:22 to 21:24 | 2 each |
+| 21:25 | 3002 |
+| 21:26 | 1280 |
+| 21:27 to 21:30 | 2 each |
+
+**Interpretation.** Querying the encrypted log group makes CloudWatch Logs call
+KMS `Decrypt` thousands of times. Each `Decrypt` is itself a management event,
+which CloudTrail writes back into that same encrypted group, which the next
+query must then decrypt. **An investigation inflates the artefact it
+investigates.** The bursts align with queries and the baseline sits at about
+two per minute, so the pattern is bounded rather than runaway — roughly 2880
+`Decrypt` events a day keep the trail flowing on their own.
+
+**Operational rule.** Filter `kms.amazonaws.com` out of an Insights query on
+this group unless KMS is the subject. Under the same 10000-row cap that moves
+coverage from nine minutes to about a week.
+
+**One alarm interaction.** Three `AccessDenied` events appear, all Cost
+Explorer `GetCostAndUsage` and `GetCostForecast` from `aws-admin`, all
+`IAM user access not activated`. That is Cost Explorer's separate IAM-user
+opt-in rather than a platform permission fault, and it still counts toward
+`unauthorized-api-calls`. Routine Billing console use therefore contributes
+datapoints to that alarm.
+
+**Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-08] verify | The GitHub environments carry no protection rules
+
+**Objective.** Confirm whether repository visibility forces a change for OIDC,
+and whether the approval gate the `CicdStack` trust relies on exists.
+
+**Scope.** Read-only GitHub API. No AWS or repository change.
+
+**Visibility is not a constraint.** The repository is private, and GitHub issues
+an OIDC token to a private repository exactly as it does to a public one. The
+`sub` claim format and the trust policy are unchanged. **Nothing in this design
+requires the project to be open source.**
+
+**The gate does not exist.** `GET /repos/<owner>/<repo>/environments` returns
+`dev` with **zero** protection rules, and no `prod` environment at all.
+
+**Interpretation.** The environment-scoped subject was chosen so that the prod
+role could only be assumed by a job that passed a manual review. A workflow job
+that names a missing environment causes GitHub to create it with no rules, so
+the prod job would run unreviewed and still receive
+`sub = repo:<repo>:environment:prod`. The IAM condition is satisfied and the
+review never happens. **The boundary is sound and currently unbacked.**
+
+**Where visibility does interact.** Environment protection rules — required
+reviewers, wait timers, branch restrictions — are free on public repositories
+and have required a paid plan on private ones. The account plan was not
+readable through the API, so confirm this in Settings before choosing a path.
+
+**Options, in order of preference.** Add a required reviewer to a new `prod`
+environment on the current plan. Upgrade the plan if protection rules are
+gated. Make the repository public, which makes the rules free — feasible, since
+history is scrubbed and CI scans it, but far larger than this one gate warrants.
+
+**Decision and next checkpoint.** No plan change taken. Five statements that
+asserted the gate were corrected to describe what is configured:
+`infra/stacks/cicd_stack.py`, `tests/unit/test_cicd_stack.py`,
+`.github/workflows/deploy.yml`, `AGENTS.md`, and the `CicdStack` log entry
+above. Restore the stronger wording only after a required reviewer exists.
+
+**Verification.** `python scripts/wiki.py lint`.

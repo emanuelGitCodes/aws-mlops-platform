@@ -199,9 +199,9 @@ the boundary.
   billing level, so no retry can succeed before a paid-plan upgrade. The
   July 19 revision defers 3B and 3D behind an explicit manual upgrade
   decision; `dev.yaml` sets `guardduty: false`, the flag-gated detector code
-  and its locked contract tests remain for the retry, and the repository
-  execution policy deliberately retains the GuardDuty actions (live default
-  `v8`) until the next sub-phase rotation. See the
+  and its locked contract tests remain for the retry. The execution policy no
+  longer carries the GuardDuty actions, so the retry must add them, and the
+  size ceiling recorded below decides whether they fit. See the
   [implementation record](../sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md),
   [first deployment rollback](../sources/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md),
   [Free-plan service limits](../sources/aws-free-plan-account-service-limits-july-18-2026.md),
@@ -568,13 +568,27 @@ with the pattern's `status ACTIVE` predicate rather than as proof of filtering:
 metrics cannot show whether a resolution event was emitted and rejected, or
 never emitted at all.
 
-Two constraints continue past it. First,
-**IAM policy version pressure is relieved but still tight**: `v6` and `v7` were
-deleted on 2026-08-07, leaving `v8`, `v10`, and the default `v11` in three of
-the five slots. 3F consumed none of them, so two grants still fit before the
-next cleanup — one of them the GuardDuty actions when the trigger in
-[paid Phase 3 security services](../decisions/phase-3-paid-security-services.md)
-arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
+Two constraints continue past it. First, **the execution policy is out of
+room, and the constraint is size rather than version slots.** This roadmap has
+tracked slots since Phase 2A: `v6` and `v7` were deleted on 2026-08-07, leaving
+`v8`, `v10`, and the default `v11` in three of five. That count is still
+correct and no longer the binding limit. A rotation attempted on 2026-08-08
+failed with `LimitExceeded: Cannot exceed quota for PolicySize: 6144`.
+
+| Document | Bytes |
+|---|---|
+| Live `v11`, seven statements | 5888 |
+| Live plus one OIDC statement | 6337 |
+| AWS quota | 6144 |
+
+**Read "two grants fit" as withdrawn.** The policy carried 256 bytes of
+headroom, and a single eight-action statement needs 448. No grant fits today,
+and the next phase to need one — Phase 4's KMS actions, or Security Hub's
+return at 3D — hits the same wall. The version slots are a real limit that has
+simply not been the first one reached. The 2026-08-08 `wiki/log.md` entry holds
+the per-statement sizes.
+
+Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
 **2F is deployed to dev and its observation window is open.** `make
@@ -633,9 +647,26 @@ Related runtime and human authority boundaries are documented in
 - AWS Config availability on the Free plan is unproven until the gated 3C
   deployment attempts the first recorder create; its recording scope must
   stay minimal because configuration items consume the remaining credits.
-- The repository execution policy retains the GuardDuty actions while the
-  live default is `v8`; this deliberate divergence reconciles at the next
-  sub-phase's controlled rotation.
+- ~~The repository execution policy retains the GuardDuty actions.~~ **Closed
+  and stale.** The policy holds zero `guardduty:` actions today, and the live
+  default is `v11`, not `v8`. Enabling GuardDuty therefore needs its actions
+  added, not reconciled — and under the size ceiling above, they do not fit.
+- **The execution policy has no room for another grant.** Size, not version
+  slots, is the limit: 5888 bytes live against a 6144 quota. Three ways out
+  are costed in the 2026-08-08 log entry — trim the new statement, drop the
+  ten unused `securityhub:` actions, or split into a second managed policy
+  attached to the same role. Only the split survives the phase after next.
+  **No decision is taken yet.**
+- **The account has no GitHub OIDC provider and no role trusting GitHub.**
+  `.github/workflows/deploy.yml` has therefore never run, and every deployment
+  in this project's history came from a workstation. `CicdStack` is written and
+  tested to close this, but it cannot deploy until the policy question above is
+  settled.
+- **Production has never been deployed.** Eight stacks exist, all
+  `Mlops-Dev-*`. The two-environment design is proven at synthesis only, which
+  means the shared-account collisions this page warns about — the model package
+  group, the account budget, and now the OIDC provider — have never been tested
+  against a live second environment.
 - **`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is
   denied for that identity, exposed when 5D's observation window tried to check
   the budget and had to fall back to `aws-admin`. Every prior window reported

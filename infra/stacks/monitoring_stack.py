@@ -122,9 +122,15 @@ class MonitoringStack(Stack):
             timeout=Duration.minutes(1),
             environment={"PIPELINE_NAME": pipeline_name},
         )
+        # `ListPipelineExecutions` is what the cooldown reads. Without it the
+        # handler cannot tell whether a run is already answering this drift,
+        # and a shift that persists starts a run every hour.
         retrain_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:StartPipelineExecution"],
+                actions=[
+                    "sagemaker:StartPipelineExecution",
+                    "sagemaker:ListPipelineExecutions",
+                ],
                 resources=[
                     self.format_arn(
                         service="sagemaker",

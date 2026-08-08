@@ -146,7 +146,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "serving": "df36151514116565e7ad6d73e8185b530945a329fa1c3454273da7d0bbc04eb3",
         # `DriftEvaluationFnRole` is new and carries no managed policy.
         # `RetrainTriggerFnServiceRole` keeps its logical ID.
-        "monitoring": "ec915cc421fe16e8b569a4efd1ce440ddda73f2c419d876de40adc9e3843cc00",
+        "monitoring": "3444854868fba5e089e04e4e55706b51c947cf883cc435e5a759831869a5b243",
     }
 
     stacks["training"].has_resource_properties(

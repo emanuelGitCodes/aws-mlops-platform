@@ -158,7 +158,9 @@ def test_the_retrain_lambda_may_start_only_the_one_pipeline(stacks):
                         [
                             Match.object_like(
                                 {
-                                    "Action": "sagemaker:StartPipelineExecution",
+                                    "Action": Match.array_with(
+                                        ["sagemaker:StartPipelineExecution"]
+                                    ),
                                     # The ARN is an Fn::Join over tokens.
                                     "Resource": {
                                         "Fn::Join": Match.array_with(
@@ -196,5 +198,26 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
             "AlarmName": f"mlops-{CONFIG['env_name']}-endpoint-5xx",
             "MetricName": "Invocation5XXErrors",
             "AlarmActions": [{"Fn::ImportValue": Match.any_value()}],
+        },
+    )
+
+
+def test_the_retrain_lambda_can_read_its_own_execution_history(stacks):
+    """The cooldown needs ListPipelineExecutions. Without it the handler
+    cannot tell whether a run is already answering this drift."""
+    stacks["monitoring"].has_resource_properties(
+        "AWS::IAM::Policy",
+        {
+            "PolicyDocument": Match.object_like(
+                {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {"Action": Match.array_with(["sagemaker:ListPipelineExecutions"])}
+                            )
+                        ]
+                    )
+                }
+            )
         },
     )

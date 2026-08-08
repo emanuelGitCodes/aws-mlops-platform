@@ -4347,3 +4347,69 @@ ever moving the reference. A cooldown after a retrain, or an uncached baseline
 refresh, remains unbuilt.
 
 Captured objects still have no expiry.
+
+## [2026-08-08] implement | Retrain cooldown, and why the refresh fix would not have worked
+
+### Objective
+
+Close the retrain-storm hole: under sustained drift the hourly job fires every
+hour, and every violation starts a training run.
+
+### The fix I proposed earlier was wrong
+
+The earlier record offered two options — a cooldown, or an uncached baseline
+refresh. **The refresh cannot work, and the reason is structural.** The
+pipeline trains on `curated/telco/`. Captured traffic lands under the artifacts
+bucket's capture prefix. The two never meet, and no step copies one into the
+other.
+
+So a retrain on unchanged curated data produces the same model and, if the
+baseline were refreshed, a byte-identical baseline. Drifted API traffic cannot
+reach the training set, so the violation repeats whatever the run concludes.
+Refreshing the reference changes nothing; it would only have added cost.
+
+Retraining cannot end this shift on its own. Only newly ingested data changes
+the answer. The correct fix therefore throttles the actuation rather than
+touching the measurement.
+
+### The cooldown
+
+`src/monitoring/retrain_handler.py` reads the pipeline's most recent execution
+before starting one, and declines in two cases:
+
+- the latest execution is `Executing` or `Stopping`, so a run is already
+  answering this drift — a second one duplicates the cost and races the first
+  to the registry;
+- the latest execution started inside `RETRAIN_COOLDOWN_HOURS`, default 6.
+
+Six hours bounds sustained drift to four runs a day instead of twenty-four,
+while still allowing a same-day response once new data is ingested.
+
+**The drift job is unchanged.** It still scores the window and still emits the
+violation, because the drift is real and the signal should stay visible. Only
+the handler that spends money declines, and it logs `retrain_suppressed` with
+`in_flight` or `cooldown` as the reason. Detection reports; actuation throttles.
+
+The guard sits after the status check, so a non-violation event costs no API
+call — pinned by
+`test_a_non_violation_never_reaches_the_cooldown_lookup`.
+
+An empty execution history is not a cooldown. Without that case the very first
+violation in a fresh environment would be suppressed forever.
+
+### Verification
+
+`make lint`, `make typecheck` clean. `make test`: **298 passed**, coverage
+`93.3698%`, floor `93.35 → 93.36`. `make synth-all` clean for dev and prod.
+
+The reviewed diff adds exactly one action, `sagemaker:ListPipelineExecutions`,
+on the same pipeline ARN the role already held. No wildcard, no new resource.
+The monitoring IAM fingerprint moved and both logical IDs are unchanged.
+
+### Not deployed yet, deliberately
+
+The severity-rule test is in flight: 200 isolated-shift records were captured
+into hour 01 and are scored at 02:00Z. The last retrain started at 20:00Z on
+08-07, which is **exactly six hours** before that run — the cooldown boundary.
+Deploying now would land inside a running experiment and make its retrain leg
+ambiguous. The deploy waits for that result.

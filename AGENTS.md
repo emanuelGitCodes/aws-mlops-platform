@@ -43,9 +43,10 @@ trusting this summary, which is coarse by design.
   `security_checks.py` acknowledgement naming Phase 5.
 - Phase 4 (KMS) and Phases 6–9 are not started.
 
-**IAM policy version pressure is binding.** Four of the five
-`mlops-cloudformation-execution-policy.json` version slots are used. Any new
-grant must free a slot first.
+**IAM policy version pressure is tight.** Three of the five
+`MLOpsCloudFormationExecutionPolicy` version slots are used — the AWS policy
+name differs from the `mlops-cloudformation-execution-policy.json` filename.
+Two grants fit. After that, free a slot before adding another.
 
 Two rules follow from the roadmap's operating rule and apply to any phase
 work you do:

@@ -81,8 +81,8 @@ def test_the_pipeline_role_may_only_pass_itself_to_sagemaker(stacks):
     """`iam:PassRole` is the grant that would otherwise widen the role.
 
     Every step hands this role to SageMaker when it creates its job, so the
-    grant is unavoidable. Without the condition, a stolen credential could pass
-    the role to any service that accepts one.
+    grant is unavoidable. An unconditioned grant passes the role to any service
+    that accepts one, including to a stolen credential.
     """
     _, policy = _role_and_policy(stacks)
     pass_role = next(

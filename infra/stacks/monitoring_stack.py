@@ -192,6 +192,6 @@ class MonitoringStack(Stack):
             threshold=5,
             evaluation_periods=1,
         )
-        # Without an action, this alarm only changes colour in the console. It
+        # An alarm with no action only changes colour in the console. This one
         # delivers to the same topic as the security alarms.
         endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))

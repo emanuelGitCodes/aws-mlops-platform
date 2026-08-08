@@ -29,8 +29,8 @@ PIPELINE_NAME = os.environ["PIPELINE_NAME"]
 VIOLATION_STATUS = DRIFT_STATUS
 
 # Hours after a run starts during which another violation must not start a
-# second one. The drift job evaluates hourly, so without this a shift that
-# persists starts a run every hour.
+# second one. The drift job evaluates hourly, and a shift that persists
+# violates on each evaluation.
 #
 # Retraining cannot end that shift on its own. The pipeline trains on
 # `curated/telco/`, and captured traffic lands under the artifacts bucket's

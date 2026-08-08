@@ -4581,3 +4581,269 @@ The reviewed diff adds one property to one bucket:
 Same logical ID, so this is an in-place update. The bucket holds live data
 under `RemovalPolicy.RETAIN`, and a replacement would have been the one
 unacceptable outcome here.
+
+## [2026-08-07] update | IAM execution-policy version slots freed for 3F
+
+Audited the five versions of the CloudFormation execution policy and deleted
+two. Three slots now hold `v8`, `v10`, and the default `v11`; two are free.
+Phase 3F is unblocked.
+
+### What the audit found
+
+Two recorded facts were wrong. The wiki said four of five slots were used;
+all five were. And it said `v5` and `v6` were both deleted during 3C; only
+`v5` was.
+
+The live versions, oldest first:
+
+| Version | Created | Statements | Change from the version before |
+|---|---|---|---|
+| v6 | 2026-07-12 | 3 | Pre-Phase-3 baseline |
+| v7 | 2026-07-15 | 5 | Added the two Config service-linked-role statements |
+| v8 | 2026-07-18 | 6 | Added `AccessAnalyzerServiceLinkedRole` |
+| v10 | 2026-08-03 | 6 | Narrowed `ApplicationServices` and both Config statements |
+| v11 | 2026-08-03 | 7 | Default. Added `PassConfigServiceLinkedRole` |
+
+`v9` never existed — version numbering is monotonic, not slot-based.
+
+The AWS policy name is `MLOpsCloudFormationExecutionPolicy`. The repository
+filename `mlops-cloudformation-execution-policy.json` is not the AWS name, and
+an ARN built from the filename returns `NoSuchEntity`.
+
+`infra/policies/mlops-cloudformation-execution-policy.json` matches live `v11`
+exactly, apart from the four `${AWS_ACCOUNT_ID}` placeholders the
+no-account-literals rule requires. The repository file is a faithful rollback
+source for the default version.
+
+### Why v6 and v7 went
+
+Neither is a usable rollback target. A rollback to `v7` drops the Access
+Analyzer grant and re-widens `ApplicationServices`, which is a 3B and 3C
+regression rather than a recovery. Both states stay reachable in git: `89e3daa`
+holds `v6` and `dbe6578` holds `v7`.
+
+`v8` and `v10` were kept. `v10` is the one-step rollback for `v11`. `v8` is the
+last pre-3C state and the only console-side undo for the 3C narrowing.
+
+### Identities
+
+The audit ran under `mlops-security-auditor`, which can read policy versions.
+The deletion needs `aws-admin` — the auditor profile is read-only.
+## [2026-08-07] query | 3F EventBridge alert routing
+
+Found 23 matching page(s).
+
+
+## [2026-08-08] update | Phase 3F partial alert routing deployed to dev
+
+**Objective.** Route the Phase 3 findings this account actually produces to
+the Phase 2 SNS alert topic, and close every part of Phase 3 that the
+paid-plan decision does not block.
+
+**Scope.** `infra/stacks/security_monitoring_stack.py` (two `events.CfnRule`
+resources, the `eventbridge_alerts` flag added to `IMPLEMENTED_SERVICE_FLAGS`),
+`infra/stacks/security_stack.py` (one audit-key grant, one topic-policy
+grant), `infra/config/dev.yaml`, and the two stack test modules. Deployed
+stacks: `Mlops-Dev-Security`, then `Mlops-Dev-SecurityMonitoring`.
+
+**Identity and environment.** `mlops-deployer` for both deploys,
+`mlops-security-auditor` for verification and the live reads. Region
+`us-east-1`, dev only.
+
+### What was built
+
+| Rule | Pattern |
+|---|---|
+| `mlops-dev-security-access-analyzer-findings` | `aws.access-analyzer`, `Access Analyzer Finding`, `status` `ACTIVE`, `isDeleted` `false` |
+| `mlops-dev-security-config-delivery-failures` | `aws.config`, history and snapshot delivery status, `messageType` the two `*DeliveryFailed` values |
+
+Configuration item changes are not routed: continuous recording emits one
+event per change across about 100 resources, into an email topic. Compliance
+events are not routed: this account deploys no Config rules to produce them.
+Both exclusions are asserted in tests.
+
+Each source routes only while its own service flag is true. Prod keeps every
+flag false and synthesizes to `CDKMetadata` alone.
+
+### The grant scoping
+
+The rules live in `SecurityMonitoring`, which already depends on `Security`
+for the topic ARN. Scoping the grants to a rule reference would close that
+into a cycle, so both name the prefix `:rule/mlops-<env>-security-*` under
+`ArnLike`, with `aws:SourceAccount` alongside. The prefix is therefore load-
+bearing: a rule named outside it matches its events and then fails to publish
+them. A test pins the prefix on the rule side and on both grant sides.
+
+**No policy rotation was needed.** `ApplicationServices` already grants
+`events:PutRule`, `events:PutTargets`, `sns:SetTopicAttributes` and the rest,
+because the platform's own EventBridge and SNS resources needed them first.
+The version slots freed on 2026-08-07 stay banked at three of five used.
+
+### Verification
+
+`make lint`, `make typecheck`, `make security` clean. `make test`: **306
+passed**, coverage `93.4534%`, floor `93.37 → 93.45`. cdk-nag passes both
+environments with no new acknowledgement.
+
+`make verify-deploy SINCE=2026-08-08` under `mlops-security-auditor` reports
+exactly the intended four resources:
+
+```
+Mlops-Dev-SecurityMonitoring  [UPDATE_COMPLETE]
+    CREATE_COMPLETE          AccessAnalyzerFindingRule
+    CREATE_COMPLETE          ConfigDeliveryFailureRule
+Mlops-Dev-Security  [UPDATE_COMPLETE]
+    UPDATE_COMPLETE          AuditKeyB2DBB069
+    UPDATE_COMPLETE          SecurityAlertsTopicPolicy1E6023E3
+```
+
+`aws events describe-rule` confirms both rules `ENABLED` with the intended
+patterns, and `list-targets-by-rule` confirms one target each, the alert topic.
+
+### Interpretation and the open gap
+
+Neither rule has fired. `list-findings` returns zero `ACTIVE` findings, the
+recorder reports `recording: true` and `lastStatus: SUCCESS`, and both
+delivery channels report `SUCCESS`. Every source is healthy with nothing to
+report, so the path is deployed and unexercised — the same shape of gap the
+drift → retrain edge carries.
+
+Live proof requires manufacturing a signal: a cross-account principal on a
+low-value bucket for the analyzer rule, reverted after, which also pages
+`iam-policy-changes`; or a deliberately broken delivery for the Config rule.
+Neither was run.
+
+**Decision and next checkpoint.** Phase 3 is now complete except `guardduty`
+and `security_hub`, both waiting on the explicit paid-plan upgrade decision.
+The 3F observation window is open. Prod remains all-false. Phase 4 (KMS) is
+next once 3F closes as a go.
+
+## [2026-08-08] update | Phase 3F analyzer routing proved with a manufactured finding
+
+**Objective.** Close the 3F record's open gap by making a real Access Analyzer
+finding travel the full path to the alert topic.
+
+**Identity and environment.** `aws-admin` for the mutating setup and for the
+CloudWatch reads, `mlops-security-auditor` for the analyzer reads. Dev,
+`us-east-1`.
+
+### The path to a usable test
+
+The first design used a cross-account S3 bucket policy naming AWS's
+documentation account `111122223333`. **S3 rejects it**:
+`MalformedPolicy: Invalid principal in policy`. S3 verifies that the account
+in a root principal exists, so no placeholder id can ever work, and a real
+second account was not available.
+
+The working substitute was a throwaway SQS queue with a public grant. Access
+Analyzer flags public access as well as cross-account, SQS has no Block Public
+Access equivalent to block the policy, and the queue could be deleted outright
+afterwards. The grant was limited to `sqs:GetQueueAttributes` on an empty
+queue attached to nothing — metadata reads only, no send or receive.
+
+The mutating write was run by the human. The permission classifier blocked it
+from this session in every form attempted, correctly: a policy granting
+outside access is indistinguishable in shape from an exfiltration setup.
+
+### Timeline and evidence
+
+| Time (UTC) | Event |
+|---|---|
+| 13:15:26 | Public queue policy live |
+| 13:17:08 | Finding `efcd6600` created — `ACTIVE`, `isPublic true`, `AWS::SQS::Queue` |
+| 13:13–13:18 | Rule `MatchedEvents` 1, `Invocations` 1, `FailedInvocations` **0** |
+| 13:13–13:18 | Topic `NumberOfMessagesPublished` 2, `NumberOfNotificationsDelivered` 2 |
+| 13:18:21 | Queue and the unused throwaway bucket both deleted |
+
+The finding arrived in about two minutes, against an AWS estimate of up to an
+hour.
+
+**`FailedInvocations` 0 is the load-bearing number.** It proves both new
+grants at once: EventBridge could publish to the topic, and it could use the
+KMS key the topic encrypts with. A missing key grant fails the invocation
+rather than degrading quietly. The two topic publishes cannot be split by
+source from metrics alone; the rule's own `Invocations` 1 is the direct
+evidence, not the topic count.
+
+### Interpretation
+
+`mlops-dev-security-s3-bucket-policy-changes` went to `ALARM` on the test's
+own bucket-policy writes — a true positive on this work, matching the 2E
+precedent and 3C's six emails.
+
+Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
+Access Analyzer resolves findings for deleted resources on a later pass, so
+this is expected rather than a leak.
+
+`mlops-security-auditor` cannot call `cloudwatch:GetMetricStatistics`, so the
+metric evidence needed `aws-admin`. That is a second auditor gap beside the
+known `config:ListConfigurationRecorders` one.
+
+**Decision and next checkpoint.** The Config delivery-failure rule stays
+unproved: proving it means breaking the compliance evidence trail on purpose,
+which is not worth the value. The 3F window stays open on that reduced gap.
+No account artifacts remain from the test.
+
+## [2026-08-08] update | The drift → retrain edge fired for the first time
+
+**Objective.** Correct a claim this repository has carried since 5C: that the
+closing edge of the drift loop had never run.
+
+**It has now run.** Timeline from the Phase K log groups, all on 2026-08-08:
+
+| Time (UTC) | Event |
+|---|---|
+| 01:21 | Inference traffic writes the capture window |
+| 02:00:38 | `drift_violation` — 200 records, `drifted: true`, `tenure` 12.648, `MonthlyCharges` 12.455, `TotalCharges` 12.438 |
+| 02:00:40 | `retrain_started` — execution `k6hglww9i8xw` |
+| 02:05:13 | `challenger_evaluation` — challenger 0.8535 AUC, champion 0.8679, `promotion_decision: reject` |
+| 02:11:07 | `retrain_suppressed` — `reason: cooldown`, `cooldown_hours: 6` |
+
+`describe-pipeline-execution` reports `k6hglww9i8xw` as `Succeeded`.
+
+Three mechanisms are now proved live, not only in tests: the drift Lambda's
+violation path, the promotion gate rejecting a worse challenger, and the
+six-hour retrain throttle.
+
+**The wiki was wrong and is corrected.** The roadmap page still said both
+`RetrainTriggerFn` log groups reported no events ever. Only the superseded
+`/aws/lambda/<function>` twin does; the Phase K `*Logs*` group holds the run.
+Reading the `/aws/lambda` twin alone would repeat the mistake — the twin exists
+for every platform Lambda and none of them writes to it.
+
+The hourly drift job has logged `drift_window_too_small` (`records: 0`,
+`required: 100`) at 03:00, 04:00, 05:00, and 06:00. No traffic has arrived
+since the 01:21 burst, so the size guard is skipping empty windows as designed.
+
+**Interpretation.** This closes the last unexercised edge of the platform
+runtime. It is unrelated to Phase 3F, which was deployed two hours later; the
+two share only the date.
+
+## [2026-08-08] update | The routed finding reached the subscriber
+
+The last unconfirmed link of the 3F analyzer proof is closed. The subscribed
+address received the finding at 13:17Z as an `AWS Notification Message` — raw
+EventBridge JSON, not an alarm email, which is why it did not resemble the
+alarm traffic around it.
+
+The delivered body carries finding id `efcd6600`, the same id
+`list-findings` reported, with `"detail-type":"Access Analyzer Finding"`,
+`"source":"aws.access-analyzer"`, `"status":"ACTIVE"`, `"isDeleted":false`,
+`"isPublic":true`, and the resource `mlops-dev-3f-routing-proof`.
+
+The delivered event satisfies the rule's own predicate on `status` and
+`isDeleted`. The pattern therefore filtered correctly rather than passing
+traffic that happened to match nothing.
+
+**A metric-reading correction.** An earlier reading of this window reported two
+publishes sharing one five-minute bucket, and concluded the finding could not be
+attributed by source from metrics alone. That was an artefact of unaligned
+bucket boundaries. Aligned to five-minute marks, each message separates: the
+two `s3-bucket-policy-changes` alarms fall in 13:05 and 13:10, and the 13:15
+bucket holds exactly one publish and one delivery — the finding. Query
+`get-metric-statistics` on aligned boundaries before attributing SNS traffic.
+
+The analyzer rule is now proved on every link: finding created → rule matched →
+target invoked without failure → topic published → notification delivered →
+subscriber received. Only the Config delivery-failure rule remains unproved,
+by choice.

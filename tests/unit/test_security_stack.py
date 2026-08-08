@@ -212,9 +212,12 @@ def test_security_audit_foundation(stacks):
         "AllowRegionalCloudWatchLogsEncryption",
         "AllowCloudWatchEncryptedAlerts",
         "AllowBudgetsEncryptedAlerts",
-        # Without this grant, Config cannot write snapshots into the
-        # KMS-encrypted audit bucket. It fails on the key, not the bucket.
+        # Config writes snapshots into the KMS-encrypted audit bucket. An
+        # ungranted write fails on the key, not the bucket.
         "AllowConfigSnapshotEncryption",
+        # The alert topic is encrypted, so a routed finding fails on the key
+        # before it reaches a subscriber.
+        "AllowEventBridgeEncryptedAlerts",
     }
 
     topic_policy = next(
@@ -225,12 +228,31 @@ def test_security_audit_foundation(stacks):
     service_statements = {
         statement["Sid"]: statement
         for statement in topic_policy["Statement"]
-        if statement["Sid"] in {"AllowCloudWatchAlarmPublish", "AllowBudgetsPublish"}
+        if statement["Sid"]
+        in {
+            "AllowCloudWatchAlarmPublish",
+            "AllowBudgetsPublish",
+            "AllowEventBridgePublish",
+        }
     }
-    assert set(service_statements) == {"AllowCloudWatchAlarmPublish", "AllowBudgetsPublish"}
+    assert set(service_statements) == {
+        "AllowCloudWatchAlarmPublish",
+        "AllowBudgetsPublish",
+        "AllowEventBridgePublish",
+    }
     for statement in service_statements.values():
         assert "aws:SourceAccount" in statement["Condition"]["StringEquals"]
         assert "aws:SourceArn" in statement["Condition"]["ArnLike"]
+
+    # Both EventBridge grants name the rule prefix. A wildcard here lets any
+    # rule in the account publish to the alert topic.
+    for document, sid in (
+        (topic_policy, "AllowEventBridgePublish"),
+        (key_policy, "AllowEventBridgeEncryptedAlerts"),
+    ):
+        statement = next(s for s in document["Statement"] if s.get("Sid") == sid)
+        source_arn = json.dumps(statement["Condition"]["ArnLike"]["aws:SourceArn"])
+        assert ":rule/mlops-dev-security-*" in source_arn
 
     access_log_policy = next(
         resource["Properties"]["PolicyDocument"]

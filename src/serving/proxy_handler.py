@@ -120,9 +120,9 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     features = encode_features({c: getattr(record, c) for c in FEATURE_COLUMNS})
     csv_line = ",".join(str(v) for v in features)
 
-    # Without this guard, every SageMaker failure reached the caller as a 502
-    # with a Lambda stack trace. That included the endpoint-updating window,
-    # which this architecture enters on every promotion.
+    # SageMaker raises while the endpoint updates, and every promotion starts
+    # an update. An unhandled error reaches the caller as a 502 with a Lambda
+    # stack trace.
     try:
         result = runtime.invoke_endpoint(
             EndpointName=ENDPOINT_NAME,

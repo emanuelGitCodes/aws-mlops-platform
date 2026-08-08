@@ -25,9 +25,8 @@ def _functions(stacks: dict) -> dict:
 def test_platform_lambdas_own_their_log_group(stacks):
     """Every platform Lambda logs to a group this repo sets the retention on.
 
-    Without an explicit group, the function still logs, into a default group
-    that never expires and that no config value governs. That failure is
-    silent.
+    A function with no explicit group still logs, into a default group that
+    never expires and that no config value governs. That failure is silent.
     """
     owned = {
         key: resource

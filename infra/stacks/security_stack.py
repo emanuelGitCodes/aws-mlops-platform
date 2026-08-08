@@ -147,6 +147,15 @@ class SecurityStack(Stack):
             resource="budget",
             resource_name="*",
         )
+        # Every security rule in this account carries this name prefix. The
+        # rules live in the SecurityMonitoring stack, which depends on this
+        # stack. A rule reference here reverses that and creates a cycle.
+        security_rule_arn = self.format_arn(
+            service="events",
+            resource="rule",
+            resource_name=f"mlops-{env_name}-security-*",
+        )
+        route_findings_to_alerts = security_config["services"]["eventbridge_alerts"]
 
         audit_key = kms.Key(
             self,
@@ -207,10 +216,19 @@ class SecurityStack(Stack):
                 },
             )
 
-        for sid, service, source_arn in (
+        encrypted_alert_publishers = [
             ("AllowCloudWatchEncryptedAlerts", "cloudwatch.amazonaws.com", alarm_arn),
             ("AllowBudgetsEncryptedAlerts", "budgets.amazonaws.com", budget_arn),
-        ):
+        ]
+        if route_findings_to_alerts:
+            encrypted_alert_publishers.append(
+                (
+                    "AllowEventBridgeEncryptedAlerts",
+                    "events.amazonaws.com",
+                    security_rule_arn,
+                )
+            )
+        for sid, service, source_arn in encrypted_alert_publishers:
             audit_key.add_to_resource_policy(
                 _alert_service_statement(
                     sid,
@@ -347,8 +365,8 @@ class SecurityStack(Stack):
             ):
                 audit_bucket.add_to_resource_policy(statement)
 
-            # The bucket is KMS-encrypted. Without this grant, delivery fails
-            # with AccessDenied on the key, not on the bucket.
+            # Config encrypts each snapshot with this key. An ungranted
+            # delivery fails with AccessDenied on the key, not on the bucket.
             audit_key.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AllowConfigSnapshotEncryption",
@@ -407,10 +425,15 @@ class SecurityStack(Stack):
         self.alert_topic = alert_topic
         alert_topic.add_subscription(subscriptions.EmailSubscription(alert_email.value_as_string))
 
-        for sid, service, source_arn in (
+        alert_publishers = [
             ("AllowCloudWatchAlarmPublish", "cloudwatch.amazonaws.com", alarm_arn),
             ("AllowBudgetsPublish", "budgets.amazonaws.com", budget_arn),
-        ):
+        ]
+        if route_findings_to_alerts:
+            alert_publishers.append(
+                ("AllowEventBridgePublish", "events.amazonaws.com", security_rule_arn)
+            )
+        for sid, service, source_arn in alert_publishers:
             alert_topic.add_to_resource_policy(
                 _alert_service_statement(
                     sid,

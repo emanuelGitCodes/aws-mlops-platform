@@ -79,8 +79,8 @@ class DataStack(Stack):
         # expiring any of those would break the endpoint or the drift job.
         #
         # The bucket is versioned, so expiring a current version leaves a
-        # noncurrent one behind. Without the second duration the objects stay
-        # billable after they disappear from a listing.
+        # noncurrent one behind. A noncurrent version stays billable after the
+        # object disappears from a listing.
         self.artifacts_bucket.add_lifecycle_rule(
             id="ExpireCapturedPredictions",
             enabled=True,

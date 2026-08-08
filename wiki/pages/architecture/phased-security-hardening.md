@@ -176,7 +176,7 @@ the boundary.
   recorder and delivery channel are mutually dependent so neither may depend
   on the other. The execution policy rotated twice and is live as `v11` with
   the GuardDuty actions removed and the CloudFormation read-back grants added;
-  `v5` and `v6` were deleted to free version slots and `v8` remains the
+  `v5` was deleted to free a version slot and `v8` remains the
   rollback target. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md).
 - **Phase 5B: complete; observation closed as a go 2026-08-05.** The model
@@ -288,11 +288,21 @@ the boundary.
   one open gap was that nothing showed the proxy logging over a period or during
   an endpoint update, and 5B supplied both. See the
   [Phase 5A record](../sources/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md).
-- **Phases 3F, 4, 6–9: not started.** No Security Hub, Phase 3 alert routing,
-  KMS data-key work, API-authentication change, WAF, or identity change is
-  deployed by this checkpoint. Under the July 19 revision the remaining Phase 3
-  work is partial 3F routing of Access Analyzer and Config events; full 3F
-  follows the deferred services.
+- **Phase 3F: partial, deployed to dev 2026-08-08, observation open.** Two
+  EventBridge rules route active external-access findings and Config history
+  or snapshot delivery failures to the Phase 2 alert topic. The audit key and
+  the topic each grant `events.amazonaws.com`, scoped to the
+  `mlops-<env>-security-*` rule prefix. The execution policy needed no
+  rotation, so both freed version slots stay banked. Configuration item
+  changes and compliance events are deliberately unrouted. **The analyzer rule
+  is proved live**: a manufactured public-access finding routed to the topic
+  with `FailedInvocations` 0, which proves the topic grant and the key grant
+  together. The Config rule stays unexercised. See the
+  [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
+- **Phases 4 and 6–9: not started.** No Security Hub, KMS data-key work,
+  API-authentication change, WAF, or identity change is deployed by this
+  checkpoint. Full 3F — GuardDuty and Security Hub findings — follows the
+  deferred services.
 
 ### Stable interfaces and deliberate breakpoints
 
@@ -418,16 +428,27 @@ mtimes that `pip install -t` rewrites — so a deploy from a cold `cdk.out`
 republishes all four functions' code with no source change, which undermines the
 resource-level deploy reporting the repository requires. **Seven orphaned log
 groups** survive in dev, and every platform Lambda has a superseded
-`/aws/lambda/<function>` twin beside its Phase K `*Logs*` group. And **the
-drift → retrain edge has never fired**: both `RetrainTriggerFn` log groups report
-no events ever, so the closing edge of the drift loop is unexercised in this
-account.
+`/aws/lambda/<function>` twin beside its Phase K `*Logs*` group.
 
-Partial 3F (EventBridge routing of Access Analyzer and Config events) remains
-queued. Two constraints carry into it. First, **IAM policy version pressure is now
-binding**: four of five slots are used and two historical versions were
-deleted to get there, so any further grant must free a slot first — including
-the GuardDuty actions when the trigger in
+The third 5C finding no longer holds. **The drift → retrain edge fired for the
+first time on 2026-08-08 at 02:00:40Z.** A `drift_violation` over 200 captured
+records (`tenure`, `MonthlyCharges`, and `TotalCharges` at PSI ≈ 12.4) produced
+`retrain_started`, and pipeline execution `k6hglww9i8xw` reached `Succeeded`.
+The challenger scored 0.8535 test AUC against the champion's 0.8679 and was
+rejected, so the champion stands. A second violation at 02:11:07Z logged
+`retrain_suppressed` on the six-hour cooldown. The closing edge of the drift
+loop, the promotion gate, and the retrain throttle are all now exercised in
+this account. Only the superseded `/aws/lambda/RetrainTriggerFn` twin still
+reports no events; the Phase K `*Logs*` group holds the run.
+
+Partial 3F is deployed and its observation window is open. The analyzer rule
+was proved live on 2026-08-08 with a manufactured finding; **the Config rule
+remains unproved**, because proving it means breaking the compliance evidence
+trail on purpose. Two constraints continue past it. First,
+**IAM policy version pressure is relieved but still tight**: `v6` and `v7` were
+deleted on 2026-08-07, leaving `v8`, `v10`, and the default `v11` in three of
+the five slots. 3F consumed none of them, so two grants still fit before the
+next cleanup — one of them the GuardDuty actions when the trigger in
 [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md)
 arrives. Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true

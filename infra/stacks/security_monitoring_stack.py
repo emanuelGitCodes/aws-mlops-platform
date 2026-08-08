@@ -5,6 +5,7 @@ from typing import Any
 from aws_cdk import ArnFormat, Stack, Tags
 from aws_cdk import aws_accessanalyzer as accessanalyzer
 from aws_cdk import aws_config as config_
+from aws_cdk import aws_events as events
 from aws_cdk import aws_guardduty as guardduty
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kms as kms
@@ -29,7 +30,13 @@ PHASE_3_SERVICE_FLAGS = (
 # loudly. A silent no-op deploy looks like an enabled security service. Add a
 # flag here in the change that implements it.
 IMPLEMENTED_SERVICE_FLAGS = frozenset(
-    {"access_analyzer", "guardduty", "account_bpa", "config_recorder"}
+    {
+        "access_analyzer",
+        "guardduty",
+        "account_bpa",
+        "config_recorder",
+        "eventbridge_alerts",
+    }
 )
 
 # Config records history for the resource types the metric detections alarm
@@ -59,6 +66,33 @@ ACCOUNT_BPA_CONFIGURATION = {
     "IgnorePublicAcls": True,
     "BlockPublicPolicy": True,
     "RestrictPublicBuckets": True,
+}
+
+# The analyzer emits an event when a finding appears, when its status changes,
+# and when it is deleted. These two fields select the live findings.
+ACCESS_ANALYZER_FINDING_PATTERN = {
+    "source": ["aws.access-analyzer"],
+    "detail-type": ["Access Analyzer Finding"],
+    "detail": {"status": ["ACTIVE"], "isDeleted": [False]},
+}
+
+# Config writes its history and snapshots to the audit bucket. A failed
+# delivery stops that evidence and leaves the recorder running.
+#
+# Item-change events arrive one per change, for every recorded resource.
+# Compliance events need Config rules. This account deploys none.
+CONFIG_DELIVERY_FAILURE_PATTERN = {
+    "source": ["aws.config"],
+    "detail-type": [
+        "Config Configuration History Delivery Status",
+        "Config Configuration Snapshot Delivery Status",
+    ],
+    "detail": {
+        "messageType": [
+            "ConfigurationHistoryDeliveryFailed",
+            "ConfigurationSnapshotDeliveryFailed",
+        ]
+    },
 }
 
 GUARDDUTY_DISABLED_FEATURES = (
@@ -246,3 +280,49 @@ class SecurityMonitoringStack(Stack):
                     )
                 ),
             )
+
+        if services["eventbridge_alerts"]:
+            # A source routes only while its own service runs. A rule for a
+            # stopped service matches nothing.
+            routed_sources = (
+                (
+                    "AccessAnalyzerFindingRule",
+                    "access-analyzer-findings",
+                    services["access_analyzer"],
+                    "Active external-access findings",
+                    ACCESS_ANALYZER_FINDING_PATTERN,
+                ),
+                (
+                    "ConfigDeliveryFailureRule",
+                    "config-delivery-failures",
+                    services["config_recorder"],
+                    "Config history or snapshot delivery failures",
+                    CONFIG_DELIVERY_FAILURE_PATTERN,
+                ),
+            )
+            for construct_id, slug, source_enabled, description, pattern in routed_sources:
+                if not source_enabled:
+                    continue
+                rule = events.CfnRule(
+                    self,
+                    construct_id,
+                    description=f"{description} to the {self.env_name} alert topic",
+                    event_pattern=pattern,
+                    # The topic policy and the audit key grant publication to
+                    # this name prefix. A rule named outside it matches its
+                    # events, then fails to deliver them.
+                    name=f"mlops-{self.env_name}-security-{slug}",
+                    state="ENABLED",
+                    targets=[
+                        events.CfnRule.TargetProperty(
+                            arn=alert_topic.topic_arn,
+                            id="SecurityAlertsTopic",
+                        )
+                    ],
+                )
+                for key, value in (
+                    ("Project", "aws-mlops-platform"),
+                    ("Environment", self.env_name),
+                    ("SecurityPhase", "3F"),
+                ):
+                    Tags.of(rule).add(key, value)

@@ -4818,3 +4818,32 @@ since the 01:21 burst, so the size guard is skipping empty windows as designed.
 **Interpretation.** This closes the last unexercised edge of the platform
 runtime. It is unrelated to Phase 3F, which was deployed two hours later; the
 two share only the date.
+
+## [2026-08-08] update | The routed finding reached the subscriber
+
+The last unconfirmed link of the 3F analyzer proof is closed. The subscribed
+address received the finding at 13:17Z as an `AWS Notification Message` — raw
+EventBridge JSON, not an alarm email, which is why it did not resemble the
+alarm traffic around it.
+
+The delivered body carries finding id `efcd6600`, the same id
+`list-findings` reported, with `"detail-type":"Access Analyzer Finding"`,
+`"source":"aws.access-analyzer"`, `"status":"ACTIVE"`, `"isDeleted":false`,
+`"isPublic":true`, and the resource `mlops-dev-3f-routing-proof`.
+
+The delivered event satisfies the rule's own predicate on `status` and
+`isDeleted`. The pattern therefore filtered correctly rather than passing
+traffic that happened to match nothing.
+
+**A metric-reading correction.** An earlier reading of this window reported two
+publishes sharing one five-minute bucket, and concluded the finding could not be
+attributed by source from metrics alone. That was an artefact of unaligned
+bucket boundaries. Aligned to five-minute marks, each message separates: the
+two `s3-bucket-policy-changes` alarms fall in 13:05 and 13:10, and the 13:15
+bucket holds exactly one publish and one delivery — the finding. Query
+`get-metric-statistics` on aligned boundaries before attributing SNS traffic.
+
+The analyzer rule is now proved on every link: finding created → rule matched →
+target invoked without failure → topic published → notification delivered →
+subscriber received. Only the Config delivery-failure rule remains unproved,
+by choice.

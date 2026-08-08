@@ -44,6 +44,15 @@ once: EventBridge could publish to the topic, and it could use the KMS key the
 topic encrypts with. A missing key grant fails the invocation rather than
 degrading quietly.
 
+**The subscriber received the finding.** On aligned five-minute boundaries the
+topic shows one publish and one delivery in the 13:15 bucket, with nothing else
+happening in that window, and `NumberOfNotificationsFailed` 0 across the whole
+period. The delivered email carries finding id `efcd6600` — the same id the
+analyzer created — with `"detail-type":"Access Analyzer Finding"`,
+`"status":"ACTIVE"`, `"isDeleted":false`, and `"isPublic":true`. The delivered
+event satisfies the rule's own predicate, so the pattern filtered rather than
+merely passed traffic. Every link from finding to inbox is confirmed.
+
 The Config rule remains unexercised. The recorder reports `recording: true`
 and `lastStatus: SUCCESS`, and both delivery channels report `SUCCESS`.
 

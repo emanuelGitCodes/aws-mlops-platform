@@ -4717,3 +4717,69 @@ Neither was run.
 and `security_hub`, both waiting on the explicit paid-plan upgrade decision.
 The 3F observation window is open. Prod remains all-false. Phase 4 (KMS) is
 next once 3F closes as a go.
+
+## [2026-08-08] update | Phase 3F analyzer routing proved with a manufactured finding
+
+**Objective.** Close the 3F record's open gap by making a real Access Analyzer
+finding travel the full path to the alert topic.
+
+**Identity and environment.** `aws-admin` for the mutating setup and for the
+CloudWatch reads, `mlops-security-auditor` for the analyzer reads. Dev,
+`us-east-1`.
+
+### The path to a usable test
+
+The first design used a cross-account S3 bucket policy naming AWS's
+documentation account `111122223333`. **S3 rejects it**:
+`MalformedPolicy: Invalid principal in policy`. S3 verifies that the account
+in a root principal exists, so no placeholder id can ever work, and a real
+second account was not available.
+
+The working substitute was a throwaway SQS queue with a public grant. Access
+Analyzer flags public access as well as cross-account, SQS has no Block Public
+Access equivalent to block the policy, and the queue could be deleted outright
+afterwards. The grant was limited to `sqs:GetQueueAttributes` on an empty
+queue attached to nothing — metadata reads only, no send or receive.
+
+The mutating write was run by the human. The permission classifier blocked it
+from this session in every form attempted, correctly: a policy granting
+outside access is indistinguishable in shape from an exfiltration setup.
+
+### Timeline and evidence
+
+| Time (UTC) | Event |
+|---|---|
+| 13:15:26 | Public queue policy live |
+| 13:17:08 | Finding `efcd6600` created — `ACTIVE`, `isPublic true`, `AWS::SQS::Queue` |
+| 13:13–13:18 | Rule `MatchedEvents` 1, `Invocations` 1, `FailedInvocations` **0** |
+| 13:13–13:18 | Topic `NumberOfMessagesPublished` 2, `NumberOfNotificationsDelivered` 2 |
+| 13:18:21 | Queue and the unused throwaway bucket both deleted |
+
+The finding arrived in about two minutes, against an AWS estimate of up to an
+hour.
+
+**`FailedInvocations` 0 is the load-bearing number.** It proves both new
+grants at once: EventBridge could publish to the topic, and it could use the
+KMS key the topic encrypts with. A missing key grant fails the invocation
+rather than degrading quietly. The two topic publishes cannot be split by
+source from metrics alone; the rule's own `Invocations` 1 is the direct
+evidence, not the topic count.
+
+### Interpretation
+
+`mlops-dev-security-s3-bucket-policy-changes` went to `ALARM` on the test's
+own bucket-policy writes — a true positive on this work, matching the 2E
+precedent and 3C's six emails.
+
+Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
+Access Analyzer resolves findings for deleted resources on a later pass, so
+this is expected rather than a leak.
+
+`mlops-security-auditor` cannot call `cloudwatch:GetMetricStatistics`, so the
+metric evidence needed `aws-admin`. That is a second auditor gap beside the
+known `config:ListConfigurationRecorders` one.
+
+**Decision and next checkpoint.** The Config delivery-failure rule stays
+unproved: proving it means breaking the compliance evidence trail on purpose,
+which is not worth the value. The 3F window stays open on that reduced gap.
+No account artifacts remain from the test.

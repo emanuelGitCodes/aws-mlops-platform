@@ -294,9 +294,10 @@ the boundary.
   the topic each grant `events.amazonaws.com`, scoped to the
   `mlops-<env>-security-*` rule prefix. The execution policy needed no
   rotation, so both freed version slots stay banked. Configuration item
-  changes and compliance events are deliberately unrouted. Neither rule has
-  fired: the analyzer reports zero active findings and both Config delivery
-  channels report `SUCCESS`, so the path is unexercised. See the
+  changes and compliance events are deliberately unrouted. **The analyzer rule
+  is proved live**: a manufactured public-access finding routed to the topic
+  with `FailedInvocations` 0, which proves the topic grant and the key grant
+  together. The Config rule stays unexercised. See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
 - **Phases 4 and 6–9: not started.** No Security Hub, KMS data-key work,
   API-authentication change, WAF, or identity change is deployed by this
@@ -432,9 +433,10 @@ drift → retrain edge has never fired**: both `RetrainTriggerFn` log groups rep
 no events ever, so the closing edge of the drift loop is unexercised in this
 account.
 
-Partial 3F is deployed and its observation window is open; its own open gap is
-that **neither routing rule has fired**, because every source service is
-healthy and has nothing to report. Two constraints continue past it. First,
+Partial 3F is deployed and its observation window is open. The analyzer rule
+was proved live on 2026-08-08 with a manufactured finding; **the Config rule
+remains unproved**, because proving it means breaking the compliance evidence
+trail on purpose. Two constraints continue past it. First,
 **IAM policy version pressure is relieved but still tight**: `v6` and `v7` were
 deleted on 2026-08-07, leaving `v8`, `v10`, and the default `v11` in three of
 the five slots. 3F consumed none of them, so two grants still fit before the

@@ -31,10 +31,21 @@ Prod synthesizes to `CDKMetadata` alone and carries neither grant.
 the two stacks: `AccessAnalyzerFindingRule` and `ConfigDeliveryFailureRule`
 created, `AuditKeyB2DBB069` and `SecurityAlertsTopicPolicy1E6023E3` updated.
 
-Neither rule has fired. The analyzer reports zero `ACTIVE` findings. The
-recorder reports `recording: true` and `lastStatus: SUCCESS`, and both
-delivery channels report `SUCCESS`. Every source is healthy and has nothing
-to report, so the routing is deployed and unexercised.
+**The analyzer rule is proved live.** A throwaway SQS queue carried a public
+`sqs:GetQueueAttributes` grant from 13:15:26Z. Access Analyzer created finding
+`efcd6600` at **13:17:08Z** — about two minutes, against a documented estimate
+of up to an hour. In the same five-minute window the rule recorded
+`MatchedEvents` 1, `Invocations` 1, and `FailedInvocations` **0**, and the
+topic recorded two publishes and two deliveries. The queue and an unused
+throwaway bucket were both deleted at 13:18:21Z.
+
+`FailedInvocations` 0 is the load-bearing number. It proves both new grants at
+once: EventBridge could publish to the topic, and it could use the KMS key the
+topic encrypts with. A missing key grant fails the invocation rather than
+degrading quietly.
+
+The Config rule remains unexercised. The recorder reports `recording: true`
+and `lastStatus: SUCCESS`, and both delivery channels report `SUCCESS`.
 
 `make lint`, `make typecheck`, and `make security` pass. `make test` reports
 306 passed at `93.45%`, and the floor moves `93.37 → 93.45`.
@@ -67,16 +78,27 @@ nothing.
 
 ## Tensions or open questions
 
-- **Neither rule has live proof.** Both source services are healthy, so
-  nothing has exercised the path end to end. Proving the analyzer rule needs
-  a deliberately generated finding — a cross-account principal on a low-value
-  bucket, reverted after — which also pages the `iam-policy-changes` alarm.
-  Proving the Config rule needs a deliberately broken delivery. Neither test
-  has been run.
-- The Phase 2E precedent is that a gated deploy pages
-  `iam-policy-changes` and `unauthorized-api-calls`; 3C produced six such
-  emails, all true positives. This deploy changed a key policy and a topic
-  policy, so the same alarms may fire on its own work.
+- **The Config rule still has no live proof.** Proving it needs a
+  deliberately broken delivery, which interrupts the compliance evidence
+  trail for as long as it runs. That was judged too invasive for the value.
+  The rule's pattern is pinned by tests; its live path is not.
+- **S3 rejects a bucket policy naming an account that does not exist**
+  (`MalformedPolicy: Invalid principal in policy`). The first attempt used
+  AWS's documentation placeholder `111122223333` and failed. Any future
+  external-access test needs either a real second account or a resource type
+  with no such validation — SQS worked, and it has no Block Public Access
+  equivalent standing in the way.
+- Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
+  Access Analyzer resolves findings for deleted resources on a later pass, so
+  a short-lived `ACTIVE` finding for a resource that no longer exists is
+  expected, not a leak.
+- `mlops-security-auditor` cannot read CloudWatch metrics —
+  `cloudwatch:GetMetricStatistics` is ungranted, so this evidence needed
+  `aws-admin`. It sits alongside the known `config:ListConfigurationRecorders`
+  gap.
+- The Phase 2E precedent held: `mlops-dev-security-s3-bucket-policy-changes`
+  went to `ALARM` on the test's own bucket-policy writes. A true positive on
+  this work, like 3C's six.
 - Full 3F — routing GuardDuty and Security Hub findings — stays behind the
   paid-plan decision in
   [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md).

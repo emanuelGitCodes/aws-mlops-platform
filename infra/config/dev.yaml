@@ -31,4 +31,4 @@ security:
     config_recorder: true
     security_hub: false
     account_bpa: true
-    eventbridge_alerts: false
+    eventbridge_alerts: true

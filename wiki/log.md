@@ -4629,3 +4629,7 @@ last pre-3C state and the only console-side undo for the 3C narrowing.
 
 The audit ran under `mlops-security-auditor`, which can read policy versions.
 The deletion needs `aws-admin` — the auditor profile is read-only.
+## [2026-08-07] query | 3F EventBridge alert routing
+
+Found 23 matching page(s).
+

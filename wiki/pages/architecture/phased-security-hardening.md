@@ -463,11 +463,14 @@ the boundary.
   rule named `ArchiveCiDeployRoleFederation` matches that one role ARN. The
   rule automatically archives new matching findings. The existing finding
   needs one `apply-archive-rule` action after deployment. The rule is
-  implemented and not deployed, so the active count remains one. After the
-  deployment and apply action, the expected count returns to zero and any
-  other external access still reports. Earlier windows recorded "zero active
-  findings" against an account that had no federated role; read those against
-  their own date.
+  implemented and not deployed, so the active count remains one. Its first
+  deploy rolled back because the CloudFormation execution role lacked
+  `access-analyzer:CreateArchiveRule`. The scoped lifecycle grant is written in
+  the policy extension and is not live. After the policy rotation, deployment,
+  and apply action, the expected count returns to zero and any other external
+  access still reports. Earlier windows recorded "zero active findings"
+  against an account that had no federated role; read those against their own
+  date.
   Access Analyzer does not treat the role's OIDC claim conditions as access
   restrictions, so a finding for it carries `condition: {}` — that is the
   analyzer's blind spot, not a loose trust.

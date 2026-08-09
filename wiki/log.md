@@ -5773,3 +5773,43 @@ reviewed diff adds `ArchiveRules` to the analyzer and changes nothing else.
 resource-level verification, then apply the rule to the existing finding.
 Confirm the archive rule exists and the active finding count is zero before the
 explicit go/no-go.
+
+## [2026-08-09] failure | Archive-rule deploy exposes a missing execution grant
+
+**Objective.** Deploy `ArchiveCiDeployRoleFederation` to dev after the branch,
+hosted CI, and named diff were clean.
+
+**Scope.** `Mlops-Dev-SecurityMonitoring` and its unchanged
+`Mlops-Dev-Security` dependency. The attempt used the restricted deployment
+identity. The follow-up IAM audit was read-only.
+
+**Commands and results.** Hosted CI passed both jobs. The named diff reported
+one change: add `ArchiveRules` to `ExternalAccessAnalyzer`. It also reported no
+differences in `Mlops-Dev-Security`. The deploy reached the analyzer update and
+failed on `access-analyzer:CreateArchiveRule`. CloudFormation completed the
+rollback. A live check still returns no archive rules and one active finding.
+
+**Interpretation.** The main execution policy can create and read an analyzer.
+It does not manage archive rules. CloudFormation uses separate archive-rule
+APIs for the nested `ArchiveRules` property, so the old analyzer grant does not
+cover this update.
+
+**IAM baseline.** The live policy extension is attached to the CloudFormation
+execution role. It has one version, `v1`, and its default document matches the
+repository's OIDC-only statement. Four version slots remain.
+
+**Change.** The extension adds create, delete, get, update, and list access for
+`ArchiveCiDeployRoleFederation` under `mlops-*-external-access`. The lifecycle
+actions use the archive-rule ARN. The list action uses the analyzer ARN.
+`ApplyArchiveRule` stays outside CloudFormation because it changes the status
+of existing findings.
+
+**Verification.** `make lint`, `make typecheck`, `make docs-sync`, and
+`make wiki-lint` pass. `make test` reports 324 passed at 93.66%. The dependency
+audit and both environment syntheses pass. The policy-size and unique-`Sid`
+tests cover the updated extension.
+
+**Decision and next checkpoint.** Validate the policy and rotate the live
+extension only after explicit approval. Then repeat the named deploy, run
+resource-level verification, and apply the rule once to the existing finding.
+The phase remains a no-go until those checks pass.

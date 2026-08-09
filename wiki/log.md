@@ -5396,3 +5396,60 @@ asserted the gate were corrected to describe what is configured:
 above. Restore the stronger wording only after a required reviewer exists.
 
 **Verification.** `python scripts/wiki.py lint`.
+
+## [2026-08-09] verify | 2F closes split: the 5xx half is a go, the silence half cannot fire
+
+**Objective.** Close sub-phase 2F's observation window. The 5xx criterion
+passed. The silence criterion failed in a way that no test caught and only a
+full idle window could expose.
+
+**Identity.** `aws-admin` for CloudWatch reads. No AWS resource was changed.
+
+**The 5xx half: go.** `mlops-dev-endpoint-5xx` held `OK` across 24 unbroken
+hours of an idle serverless endpoint, having left `INSUFFICIENT_DATA` 48
+seconds after the deploy. Before 2F it read `INSUFFICIENT_DATA` for that whole
+period. This half of the defect is fixed and proven.
+
+**The silence half: no-go. The alarm cannot fire as deployed.**
+
+| Check at 2026-08-09T17:03Z | Result |
+|---|---|
+| Hours since the last invocation | 25 |
+| `mlops-dev-endpoint-silent` | `OK`, unchanged since 2026-08-08T15:50Z |
+| Alarm history entries in 25 hours | 2 — created, and `INSUFFICIENT_DATA → OK` |
+| Raw `Invocations`, six idle hours | **0** datapoints, status `Complete` |
+| `FILL(m1, 0)`, identical range | **6** datapoints, all zero |
+
+**Interpretation.** SageMaker publishes no `Invocations` datapoint for an idle
+hour. The alarm's metric therefore returns an empty series, no datapoint
+arrives to drive an evaluation, and the alarm holds the state it reached at
+creation. It had not re-evaluated once in 25 hours.
+
+**The mistaken belief this corrects.** The 2F record and a code comment both
+said `BREACHING` is the only `TreatMissingData` value that detects silence.
+`BREACHING` decides how a gap counts **inside an evaluation that already
+runs**. It does not cause an evaluation to run. Necessary, not sufficient.
+
+**The general rule.** On this platform, **an alarm over a sparse AWS metric
+needs `FILL`**. `Invocations` on a serverless endpoint is the sparsest case,
+because it goes fully absent rather than merely gappy. Sub-phase 2G reached the
+same conclusion from the other direction, on a metric with occasional gaps. Two
+sub-phases, one root cause.
+
+**A process note worth keeping.** Two predictions of the transition time were
+made and both were wrong — 16:00Z from assuming clean hour alignment, then
+16:47Z from reading bucket offsets in a stale `StateReason`. Each was plausible
+and each was a guess. `describe-alarm-history` settled it in one call by
+showing no evaluations at all. **Read the alarm's history before modelling its
+schedule.**
+
+**Decision and next checkpoint.** The 5xx change stays deployed. The silence
+alarm moves to a `FILL(m1, 0)` math expression, mirroring 2G, on branch
+`claude/fix-2f-silence-alarm`. It is **not deployed** and needs its own fresh
+24-hour idle window after it is. The deployed alarm is inert rather than
+harmful, so no rollback is urgent.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 320 passed. The reviewed diff moves `EndpointSilentAlarm`
+from `MetricName`/`Period`/`Statistic` to a `Metrics` array.
+`python scripts/wiki.py lint`.

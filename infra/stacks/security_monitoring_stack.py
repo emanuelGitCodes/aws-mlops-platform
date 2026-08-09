@@ -14,7 +14,11 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
+from infra.stacks.shared import (
+    CONFIG_DELIVERY_PREFIX,
+    PlatformConfig,
+    github_deploy_role_name,
+)
 
 PHASE_3_SERVICE_FLAGS = (
     "access_analyzer",
@@ -149,11 +153,38 @@ class SecurityMonitoringStack(Stack):
         self.services = services
 
         if services["access_analyzer"]:
+            # The CI deploy role is assumable by GitHub's OIDC provider, so
+            # the analyzer reports it as external access every time it is
+            # recreated. That finding is the design, and leaving it ACTIVE
+            # would sit beside any real one and blunt it. The rule names the
+            # single role, so external access to anything else still reports.
+            #
+            # Access Analyzer does not treat the role's OIDC claim conditions
+            # as access restrictions; a finding for it carries `condition: {}`.
+            # Read the analyzer as unable to see how tightly the trust is
+            # scoped, not as evidence that it is loose.
+            ci_deploy_role_arn = self.format_arn(
+                service="iam",
+                region="",
+                resource="role",
+                resource_name=github_deploy_role_name(self.env_name),
+            )
             analyzer = accessanalyzer.CfnAnalyzer(
                 self,
                 "ExternalAccessAnalyzer",
                 analyzer_name=f"mlops-{self.env_name}-external-access",
                 type="ACCOUNT",
+                archive_rules=[
+                    accessanalyzer.CfnAnalyzer.ArchiveRuleProperty(
+                        rule_name="ArchiveCiDeployRoleFederation",
+                        filter=[
+                            accessanalyzer.CfnAnalyzer.FilterProperty(
+                                property="resource",
+                                eq=[ci_deploy_role_arn],
+                            )
+                        ],
+                    )
+                ],
             )
             for key, value in (
                 ("Project", "aws-mlops-platform"),

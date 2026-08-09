@@ -5453,3 +5453,51 @@ harmful, so no rollback is urgent.
 `make test` reports 320 passed. The reviewed diff moves `EndpointSilentAlarm`
 from `MetricName`/`Period`/`Statistic` to a `Metrics` array.
 `python scripts/wiki.py lint`.
+
+## [2026-08-09] implement | An archive rule for the CI deploy role's standing finding
+
+**Objective.** Stop a permanent, expected Access Analyzer finding from sitting
+beside real ones, and correct the observation-window criterion it invalidates.
+
+**What produced it.** Deploying `CicdStack` created
+`mlops-<env>-github-deploy`, which GitHub's OIDC provider can assume. Access
+Analyzer raised an external-access finding at 19:17:44Z, about two minutes after
+the role was created, and 3F's EventBridge rule delivered it to the subscriber.
+
+**Two controls proved themselves on unmanufactured activity.** 3F's analyzer
+route was previously proved with a throwaway SQS queue created and deleted for
+the purpose. This finding came from the platform's own change. The
+`iam-policy-changes` alarm fired in the same window on `2.0` — the
+`PutRolePolicy` for the role's inline policy and the `AttachRolePolicy` for
+`MLOpsCdkDeploymentPolicy`. `CreateRole` is not in that filter, which is why the
+count is two rather than three.
+
+**The finding is correct and permanent.** The role is meant to be externally
+assumable; that is what OIDC federation is. Unlike the throwaway queue, it is
+not going away, so the finding stays `ACTIVE` indefinitely.
+
+**Change.** `SecurityMonitoringStack`'s analyzer gains one archive rule,
+`ArchiveCiDeployRoleFederation`, filtering `resource` against the single role
+ARN. A `resourceType` filter would have archived every externally accessible
+role, including one nobody meant to create. The role-name formula moved to
+`github_deploy_role_name()` in `infra/stacks/shared.py`, because `CicdStack`
+creates the role and `SecurityMonitoringStack` now names it, and the two stacks
+have no dependency between them.
+
+**A limitation worth recording.** The finding carries `condition: {}` even
+though the trust has five `StringEquals` conditions. **Access Analyzer does not
+model OIDC claim conditions as access restrictions.** It cannot tell you the
+trust is tightly scoped, so it should not be read as evidence either way about
+the claim hardening.
+
+**The criterion this invalidates.** Observation windows have closed on "the
+analyzer `ACTIVE` with zero active findings" since Phase 3A. That was written
+for an account with no federated role. With the archive rule the expected count
+returns to zero; without it the next window would read a permanent expected
+finding as a regression. The roadmap's stable-interfaces section now records
+this.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 323 passed, and the floor moves `93.64 → 93.65`. The
+reviewed diff adds `ArchiveRules` to the analyzer and changes nothing else.
+**Not deployed.** `python scripts/wiki.py lint`.

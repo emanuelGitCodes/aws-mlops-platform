@@ -13,7 +13,7 @@ from infra.stacks.security_monitoring_stack import (
     PHASE_3_SERVICE_FLAGS,
     SecurityMonitoringStack,
 )
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX
+from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, github_deploy_role_name
 from tests.unit.conftest import CONFIG
 
 
@@ -50,7 +50,7 @@ def test_security_monitoring_enables_only_the_unpaid_phase_3_services(stacks):
         for resource in template.to_json()["Resources"].values()
         if resource["Type"] == "AWS::AccessAnalyzer::Analyzer"
     )
-    assert set(analyzer_properties) == {"AnalyzerName", "Tags", "Type"}
+    assert set(analyzer_properties) == {"AnalyzerName", "ArchiveRules", "Tags", "Type"}
     assert {tag["Key"]: tag["Value"] for tag in analyzer_properties["Tags"]} == {
         "Project": "aws-mlops-platform",
         "Environment": "dev",
@@ -507,3 +507,25 @@ def test_disabling_alert_routing_leaves_no_rules_and_no_grants():
     }
     assert "AllowEventBridgePublish" not in sids
     assert "AllowEventBridgeEncryptedAlerts" not in sids
+
+
+def test_the_analyzer_archives_only_the_ci_deploy_role_finding(stacks):
+    """The CI deploy role is assumable by GitHub, so the analyzer reports it as
+    external access on every recreation. Archiving that one finding keeps a real
+    one from sitting beside a permanent expected one."""
+    analyzer = next(
+        resource["Properties"]
+        for resource in stacks["security_monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::AccessAnalyzer::Analyzer"
+    )
+    rules = analyzer["ArchiveRules"]
+
+    assert len(rules) == 1
+    assert rules[0]["RuleName"] == "ArchiveCiDeployRoleFederation"
+    filters = rules[0]["Filter"]
+    assert len(filters) == 1
+    assert filters[0]["Property"] == "resource"
+    # One exact ARN. A resourceType filter would archive every externally
+    # accessible role, including one nobody meant to create.
+    assert len(filters[0]["Eq"]) == 1
+    assert f"role/{github_deploy_role_name(CONFIG['env_name'])}" in json.dumps(filters[0]["Eq"])

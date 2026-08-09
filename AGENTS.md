@@ -48,9 +48,10 @@ trusting this summary, which is coarse by design.
   rather than on its own, so the two shared one window.
 - Phase 6 (SigV4 on `/predict`) is deployed to dev on 2026-08-09, observation
   open. The account holds no API key and no usage plan, and the stage carries
-  the throttle they used to. `CicdStack` is **merged and not deployed** —
-  merging is not landing, since `deploy.yml` is `workflow_dispatch` only and no
-  role exists for it to assume. Phase 4 (KMS) and Phases 7–9 are not started.
+  the throttle they used to. `CicdStack` is deployed the same day, so the OIDC
+  provider and `mlops-dev-github-deploy` exist. **`deploy.yml` still has not
+  run**: nothing holds the role ARN, and the `dev` and `prod` GitHub
+  environments do not exist. Phase 4 (KMS) and Phases 7–9 are not started.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and

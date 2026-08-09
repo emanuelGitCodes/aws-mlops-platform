@@ -709,12 +709,14 @@ Related runtime and human authority boundaries are documented in
   ten unused `securityhub:` actions, or split into a second managed policy
   attached to the same role. Only the split survives the phase after next.
   **No decision is taken yet.**
-- **The account has no GitHub OIDC provider and no role trusting GitHub.**
-  `.github/workflows/deploy.yml` has therefore never run, and every deployment
-  in this project's history came from a workstation. `CicdStack` is written and
-  tested to close this, but it cannot deploy until the policy question above is
-  settled.
-- **Production has never been deployed.** Eight stacks exist, all
+- ~~The account has no GitHub OIDC provider and no role trusting GitHub.~~
+  **Closed on 2026-08-09.** `CicdStack` is deployed: the provider exists and
+  `mlops-dev-github-deploy` carries the four-claim trust. **The workflow still
+  has not run**, because nothing yet holds the role ARN. Two settings remain,
+  both outside this repository: create the `dev` and `prod` GitHub environments,
+  and set `AWS_DEV_DEPLOY_ROLE_ARN` from the `GitHubDeployRoleArn` output. Every
+  deployment to date still came from a workstation.
+- **Production has never been deployed.** Nine stacks exist, all
   `Mlops-Dev-*`. The two-environment design is proven at synthesis only, which
   means the shared-account collisions this page warns about — the model package
   group, the account budget, and now the OIDC provider — have never been tested

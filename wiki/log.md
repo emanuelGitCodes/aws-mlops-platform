@@ -5648,3 +5648,65 @@ the budget intact. `CicdStack` is next, followed by `#57` on top of it.
 **Verification.** `make verify-deploy SINCE=2026-08-09`, `get-method`,
 `get-api-keys`, `get-usage-plans`, `get-stage`, one unsigned and one signed
 call, `make smoke`. `python scripts/wiki.py lint`.
+
+## [2026-08-09] deploy | The CI/CD identity exists, with the hardened trust from the start
+
+**Objective.** Deploy `CicdStack`, so `.github/workflows/deploy.yml` has an
+identity to assume and deployment stops depending on a workstation.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for IAM reads.
+
+**A sequencing choice made before deploying.** `main` carried the two-claim
+trust, and `#57`'s hardening was green and unmerged. Deploying first would have
+put the weaker trust live for the length of a merge, for no gain, so `#57` was
+merged first and the roles were created with all four claims. **The two-claim
+version was never live.**
+
+**The dependency check reported two stacks, and both belong to one change set.**
+`Including dependency stacks: Mlops-Dev-Serving, Mlops-Dev-Data,
+Mlops-Dev-Security`, with differences in `Mlops-Dev-Cicd` and
+`Mlops-Dev-Security`. The Security change is `#57`'s prod-deploy-role alarm, so
+this is a coherent deploy rather than a fusion of unrelated work — the
+distinction the 2G accident taught.
+
+**Deploy.** `Mlops-Dev-Cicd` created at 2026-08-09T19:15:41Z.
+`make verify-deploy SINCE=2026-08-09` reports `GitHubOidcProvider`,
+`GitHubDeployRole`, and its default policy created, plus
+`ProdDeployRoleAssumedFilter` and `ProdDeployRoleAssumedAlarm` in
+`Mlops-Dev-Security`.
+
+**The live trust, read back from IAM:**
+
+| Claim | Value |
+|---|---|
+| `sub` | `repo:<owner>/<repo>:environment:dev` |
+| `aud` | `sts.amazonaws.com` |
+| `job_workflow_ref` | `<owner>/<repo>/.github/workflows/deploy.yml@refs/heads/main` |
+| `repository_owner` | the repository owner |
+| `runner_environment` | `github-hosted` |
+
+**The thumbprint claim is settled, and it needs a correction.** `CicdStack`
+omits `ThumbprintList`, on the stated basis that AWS validates the provider's
+certificate against its own trusted CAs. `CreateOpenIDConnectProvider` accepted
+that — but `get-open-id-connect-provider` shows AWS **populated a thumbprint
+itself**, `ab9d0263…`. So the effect is right and the mechanism as written is
+incomplete: the choice is not between one thumbprint and none, it is between
+one this repository pins and one AWS maintains. The comment's warning still
+holds for a manually pinned value, which is what would become a rotation outage.
+
+**What still blocks CI from deploying.** Nothing holds the role ARN. Two
+settings remain, both outside this repository: create the `dev` and `prod`
+GitHub environments, and set `AWS_DEV_DEPLOY_ROLE_ARN` from the
+`GitHubDeployRoleArn` output. Until then the role exists and nothing can assume
+it, so **every deployment to date still came from a workstation**.
+
+**Decision and next checkpoint.** The observation window is open for both the
+Cicd stack and `#57`'s alarm. It closes on the trust reading back unchanged, the
+alarm staying `OK` while no prod role is assumed, the other alarms unchanged,
+and the budget intact. The first real proof of the trust is an
+`AssumeRoleWithWebIdentity` from a workflow run, which cannot happen until the
+two GitHub settings exist.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`,
+`get-open-id-connect-provider`, `get-role`. `python scripts/wiki.py lint`.

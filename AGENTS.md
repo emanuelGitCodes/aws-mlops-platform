@@ -41,10 +41,11 @@ trusting this summary, which is coarse by design.
   and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
   Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
   `security_checks.py` acknowledgement naming Phase 5.
-- Sub-phase 2F is deployed. Its 5xx half closed as a go; its silence half
-  shipped broken, was refixed with `FILL`, and now fires. Sub-phase 2G is
-  deployed too, though not deliberately — it rode along as a stack dependency,
-  so it shares 2F's window rather than holding its own.
+- Sub-phases 2F and 2G are deployed and closed as a go on 2026-08-09. 2F's
+  silence half shipped broken — `TreatMissingData` does not cause an evaluation
+  to run — and was refixed with `FILL`, which then fired and cleared inside 16
+  minutes. 2G reached the account as a dependency of the Monitoring deploy
+  rather than on its own, so the two shared one window.
 - Phase 6 (SigV4 on `/predict`) and `CicdStack` are **merged and not
   deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
   and no role exists for it to assume, so `main` runs ahead of the account until

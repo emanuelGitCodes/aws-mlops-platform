@@ -5516,3 +5516,64 @@ One `/predict` call closes that, and the deployed API still expects `x-api-key`.
 
 **Verification.** `make verify-deploy SINCE=2026-08-09`, `describe-alarms`, and
 `describe-alarm-history` on both alarms. `python scripts/wiki.py lint`.
+
+## [2026-08-09] verify | The shared 2F and 2G window closed as a go
+
+**Objective.** Close the observation window that 2F's silence fix and 2G share.
+Every criterion is met, and both sub-phases are a go.
+
+**Identity.** `aws-admin` for reads and the one `/predict` call.
+
+**The silence detector is fully exercised.** Its history holds the whole cycle
+inside 16 minutes:
+
+| Time | Event |
+|---|---|
+| 17:38:30Z | `ConfigurationUpdate` — the `FILL` fix |
+| 17:39:14Z | `OK → ALARM`, on `24 datapoints were less than the threshold` |
+| 17:39:14Z | SNS action executed |
+| 17:54:14Z | `ALARM → OK`, on `1 datapoint [1.0] was not less than the threshold` |
+
+The `/predict` call at 17:51Z returned `200` with
+`{"churn_probability": 0.2988, "churn": false}`. **Fire and clear are both
+demonstrated on the same alarm**, which is more than any other detector on this
+platform can currently claim: the Phase 2 CIS alarms have fired, and 3F's Config
+rule has done neither.
+
+**Closing evidence.**
+
+| Criterion | Result |
+|---|---|
+| 5xx holds `OK` while idle | 24 unbroken hours, against `INSUFFICIENT_DATA` before 2F |
+| `endpoint-silent` fires | `ALARM` at 17:39:14Z on 24 filled zeros |
+| `endpoint-silent` clears | `OK` at 17:54:14Z on one real datapoint |
+| `/predict` | `200` |
+| Six security alarms | `OK` |
+| Config recorder | `recording: true`, `SUCCESS` |
+| Access Analyzer | `ACTIVE` |
+| Budget | `$20` limit, `$0.00` actual, `$1.85` forecast |
+| Month-to-date cost | `$0.00` |
+
+**2G's evidence is thinner, and the record should say so.** Its alarm is `OK`,
+its metric now runs through `FILL(m1, 0)`, and over a two-hour sample raw and
+filled both returned 24 of 24 periods. That shows the alarm has dense data and
+is evaluating. **It does not show `FILL` closing a gap**, because that sample
+contained none — the gaps measured when 2G was written were five in 24 hours,
+so a two-hour window is expected to miss them. 2G is a go on the same footing
+as before: the mechanism is proved by measurement and by the 2F alarm that
+depends on it, not by catching a live gap.
+
+**A third wrong prediction, and the same root cause.** The clear was estimated
+at 18:37Z from the alarm's apparent hourly cadence. It cleared at 17:54:14Z,
+about 40 minutes early. Every estimate this window — 16:00Z, 16:47Z, 18:37Z —
+came from modelling CloudWatch's evaluation schedule rather than reading it.
+The rule already recorded holds and is worth repeating: **read the alarm's
+history; do not model its schedule.**
+
+**Decision: go, for both.** 2F is complete on both halves. 2G is complete. The
+`Mlops-Dev-Security` stack is now free for the next change set, which unblocks
+`#57`.
+
+**Verification.** `describe-alarms`, `describe-alarm-history`,
+`get-metric-data`, `describe-budgets`, `get-cost-and-usage`, and one live
+`/predict`. `python scripts/wiki.py lint`.

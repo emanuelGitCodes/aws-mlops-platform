@@ -158,9 +158,11 @@ the boundary.
   silence, same 24-hour window as the 25 hours that produced nothing — the only
   difference is `FILL`.
 
-  **One criterion is still open.** The alarm has been proved to fire. It has not
-  been proved to clear on real traffic, which needs one `/predict` call. Until
-  then the detector is half-proved, in the same sense 3F's Config rule is.
+  **The clearing half is proved too.** One `/predict` call at 17:51Z returned
+  `200`, and the alarm went `ALARM → OK` at 17:57:24Z on
+  `1 datapoint [1.0] was not less than the threshold`. Fire and clear are both
+  demonstrated, so this detector is fully exercised — unlike 3F's Config rule,
+  which stays unproved by choice.
 - **Phase 2G: merged 2026-08-08, deployed 2026-08-09 without a scoped change
   set of its own.** It reached the account as a dependency of the
   `Mlops-Dev-Monitoring` deploy, not by a deliberate `Mlops-Dev-Security`

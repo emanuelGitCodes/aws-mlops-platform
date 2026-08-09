@@ -205,13 +205,21 @@ class MonitoringStack(Stack):
             self,
             "EndpointSilentAlarm",
             alarm_name=f"mlops-{config['env_name']}-endpoint-silent",
-            metric=_sm_metric("Invocations", "Sum", period=Duration.hours(1)),
+            # SageMaker publishes no Invocations datapoint for an idle hour. It
+            # does not publish a zero. A plain metric therefore returns an
+            # empty series, no datapoint arrives to drive an evaluation, and
+            # the alarm holds whatever state it last reached. FILL supplies a
+            # zero for every empty period, so evaluation continues through
+            # silence. `treat_missing_data` alone does not: it decides how a
+            # gap counts inside an evaluation that already runs.
+            metric=cw.MathExpression(
+                expression="FILL(m1, 0)",
+                period=Duration.hours(1),
+                using_metrics={"m1": _sm_metric("Invocations", "Sum", period=Duration.hours(1))},
+            ),
             threshold=1,
             comparison_operator=cw.ComparisonOperator.LESS_THAN_THRESHOLD,
             evaluation_periods=config["monitor"]["silence_alarm_hours"],
-            # SageMaker publishes no Invocations datapoint for an hour with no
-            # traffic. It does not publish a zero. Any other value here
-            # detects no silence.
             treat_missing_data=cw.TreatMissingData.BREACHING,
         )
         endpoint_silent_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))

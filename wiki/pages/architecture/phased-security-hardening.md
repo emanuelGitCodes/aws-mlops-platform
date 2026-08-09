@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-08"
+updated: "2026-08-09"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -108,7 +108,8 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
-- **Phase 2F: deployed to dev 2026-08-08, observation open.**
+- **Phase 2F: window closed 2026-08-09 as a split decision. The 5xx half is a
+  go. The silence half is a no-go, and its fix is written but not deployed.**
   `mlops-<env>-endpoint-5xx` now sets `TreatMissingData` to `NOT_BREACHING`.
   It defaulted to `missing` and read `INSUFFICIENT_DATA` while the serverless
   endpoint was idle. **The sub-phase took the second signal rather than
@@ -116,8 +117,8 @@ the boundary.
   endpoint is idle and when it is silent. `mlops-<env>-endpoint-silent` carries
   that signal: `Invocations` `Sum` under 1, on an hourly period, over
   `monitor.silence_alarm_hours` periods. SageMaker publishes no `Invocations`
-  datapoint for an idle hour rather than a zero, so `BREACHING` is the only
-  `TreatMissingData` value that detects silence at all. A test pins that.
+  datapoint for an idle hour rather than a zero. **The claim that `BREACHING`
+  is therefore sufficient was wrong, and the window proved it.**
 
   **The window is configuration, not a constant, because the alarm is only
   meaningful where traffic is expected.** Dev has no traffic floor, so its
@@ -128,12 +129,30 @@ the boundary.
   same topic as the security alarms, so it is a standing noise source in that
   inbox.
 
-  Live behaviour matched on both alarms. The 5xx alarm left
-  `INSUFFICIENT_DATA` 48 seconds after the deploy, and CloudWatch named the
-  cause: one missing datapoint `treated as [NonBreaching]`. The silence alarm
-  evaluated straight over history and settled `OK`, reporting 19 missing
-  datapoints treated as breaching against 5 real ones — so a single invocation
-  anywhere in the window holds it `OK`.
+  **The 5xx half passed.** The alarm left `INSUFFICIENT_DATA` 48 seconds after
+  the deploy, with CloudWatch naming the cause — one missing datapoint `treated
+  as [NonBreaching]` — and then held `OK` across 24 unbroken hours of an idle
+  endpoint. Before 2F it read `INSUFFICIENT_DATA` for that whole period.
+
+  **The silence half failed, and cannot fire as deployed.** After 25 hours with
+  zero invocations the alarm was still `OK`, and its history held two entries
+  in that span: the creation, and the initial `INSUFFICIENT_DATA → OK`. It had
+  not re-evaluated once. Measured on the same window, the raw `Invocations`
+  metric returns **0** datapoints with status `Complete`, while `FILL(m1, 0)`
+  over the identical range returns **6 of 6**, all zero.
+
+  **`TreatMissingData` decides how a gap counts inside an evaluation that
+  already runs. It does not cause an evaluation to run.** A metric that
+  publishes nothing produces no datapoint, nothing drives the alarm, and it
+  holds its last state forever. The general rule for this platform: **an alarm
+  over a sparse AWS metric needs `FILL`**, and `Invocations` on a serverless
+  endpoint is the sparsest of them. Sub-phase 2G reached the same conclusion
+  from the opposite direction, on a metric with occasional gaps rather than
+  total silence.
+
+  The fix moves the alarm to a `FILL(m1, 0)` math expression, mirroring 2G. It
+  is written and tested, **not deployed**, and needs its own fresh 24-hour
+  window.
 - **Phase 2G: merged 2026-08-08, not deployed.**
   `mlops-<env>-security-unauthorized-api-calls` evaluates `FILL(m1, 0)` over
   the metric-filter metric. `FILL` is metric math, so the alarm moves from a

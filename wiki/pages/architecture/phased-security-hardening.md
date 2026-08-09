@@ -394,7 +394,7 @@ the boundary.
   through a healthy delivery**, which is the negative half of its contract.
   See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
-- **Phase 6: merged 2026-08-08, not deployed.** `POST /predict` takes
+- **Phase 6: deployed to dev 2026-08-09, observation open.** `POST /predict` takes
   `AWS_IAM` authorization. The caller signs with SigV4 and needs
   `execute-api:Invoke` on the method, so an unsigned call fails at API Gateway
   and never reaches the proxy Lambda. `evaluate_api.py` and
@@ -417,6 +417,23 @@ the boundary.
   at deploy time, so it never belongs in the execution policy. That policy
   already grants every `apigateway:` action this deploy needs. **Phase 6 spends
   no IAM policy version slot.**
+
+  **The live boundary moved, and the throttle survived it.** The method reports
+  `AWS_IAM` with `apiKeyRequired: false`; the account holds **zero** API keys
+  and **zero** usage plans; the stage carries rate 10 and burst 20. An unsigned
+  call returns `403 {"message":"Forbidden"}` and a signed one returns `200`.
+  `make smoke` passes 6 while signing each request. The usage plan existed only
+  to hold the key, so deleting the key without moving the limits would have
+  dropped the throttle silently — this is the trap the phase carried, and the
+  stage settings are the evidence it did not fire.
+
+  **A 403 immediately after this deploy is expected.** The first `make smoke`
+  failed all four signed tests, and a hand-signed call failed too, then
+  succeeded about a minute later with nothing changed. The stage was already
+  serving the newest deployment, so the configuration was correct and the API
+  Gateway edge had not caught up. Switching a method's authorization type
+  propagates on its own schedule. Do not read an immediate 403 as a failed
+  deployment.
 - **Phases 4 and 7–9: not started.** No Security Hub, KMS data-key work, WAF,
   or identity change is deployed by this checkpoint. Full 3F — GuardDuty and
   Security Hub findings — follows the deferred services.

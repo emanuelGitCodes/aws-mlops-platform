@@ -5577,3 +5577,64 @@ history; do not model its schedule.**
 **Verification.** `describe-alarms`, `describe-alarm-history`,
 `get-metric-data`, `describe-budgets`, `get-cost-and-usage`, and one live
 `/predict`. `python scripts/wiki.py lint`.
+## [2026-08-09] deploy | Phase 6 is live in dev, and the API key is gone
+
+**Objective.** Move `/predict` from an API key to SigV4, and confirm the
+boundary actually moved rather than merely changing shape.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for live calls.
+
+**The dependency check ran first, and it mattered.** `make diff-stack
+STACK=Mlops-Dev-Serving` announced `Including dependency stacks:
+Mlops-Dev-Data, Mlops-Dev-Security`, then reported **1 stack with differences**.
+Nothing rode along. This is the check the 2G transitive deploy earned, used for
+the first time.
+
+**Deploy.** `Mlops-Dev-Serving` updated at 2026-08-09T18:21:13Z.
+`make verify-deploy SINCE=2026-08-09` reports, in that stack:
+`ChurnApiClientKey` **deleted**, `ChurnApiUsagePlan` **deleted**,
+`ChurnApiUsagePlanKeyResource` **deleted**, the method, stage and deployment
+updated, and `DeployFn` and `ProxyFn` republished from the earlier `src/`
+comment change.
+
+**Live checks.**
+
+| Check | Result |
+|---|---|
+| Method | `AWS_IAM`, `apiKeyRequired: false` |
+| API keys in the account | **0** |
+| Usage plans in the account | **0** |
+| Stage throttle | rate 10, burst 20 |
+| Unsigned `POST /predict` | `403 {"message":"Forbidden"}` |
+| Signed `POST /predict` | `200` |
+| `make smoke` | 6 passed, signing each request |
+
+**The trap did not fire.** Rate and burst lived on the usage plan, which existed
+only to carry the API key. Deleting the key takes the plan and the limits with
+it unless the change moves them first. The stage settings above are the evidence
+that it did.
+
+**A propagation artefact worth knowing.** The first `make smoke` failed all four
+signed tests with `403`, and a hand-signed call failed identically. About a
+minute later, with nothing changed, the same signed call returned `200` and
+`make smoke` passed 6. The stage was already serving the newest deployment
+(`uyuffw`, created 18:21:03Z), the method already read `AWS_IAM`, the caller
+already simulated `execute-api:Invoke` as allowed, and the signing region and
+credentials were correct. **Switching a method's authorization type propagates
+to the API Gateway edge on its own schedule. An immediate 403 after this kind of
+change is expected, not a failed deployment.** A failure was nearly reported
+from the first run.
+
+**What this breaks, deliberately.** Every `x-api-key` caller now receives `403`.
+There is no legacy key route, which is what the roadmap committed to. The two
+new Serving exports that `CicdStack` imports — the stack id and the REST API
+ref — are published, so `Mlops-Dev-Cicd` is now deployable.
+
+**Decision and next checkpoint.** The observation window is open. It closes on
+the method staying `AWS_IAM`, `make smoke` passing, the alarms unchanged, and
+the budget intact. `CicdStack` is next, followed by `#57` on top of it.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`, `get-method`,
+`get-api-keys`, `get-usage-plans`, `get-stage`, one unsigned and one signed
+call, `make smoke`. `python scripts/wiki.py lint`.

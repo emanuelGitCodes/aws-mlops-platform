@@ -46,10 +46,11 @@ trusting this summary, which is coarse by design.
   to run — and was refixed with `FILL`, which then fired and cleared inside 16
   minutes. 2G reached the account as a dependency of the Monitoring deploy
   rather than on its own, so the two shared one window.
-- Phase 6 (SigV4 on `/predict`) and `CicdStack` are **merged and not
-  deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
-  and no role exists for it to assume, so `main` runs ahead of the account until
-  someone deploys. Phase 4 (KMS) and Phases 7–9 are not started.
+- Phase 6 (SigV4 on `/predict`) is deployed to dev on 2026-08-09, observation
+  open. The account holds no API key and no usage plan, and the stage carries
+  the throttle they used to. `CicdStack` is **merged and not deployed** —
+  merging is not landing, since `deploy.yml` is `workflow_dispatch` only and no
+  role exists for it to assume. Phase 4 (KMS) and Phases 7–9 are not started.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and

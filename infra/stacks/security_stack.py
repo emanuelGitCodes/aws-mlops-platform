@@ -24,7 +24,11 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct, IConstruct
 
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
+from infra.stacks.shared import (
+    CONFIG_DELIVERY_PREFIX,
+    PlatformConfig,
+    github_deploy_role_name,
+)
 
 
 @dataclass(frozen=True)
@@ -94,14 +98,14 @@ SECURITY_DETECTIONS = (
     # assumption is worth an email. The dev role is excluded: it is assumed on
     # each CI run, and those pages would train the reader to ignore this alarm.
     #
-    # The role name is literal rather than environment-derived. One trail
-    # covers the account, so this filter must name the environment it watches.
+    # One trail covers the account. Pass prod explicitly so the filter cannot
+    # follow the current stack environment.
     SecurityDetection(
         "ProdDeployRoleAssumed",
         "prod-deploy-role-assumed",
         '{($.eventSource="sts.amazonaws.com") && '
         '($.eventName="AssumeRoleWithWebIdentity") && '
-        '($.requestParameters.roleArn="*:role/mlops-prod-github-deploy")}',
+        f'($.requestParameters.roleArn="*:role/{github_deploy_role_name("prod")}")}}',
     ),
     SecurityDetection(
         "S3BucketPolicyChanges",

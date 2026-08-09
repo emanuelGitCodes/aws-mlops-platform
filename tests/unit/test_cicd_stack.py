@@ -6,6 +6,7 @@ import pytest
 from aws_cdk.assertions import Template
 
 from infra.app import load_config
+from infra.stacks.shared import github_deploy_role_name
 from tests.unit.conftest import CONFIG, synth_env
 
 GITHUB_DOMAIN = "token.actions.githubusercontent.com"
@@ -113,5 +114,5 @@ def test_each_environment_names_its_own_role(env_name):
     template = Template.from_stack(synth_env(env_name, f"Test-{env_name}-Role")["cicd"])
 
     template.has_resource_properties(
-        "AWS::IAM::Role", {"RoleName": f"mlops-{env_name}-github-deploy"}
+        "AWS::IAM::Role", {"RoleName": github_deploy_role_name(env_name)}
     )

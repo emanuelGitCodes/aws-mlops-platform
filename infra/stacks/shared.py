@@ -124,11 +124,9 @@ _LOG_RETENTION = {
 
 
 def github_deploy_role_name(env_name: str) -> str:
-    """Return the CI deploy role's name for one environment.
+    """Return the shared CI deploy role name for one environment.
 
-    `CicdStack` creates the role. `SecurityMonitoringStack` names it in an
-    Access Analyzer archive rule, and the two stacks have no dependency between
-    them, so the name is built from this one formula rather than exported.
+    `CicdStack`, `SecurityMonitoringStack`, and `SecurityStack` use this name.
     """
     return f"mlops-{env_name}-github-deploy"
 

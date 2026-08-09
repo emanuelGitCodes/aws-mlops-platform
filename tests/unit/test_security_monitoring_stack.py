@@ -510,9 +510,7 @@ def test_disabling_alert_routing_leaves_no_rules_and_no_grants():
 
 
 def test_the_analyzer_archives_only_the_ci_deploy_role_finding(stacks):
-    """The CI deploy role is assumable by GitHub, so the analyzer reports it as
-    external access on every recreation. Archiving that one finding keeps a real
-    one from sitting beside a permanent expected one."""
+    """Archive only the expected CI deploy-role finding."""
     analyzer = next(
         resource["Properties"]
         for resource in stacks["security_monitoring"].to_json()["Resources"].values()
@@ -525,7 +523,5 @@ def test_the_analyzer_archives_only_the_ci_deploy_role_finding(stacks):
     filters = rules[0]["Filter"]
     assert len(filters) == 1
     assert filters[0]["Property"] == "resource"
-    # One exact ARN. A resourceType filter would archive every externally
-    # accessible role, including one nobody meant to create.
     assert len(filters[0]["Eq"]) == 1
     assert f"role/{github_deploy_role_name(CONFIG['env_name'])}" in json.dumps(filters[0]["Eq"])

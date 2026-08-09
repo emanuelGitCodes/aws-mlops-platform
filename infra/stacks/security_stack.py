@@ -93,13 +93,8 @@ SECURITY_DETECTIONS = (
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
     ),
-    # The prod deploy role is the one identity outside this account that can
-    # change production. A prod deploy is rare and deliberate, so every
-    # assumption is worth an email. The dev role is excluded: it is assumed on
-    # each CI run, and those pages would train the reader to ignore this alarm.
-    #
-    # One trail covers the account. Pass prod explicitly so the filter cannot
-    # follow the current stack environment.
+    # The account trail detects every prod deploy-role assumption.
+    # The filter excludes the dev role, which each CI run assumes.
     SecurityDetection(
         "ProdDeployRoleAssumed",
         "prod-deploy-role-assumed",

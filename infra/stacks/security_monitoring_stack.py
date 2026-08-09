@@ -153,16 +153,9 @@ class SecurityMonitoringStack(Stack):
         self.services = services
 
         if services["access_analyzer"]:
-            # The CI deploy role is assumable by GitHub's OIDC provider, so
-            # the analyzer reports it as external access every time it is
-            # recreated. That finding is the design, and leaving it ACTIVE
-            # would sit beside any real one and blunt it. The rule names the
-            # single role, so external access to anything else still reports.
-            #
-            # Access Analyzer does not treat the role's OIDC claim conditions
-            # as access restrictions; a finding for it carries `condition: {}`.
-            # Read the analyzer as unable to see how tightly the trust is
-            # scoped, not as evidence that it is loose.
+            # Access Analyzer reports this federated role as external access.
+            # The exact ARN keeps all other external-access findings active.
+            # Access Analyzer reports `condition: {}` for OIDC claim conditions.
             ci_deploy_role_arn = self.format_arn(
                 service="iam",
                 region="",

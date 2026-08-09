@@ -209,7 +209,7 @@ def test_the_extension_carries_the_oidc_provider_lifecycle():
 
 
 def test_the_extension_scopes_archive_rule_lifecycle():
-    """CloudFormation manages one fixed rule. The operator applies it later."""
+    """CloudFormation manages the rule. The operator changes finding status."""
     document = json.loads(EXTENSION_PATH.read_text())
     lifecycle = _statement(document, "AccessAnalyzerArchiveRuleLifecycle")
     listing = _statement(document, "AccessAnalyzerArchiveRuleList")

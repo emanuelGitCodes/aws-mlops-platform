@@ -15,7 +15,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
 - [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving.
-- [Generated CDK infrastructure diagrams](pages/architecture/generated-cdk-diagrams.md) — Three generated views expose the synthesized dev resource graph while the README keeps the logical runtime flow.
+- [Generated CDK infrastructure diagrams](pages/architecture/generated-cdk-diagrams.md) — Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph.
 - [Phase 2 audit foundation](pages/architecture/security-phase-2-audit-foundation.md) — The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path.
 - [Phased AWS security hardening roadmap](pages/architecture/phased-security-hardening.md) — A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls.
 

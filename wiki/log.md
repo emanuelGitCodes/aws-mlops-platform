@@ -5430,3 +5430,41 @@ Continue to use `make verify-deploy` for resource-level deployment claims.
 `make docs-sync`, and `make wiki-lint` pass. `make test` reports 320 passed at
 93.64% coverage against the 93.63% floor. Visual inspection confirmed readable
 labels in each focused diagram.
+## [2026-08-08] query | generated CDK diagrams
+
+Found 30 matching page(s).
+
+## [2026-08-08] document | Editable CDK diagram sources
+
+**Objective.** Keep each generated diagram editable without committing a
+workstation-specific path.
+
+**Scope.** Updated `make diagrams` and added
+`scripts/prepare_cdk_diagrams.py`. Added unit tests, three DOT sources, three
+self-contained SVG files, and 15 required `cdk-dia` icons. Kept the existing
+PNG previews and README Mermaid flow.
+
+**Identity and environment.** Local `dev` synthesis with `--no-lookups`. No AWS
+profile was used. No AWS API call, diff, deployment, or live resource change
+occurred.
+
+**Commands and results.** `make diagrams ENV=dev` rendered all three format
+sets. The helper copied the required icons and replaced local npm-cache paths
+in each DOT source. It embedded each unique icon once in each SVG file. A
+second run with `DIAGRAM_DIR` set to a temporary directory confirmed the output
+override. `xmllint` parsed all SVG files. `rsvg-convert` rendered all three SVG
+files for visual inspection.
+
+**Interpretation.** The SVG files preserve vector shapes and text for visual
+editing. The DOT files preserve nodes, edges, labels, and automatic layout.
+`make diagrams` regenerates both formats from the synthesized CDK tree.
+
+**Decision and next checkpoint.** Keep PNG for GitHub previews. Use SVG for
+visual edits and DOT for graph edits. Run `prepare_cdk_diagrams.py` after a
+manual DOT edit. Do not replace the current `cdk-dia` views with a different
+draw.io generator.
+
+**Verification.** `make diagrams`, `make lint`, `make typecheck`,
+`make docs-sync`, and `make wiki-lint` pass. `make test` reports 330 passed at
+93.97% coverage against the 93.63% floor. The generated DOT and SVG files
+contain no workstation path. The SVG files contain no external image link.

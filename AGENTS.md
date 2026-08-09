@@ -82,7 +82,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make audit` | pip-audit over the locked dependencies |
 | `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
-| `make diagrams` | Synth the selected environment and render three CDK diagrams; requires Graphviz |
+| `make diagrams` | Synth and render PNG, editable SVG, and DOT CDK diagrams; requires Graphviz |
 | `make security` | lock-check + audit + synth-all |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Single-stack diff/deploy |

@@ -82,7 +82,8 @@ API key until the scoped Serving deployment.
 
 `make diagrams ENV=dev` renders the complete CDK app, the ML platform stacks,
 and the security plus CI/CD stacks. These diagrams show synthesized desired
-state, not live AWS state. See the
+state, not live AWS state. Each view includes a PNG preview, a self-contained
+editable SVG, and a Graphviz DOT source. See the
 [generated CDK infrastructure diagrams](wiki/pages/architecture/generated-cdk-diagrams.md).
 
 ## Current operational loop
@@ -133,7 +134,7 @@ make install                 # deps
 make lint test               # local checks
 make bootstrap ENV=dev       # once per account/region
 make deploy ENV=dev          # all nine stacks
-make diagrams ENV=dev        # three desired-state architecture diagrams
+make diagrams ENV=dev        # PNG, SVG, and DOT desired-state diagrams
 
 # 1. Ingest: drop the Telco CSV into the raw bucket -> validated rows land curated
 aws s3 cp telco.csv s3://<raw-bucket>/telco.csv

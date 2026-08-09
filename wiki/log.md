@@ -5540,6 +5540,16 @@ demonstrated on the same alarm**, which is more than any other detector on this
 platform can currently claim: the Phase 2 CIS alarms have fired, and 3F's Config
 rule has done neither.
 
+**The notification reached the subscriber**, which is the standard 3F set for
+calling a route proved. The delivered email carries two facts the API did not
+give up on its own. It names `MetricExpression: FILL(m1, 0)`, so AWS's own
+notification confirms the deployed alarm evaluates the math expression rather
+than the plain metric. And it states the rule as `LessThanThreshold 1.0 for at
+least 24 of the last 24 period(s) of 3600 seconds`, which confirms
+`DatapointsToAlarm` defaulted to `EvaluationPeriods` as intended — the template
+renders no explicit value, so this was previously inferred rather than
+observed.
+
 **Closing evidence.**
 
 | Criterion | Result |

@@ -59,9 +59,10 @@ class CicdStack(Stack):
             resource_name=GITHUB_OIDC_DOMAIN,
         )
         if cicd_config["owns_oidc_provider"]:
-            # AWS validates the provider's certificate against its own
-            # trusted CAs. A pinned thumbprint becomes a rotation outage the
-            # day GitHub changes its chain.
+            # No thumbprint is pinned here. AWS validates the provider's
+            # certificate against its own trusted CAs and then stores a
+            # thumbprint it maintains. A thumbprint pinned by this repository
+            # becomes a rotation outage the day GitHub changes its chain.
             iam.CfnOIDCProvider(
                 self,
                 "GitHubOidcProvider",

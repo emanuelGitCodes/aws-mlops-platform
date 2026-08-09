@@ -5454,6 +5454,263 @@ harmful, so no rollback is urgent.
 from `MetricName`/`Period`/`Statistic` to a `Metrics` array.
 `python scripts/wiki.py lint`.
 
+## [2026-08-09] deploy | The silence fix is proved, and a dependency deployed 2G with it
+
+**Objective.** Deploy the `FILL` fix for `mlops-dev-endpoint-silent` and confirm
+the detector fires. It did. The same deploy also shipped sub-phase 2G, which was
+not intended.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for alarm reads.
+
+**Pre-flight.** The deployed alarm carried a plain `Invocations` metric, no
+`Metrics` array, `TreatMissingData` `breaching`, state `OK` unchanged since
+2026-08-08T15:50Z. Last invocation: the 15:00Z hour on 2026-08-08.
+
+**The fix works, in 44 seconds.** `Mlops-Dev-Monitoring` updated at
+2026-08-09T17:38:25Z. The alarm went `OK → ALARM` at **17:39:14Z** and executed
+its SNS action at 17:39:14Z. CloudWatch's reason:
+
+> Threshold Crossed: 24 datapoints were less than the threshold (1.0). The most
+> recent datapoints which crossed the threshold: [0.0 (09/08/26 16:37:00), 0.0
+> (09/08/26 15:37:00), 0.0 (09/08/26 14:37:00), 0.0 (09/08/26 13:37:00), 0.0
+> (09/08/26 12:37:00)]
+
+Twenty-four filled zeros over the same idle window in which the previous alarm
+saw an empty series and held `OK` for 25 hours. The only change is `FILL`. The
+diagnosis and the fix are both confirmed.
+
+**`cdk deploy <stack>` also deploys that stack's dependencies.**
+`make verify-deploy SINCE=2026-08-09` reports two stacks:
+
+| Stack | Changed |
+|---|---|
+| `Mlops-Dev-Monitoring` | `EndpointSilentAlarm`, plus `DriftEvaluationFn` and `RetrainTriggerFn` republished |
+| `Mlops-Dev-Security` | `UnauthorizedApiCallsAlarm` |
+
+`Mlops-Dev-Security` was never named on the command line. Monitoring imports the
+alert topic from it, so CDK included it — the diff output says so on every run,
+`Including dependency stacks: Mlops-Dev-Data, Mlops-Dev-Security`, and that line
+was read past repeatedly. **Sub-phase 2G is therefore live.**
+
+**Interpretation.** `make deploy-stack STACK=…` is not a single-stack deploy. It
+is a deploy of that stack and everything it depends on, and any pending change
+in a dependency ships with it. Under the one-sub-phase-at-a-time rule this is a
+live trap: attribution is lost without anything appearing to go wrong. Check
+`cdk diff`'s dependency line, or run `make verify-deploy` immediately after,
+before writing what a deploy changed.
+
+**What 2G lost, and what it did not.** It was reviewed, tested, and its diff
+examined before it landed. What it never received is its own observation window.
+It now shares one with the 2F fix. The two are the same mechanism on different
+alarms and their failure modes do not overlap, so a shared window is readable —
+but it is a shared window, and the record should not pretend otherwise.
+
+**Decision and next checkpoint.** No rollback. Rolling `Mlops-Dev-Security` back
+would revert a working change to buy attribution after the fact. One window now
+covers both alarms. `#57` must stay unmerged until it closes, because it also
+lands in `Mlops-Dev-Security` and would fuse in the same way.
+
+**Still open.** `endpoint-silent` is proved to fire and not yet proved to clear.
+One `/predict` call closes that, and the deployed API still expects `x-api-key`.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`, `describe-alarms`, and
+`describe-alarm-history` on both alarms. `python scripts/wiki.py lint`.
+
+## [2026-08-09] verify | The shared 2F and 2G window closed as a go
+
+**Objective.** Close the observation window that 2F's silence fix and 2G share.
+Every criterion is met, and both sub-phases are a go.
+
+**Identity.** `aws-admin` for reads and the one `/predict` call.
+
+**The silence detector is fully exercised.** Its history holds the whole cycle
+inside 16 minutes:
+
+| Time | Event |
+|---|---|
+| 17:38:30Z | `ConfigurationUpdate` — the `FILL` fix |
+| 17:39:14Z | `OK → ALARM`, on `24 datapoints were less than the threshold` |
+| 17:39:14Z | SNS action executed |
+| 17:54:14Z | `ALARM → OK`, on `1 datapoint [1.0] was not less than the threshold` |
+
+The `/predict` call at 17:51Z returned `200` with
+`{"churn_probability": 0.2988, "churn": false}`. **Fire and clear are both
+demonstrated on the same alarm**, which is more than any other detector on this
+platform can currently claim: the Phase 2 CIS alarms have fired, and 3F's Config
+rule has done neither.
+
+**The notification reached the subscriber**, which is the standard 3F set for
+calling a route proved. The delivered email carries two facts the API did not
+give up on its own. It names `MetricExpression: FILL(m1, 0)`, so AWS's own
+notification confirms the deployed alarm evaluates the math expression rather
+than the plain metric. And it states the rule as `LessThanThreshold 1.0 for at
+least 24 of the last 24 period(s) of 3600 seconds`, which confirms
+`DatapointsToAlarm` defaulted to `EvaluationPeriods` as intended — the template
+renders no explicit value, so this was previously inferred rather than
+observed.
+
+**Closing evidence.**
+
+| Criterion | Result |
+|---|---|
+| 5xx holds `OK` while idle | 24 unbroken hours, against `INSUFFICIENT_DATA` before 2F |
+| `endpoint-silent` fires | `ALARM` at 17:39:14Z on 24 filled zeros |
+| `endpoint-silent` clears | `OK` at 17:54:14Z on one real datapoint |
+| `/predict` | `200` |
+| Six security alarms | `OK` |
+| Config recorder | `recording: true`, `SUCCESS` |
+| Access Analyzer | `ACTIVE` |
+| Budget | `$20` limit, `$0.00` actual, `$1.85` forecast |
+| Month-to-date cost | `$0.00` |
+
+**2G's evidence is thinner, and the record should say so.** Its alarm is `OK`,
+its metric now runs through `FILL(m1, 0)`, and over a two-hour sample raw and
+filled both returned 24 of 24 periods. That shows the alarm has dense data and
+is evaluating. **It does not show `FILL` closing a gap**, because that sample
+contained none — the gaps measured when 2G was written were five in 24 hours,
+so a two-hour window is expected to miss them. 2G is a go on the same footing
+as before: the mechanism is proved by measurement and by the 2F alarm that
+depends on it, not by catching a live gap.
+
+**A third wrong prediction, and the same root cause.** The clear was estimated
+at 18:37Z from the alarm's apparent hourly cadence. It cleared at 17:54:14Z,
+about 40 minutes early. Every estimate this window — 16:00Z, 16:47Z, 18:37Z —
+came from modelling CloudWatch's evaluation schedule rather than reading it.
+The rule already recorded holds and is worth repeating: **read the alarm's
+history; do not model its schedule.**
+
+**Decision: go, for both.** 2F is complete on both halves. 2G is complete. The
+`Mlops-Dev-Security` stack is now free for the next change set, which unblocks
+`#57`.
+
+**Verification.** `describe-alarms`, `describe-alarm-history`,
+`get-metric-data`, `describe-budgets`, `get-cost-and-usage`, and one live
+`/predict`. `python scripts/wiki.py lint`.
+## [2026-08-09] deploy | Phase 6 is live in dev, and the API key is gone
+
+**Objective.** Move `/predict` from an API key to SigV4, and confirm the
+boundary actually moved rather than merely changing shape.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for live calls.
+
+**The dependency check ran first, and it mattered.** `make diff-stack
+STACK=Mlops-Dev-Serving` announced `Including dependency stacks:
+Mlops-Dev-Data, Mlops-Dev-Security`, then reported **1 stack with differences**.
+Nothing rode along. This is the check the 2G transitive deploy earned, used for
+the first time.
+
+**Deploy.** `Mlops-Dev-Serving` updated at 2026-08-09T18:21:13Z.
+`make verify-deploy SINCE=2026-08-09` reports, in that stack:
+`ChurnApiClientKey` **deleted**, `ChurnApiUsagePlan` **deleted**,
+`ChurnApiUsagePlanKeyResource` **deleted**, the method, stage and deployment
+updated, and `DeployFn` and `ProxyFn` republished from the earlier `src/`
+comment change.
+
+**Live checks.**
+
+| Check | Result |
+|---|---|
+| Method | `AWS_IAM`, `apiKeyRequired: false` |
+| API keys in the account | **0** |
+| Usage plans in the account | **0** |
+| Stage throttle | rate 10, burst 20 |
+| Unsigned `POST /predict` | `403 {"message":"Forbidden"}` |
+| Signed `POST /predict` | `200` |
+| `make smoke` | 6 passed, signing each request |
+
+**The trap did not fire.** Rate and burst lived on the usage plan, which existed
+only to carry the API key. Deleting the key takes the plan and the limits with
+it unless the change moves them first. The stage settings above are the evidence
+that it did.
+
+**A propagation artefact worth knowing.** The first `make smoke` failed all four
+signed tests with `403`, and a hand-signed call failed identically. About a
+minute later, with nothing changed, the same signed call returned `200` and
+`make smoke` passed 6. The stage was already serving the newest deployment
+(`uyuffw`, created 18:21:03Z), the method already read `AWS_IAM`, the caller
+already simulated `execute-api:Invoke` as allowed, and the signing region and
+credentials were correct. **Switching a method's authorization type propagates
+to the API Gateway edge on its own schedule. An immediate 403 after this kind of
+change is expected, not a failed deployment.** A failure was nearly reported
+from the first run.
+
+**What this breaks, deliberately.** Every `x-api-key` caller now receives `403`.
+There is no legacy key route, which is what the roadmap committed to. The two
+new Serving exports that `CicdStack` imports — the stack id and the REST API
+ref — are published, so `Mlops-Dev-Cicd` is now deployable.
+
+**Decision and next checkpoint.** The observation window is open. It closes on
+the method staying `AWS_IAM`, `make smoke` passing, the alarms unchanged, and
+the budget intact. `CicdStack` is next, followed by `#57` on top of it.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`, `get-method`,
+`get-api-keys`, `get-usage-plans`, `get-stage`, one unsigned and one signed
+call, `make smoke`. `python scripts/wiki.py lint`.
+
+## [2026-08-09] deploy | The CI/CD identity exists, with the hardened trust from the start
+
+**Objective.** Deploy `CicdStack`, so `.github/workflows/deploy.yml` has an
+identity to assume and deployment stops depending on a workstation.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for IAM reads.
+
+**A sequencing choice made before deploying.** `main` carried the two-claim
+trust, and `#57`'s hardening was green and unmerged. Deploying first would have
+put the weaker trust live for the length of a merge, for no gain, so `#57` was
+merged first and the roles were created with all four claims. **The two-claim
+version was never live.**
+
+**The dependency check reported two stacks, and both belong to one change set.**
+`Including dependency stacks: Mlops-Dev-Serving, Mlops-Dev-Data,
+Mlops-Dev-Security`, with differences in `Mlops-Dev-Cicd` and
+`Mlops-Dev-Security`. The Security change is `#57`'s prod-deploy-role alarm, so
+this is a coherent deploy rather than a fusion of unrelated work — the
+distinction the 2G accident taught.
+
+**Deploy.** `Mlops-Dev-Cicd` created at 2026-08-09T19:15:41Z.
+`make verify-deploy SINCE=2026-08-09` reports `GitHubOidcProvider`,
+`GitHubDeployRole`, and its default policy created, plus
+`ProdDeployRoleAssumedFilter` and `ProdDeployRoleAssumedAlarm` in
+`Mlops-Dev-Security`.
+
+**The live trust, read back from IAM:**
+
+| Claim | Value |
+|---|---|
+| `sub` | `repo:<owner>/<repo>:environment:dev` |
+| `aud` | `sts.amazonaws.com` |
+| `job_workflow_ref` | `<owner>/<repo>/.github/workflows/deploy.yml@refs/heads/main` |
+| `repository_owner` | the repository owner |
+| `runner_environment` | `github-hosted` |
+
+**The thumbprint claim is settled, and it needs a correction.** `CicdStack`
+omits `ThumbprintList`, on the stated basis that AWS validates the provider's
+certificate against its own trusted CAs. `CreateOpenIDConnectProvider` accepted
+that — but `get-open-id-connect-provider` shows AWS **populated a thumbprint
+itself**, `ab9d0263…`. So the effect is right and the mechanism as written is
+incomplete: the choice is not between one thumbprint and none, it is between
+one this repository pins and one AWS maintains. The comment's warning still
+holds for a manually pinned value, which is what would become a rotation outage.
+
+**What still blocks CI from deploying.** Nothing holds the role ARN. Two
+settings remain, both outside this repository: create the `dev` and `prod`
+GitHub environments, and set `AWS_DEV_DEPLOY_ROLE_ARN` from the
+`GitHubDeployRoleArn` output. Until then the role exists and nothing can assume
+it, so **every deployment to date still came from a workstation**.
+
+**Decision and next checkpoint.** The observation window is open for both the
+Cicd stack and `#57`'s alarm. It closes on the trust reading back unchanged, the
+alarm staying `OK` while no prod role is assumed, the other alarms unchanged,
+and the budget intact. The first real proof of the trust is an
+`AssumeRoleWithWebIdentity` from a workflow run, which cannot happen until the
+two GitHub settings exist.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`,
+`get-open-id-connect-provider`, `get-role`. `python scripts/wiki.py lint`.
+
 ## [2026-08-09] implement | An archive rule for the CI deploy role's standing finding
 
 **Objective.** Stop a permanent, expected Access Analyzer finding from sitting
@@ -5478,10 +5735,10 @@ not going away, so the finding stays `ACTIVE` indefinitely.
 
 **Change.** `SecurityMonitoringStack`'s analyzer gains one archive rule,
 `ArchiveCiDeployRoleFederation`, filtering `resource` against the single role
-ARN. A `resourceType` filter would have archived every externally accessible
-role, including one nobody meant to create. The role-name formula moved to
+ARN. A `resourceType` filter would archive every externally accessible role,
+including one nobody meant to create. The role-name formula moved to
 `github_deploy_role_name()` in `infra/stacks/shared.py`, because `CicdStack`
-creates the role and `SecurityMonitoringStack` now names it, and the two stacks
+creates the role and `SecurityMonitoringStack` now names it. The two stacks
 have no dependency between them.
 
 **A limitation worth recording.** The finding carries `condition: {}` even
@@ -5490,14 +5747,29 @@ model OIDC claim conditions as access restrictions.** It cannot tell you the
 trust is tightly scoped, so it should not be read as evidence either way about
 the claim hardening.
 
+**Existing findings need one explicit action.** Creating an archive rule
+automatically handles new matching findings. It does not archive an existing
+finding. After the deploy creates the rule, `apply-archive-rule` must apply it
+once to the active finding. This action changes the finding status. It does not
+change the archive rule.
+
 **The criterion this invalidates.** Observation windows have closed on "the
 analyzer `ACTIVE` with zero active findings" since Phase 3A. That was written
-for an account with no federated role. With the archive rule the expected count
-returns to zero; without it the next window would read a permanent expected
-finding as a regression. The roadmap's stable-interfaces section now records
-this.
+for an account with no federated role. After the rule is deployed and applied,
+the expected active count returns to zero. Without the rule, the next window
+would read a permanent expected finding as a regression. The roadmap's
+stable-interfaces section now records this.
+
+**Pre-deploy baseline.** A read-only check on 2026-08-09 returned no archive
+rules and one active finding for `mlops-dev-github-deploy`. This confirms that
+the rule is not deployed and gives the deployment a deterministic live check.
 
 **Verification.** `make lint`, `make typecheck`, and `make security` pass.
 `make test` reports 323 passed, and the floor moves `93.64 → 93.65`. The
 reviewed diff adds `ArchiveRules` to the analyzer and changes nothing else.
 **Not deployed.** `python scripts/wiki.py lint`.
+
+**Decision and next checkpoint.** Deploy `Mlops-Dev-SecurityMonitoring`, run
+resource-level verification, then apply the rule to the existing finding.
+Confirm the archive rule exists and the active finding count is zero before the
+explicit go/no-go.

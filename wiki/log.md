@@ -5453,3 +5453,66 @@ harmful, so no rollback is urgent.
 `make test` reports 320 passed. The reviewed diff moves `EndpointSilentAlarm`
 from `MetricName`/`Period`/`Statistic` to a `Metrics` array.
 `python scripts/wiki.py lint`.
+
+## [2026-08-09] deploy | The silence fix is proved, and a dependency deployed 2G with it
+
+**Objective.** Deploy the `FILL` fix for `mlops-dev-endpoint-silent` and confirm
+the detector fires. It did. The same deploy also shipped sub-phase 2G, which was
+not intended.
+
+**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
+`aws-admin` for alarm reads.
+
+**Pre-flight.** The deployed alarm carried a plain `Invocations` metric, no
+`Metrics` array, `TreatMissingData` `breaching`, state `OK` unchanged since
+2026-08-08T15:50Z. Last invocation: the 15:00Z hour on 2026-08-08.
+
+**The fix works, in 44 seconds.** `Mlops-Dev-Monitoring` updated at
+2026-08-09T17:38:25Z. The alarm went `OK → ALARM` at **17:39:14Z** and executed
+its SNS action at 17:39:14Z. CloudWatch's reason:
+
+> Threshold Crossed: 24 datapoints were less than the threshold (1.0). The most
+> recent datapoints which crossed the threshold: [0.0 (09/08/26 16:37:00), 0.0
+> (09/08/26 15:37:00), 0.0 (09/08/26 14:37:00), 0.0 (09/08/26 13:37:00), 0.0
+> (09/08/26 12:37:00)]
+
+Twenty-four filled zeros over the same idle window in which the previous alarm
+saw an empty series and held `OK` for 25 hours. The only change is `FILL`. The
+diagnosis and the fix are both confirmed.
+
+**`cdk deploy <stack>` also deploys that stack's dependencies.**
+`make verify-deploy SINCE=2026-08-09` reports two stacks:
+
+| Stack | Changed |
+|---|---|
+| `Mlops-Dev-Monitoring` | `EndpointSilentAlarm`, plus `DriftEvaluationFn` and `RetrainTriggerFn` republished |
+| `Mlops-Dev-Security` | `UnauthorizedApiCallsAlarm` |
+
+`Mlops-Dev-Security` was never named on the command line. Monitoring imports the
+alert topic from it, so CDK included it — the diff output says so on every run,
+`Including dependency stacks: Mlops-Dev-Data, Mlops-Dev-Security`, and that line
+was read past repeatedly. **Sub-phase 2G is therefore live.**
+
+**Interpretation.** `make deploy-stack STACK=…` is not a single-stack deploy. It
+is a deploy of that stack and everything it depends on, and any pending change
+in a dependency ships with it. Under the one-sub-phase-at-a-time rule this is a
+live trap: attribution is lost without anything appearing to go wrong. Check
+`cdk diff`'s dependency line, or run `make verify-deploy` immediately after,
+before writing what a deploy changed.
+
+**What 2G lost, and what it did not.** It was reviewed, tested, and its diff
+examined before it landed. What it never received is its own observation window.
+It now shares one with the 2F fix. The two are the same mechanism on different
+alarms and their failure modes do not overlap, so a shared window is readable —
+but it is a shared window, and the record should not pretend otherwise.
+
+**Decision and next checkpoint.** No rollback. Rolling `Mlops-Dev-Security` back
+would revert a working change to buy attribution after the fact. One window now
+covers both alarms. `#57` must stay unmerged until it closes, because it also
+lands in `Mlops-Dev-Security` and would fuse in the same way.
+
+**Still open.** `endpoint-silent` is proved to fire and not yet proved to clear.
+One `/predict` call closes that, and the deployed API still expects `x-api-key`.
+
+**Verification.** `make verify-deploy SINCE=2026-08-09`, `describe-alarms`, and
+`describe-alarm-history` on both alarms. `python scripts/wiki.py lint`.

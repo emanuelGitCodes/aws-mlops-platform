@@ -108,8 +108,8 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
-- **Phase 2F: window closed 2026-08-09 as a split decision. The 5xx half is a
-  go. The silence half is a no-go, and its fix is written but not deployed.**
+- **Phase 2F: the 5xx half closed as a go. The silence half failed, was
+  refixed, and its detection is now proved live.**
   `mlops-<env>-endpoint-5xx` now sets `TreatMissingData` to `NOT_BREACHING`.
   It defaulted to `missing` and read `INSUFFICIENT_DATA` while the serverless
   endpoint was idle. **The sub-phase took the second signal rather than
@@ -150,10 +150,24 @@ the boundary.
   from the opposite direction, on a metric with occasional gaps rather than
   total silence.
 
-  The fix moves the alarm to a `FILL(m1, 0)` math expression, mirroring 2G. It
-  is written and tested, **not deployed**, and needs its own fresh 24-hour
-  window.
-- **Phase 2G: merged 2026-08-08, not deployed.**
+  **The fix is deployed and proved itself in 44 seconds.** The alarm moved to a
+  `FILL(m1, 0)` math expression, mirroring 2G, and went `OK → ALARM` at
+  2026-08-09T17:39:14Z, 44 seconds after the stack update. CloudWatch reported
+  `24 datapoints were less than the threshold`, listing filled zeros at 12:37,
+  13:37, 14:37, 15:37, and 16:37. The SNS action executed. Same endpoint, same
+  silence, same 24-hour window as the 25 hours that produced nothing — the only
+  difference is `FILL`.
+
+  **One criterion is still open.** The alarm has been proved to fire. It has not
+  been proved to clear on real traffic, which needs one `/predict` call. Until
+  then the detector is half-proved, in the same sense 3F's Config rule is.
+- **Phase 2G: merged 2026-08-08, deployed 2026-08-09 without a scoped change
+  set of its own.** It reached the account as a dependency of the
+  `Mlops-Dev-Monitoring` deploy, not by a deliberate `Mlops-Dev-Security`
+  deploy. See the transitive-deploy entry in `wiki/log.md`: `cdk deploy
+  <stack>` also deploys that stack's dependencies, and Monitoring depends on
+  Security for the alert topic. The change was reviewed and tested before it
+  landed; what it never got was its own window.
   `mlops-<env>-security-unauthorized-api-calls` evaluates `FILL(m1, 0)` over
   the metric-filter metric. `FILL` is metric math, so the alarm moves from a
   plain `cloudwatch.Metric` to a math expression, which rewrites the alarm

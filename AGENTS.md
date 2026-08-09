@@ -41,11 +41,14 @@ trusting this summary, which is coarse by design.
   and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
   Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
   `security_checks.py` acknowledgement naming Phase 5.
-- Phase 6 (SigV4 on `/predict`) and sub-phase 2G are **merged and not
+- Sub-phase 2F is deployed. Its 5xx half closed as a go; its silence half
+  shipped broken, was refixed with `FILL`, and now fires. Sub-phase 2G is
+  deployed too, though not deliberately — it rode along as a stack dependency,
+  so it shares 2F's window rather than holding its own.
+- Phase 6 (SigV4 on `/predict`) and `CicdStack` are **merged and not
   deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
-  and the account holds no OIDC provider, so `main` runs ahead of the account
-  until someone deploys each stack singly. Phase 4 (KMS) and Phases 7–9 are not
-  started.
+  and no role exists for it to assume, so `main` runs ahead of the account until
+  someone deploys. Phase 4 (KMS) and Phases 7–9 are not started.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and
@@ -84,13 +87,22 @@ Use the Makefile targets — do not invent your own invocations.
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
 | `make security` | lock-check + audit + synth-all |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
-| `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Single-stack diff/deploy |
+| `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
 
 `ENV=dev|prod` selects the environment for every CDK target.
+
+**`deploy-stack` is not a single-stack deploy.** CDK deploys the named stack and
+every stack it depends on, so a pending change anywhere in that chain ships with
+it. On 2026-08-09 a `Mlops-Dev-Monitoring` deploy also shipped sub-phase 2G,
+because Monitoring imports the alert topic from `Mlops-Dev-Security`. The diff
+announces this on every run — `Including dependency stacks: …` — and it is easy
+to read past. Under the one-phase-per-change-set rule, read that line before
+deploying, and run `make verify-deploy` after to see which stacks actually
+changed.
 
 Always run Python through `uv run --locked ...`. Never use bare `python`
 or `pip` for project code.

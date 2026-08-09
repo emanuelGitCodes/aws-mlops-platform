@@ -5813,3 +5813,42 @@ tests cover the updated extension.
 extension only after explicit approval. Then repeat the named deploy, run
 resource-level verification, and apply the rule once to the existing finding.
 The phase remains a no-go until those checks pass.
+
+## [2026-08-09] deploy | Archive rule deployed and the standing finding archived
+
+**Objective.** Rotate the scoped execution grant, deploy the exact archive
+rule, apply it to the existing finding, and close the change with a go/no-go.
+
+**IAM rotation.** An administrator created extension policy `v2` and made it
+default. Live read-back matches the repository: OIDC provider lifecycle, four
+archive-rule lifecycle actions on the exact rule ARN, and list access on the
+matching analyzer ARN. Version `v1` remains available for rollback. Two of five
+version slots are used.
+
+**Named diff and deploy.** The repeated diff still reported one change in
+`Mlops-Dev-SecurityMonitoring`: add `ArchiveRules` to
+`ExternalAccessAnalyzer`. `Mlops-Dev-Security` had no differences. The second
+deploy completed at 23:31Z. `make verify-deploy SINCE=2026-08-09` reports only
+`ExternalAccessAnalyzer` changed in that stack. The Security dependency kept
+its earlier update time and changed nothing in this deploy.
+
+**Live rule check.** `list-archive-rules` returns exactly
+`ArchiveCiDeployRoleFederation`, with one `resource` equality filter for
+`mlops-dev-github-deploy`. The existing finding stayed `ACTIVE` after rule
+creation, as the API contract predicts. The approved `apply-archive-rule`
+action changed it to `ARCHIVED` at 23:33Z. An `ACTIVE` query now returns no
+findings, and the archived query returns that one finding.
+
+**Control checks.** The policy rotation produced one `CreatePolicyVersion`
+CloudTrail event. `iam-policy-changes` entered `ALARM` at 23:32Z and returned to
+`OK` at 23:37Z on the next zero datapoint. The other eight alarms are `OK`.
+`make smoke` passes 6 of 6 against the SigV4 API. The account budget remains
+`$20` with `$0` actual spend.
+
+**Rollback.** Set extension `v1` as default, remove the archive rule through
+CloudFormation, and set the one finding back to `ACTIVE`. No rollback is
+needed; each acceptance check passed.
+
+**Decision.** **Go.** The policy extension, deployed analyzer, active-finding
+state, alarms, API, and budget all match the acceptance criteria. Prod remains
+unchanged.

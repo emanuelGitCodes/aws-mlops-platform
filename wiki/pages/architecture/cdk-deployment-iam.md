@@ -148,6 +148,9 @@ the exact Access Analyzer archive-rule lifecycle. It does not grant
 step. A test measures both documents against the quota, so the next size
 failure arrives in CI rather than at the AWS API.
 
+The extension is live at `v2`. Version `v1` remains the rollback document. The
+rotation used two of the five policy-version slots and required no cleanup.
+
 Statement ids are unique across both files, and a test asserts it. A duplicated
 `Sid` would leave a reader unsure which file owns a grant.
 

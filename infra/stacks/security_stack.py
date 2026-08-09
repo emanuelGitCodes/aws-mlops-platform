@@ -89,6 +89,20 @@ SECURITY_DETECTIONS = (
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
     ),
+    # The prod deploy role is the one identity outside this account that can
+    # change production. A prod deploy is rare and deliberate, so every
+    # assumption is worth an email. The dev role is excluded: it is assumed on
+    # each CI run, and those pages would train the reader to ignore this alarm.
+    #
+    # The role name is literal rather than environment-derived. One trail
+    # covers the account, so this filter must name the environment it watches.
+    SecurityDetection(
+        "ProdDeployRoleAssumed",
+        "prod-deploy-role-assumed",
+        '{($.eventSource="sts.amazonaws.com") && '
+        '($.eventName="AssumeRoleWithWebIdentity") && '
+        '($.requestParameters.roleArn="*:role/mlops-prod-github-deploy")}',
+    ),
     SecurityDetection(
         "S3BucketPolicyChanges",
         "s3-bucket-policy-changes",

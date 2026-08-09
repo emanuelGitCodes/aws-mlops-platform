@@ -26,6 +26,11 @@ GITHUB_OIDC_URL = f"https://{GITHUB_OIDC_DOMAIN}"
 # The audience GitHub requests when `aws-actions/configure-aws-credentials`
 # exchanges its token. A provider without this client id rejects every login.
 STS_AUDIENCE = "sts.amazonaws.com"
+# The one workflow permitted to assume a deploy role, and the ref it must run
+# from. GitHub sets `job_workflow_ref` from the workflow file that owns the job,
+# so a second workflow naming the same environment carries a different value.
+DEPLOY_WORKFLOW_PATH = ".github/workflows/deploy.yml"
+DEPLOY_WORKFLOW_REF = "refs/heads/main"
 
 
 class CicdStack(Stack):
@@ -79,6 +84,18 @@ class CicdStack(Stack):
                         # request in the repository assume this role. A
                         # ref-scoped subject ignores the environment entirely.
                         f"{GITHUB_OIDC_DOMAIN}:sub": (f"repo:{repository}:environment:{env_name}"),
+                        # The subject alone admits any workflow that names the
+                        # environment, and write access is enough to add one.
+                        # This names the file and the ref it runs from.
+                        f"{GITHUB_OIDC_DOMAIN}:job_workflow_ref": (
+                            f"{repository}/{DEPLOY_WORKFLOW_PATH}@{DEPLOY_WORKFLOW_REF}"
+                        ),
+                        # A repository of the same name under another owner
+                        # produces the same subject.
+                        f"{GITHUB_OIDC_DOMAIN}:repository_owner": repository.split("/", 1)[0],
+                        # A self-hosted runner executes on hardware this
+                        # account does not control.
+                        f"{GITHUB_OIDC_DOMAIN}:runner_environment": "github-hosted",
                     }
                 },
             ),

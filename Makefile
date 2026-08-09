@@ -100,8 +100,9 @@ verify-deploy:
 		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")
 
 # Post-deploy check against the live API. tests/integration skips itself when
-# API_URL or API_KEY is unset, so this target resolves and asserts every value.
-# A missing output must fail the run, not reduce it to zero tests.
+# API_URL is unset, so this target resolves and asserts it. A missing output
+# must fail the run, not reduce it to zero tests. Each request is signed with
+# SigV4, so the caller needs execute-api:Invoke on the method.
 smoke:
 	@set -eu; \
 	prefix=$$(uv run --locked --extra dev python -c \

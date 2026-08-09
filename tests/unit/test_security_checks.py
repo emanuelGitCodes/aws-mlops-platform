@@ -149,9 +149,10 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "monitoring": "3444854868fba5e089e04e4e55706b51c947cf883cc435e5a759831869a5b243",
         # `GitHubDeployRole` is the only role in this repository a principal
         # outside the account can assume. Review its trust conditions, not only
-        # its permissions: the `sub` claim is what limits the federation to one
-        # GitHub environment.
-        "cicd": "be2d2b8e312922d7d95d8dbaad98188374376f098b90fe8fb396df7c8fdc9d4e",
+        # its permissions. Four claims limit the federation: the environment in
+        # `sub`, the workflow file and ref in `job_workflow_ref`, the owner, and
+        # the runner. Dropping any one of them widens who may assume the role.
+        "cicd": "7a803ee795eea06da566236a0a25ed949c54dcd570d3cb33b8ebcea10ef4b81d",
     }
 
     stacks["training"].has_resource_properties(

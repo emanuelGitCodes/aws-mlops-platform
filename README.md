@@ -2,7 +2,7 @@
 
 A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
-`make deploy ENV=dev` creates the eight infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
+`make deploy ENV=dev` creates the nine infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
 
 ## Architecture
 
@@ -10,13 +10,16 @@ A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure 
 flowchart TB
     subgraph Ingest["Ingestion"]
         RAW[(S3 raw)] -->|ObjectCreated| EB1[EventBridge]
-        EB1 --> Q[SQS + DLQ]
+        EB1 --> Q[SQS ingest queue]
+        Q -. after 3 failed receives .-> DLQ[SQS dead-letter queue]
         Q --> LV[Lambda: validate schema]
-        LV --> CUR[(S3 curated)]
+        LV -->|valid rows| CUR[(S3 curated/telco)]
+        LV -->|invalid rows + reason| QUAR[(S3 curated/quarantine)]
     end
 
     subgraph Train["SageMaker training and evaluation"]
-        CUR --> PIPE[SageMaker Pipeline]
+        CUR -->|pipeline input| PIPE[SageMaker Pipeline]
+        RUN[Operator command] -->|upsert and start| PIPE
         PIPE --> PRE[Preprocess]
         PRE -->|encoded train + validation| TR[Train XGBoost]
         PRE -->|encoded held-out test| EV[Evaluate challenger]
@@ -25,13 +28,13 @@ flowchart TB
         EV --> REPORTS[(S3 evaluation bundle<br/>metrics, predictions, 5 PNG charts)]
         EV -->|test AUC| GATE{AUC beats champion?}
         GATE -->|yes| REG[Model Registry]
-        GATE -->|no| STOP[Reject challenger]
+        GATE -->|no| STOP[End without registration]
     end
 
     subgraph Serve["Current serving path"]
         REG -->|Approved event| DEP[Lambda: update endpoint]
         DEP --> EP[SageMaker Serverless Endpoint]
-        CLIENT[Client] -->|POST /predict + API key| APIGW[API Gateway]
+        CLIENT[Client] -->|POST /predict + SigV4| APIGW[API Gateway]
         APIGW --> LI[Lambda: validate + encode]
         LI --> EP
         FIX --> CHECK[API evaluator]
@@ -48,29 +51,38 @@ flowchart TB
         RETRAIN -->|StartPipelineExecution| PIPE
     end
 
-    subgraph Security["Phased security hardening — 0-2 complete, 3 partial"]
-        S1[CloudTrail + audit KMS<br/>6 CIS alarms to SNS] --> S1B[Access Analyzer<br/>account S3 block<br/>GuardDuty deferred]
-        S1B --> S2[Data KMS + least privilege]
-        S2 --> S3[IAM/SigV4 + TLS + API logs]
-        S3 --> S4[AWS WAF + identity cleanup]
+    subgraph Security["Security and delivery status"]
+        S1[CloudTrail + audit KMS<br/>CIS and deploy-role alarms to SNS] --> S1B[Access Analyzer + Config<br/>account S3 block + EventBridge alerts]
+        S1B --> S2[Least-privilege runtime roles]
+        S2 --> S3[SigV4 on /predict<br/>live in dev]
+        S2 --> CICD[GitHub OIDC deploy role<br/>live; workflow not run]
+        S2 --> S4[Data KMS + WAF<br/>not started]
+        S2 --> S5[GuardDuty + Security Hub<br/>paid-plan gate]
     end
 
-    S1 -->|adds audit coverage| CW
-    S2 -. hardens storage .-> RAW
-    S2 -. hardens runtime roles .-> PIPE
-    S3 -. replaces API-key boundary .-> APIGW
+    S2 -. scopes runtime roles .-> PIPE
+    S3 -. changes authorization .-> APIGW
+    S4 -. hardens storage .-> RAW
     S4 -. protects .-> APIGW
 
     classDef planned fill:#fff4cc,stroke:#b7791f,stroke-dasharray:5 5,color:#1a202c
     classDef done fill:#d5f5e3,stroke:#1e8449,color:#1a202c
-    class S3,S4 planned
-    class S1,S1B,S2,CAP,BASE,DRIFT,RETRAIN done
+    class S4,S5 planned
+    class S1,S1B,S2,S3,CICD,CAP,BASE,DRIFT,RETRAIN done
 ```
 
-Solid runtime arrows describe the current dev data path. Green nodes are
-delivered; dashed arrows and yellow nodes are deferred or approved future work.
-Phase 5 least-privilege IAM is complete, so the `S2` node is delivered; only its
-KMS half remains, as Phase 4.
+The ingestion, training, serving, and operations groups show implemented
+behavior. The security group shows delivery status, not event flow. Green nodes
+have live dev evidence. Yellow nodes are deferred. The GitHub OIDC role is live,
+but `deploy.yml` has not run.
+
+### Generated CDK views
+
+`make diagrams ENV=dev` renders the complete CDK app, the ML platform stacks,
+and the security plus CI/CD stacks. These diagrams show synthesized desired
+state, not live AWS state. Each view includes a PNG preview, a self-contained
+editable SVG, and a Graphviz DOT source. See the
+[generated CDK infrastructure diagrams](wiki/pages/architecture/generated-cdk-diagrams.md).
 
 ## Current operational loop
 
@@ -102,7 +114,7 @@ that the model got worse. See the
 
 | Path | What |
 |---|---|
-| `infra/` | CDK app: `Data`, `Ingestion`, `Training`, `Registry`, `Serving`, `Monitoring`, `Security`, `SecurityMonitoring` stacks, split by lifecycle/blast radius |
+| `infra/` | CDK app: nine stacks split by lifecycle and blast radius, including security monitoring and CI/CD identity |
 | `infra/config/` | `dev.yaml` / `prod.yaml`; the shape is typed once as `PlatformConfig` in `infra/stacks/shared.py` |
 | `infra/security_checks.py` | cdk-nag gate: every acknowledgement is bound to one construct and names the phase that removes it |
 | `src/common/` | Single source of truth: `schema.py` (pydantic contract shared by ingestion and the inference API) and `features.py` (column order, accepted vocabulary, and encoding) |
@@ -119,7 +131,8 @@ cp .env.example .env         # fill in stack outputs after deploy; source with: 
 make install                 # deps
 make lint test               # local checks
 make bootstrap ENV=dev       # once per account/region
-make deploy ENV=dev          # all eight stacks
+make deploy ENV=dev          # all nine stacks
+make diagrams ENV=dev        # PNG, SVG, and DOT desired-state diagrams
 
 # 1. Ingest: drop the Telco CSV into the raw bucket -> validated rows land curated
 aws s3 cp telco.csv s3://<raw-bucket>/telco.csv

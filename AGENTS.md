@@ -88,6 +88,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make audit` | pip-audit over the locked dependencies |
 | `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
+| `make diagrams` | Synth and render PNG, editable SVG, and DOT CDK diagrams; requires Graphviz |
 | `make security` | lock-check + audit + synth-all |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
@@ -122,9 +123,8 @@ smoke, then a prod job that names the GitHub `prod` environment. It assumes a
 role through OIDC federation and uses no long-lived AWS key. **It has never
 run**, and **no environment carries a protection rule**: `dev` has none and
 `prod` does not exist, so naming an environment scopes the OIDC subject claim
-and requires no review. The account gained its OIDC provider on 2026-08-08,
-but `CicdStack` — which creates the roles the workflow assumes — is not
-deployed, so every deployment so far came from a workstation.
+and requires no review. The dev OIDC provider and deploy role are live. GitHub
+does not hold the role ARN, so every deployment so far came from a workstation.
 
 ## Code map — where things live
 

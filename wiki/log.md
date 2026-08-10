@@ -5397,6 +5397,77 @@ above. Restore the stronger wording only after a required reviewer exists.
 
 **Verification.** `python scripts/wiki.py lint`.
 
+## [2026-08-08] document | Generated CDK architecture diagrams
+
+**Objective.** Add reproducible resource diagrams without treating synthesis
+as proof of live AWS state.
+
+**Scope.** Added a pinned `make diagrams` target, three repository dev PNG
+files, a maintained wiki page, and a README link. Updated the existing README
+Mermaid diagram instead of adding a second logical-flow source.
+
+**Identity and environment.** Local `dev` synthesis with `--no-lookups`. No
+AWS profile was used. No AWS API call, diff, deployment, or live resource
+change occurred.
+
+**Commands and results.** `brew install graphviz` installed Graphviz 15.1.1.
+`make diagrams ENV=dev` synthesized all nine stacks and rendered the complete,
+ML platform, and security plus CI/CD views. The target removes generated DOT
+sidecars because they contain local npm icon paths. The three PNG outputs are
+portable and total about 6.7 MB.
+
+**Interpretation.** `cdk-dia` reads `infra/cdk.out/tree.json`. It shows CDK
+constructs and references for the selected config. It does not show the
+SDK-upserted SageMaker Pipeline steps, handler control flow, an exercised event
+path, or deployed AWS state.
+
+**Decision and next checkpoint.** Keep the complete view for inventory and the
+two focused views for readable review. Keep the README Mermaid diagram as the
+logical runtime view. Regenerate the images after a construct graph changes.
+Continue to use `make verify-deploy` for resource-level deployment claims.
+
+**Verification.** `make diagrams`, `make lint`, `make typecheck`,
+`make docs-sync`, and `make wiki-lint` pass. `make test` reports 320 passed at
+93.64% coverage against the 93.63% floor. Visual inspection confirmed readable
+labels in each focused diagram.
+## [2026-08-08] query | generated CDK diagrams
+
+Found 30 matching page(s).
+
+## [2026-08-08] document | Editable CDK diagram sources
+
+**Objective.** Keep each generated diagram editable without committing a
+workstation-specific path.
+
+**Scope.** Updated `make diagrams` and added
+`scripts/prepare_cdk_diagrams.py`. Added unit tests, three DOT sources, three
+self-contained SVG files, and 15 required `cdk-dia` icons. Kept the existing
+PNG previews and README Mermaid flow.
+
+**Identity and environment.** Local `dev` synthesis with `--no-lookups`. No AWS
+profile was used. No AWS API call, diff, deployment, or live resource change
+occurred.
+
+**Commands and results.** `make diagrams ENV=dev` rendered all three format
+sets. The helper copied the required icons and replaced local npm-cache paths
+in each DOT source. It embedded each unique icon once in each SVG file. A
+second run with `DIAGRAM_DIR` set to a temporary directory confirmed the output
+override. `xmllint` parsed all SVG files. `rsvg-convert` rendered all three SVG
+files for visual inspection.
+
+**Interpretation.** The SVG files preserve vector shapes and text for visual
+editing. The DOT files preserve nodes, edges, labels, and automatic layout.
+`make diagrams` regenerates both formats from the synthesized CDK tree.
+
+**Decision and next checkpoint.** Keep PNG for GitHub previews. Use SVG for
+visual edits and DOT for graph edits. Run `prepare_cdk_diagrams.py` after a
+manual DOT edit. Do not replace the current `cdk-dia` views with a different
+draw.io generator.
+
+**Verification.** `make diagrams`, `make lint`, `make typecheck`,
+`make docs-sync`, and `make wiki-lint` pass. `make test` reports 330 passed at
+93.97% coverage against the 93.63% floor. The generated DOT and SVG files
+contain no workstation path. The SVG files contain no external image link.
 ## [2026-08-09] verify | 2F closes split: the 5xx half is a go, the silence half cannot fire
 
 **Objective.** Close sub-phase 2F's observation window. The 5xx criterion
@@ -5852,3 +5923,36 @@ needed; each acceptance check passed.
 **Decision.** **Go.** The policy extension, deployed analyzer, active-finding
 state, alarms, API, and budget all match the acceptance criteria. Prod remains
 unchanged.
+
+## [2026-08-09] document | Refresh generated CDK diagrams after current main
+
+**Objective.** Reconcile the diagram change with current `main`. Regenerate all
+artifacts from the post-`#61` synthesized dev graph.
+
+**Scope.** Retained the earlier diagram records and the later deployment
+records while resolving the append-only log conflict. Regenerated the complete,
+ML platform, and security plus CI/CD DOT, PNG, and SVG files. Updated the README
+status diagram and the CI/CD status in `AGENTS.md`.
+
+**Identity and environment.** Local dev synthesis used `--no-lookups` and no
+AWS profile. Read-only GitHub metadata confirmed one unprotected `dev`
+environment, no deploy-role secrets, no `prod` environment, and no Deploy
+workflow run. No AWS API call or deployment occurred.
+
+**Commands and results.** `make diagrams ENV=dev` completed twice with identical
+hashes for all nine generated files. A custom `DIAGRAM_DIR` run produced the
+expected 24 files. `xmllint` parsed each SVG. Path scans found no workstation
+path or external SVG image reference. Visual inspection covered all three PNG
+views.
+
+**Interpretation.** `cdk-dia` shows synthesized constructs and references. The
+new production-role alarm appears as nodes. The analyzer archive rule remains a
+resource property and does not become a separate node.
+
+**Decision and next checkpoint.** Keep the PR documentation-only. Mark it ready
+after hosted CI passes. Continue to use live AWS checks for deployment claims.
+
+**Verification.** `make lint`, `make typecheck`, `make docs-sync`,
+`make wiki-lint`, and `make security` pass. `make test` reports 335 passed at
+94.04% coverage. The coverage floor moves from 93.65% to 94.03%. The wiki
+contains 46 healthy pages.

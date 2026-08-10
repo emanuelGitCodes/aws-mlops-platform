@@ -1,0 +1,547 @@
+digraph "Diagram" {
+  splines = "ortho";
+  pad = 1;
+  nodesep = 0.6;
+  ranksep = 0.75;
+  fontname = "Sans-Serif";
+  fontsize = 15;
+  dpi = 200;
+  rankdir = "BT";
+  compound = true;
+  fontcolor = "#222222";
+  edge [
+    color = "#D5871488";
+    penwidth = 2;
+    arrowhead = "dot";
+    arrowtail = "dot";
+  ];
+  node [
+    shape = "box";
+    style = "rounded";
+    fixedsize = true;
+    width = 1.7;
+    height = 1.7;
+    labelloc = "c";
+    imagescale = true;
+    fontname = "Sans-Serif";
+    fontsize = 8;
+    margin = 8;
+  ];
+  subgraph "App" {
+    subgraph "cluster-SubGraph.App" {
+      graph [
+        label = "App";
+        labelloc = "b";
+        labeljust = "l";
+        margin = 10;
+        fontsize = 16;
+        penwidth = 2;
+        pencolor = "#888888";
+        style = "filled,rounded";
+        fillcolor = "#f3f3f3";
+      ];
+      subgraph "cluster-SubGraph.Mlops-Dev-Security" {
+        graph [
+          label = "Mlops-Dev-Security";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Security/AuditKey" [
+          label = " AuditKey";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Key-Management-Services_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Security/AccessLogBucket" [
+          label = " AccessLogBucket";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Storage/64/Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Security/AuditBucket" [
+          label = " AuditBucket";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Storage/64/Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Security/AuditLogGroup" [
+          label = " AuditLogGroup";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Security/CloudTrailLogsRole" [
+          label = " CloudTrailLogsRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Security/AuditTrail" [
+          label = " CLOUDTRAIL TRAIL\nAuditTrail";
+          fontsize = 12;
+        ];
+        "Mlops-Dev-Security/SecurityAlertsTopic" [
+          label = " SecurityAlertsTopic";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_AWS-Simple-Notification-Service_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Security/RootUserActivityFilter" [
+          label = "\nRootUserActivityFilte";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/RootUserActivityAlarm" [
+          label = "\nRootUserActivityAlarm";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/UnauthorizedApiCallsFilter" [
+          label = "\nUnauthorizedApiCallsF";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/UnauthorizedApiCallsAlarm" [
+          label = "\nUnauthorizedApiCallsA";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/IamPolicyChangesFilter" [
+          label = "\nIamPolicyChangesFilte";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/IamPolicyChangesAlarm" [
+          label = "\nIamPolicyChangesAlarm";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/CloudTrailConfigurationChangesFilter" [
+          label = "\nCloudTrailConfigurati";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/CloudTrailConfigurationChangesAlarm" [
+          label = "\nCloudTrailConfigurati";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/KmsKeyDisableOrDeletionFilter" [
+          label = "\nKmsKeyDisableOrDeleti";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/KmsKeyDisableOrDeletionAlarm" [
+          label = "\nKmsKeyDisableOrDeleti";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/ProdDeployRoleAssumedFilter" [
+          label = "\nProdDeployRoleAssumed";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/ProdDeployRoleAssumedAlarm" [
+          label = "\nProdDeployRoleAssumed";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Security/S3BucketPolicyChangesFilter" [
+          label = "\nS3BucketPolicyChanges";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Security/S3BucketPolicyChangesAlarm" [
+          label = "\nS3BucketPolicyChanges";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-SecurityMonitoring" {
+        graph [
+          label = "Mlops-Dev-SecurityMonitoring";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-SecurityMonitoring/ExternalAccessAnalyzer" [
+          label = " ACCESSANALYZER\nANALYZER";
+          fontsize = 12;
+        ];
+        "Mlops-Dev-SecurityMonitoring/AccountPublicAccessBlock" [
+          label = "\nAccountPublicAccessBl";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-CloudFormation_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-SecurityMonitoring/AWS679f53fac002430cb0da5b7982bd2287" [
+          label = "\nAWS679f53fac002430cb0";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-SecurityMonitoring/ConfigServiceLinkedRole" [
+          label = " IAM\nServiceLinkedRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-SecurityMonitoring/ConfigurationRecorder" [
+          label = " Config\nConfigurationRecorder\nConfigurationRecorder";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-Config_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.6979999999999995;
+        ];
+        "Mlops-Dev-SecurityMonitoring/ConfigDeliveryChannel" [
+          label = " Config\nDeliveryChannel\nConfigDeliveryChannel";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-Config_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.898;
+        ];
+        "Mlops-Dev-SecurityMonitoring/AccessAnalyzerFindingRule" [
+          label = " Events Rule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-SecurityMonitoring/ConfigDeliveryFailureRule" [
+          label = " Events Rule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Cicd" {
+        graph [
+          label = "Mlops-Dev-Cicd";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Cicd/GitHubOidcProvider" [
+          label = " IAM OIDCProvider\nGitHubOidcProvider";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Cicd/GitHubDeployRole" [
+          label = " GitHubDeployRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+    }
+  }
+  "Mlops-Dev-Security/AccessLogBucket" -> "Mlops-Dev-Security/AuditBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditBucket" -> "Mlops-Dev-Security/AuditKey" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditBucket" -> "Mlops-Dev-Security/AccessLogBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditLogGroup" -> "Mlops-Dev-Security/AuditKey" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditTrail" -> "Mlops-Dev-Security/AuditKey" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditTrail" -> "Mlops-Dev-Security/AuditBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/AuditTrail" -> "Mlops-Dev-Security/CloudTrailLogsRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/SecurityAlertsTopic" -> "Mlops-Dev-Security/AuditKey" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/RootUserActivityFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/RootUserActivityAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/UnauthorizedApiCallsFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/UnauthorizedApiCallsAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/IamPolicyChangesFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/IamPolicyChangesAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/CloudTrailConfigurationChangesFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/CloudTrailConfigurationChangesAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/KmsKeyDisableOrDeletionFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/KmsKeyDisableOrDeletionAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/ProdDeployRoleAssumedFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/ProdDeployRoleAssumedAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/S3BucketPolicyChangesFilter" -> "Mlops-Dev-Security/AuditLogGroup" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/S3BucketPolicyChangesAlarm" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-SecurityMonitoring/AccountPublicAccessBlock" -> "Mlops-Dev-SecurityMonitoring/AWS679f53fac002430cb0da5b7982bd2287" [
+    dir = "both";
+  ];
+  "Mlops-Dev-SecurityMonitoring/ConfigDeliveryChannel" -> "Mlops-Dev-Security/AuditBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-SecurityMonitoring/AccessAnalyzerFindingRule" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-SecurityMonitoring/ConfigDeliveryFailureRule" -> "Mlops-Dev-Security/SecurityAlertsTopic" [
+    dir = "both";
+  ];
+}

@@ -1,0 +1,692 @@
+digraph "Diagram" {
+  splines = "ortho";
+  pad = 1;
+  nodesep = 0.6;
+  ranksep = 0.75;
+  fontname = "Sans-Serif";
+  fontsize = 15;
+  dpi = 200;
+  rankdir = "BT";
+  compound = true;
+  fontcolor = "#222222";
+  edge [
+    color = "#D5871488";
+    penwidth = 2;
+    arrowhead = "dot";
+    arrowtail = "dot";
+  ];
+  node [
+    shape = "box";
+    style = "rounded";
+    fixedsize = true;
+    width = 1.7;
+    height = 1.7;
+    labelloc = "c";
+    imagescale = true;
+    fontname = "Sans-Serif";
+    fontsize = 8;
+    margin = 8;
+  ];
+  subgraph "App" {
+    subgraph "cluster-SubGraph.App" {
+      graph [
+        label = "App";
+        labelloc = "b";
+        labeljust = "l";
+        margin = 10;
+        fontsize = 16;
+        penwidth = 2;
+        pencolor = "#888888";
+        style = "filled,rounded";
+        fillcolor = "#f3f3f3";
+      ];
+      subgraph "cluster-SubGraph.Mlops-Dev-Data" {
+        graph [
+          label = "Mlops-Dev-Data";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Data/RawBucket" [
+          label = " RawBucket";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Storage/64/Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Data/CuratedBucket" [
+          label = " CuratedBucket";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Storage/64/Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Data/ArtifactsBucket" [
+          label = " ArtifactsBucket";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Storage/64/Arch_Amazon-S3-Standard_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Data/MonthlyBudget" [
+          label = " Budgets Budget\nMonthlyBudget";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Cost-Management/64/Arch_AWS-Budgets_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Data/BudgetAlert50Percent" [
+          label = " BudgetAlert50Percent";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-CloudFormation_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287" [
+          label = "\nAWS679f53fac002430cb0";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Data/BudgetAlert80Percent" [
+          label = " BudgetAlert80Percent";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-CloudFormation_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Data/BudgetAlert100Percent" [
+          label = "\nBudgetAlert100Percent";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-CloudFormation_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Data/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role" [
+          label = " Role";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Ingestion" {
+        graph [
+          label = "Mlops-Dev-Ingestion";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Ingestion/IngestDlq" [
+          label = " IngestDlq";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_AWS-Simple-Queue-Service_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Ingestion/IngestQueue" [
+          label = " IngestQueue";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_AWS-Simple-Queue-Service_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Ingestion/RawObjectCreated" [
+          label = " RawObjectCreated";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Ingestion/ValidateFnLogs" [
+          label = " ValidateFnLogs";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Ingestion/ValidateFn" [
+          label = " ValidateFn";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Registry" {
+        graph [
+          label = "Mlops-Dev-Registry";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Registry/ChurnModelGroup" [
+          label = " SageMaker\nModelPackageGroup\nChurnModelGroup";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Machine-Learning/Res_48_Dark/Res_Amazon-Sagemaker_Model_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.898;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Training" {
+        graph [
+          label = "Mlops-Dev-Training";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Training/PipelineExecutionRole" [
+          label = "\nPipelineExecutionRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Serving" {
+        graph [
+          label = "Mlops-Dev-Serving";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Serving/ModelExecutionRole" [
+          label = " ModelExecutionRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/DeployFnLogs" [
+          label = " DeployFnLogs";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Serving/DeployFnRole" [
+          label = " DeployFnRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/DeployFn" [
+          label = " DeployFn";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Serving/ModelApprovedRule" [
+          label = " ModelApprovedRule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/ProxyFnLogs" [
+          label = " ProxyFnLogs";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Serving/ProxyFnRole" [
+          label = " ProxyFnRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/ProxyFn" [
+          label = " ProxyFn";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Serving/ChurnApi" [
+          label = " ChurnApi";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Networking-Content/64/Arch_Amazon-API-Gateway_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+      subgraph "cluster-SubGraph.Mlops-Dev-Monitoring" {
+        graph [
+          label = "Mlops-Dev-Monitoring";
+          labelloc = "b";
+          labeljust = "l";
+          margin = 10;
+          fontsize = 16;
+          penwidth = 2;
+          pencolor = "#888888";
+          style = "filled,rounded";
+          fillcolor = "#e4e4e4";
+        ];
+        "Mlops-Dev-Monitoring/DriftEvaluationFnLogs" [
+          label = "\nDriftEvaluationFnLogs";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Monitoring/DriftEvaluationFnRole" [
+          label = "\nDriftEvaluationFnRole";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Monitoring/DriftEvaluationFn" [
+          label = " DriftEvaluationFn";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Monitoring/DriftEvaluationSchedule" [
+          label = "\nDriftEvaluationSchedu";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
+        ];
+        "Mlops-Dev-Monitoring/RetrainTriggerFnLogs" [
+          label = " RetrainTriggerFnLogs";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Resource/Res_Management-Governance/Res_48_Dark/Res_Amazon-Cloudwatch_Logs_48_Dark_gen.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Monitoring/RetrainTriggerFn" [
+          label = " RetrainTriggerFn";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
+        "Mlops-Dev-Monitoring/DriftViolationRule" [
+          label = " DriftViolationRule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/OpsDashboard" [
+          label = " OpsDashboard";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/Endpoint5xxAlarm" [
+          label = " Endpoint5xxAlarm";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/EndpointSilentAlarm" [
+          label = " EndpointSilentAlarm";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+      }
+    }
+  }
+  "Mlops-Dev-Data/RawBucket" -> "Mlops-Dev-Data/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert50Percent" -> "Mlops-Dev-Data/MonthlyBudget" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert50Percent" -> "Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert80Percent" -> "Mlops-Dev-Data/MonthlyBudget" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert80Percent" -> "Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert100Percent" -> "Mlops-Dev-Data/MonthlyBudget" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Data/BudgetAlert100Percent" -> "Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/IngestQueue" -> "Mlops-Dev-Ingestion/IngestDlq" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/IngestQueue" -> "Mlops-Dev-Ingestion/RawObjectCreated" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/RawObjectCreated" -> "Mlops-Dev-Data/RawBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/RawObjectCreated" -> "Mlops-Dev-Ingestion/IngestQueue" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateFn" -> "Mlops-Dev-Data/RawBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateFn" -> "Mlops-Dev-Data/CuratedBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateFn" -> "Mlops-Dev-Ingestion/IngestQueue" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateFn" -> "Mlops-Dev-Ingestion/ValidateFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Training/PipelineExecutionRole" -> "Mlops-Dev-Data/CuratedBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Training/PipelineExecutionRole" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ModelExecutionRole" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployFnRole" -> "Mlops-Dev-Serving/ModelExecutionRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployFnRole" -> "Mlops-Dev-Serving/DeployFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployFn" -> "Mlops-Dev-Serving/ModelExecutionRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployFn" -> "Mlops-Dev-Serving/DeployFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployFn" -> "Mlops-Dev-Serving/DeployFnRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ModelApprovedRule" -> "Mlops-Dev-Serving/DeployFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyFnRole" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyFnRole" -> "Mlops-Dev-Serving/ProxyFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyFn" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyFn" -> "Mlops-Dev-Serving/ProxyFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyFn" -> "Mlops-Dev-Serving/ProxyFnRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ChurnApi" -> "Mlops-Dev-Serving/ProxyFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationFnRole" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationFnRole" -> "Mlops-Dev-Monitoring/DriftEvaluationFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationFn" -> "Mlops-Dev-Data/ArtifactsBucket" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationFn" -> "Mlops-Dev-Monitoring/DriftEvaluationFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationFn" -> "Mlops-Dev-Monitoring/DriftEvaluationFnRole" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftEvaluationSchedule" -> "Mlops-Dev-Monitoring/DriftEvaluationFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/RetrainTriggerFn" -> "Mlops-Dev-Monitoring/RetrainTriggerFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftViolationRule" -> "Mlops-Dev-Monitoring/RetrainTriggerFn" [
+    dir = "both";
+  ];
+}

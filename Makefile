@@ -1,9 +1,15 @@
 .PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
-	security bootstrap check-stack diff-stack deploy-stack deploy destroy \
-	verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest wiki-lint
+	diagrams security bootstrap check-stack diff-stack deploy-stack deploy \
+	destroy verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest \
+	wiki-lint
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
+CDK_DIA := npx --yes cdk-dia@0.12.3
+DIAGRAM_DIR ?= $(CURDIR)/wiki/assets/architecture
+DIAGRAM_FULL := $(abspath $(DIAGRAM_DIR))/cdk-full-$(ENV)
+DIAGRAM_PLATFORM := $(abspath $(DIAGRAM_DIR))/cdk-platform-$(ENV)
+DIAGRAM_SECURITY_CICD := $(abspath $(DIAGRAM_DIR))/cdk-security-cicd-$(ENV)
 
 # The tests need the `pipeline` extra, not only the SageMaker images.
 # src/pipeline/pipeline.py imports the SageMaker SDK at module level, and a
@@ -61,6 +67,33 @@ synth:
 synth-all:
 	$(MAKE) synth ENV=dev
 	$(MAKE) synth ENV=prod
+
+# These diagrams show the synthesized design. They do not show live AWS state.
+# cdk-dia writes local icon paths into DOT files. The helper copies each icon
+# to a stable path. It embeds each icon in the editable SVG file.
+diagrams: synth
+	@command -v dot >/dev/null 2>&1 || { \
+		echo "Graphviz is required. Install it with: brew install graphviz" >&2; \
+		exit 2; \
+	}
+	@mkdir -p "$(abspath $(DIAGRAM_DIR))"
+	@set -eu; \
+	prefix=$$(uv run --locked --extra dev python -c \
+		'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))'); \
+	cd infra; \
+	$(CDK_DIA) --tree cdk.out/tree.json \
+		--target "$(DIAGRAM_FULL).png"; \
+	$(CDK_DIA) --tree cdk.out/tree.json \
+		--target "$(DIAGRAM_PLATFORM).png" \
+		--include "$$prefix-Data" "$$prefix-Ingestion" "$$prefix-Registry" \
+			"$$prefix-Training" "$$prefix-Serving" "$$prefix-Monitoring"; \
+	$(CDK_DIA) --tree cdk.out/tree.json \
+		--target "$(DIAGRAM_SECURITY_CICD).png" \
+		--include "$$prefix-Security" "$$prefix-SecurityMonitoring" \
+			"$$prefix-Cicd"
+	uv run --locked python scripts/prepare_cdk_diagrams.py \
+		"$(DIAGRAM_FULL).dot" "$(DIAGRAM_PLATFORM).dot" \
+		"$(DIAGRAM_SECURITY_CICD).dot"
 
 security: lock-check audit synth-all
 

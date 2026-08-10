@@ -4,6 +4,8 @@ import json
 
 from aws_cdk.assertions import Match
 
+from infra.stacks.shared import github_deploy_role_name
+
 
 def test_security_audit_foundation(stacks):
     template = stacks["security"]
@@ -168,8 +170,8 @@ def test_security_audit_foundation(stacks):
             )
         },
     )
-    template.resource_count_is("AWS::Logs::MetricFilter", 6)
-    template.resource_count_is("AWS::CloudWatch::Alarm", 6)
+    template.resource_count_is("AWS::Logs::MetricFilter", 7)
+    template.resource_count_is("AWS::CloudWatch::Alarm", 7)
 
     resources = document["Resources"]
     retained_types = {"AWS::KMS::Key", "AWS::S3::Bucket", "AWS::Logs::LogGroup"}
@@ -323,6 +325,9 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         "($.eventName=PutBucketLifecycle) || ($.eventName=PutBucketReplication) || "
         "($.eventName=DeleteBucketPolicy) || ($.eventName=DeleteBucketCors) || "
         "($.eventName=DeleteBucketLifecycle) || ($.eventName=DeleteBucketReplication))}",
+        f'{{($.eventSource="sts.amazonaws.com") && '
+        '($.eventName="AssumeRoleWithWebIdentity") && '
+        f'($.requestParameters.roleArn="*:role/{github_deploy_role_name("prod")}")}}',
     }
 
     metric_filters = [
@@ -350,7 +355,7 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         if resource["Type"] == "AWS::CloudWatch::Alarm"
     ]
     topic_ref = {"Ref": "SecurityAlertsTopic1CE4D100"}
-    assert len(alarms) == 6
+    assert len(alarms) == 7
     # Only unauthorized-api-calls needs a sustained burst, which is 3 of 3
     # five-minute datapoints. The other five page on the first event and must
     # render no DatapointsToAlarm property.
@@ -361,6 +366,7 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         "cloudtrail-configuration-changes": (1, None),
         "kms-key-disable-or-deletion": (1, None),
         "s3-bucket-policy-changes": (1, None),
+        "prod-deploy-role-assumed": (1, None),
     }
     for alarm in alarms:
         slug = alarm["AlarmName"].split("-security-", 1)[1]
@@ -410,3 +416,25 @@ def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
     }
     assert stat["MetricStat"]["Period"] == 300
     assert stat["MetricStat"]["Stat"] == "Sum"
+
+
+def test_the_prod_deploy_role_assumption_is_detected(stacks):
+    """A prod deploy is rare and deliberate, so each assumption pages.
+
+    The dev role is assumed on every CI run. Matching it here would produce
+    routine mail and train the reader to ignore the alarm.
+    """
+    filters = [
+        resource["Properties"]
+        for resource in stacks["security"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::Logs::MetricFilter"
+    ]
+    pattern = next(
+        f["FilterPattern"]
+        for f in filters
+        if f["MetricTransformations"][0]["MetricName"] == "ProdDeployRoleAssumed"
+    )
+
+    assert '$.eventName="AssumeRoleWithWebIdentity"' in pattern
+    assert github_deploy_role_name("prod") in pattern
+    assert github_deploy_role_name("dev") not in pattern

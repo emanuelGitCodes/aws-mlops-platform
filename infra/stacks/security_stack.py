@@ -24,7 +24,11 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct, IConstruct
 
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
+from infra.stacks.shared import (
+    CONFIG_DELIVERY_PREFIX,
+    PlatformConfig,
+    github_deploy_role_name,
+)
 
 
 @dataclass(frozen=True)
@@ -88,6 +92,15 @@ SECURITY_DETECTIONS = (
         "kms-key-disable-or-deletion",
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
+    ),
+    # The account trail detects every prod deploy-role assumption.
+    # The filter excludes the dev role, which each CI run assumes.
+    SecurityDetection(
+        "ProdDeployRoleAssumed",
+        "prod-deploy-role-assumed",
+        '{($.eventSource="sts.amazonaws.com") && '
+        '($.eventName="AssumeRoleWithWebIdentity") && '
+        f'($.requestParameters.roleArn="*:role/{github_deploy_role_name("prod")}")}}',
     ),
     SecurityDetection(
         "S3BucketPolicyChanges",

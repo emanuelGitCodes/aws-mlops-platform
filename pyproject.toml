@@ -120,4 +120,4 @@ precision = 2
 # green. Round the new floor down from the printed total. The comparison uses
 # the unrounded value, so a printed 92.58 can be 92.5799, and a floor of 92.58
 # fails against its own measurement.
-fail_under = 93.63
+fail_under = 94.03

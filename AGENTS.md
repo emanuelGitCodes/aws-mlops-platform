@@ -41,11 +41,17 @@ trusting this summary, which is coarse by design.
   and `least_privilege_logs` kwargs in `infra/stacks/shared.py` — and the
   Lambda roles that still carry `AWSLambdaBasicExecutionRole` keep a
   `security_checks.py` acknowledgement naming Phase 5.
-- Phase 6 (SigV4 on `/predict`) and sub-phase 2G are **merged and not
-  deployed**. Merging is not landing: `deploy.yml` is `workflow_dispatch` only
-  and the account holds no OIDC provider, so `main` runs ahead of the account
-  until someone deploys each stack singly. Phase 4 (KMS) and Phases 7–9 are not
-  started.
+- Sub-phases 2F and 2G are deployed and closed as a go on 2026-08-09. 2F's
+  silence half shipped broken — `TreatMissingData` does not cause an evaluation
+  to run — and was refixed with `FILL`, which then fired and cleared inside 16
+  minutes. 2G reached the account as a dependency of the Monitoring deploy
+  rather than on its own, so the two shared one window.
+- Phase 6 (SigV4 on `/predict`) is deployed to dev on 2026-08-09, observation
+  open. The account holds no API key and no usage plan, and the stage carries
+  the throttle they used to. `CicdStack` is deployed the same day, so the OIDC
+  provider and `mlops-dev-github-deploy` exist. **`deploy.yml` still has not
+  run**: nothing holds the role ARN, and the `dev` and `prod` GitHub
+  environments do not exist. Phase 4 (KMS) and Phases 7–9 are not started.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and
@@ -85,13 +91,22 @@ Use the Makefile targets — do not invent your own invocations.
 | `make diagrams` | Synth and render PNG, editable SVG, and DOT CDK diagrams; requires Graphviz |
 | `make security` | lock-check + audit + synth-all |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
-| `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Single-stack diff/deploy |
+| `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
 
 `ENV=dev|prod` selects the environment for every CDK target.
+
+**`deploy-stack` is not a single-stack deploy.** CDK deploys the named stack and
+every stack it depends on, so a pending change anywhere in that chain ships with
+it. On 2026-08-09 a `Mlops-Dev-Monitoring` deploy also shipped sub-phase 2G,
+because Monitoring imports the alert topic from `Mlops-Dev-Security`. The diff
+announces this on every run — `Including dependency stacks: …` — and it is easy
+to read past. Under the one-phase-per-change-set rule, read that line before
+deploying, and run `make verify-deploy` after to see which stacks actually
+changed.
 
 Always run Python through `uv run --locked ...`. Never use bare `python`
 or `pip` for project code.
@@ -108,9 +123,8 @@ smoke, then a prod job that names the GitHub `prod` environment. It assumes a
 role through OIDC federation and uses no long-lived AWS key. **It has never
 run**, and **no environment carries a protection rule**: `dev` has none and
 `prod` does not exist, so naming an environment scopes the OIDC subject claim
-and requires no review. The account gained its OIDC provider on 2026-08-08,
-but `CicdStack` — which creates the roles the workflow assumes — is not
-deployed, so every deployment so far came from a workstation.
+and requires no review. The dev OIDC provider and deploy role are live. GitHub
+does not hold the role ARN, so every deployment so far came from a workstation.
 
 ## Code map — where things live
 

@@ -52,10 +52,10 @@ flowchart TB
     end
 
     subgraph Security["Security and delivery status"]
-        S1[CloudTrail + audit KMS<br/>6 CIS alarms to SNS] --> S1B[Access Analyzer + Config<br/>account S3 block + EventBridge alerts]
+        S1[CloudTrail + audit KMS<br/>CIS and deploy-role alarms to SNS] --> S1B[Access Analyzer + Config<br/>account S3 block + EventBridge alerts]
         S1B --> S2[Least-privilege runtime roles]
-        S2 --> S3[SigV4 on /predict<br/>merged, not deployed]
-        S2 --> CICD[GitHub OIDC deploy roles<br/>merged, not deployed]
+        S2 --> S3[SigV4 on /predict<br/>live in dev]
+        S2 --> CICD[GitHub OIDC deploy role<br/>live; workflow not run]
         S2 --> S4[Data KMS + WAF<br/>not started]
         S2 --> S5[GuardDuty + Security Hub<br/>paid-plan gate]
     end
@@ -66,17 +66,15 @@ flowchart TB
     S4 -. protects .-> APIGW
 
     classDef planned fill:#fff4cc,stroke:#b7791f,stroke-dasharray:5 5,color:#1a202c
-    classDef coded fill:#dbeafe,stroke:#2563eb,stroke-dasharray:5 5,color:#1a202c
     classDef done fill:#d5f5e3,stroke:#1e8449,color:#1a202c
-    class S3,CICD coded
     class S4,S5 planned
-    class S1,S1B,S2,CAP,BASE,DRIFT,RETRAIN done
+    class S1,S1B,S2,S3,CICD,CAP,BASE,DRIFT,RETRAIN done
 ```
 
-Solid runtime arrows describe behavior implemented in the source. Green nodes
-have live dev evidence. Blue nodes are merged but not deployed. Yellow nodes
-are deferred. The source uses SigV4 for `/predict`, but live dev still uses the
-API key until the scoped Serving deployment.
+The ingestion, training, serving, and operations groups show implemented
+behavior. The security group shows delivery status, not event flow. Green nodes
+have live dev evidence. Yellow nodes are deferred. The GitHub OIDC role is live,
+but `deploy.yml` has not run.
 
 ### Generated CDK views
 

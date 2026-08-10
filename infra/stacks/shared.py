@@ -123,6 +123,14 @@ _LOG_RETENTION = {
 }
 
 
+def github_deploy_role_name(env_name: str) -> str:
+    """Return the shared CI deploy role name for one environment.
+
+    `CicdStack`, `SecurityMonitoringStack`, and `SecurityStack` use this name.
+    """
+    return f"mlops-{env_name}-github-deploy"
+
+
 def log_retention(config: PlatformConfig) -> logs.RetentionDays:
     """Map the environment's ``log_retention_days`` to a RetentionDays value."""
     days = config["log_retention_days"]

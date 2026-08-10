@@ -6,6 +6,7 @@ import pytest
 from aws_cdk.assertions import Template
 
 from infra.app import load_config
+from infra.stacks.shared import github_deploy_role_name
 from tests.unit.conftest import CONFIG, synth_env
 
 GITHUB_DOMAIN = "token.actions.githubusercontent.com"
@@ -37,6 +38,20 @@ def test_the_trust_names_one_github_environment(stacks):
     )
     # A StringLike on the subject matches more than one value.
     assert "StringLike" not in statement["Condition"]
+
+
+def test_only_the_deploy_workflow_on_main_can_assume_the_role(stacks):
+    """The subject admits any workflow that names the environment, and write
+    access is enough to add one. These three claims narrow it to one file."""
+    conditions = _trust(stacks["cicd"])["Condition"]["StringEquals"]
+    repository = CONFIG["cicd"]["github_repository"]
+
+    assert conditions[f"{GITHUB_DOMAIN}:job_workflow_ref"] == (
+        f"{repository}/.github/workflows/deploy.yml@refs/heads/main"
+    )
+    assert conditions[f"{GITHUB_DOMAIN}:repository_owner"] == repository.split("/", 1)[0]
+    # A self-hosted runner executes on hardware this account does not control.
+    assert conditions[f"{GITHUB_DOMAIN}:runner_environment"] == "github-hosted"
 
 
 def test_the_trust_carries_no_wildcard(stacks):
@@ -99,5 +114,5 @@ def test_each_environment_names_its_own_role(env_name):
     template = Template.from_stack(synth_env(env_name, f"Test-{env_name}-Role")["cicd"])
 
     template.has_resource_properties(
-        "AWS::IAM::Role", {"RoleName": f"mlops-{env_name}-github-deploy"}
+        "AWS::IAM::Role", {"RoleName": github_deploy_role_name(env_name)}
     )

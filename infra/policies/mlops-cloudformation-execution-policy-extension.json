@@ -15,6 +15,23 @@
         "iam:UpdateOpenIDConnectProviderThumbprint"
       ],
       "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+    },
+    {
+      "Sid": "AccessAnalyzerArchiveRuleLifecycle",
+      "Effect": "Allow",
+      "Action": [
+        "access-analyzer:CreateArchiveRule",
+        "access-analyzer:DeleteArchiveRule",
+        "access-analyzer:GetArchiveRule",
+        "access-analyzer:UpdateArchiveRule"
+      ],
+      "Resource": "arn:aws:access-analyzer:us-east-1:${AWS_ACCOUNT_ID}:analyzer/mlops-*-external-access/archive-rule/ArchiveCiDeployRoleFederation"
+    },
+    {
+      "Sid": "AccessAnalyzerArchiveRuleList",
+      "Effect": "Allow",
+      "Action": "access-analyzer:ListArchiveRules",
+      "Resource": "arn:aws:access-analyzer:us-east-1:${AWS_ACCOUNT_ID}:analyzer/mlops-*-external-access"
     }
   ]
 }

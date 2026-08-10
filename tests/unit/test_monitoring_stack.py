@@ -203,21 +203,32 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
     )
 
 
-def test_the_silence_alarm_treats_absent_datapoints_as_breaching(stacks):
-    """SageMaker publishes no Invocations datapoint for an idle hour rather
-    than a zero. Any other TreatMissingData value detects nothing."""
-    stacks["monitoring"].has_resource_properties(
-        "AWS::CloudWatch::Alarm",
-        {
-            "AlarmName": f"mlops-{CONFIG['env_name']}-endpoint-silent",
-            "MetricName": "Invocations",
-            "ComparisonOperator": "LessThanThreshold",
-            "Period": 3600,
-            "EvaluationPeriods": CONFIG["monitor"]["silence_alarm_hours"],
-            "TreatMissingData": "breaching",
-            "AlarmActions": [{"Fn::ImportValue": Match.any_value()}],
-        },
+def test_the_silence_alarm_fills_the_empty_periods(stacks):
+    """SageMaker publishes no Invocations datapoint for an idle hour.
+
+    A plain metric returns an empty series, so no datapoint arrives to drive an
+    evaluation and the alarm holds its last state. A 25-hour idle window on
+    2026-08-09 left the deployed alarm in OK with two history entries. FILL
+    supplies a zero per empty period, which keeps evaluation running.
+    """
+    alarm = next(
+        resource["Properties"]
+        for resource in stacks["monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+        and resource["Properties"]["AlarmName"].endswith("-endpoint-silent")
     )
+
+    assert "MetricName" not in alarm
+    expression = next(entry for entry in alarm["Metrics"] if "Expression" in entry)
+    stat = next(entry for entry in alarm["Metrics"] if "MetricStat" in entry)
+    assert expression["Expression"] == "FILL(m1, 0)"
+    assert stat["MetricStat"]["Metric"]["MetricName"] == "Invocations"
+    assert stat["MetricStat"]["Period"] == 3600
+    assert alarm["ComparisonOperator"] == "LessThanThreshold"
+    assert alarm["EvaluationPeriods"] == CONFIG["monitor"]["silence_alarm_hours"]
+    assert alarm["TreatMissingData"] == "breaching"
+    # The alert topic is a cross-stack import, so match its shape.
+    assert list(alarm["AlarmActions"][0]) == ["Fn::ImportValue"]
 
 
 def test_the_retrain_lambda_can_read_its_own_execution_history(stacks):

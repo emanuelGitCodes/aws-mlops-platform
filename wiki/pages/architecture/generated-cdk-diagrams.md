@@ -2,7 +2,7 @@
 type: architecture
 title: Generated CDK infrastructure diagrams
 created: 2026-08-08
-updated: 2026-08-08
+updated: 2026-08-09
 sources: ["../../../infra/app.py", "../../../Makefile", "../../../scripts/prepare_cdk_diagrams.py", "../../../README.md", "https://github.com/pistazie/cdk-dia"]
 summary: "Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph."
 ---

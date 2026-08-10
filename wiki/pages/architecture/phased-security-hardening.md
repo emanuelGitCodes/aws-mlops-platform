@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-08"
+updated: "2026-08-09"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -108,7 +108,8 @@ the boundary.
   `kms:Decrypt`, closing the self-diagnosis gap; the `PutUserPolicy` paged
   `IamPolicyChanges` exactly once, live-proving that detection. See the
   [Phase 2E record](../sources/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md).
-- **Phase 2F: deployed to dev 2026-08-08, observation open.**
+- **Phase 2F: the 5xx half closed as a go. The silence half failed, was
+  refixed, and its detection is now proved live.**
   `mlops-<env>-endpoint-5xx` now sets `TreatMissingData` to `NOT_BREACHING`.
   It defaulted to `missing` and read `INSUFFICIENT_DATA` while the serverless
   endpoint was idle. **The sub-phase took the second signal rather than
@@ -116,8 +117,8 @@ the boundary.
   endpoint is idle and when it is silent. `mlops-<env>-endpoint-silent` carries
   that signal: `Invocations` `Sum` under 1, on an hourly period, over
   `monitor.silence_alarm_hours` periods. SageMaker publishes no `Invocations`
-  datapoint for an idle hour rather than a zero, so `BREACHING` is the only
-  `TreatMissingData` value that detects silence at all. A test pins that.
+  datapoint for an idle hour rather than a zero. **The claim that `BREACHING`
+  is therefore sufficient was wrong, and the window proved it.**
 
   **The window is configuration, not a constant, because the alarm is only
   meaningful where traffic is expected.** Dev has no traffic floor, so its
@@ -128,13 +129,47 @@ the boundary.
   same topic as the security alarms, so it is a standing noise source in that
   inbox.
 
-  Live behaviour matched on both alarms. The 5xx alarm left
-  `INSUFFICIENT_DATA` 48 seconds after the deploy, and CloudWatch named the
-  cause: one missing datapoint `treated as [NonBreaching]`. The silence alarm
-  evaluated straight over history and settled `OK`, reporting 19 missing
-  datapoints treated as breaching against 5 real ones — so a single invocation
-  anywhere in the window holds it `OK`.
-- **Phase 2G: merged 2026-08-08, not deployed.**
+  **The 5xx half passed.** The alarm left `INSUFFICIENT_DATA` 48 seconds after
+  the deploy, with CloudWatch naming the cause — one missing datapoint `treated
+  as [NonBreaching]` — and then held `OK` across 24 unbroken hours of an idle
+  endpoint. Before 2F it read `INSUFFICIENT_DATA` for that whole period.
+
+  **The silence half failed, and cannot fire as deployed.** After 25 hours with
+  zero invocations the alarm was still `OK`, and its history held two entries
+  in that span: the creation, and the initial `INSUFFICIENT_DATA → OK`. It had
+  not re-evaluated once. Measured on the same window, the raw `Invocations`
+  metric returns **0** datapoints with status `Complete`, while `FILL(m1, 0)`
+  over the identical range returns **6 of 6**, all zero.
+
+  **`TreatMissingData` decides how a gap counts inside an evaluation that
+  already runs. It does not cause an evaluation to run.** A metric that
+  publishes nothing produces no datapoint, nothing drives the alarm, and it
+  holds its last state forever. The general rule for this platform: **an alarm
+  over a sparse AWS metric needs `FILL`**, and `Invocations` on a serverless
+  endpoint is the sparsest of them. Sub-phase 2G reached the same conclusion
+  from the opposite direction, on a metric with occasional gaps rather than
+  total silence.
+
+  **The fix is deployed and proved itself in 44 seconds.** The alarm moved to a
+  `FILL(m1, 0)` math expression, mirroring 2G, and went `OK → ALARM` at
+  2026-08-09T17:39:14Z, 44 seconds after the stack update. CloudWatch reported
+  `24 datapoints were less than the threshold`, listing filled zeros at 12:37,
+  13:37, 14:37, 15:37, and 16:37. The SNS action executed. Same endpoint, same
+  silence, same 24-hour window as the 25 hours that produced nothing — the only
+  difference is `FILL`.
+
+  **The clearing half is proved too.** One `/predict` call at 17:51Z returned
+  `200`, and the alarm went `ALARM → OK` at 17:57:24Z on
+  `1 datapoint [1.0] was not less than the threshold`. Fire and clear are both
+  demonstrated, so this detector is fully exercised — unlike 3F's Config rule,
+  which stays unproved by choice.
+- **Phase 2G: merged 2026-08-08, deployed 2026-08-09 without a scoped change
+  set of its own.** It reached the account as a dependency of the
+  `Mlops-Dev-Monitoring` deploy, not by a deliberate `Mlops-Dev-Security`
+  deploy. See the transitive-deploy entry in `wiki/log.md`: `cdk deploy
+  <stack>` also deploys that stack's dependencies, and Monitoring depends on
+  Security for the alert topic. The change was reviewed and tested before it
+  landed; what it never got was its own window.
   `mlops-<env>-security-unauthorized-api-calls` evaluates `FILL(m1, 0)` over
   the metric-filter metric. `FILL` is metric math, so the alarm moves from a
   plain `cloudwatch.Metric` to a math expression, which rewrites the alarm
@@ -359,7 +394,7 @@ the boundary.
   through a healthy delivery**, which is the negative half of its contract.
   See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
-- **Phase 6: merged 2026-08-08, not deployed.** `POST /predict` takes
+- **Phase 6: deployed to dev 2026-08-09, observation open.** `POST /predict` takes
   `AWS_IAM` authorization. The caller signs with SigV4 and needs
   `execute-api:Invoke` on the method, so an unsigned call fails at API Gateway
   and never reaches the proxy Lambda. `evaluate_api.py` and
@@ -382,6 +417,23 @@ the boundary.
   at deploy time, so it never belongs in the execution policy. That policy
   already grants every `apigateway:` action this deploy needs. **Phase 6 spends
   no IAM policy version slot.**
+
+  **The live boundary moved, and the throttle survived it.** The method reports
+  `AWS_IAM` with `apiKeyRequired: false`; the account holds **zero** API keys
+  and **zero** usage plans; the stage carries rate 10 and burst 20. An unsigned
+  call returns `403 {"message":"Forbidden"}` and a signed one returns `200`.
+  `make smoke` passes 6 while signing each request. The usage plan existed only
+  to hold the key, so deleting the key without moving the limits would have
+  dropped the throttle silently — this is the trap the phase carried, and the
+  stage settings are the evidence it did not fire.
+
+  **A 403 immediately after this deploy is expected.** The first `make smoke`
+  failed all four signed tests, and a hand-signed call failed too, then
+  succeeded about a minute later with nothing changed. The stage was already
+  serving the newest deployment, so the configuration was correct and the API
+  Gateway edge had not caught up. Switching a method's authorization type
+  propagates on its own schedule. Do not read an immediate 403 as a failed
+  deployment.
 - **Phases 4 and 7–9: not started.** No Security Hub, KMS data-key work, WAF,
   or identity change is deployed by this checkpoint. Full 3F — GuardDuty and
   Security Hub findings — follows the deferred services.
@@ -405,6 +457,19 @@ the boundary.
   enabled in configuration while creating nothing in the account. A flag joins
   `IMPLEMENTED_SERVICE_FLAGS` in the same change that implements its
   sub-phase.
+- **The analyzer has zero unexpected active findings.** The CI deploy role is
+  assumable by GitHub's OIDC provider, so the analyzer reports it as external
+  access on every recreation. `ArchiveCiDeployRoleFederation` matches that one
+  role ARN and automatically archives new matching findings. The rule deployed
+  to dev on 2026-08-09 after the execution-policy extension moved to `v2` with
+  its exact lifecycle actions. Resource-level verification reports only
+  `ExternalAccessAnalyzer` changed. `apply-archive-rule` archived the existing
+  finding once, so the active count is zero and any other external access still
+  reports. Earlier windows recorded "zero active findings" against an account
+  that had no federated role; read those against their own date.
+  Access Analyzer does not treat the role's OIDC claim conditions as access
+  restrictions, so a finding for it carries `condition: {}` — that is the
+  analyzer's blind spot, not a loose trust.
 - The Phase 2C detection contract is a stable interface, and Phase 2E is the
   precedent for revising one: the change went through the full gated
   sub-phase — pre-flight baseline, tests, reviewed named diff, scoped
@@ -657,12 +722,14 @@ Related runtime and human authority boundaries are documented in
   ten unused `securityhub:` actions, or split into a second managed policy
   attached to the same role. Only the split survives the phase after next.
   **No decision is taken yet.**
-- **The account has no GitHub OIDC provider and no role trusting GitHub.**
-  `.github/workflows/deploy.yml` has therefore never run, and every deployment
-  in this project's history came from a workstation. `CicdStack` is written and
-  tested to close this, but it cannot deploy until the policy question above is
-  settled.
-- **Production has never been deployed.** Eight stacks exist, all
+- ~~The account has no GitHub OIDC provider and no role trusting GitHub.~~
+  **Closed on 2026-08-09.** `CicdStack` is deployed: the provider exists and
+  `mlops-dev-github-deploy` carries the four-claim trust. **The workflow still
+  has not run**, because nothing yet holds the role ARN. Two settings remain,
+  both outside this repository: create the `dev` and `prod` GitHub environments,
+  and set `AWS_DEV_DEPLOY_ROLE_ARN` from the `GitHubDeployRoleArn` output. Every
+  deployment to date still came from a workstation.
+- **Production has never been deployed.** Nine stacks exist, all
   `Mlops-Dev-*`. The two-environment design is proven at synthesis only, which
   means the shared-account collisions this page warns about — the model package
   group, the account budget, and now the OIDC provider — have never been tested

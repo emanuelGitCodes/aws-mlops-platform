@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -19,6 +20,26 @@ def test_normalize_dot_copies_cdk_icon(tmp_path: Path) -> None:
     assert (dot_path.parent / "cdk-dia-icons" / "aws" / "icon.png").read_bytes() == b"icon"
 
     assert diagrams.normalize_dot(dot_path) == 1
+
+
+def test_normalize_dot_copies_repeated_icon_once(tmp_path: Path) -> None:
+    icon = tmp_path / "cache" / "cdk-dia" / "icons" / "aws" / "icon.png"
+    icon.parent.mkdir(parents=True)
+    icon.write_bytes(b"icon")
+    dot_path = tmp_path / "diagram.dot"
+    dot_path.write_text(
+        f'digraph {{ first [image = "{icon}";] second [image = "{icon}";] }}',
+        encoding="utf-8",
+    )
+
+    with mock.patch.object(
+        diagrams.shutil,
+        "copyfile",
+        wraps=diagrams.shutil.copyfile,
+    ) as copyfile:
+        assert diagrams.normalize_dot(dot_path) == 2
+
+    assert copyfile.call_count == 1
 
 
 def test_normalize_dot_hashes_external_icon(tmp_path: Path) -> None:

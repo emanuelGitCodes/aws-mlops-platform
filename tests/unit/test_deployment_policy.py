@@ -206,3 +206,30 @@ def test_the_extension_carries_the_oidc_provider_lifecycle():
     assert statement["Resource"] == (
         "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
     )
+
+
+def test_the_extension_scopes_archive_rule_lifecycle():
+    """CloudFormation manages the rule. The operator changes finding status."""
+    document = json.loads(EXTENSION_PATH.read_text())
+    lifecycle = _statement(document, "AccessAnalyzerArchiveRuleLifecycle")
+    listing = _statement(document, "AccessAnalyzerArchiveRuleList")
+
+    assert set(lifecycle["Action"]) == {
+        "access-analyzer:CreateArchiveRule",
+        "access-analyzer:DeleteArchiveRule",
+        "access-analyzer:GetArchiveRule",
+        "access-analyzer:UpdateArchiveRule",
+    }
+    assert lifecycle["Resource"] == (
+        "arn:aws:access-analyzer:us-east-1:${AWS_ACCOUNT_ID}:"
+        "analyzer/mlops-*-external-access/archive-rule/ArchiveCiDeployRoleFederation"
+    )
+    analyzer_prefix = "arn:aws:access-analyzer:us-east-1:${AWS_ACCOUNT_ID}:analyzer/"
+    analyzer_arn = f"{analyzer_prefix}mlops-*-external-access"
+    assert listing == {
+        "Sid": "AccessAnalyzerArchiveRuleList",
+        "Effect": "Allow",
+        "Action": "access-analyzer:ListArchiveRules",
+        "Resource": analyzer_arn,
+    }
+    assert "access-analyzer:ApplyArchiveRule" not in json.dumps(document)

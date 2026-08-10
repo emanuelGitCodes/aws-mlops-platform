@@ -19,7 +19,7 @@ from aws_cdk import CfnOutput, Stack
 from aws_cdk import aws_iam as iam
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig
+from infra.stacks.shared import PlatformConfig, github_deploy_role_name
 
 GITHUB_OIDC_DOMAIN = "token.actions.githubusercontent.com"
 GITHUB_OIDC_URL = f"https://{GITHUB_OIDC_DOMAIN}"
@@ -73,7 +73,7 @@ class CicdStack(Stack):
         deploy_role = iam.Role(
             self,
             "GitHubDeployRole",
-            role_name=f"mlops-{env_name}-github-deploy",
+            role_name=github_deploy_role_name(env_name),
             description=f"GitHub Actions deploys {env_name} through OIDC federation",
             assumed_by=iam.FederatedPrincipal(
                 provider_arn,

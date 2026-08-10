@@ -5710,3 +5710,145 @@ two GitHub settings exist.
 
 **Verification.** `make verify-deploy SINCE=2026-08-09`,
 `get-open-id-connect-provider`, `get-role`. `python scripts/wiki.py lint`.
+
+## [2026-08-09] implement | An archive rule for the CI deploy role's standing finding
+
+**Objective.** Stop a permanent, expected Access Analyzer finding from sitting
+beside real ones, and correct the observation-window criterion it invalidates.
+
+**What produced it.** Deploying `CicdStack` created
+`mlops-<env>-github-deploy`, which GitHub's OIDC provider can assume. Access
+Analyzer raised an external-access finding at 19:17:44Z, about two minutes after
+the role was created, and 3F's EventBridge rule delivered it to the subscriber.
+
+**Two controls proved themselves on unmanufactured activity.** 3F's analyzer
+route was previously proved with a throwaway SQS queue created and deleted for
+the purpose. This finding came from the platform's own change. The
+`iam-policy-changes` alarm fired in the same window on `2.0` — the
+`PutRolePolicy` for the role's inline policy and the `AttachRolePolicy` for
+`MLOpsCdkDeploymentPolicy`. `CreateRole` is not in that filter, which is why the
+count is two rather than three.
+
+**The finding is correct and permanent.** The role is meant to be externally
+assumable; that is what OIDC federation is. Unlike the throwaway queue, it is
+not going away, so the finding stays `ACTIVE` indefinitely.
+
+**Change.** `SecurityMonitoringStack`'s analyzer gains one archive rule,
+`ArchiveCiDeployRoleFederation`, filtering `resource` against the single role
+ARN. A `resourceType` filter would archive every externally accessible role,
+including one nobody meant to create. The role-name formula moved to
+`github_deploy_role_name()` in `infra/stacks/shared.py`, because `CicdStack`
+creates the role and `SecurityMonitoringStack` now names it. The two stacks
+have no dependency between them.
+
+**A limitation worth recording.** The finding carries `condition: {}` even
+though the trust has five `StringEquals` conditions. **Access Analyzer does not
+model OIDC claim conditions as access restrictions.** It cannot tell you the
+trust is tightly scoped, so it should not be read as evidence either way about
+the claim hardening.
+
+**Existing findings need one explicit action.** Creating an archive rule
+automatically handles new matching findings. It does not archive an existing
+finding. After the deploy creates the rule, `apply-archive-rule` must apply it
+once to the active finding. This action changes the finding status. It does not
+change the archive rule.
+
+**The criterion this invalidates.** Observation windows have closed on "the
+analyzer `ACTIVE` with zero active findings" since Phase 3A. That was written
+for an account with no federated role. After the rule is deployed and applied,
+the expected active count returns to zero. Without the rule, the next window
+would read a permanent expected finding as a regression. The roadmap's
+stable-interfaces section now records this.
+
+**Pre-deploy baseline.** A read-only check on 2026-08-09 returned no archive
+rules and one active finding for `mlops-dev-github-deploy`. This confirms that
+the rule is not deployed and gives the deployment a deterministic live check.
+
+**Verification.** `make lint`, `make typecheck`, and `make security` pass.
+`make test` reports 323 passed, and the floor moves `93.64 → 93.65`. The
+reviewed diff adds `ArchiveRules` to the analyzer and changes nothing else.
+**Not deployed.** `python scripts/wiki.py lint`.
+
+**Decision and next checkpoint.** Deploy `Mlops-Dev-SecurityMonitoring`, run
+resource-level verification, then apply the rule to the existing finding.
+Confirm the archive rule exists and the active finding count is zero before the
+explicit go/no-go.
+
+## [2026-08-09] failure | Archive-rule deploy exposes a missing execution grant
+
+**Objective.** Deploy `ArchiveCiDeployRoleFederation` to dev after the branch,
+hosted CI, and named diff were clean.
+
+**Scope.** `Mlops-Dev-SecurityMonitoring` and its unchanged
+`Mlops-Dev-Security` dependency. The attempt used the restricted deployment
+identity. The follow-up IAM audit was read-only.
+
+**Commands and results.** Hosted CI passed both jobs. The named diff reported
+one change: add `ArchiveRules` to `ExternalAccessAnalyzer`. It also reported no
+differences in `Mlops-Dev-Security`. The deploy reached the analyzer update and
+failed on `access-analyzer:CreateArchiveRule`. CloudFormation completed the
+rollback. A live check still returns no archive rules and one active finding.
+
+**Interpretation.** The main execution policy can create and read an analyzer.
+It does not manage archive rules. CloudFormation uses separate archive-rule
+APIs for the nested `ArchiveRules` property, so the old analyzer grant does not
+cover this update.
+
+**IAM baseline.** The live policy extension is attached to the CloudFormation
+execution role. It has one version, `v1`, and its default document matches the
+repository's OIDC-only statement. Four version slots remain.
+
+**Change.** The extension adds create, delete, get, update, and list access for
+`ArchiveCiDeployRoleFederation` under `mlops-*-external-access`. The lifecycle
+actions use the archive-rule ARN. The list action uses the analyzer ARN.
+`ApplyArchiveRule` stays outside CloudFormation because it changes the status
+of existing findings.
+
+**Verification.** `make lint`, `make typecheck`, `make docs-sync`, and
+`make wiki-lint` pass. `make test` reports 324 passed at 93.66%. The dependency
+audit and both environment syntheses pass. The policy-size and unique-`Sid`
+tests cover the updated extension.
+
+**Decision and next checkpoint.** Validate the policy and rotate the live
+extension only after explicit approval. Then repeat the named deploy, run
+resource-level verification, and apply the rule once to the existing finding.
+The phase remains a no-go until those checks pass.
+
+## [2026-08-09] deploy | Archive rule deployed and the standing finding archived
+
+**Objective.** Rotate the scoped execution grant, deploy the exact archive
+rule, apply it to the existing finding, and close the change with a go/no-go.
+
+**IAM rotation.** An administrator created extension policy `v2` and made it
+default. Live read-back matches the repository: OIDC provider lifecycle, four
+archive-rule lifecycle actions on the exact rule ARN, and list access on the
+matching analyzer ARN. Version `v1` remains available for rollback. Two of five
+version slots are used.
+
+**Named diff and deploy.** The repeated diff still reported one change in
+`Mlops-Dev-SecurityMonitoring`: add `ArchiveRules` to
+`ExternalAccessAnalyzer`. `Mlops-Dev-Security` had no differences. The second
+deploy completed at 23:31Z. `make verify-deploy SINCE=2026-08-09` reports only
+`ExternalAccessAnalyzer` changed in that stack. The Security dependency kept
+its earlier update time and changed nothing in this deploy.
+
+**Live rule check.** `list-archive-rules` returns exactly
+`ArchiveCiDeployRoleFederation`, with one `resource` equality filter for
+`mlops-dev-github-deploy`. The existing finding stayed `ACTIVE` after rule
+creation, as the API contract predicts. The approved `apply-archive-rule`
+action changed it to `ARCHIVED` at 23:33Z. An `ACTIVE` query now returns no
+findings, and the archived query returns that one finding.
+
+**Control checks.** The policy rotation produced one `CreatePolicyVersion`
+CloudTrail event. `iam-policy-changes` entered `ALARM` at 23:32Z and returned to
+`OK` at 23:37Z on the next zero datapoint. The other eight alarms are `OK`.
+`make smoke` passes 6 of 6 against the SigV4 API. The account budget remains
+`$20` with `$0` actual spend.
+
+**Rollback.** Set extension `v1` as default, remove the archive rule through
+CloudFormation, and set the one finding back to `ACTIVE`. No rollback is
+needed; each acceptance check passed.
+
+**Decision.** **Go.** The policy extension, deployed analyzer, active-finding
+state, alarms, API, and budget all match the acceptance criteria. Prod remains
+unchanged.

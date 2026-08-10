@@ -4,6 +4,8 @@ import json
 
 from aws_cdk.assertions import Match
 
+from infra.stacks.shared import github_deploy_role_name
+
 
 def test_security_audit_foundation(stacks):
     template = stacks["security"]
@@ -323,9 +325,9 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         "($.eventName=PutBucketLifecycle) || ($.eventName=PutBucketReplication) || "
         "($.eventName=DeleteBucketPolicy) || ($.eventName=DeleteBucketCors) || "
         "($.eventName=DeleteBucketLifecycle) || ($.eventName=DeleteBucketReplication))}",
-        '{($.eventSource="sts.amazonaws.com") && '
+        f'{{($.eventSource="sts.amazonaws.com") && '
         '($.eventName="AssumeRoleWithWebIdentity") && '
-        '($.requestParameters.roleArn="*:role/mlops-prod-github-deploy")}',
+        f'($.requestParameters.roleArn="*:role/{github_deploy_role_name("prod")}")}}',
     }
 
     metric_filters = [
@@ -434,5 +436,5 @@ def test_the_prod_deploy_role_assumption_is_detected(stacks):
     )
 
     assert '$.eventName="AssumeRoleWithWebIdentity"' in pattern
-    assert "mlops-prod-github-deploy" in pattern
-    assert "mlops-dev-github-deploy" not in pattern
+    assert github_deploy_role_name("prod") in pattern
+    assert github_deploy_role_name("dev") not in pattern

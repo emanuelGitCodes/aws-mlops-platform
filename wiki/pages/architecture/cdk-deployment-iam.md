@@ -2,8 +2,8 @@
 type: architecture
 title: CDK deployment identity and bootstrap boundary
 created: "2026-07-10"
-updated: "2026-07-15"
-sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
+updated: "2026-08-09"
+sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/policies/mlops-cloudformation-execution-policy-extension.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
 summary: "A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy."
 ---
 # CDK deployment identity and bootstrap boundary
@@ -141,10 +141,15 @@ PolicySize: 6144`.
 | `mlops-cloudformation-execution-policy-extension.json` | `MLOpsCloudFormationExecutionPolicyExtension` |
 
 Both attach to `cdk-hnb659fds-cfn-exec-role-*`, so CloudFormation evaluates the
-union. **Add a new grant to the extension**, which held 492 of 6144 bytes when
-it was created. The main document has 256 bytes free and cannot take one. A
-test measures both against the quota, so the next failure arrives in CI rather
-than at the AWS API.
+union. **Add a new grant to the extension.** The main document has 256 bytes
+free and cannot take one. The extension holds the OIDC provider lifecycle and
+the exact Access Analyzer archive-rule lifecycle. It does not grant
+`ApplyArchiveRule`; that action changes finding status and remains an operator
+step. A test measures both documents against the quota, so the next size
+failure arrives in CI rather than at the AWS API.
+
+The extension is live at `v2`. Version `v1` remains the rollback document. The
+rotation used two of the five policy-version slots and required no cleanup.
 
 Statement ids are unique across both files, and a test asserts it. A duplicated
 `Sid` would leave a reader unsure which file owns a grant.

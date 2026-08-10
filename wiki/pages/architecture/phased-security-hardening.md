@@ -457,6 +457,19 @@ the boundary.
   enabled in configuration while creating nothing in the account. A flag joins
   `IMPLEMENTED_SERVICE_FLAGS` in the same change that implements its
   sub-phase.
+- **The analyzer has zero unexpected active findings.** The CI deploy role is
+  assumable by GitHub's OIDC provider, so the analyzer reports it as external
+  access on every recreation. `ArchiveCiDeployRoleFederation` matches that one
+  role ARN and automatically archives new matching findings. The rule deployed
+  to dev on 2026-08-09 after the execution-policy extension moved to `v2` with
+  its exact lifecycle actions. Resource-level verification reports only
+  `ExternalAccessAnalyzer` changed. `apply-archive-rule` archived the existing
+  finding once, so the active count is zero and any other external access still
+  reports. Earlier windows recorded "zero active findings" against an account
+  that had no federated role; read those against their own date.
+  Access Analyzer does not treat the role's OIDC claim conditions as access
+  restrictions, so a finding for it carries `condition: {}` — that is the
+  analyzer's blind spot, not a loose trust.
 - The Phase 2C detection contract is a stable interface, and Phase 2E is the
   precedent for revising one: the change went through the full gated
   sub-phase — pre-flight baseline, tests, reviewed named diff, scoped

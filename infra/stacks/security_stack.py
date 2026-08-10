@@ -24,7 +24,11 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct, IConstruct
 
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
+from infra.stacks.shared import (
+    CONFIG_DELIVERY_PREFIX,
+    PlatformConfig,
+    github_deploy_role_name,
+)
 
 
 @dataclass(frozen=True)
@@ -89,19 +93,14 @@ SECURITY_DETECTIONS = (
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
     ),
-    # The prod deploy role is the one identity outside this account that can
-    # change production. A prod deploy is rare and deliberate, so every
-    # assumption is worth an email. The dev role is excluded: it is assumed on
-    # each CI run, and those pages would train the reader to ignore this alarm.
-    #
-    # The role name is literal rather than environment-derived. One trail
-    # covers the account, so this filter must name the environment it watches.
+    # The account trail detects every prod deploy-role assumption.
+    # The filter excludes the dev role, which each CI run assumes.
     SecurityDetection(
         "ProdDeployRoleAssumed",
         "prod-deploy-role-assumed",
         '{($.eventSource="sts.amazonaws.com") && '
         '($.eventName="AssumeRoleWithWebIdentity") && '
-        '($.requestParameters.roleArn="*:role/mlops-prod-github-deploy")}',
+        f'($.requestParameters.roleArn="*:role/{github_deploy_role_name("prod")}")}}',
     ),
     SecurityDetection(
         "S3BucketPolicyChanges",

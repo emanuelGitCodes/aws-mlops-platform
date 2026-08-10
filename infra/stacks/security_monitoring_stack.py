@@ -14,7 +14,11 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
-from infra.stacks.shared import CONFIG_DELIVERY_PREFIX, PlatformConfig
+from infra.stacks.shared import (
+    CONFIG_DELIVERY_PREFIX,
+    PlatformConfig,
+    github_deploy_role_name,
+)
 
 PHASE_3_SERVICE_FLAGS = (
     "access_analyzer",
@@ -149,11 +153,31 @@ class SecurityMonitoringStack(Stack):
         self.services = services
 
         if services["access_analyzer"]:
+            # Access Analyzer reports this federated role as external access.
+            # The exact ARN keeps all other external-access findings active.
+            # Access Analyzer reports `condition: {}` for OIDC claim conditions.
+            ci_deploy_role_arn = self.format_arn(
+                service="iam",
+                region="",
+                resource="role",
+                resource_name=github_deploy_role_name(self.env_name),
+            )
             analyzer = accessanalyzer.CfnAnalyzer(
                 self,
                 "ExternalAccessAnalyzer",
                 analyzer_name=f"mlops-{self.env_name}-external-access",
                 type="ACCOUNT",
+                archive_rules=[
+                    accessanalyzer.CfnAnalyzer.ArchiveRuleProperty(
+                        rule_name="ArchiveCiDeployRoleFederation",
+                        filter=[
+                            accessanalyzer.CfnAnalyzer.FilterProperty(
+                                property="resource",
+                                eq=[ci_deploy_role_arn],
+                            )
+                        ],
+                    )
+                ],
             )
             for key, value in (
                 ("Project", "aws-mlops-platform"),

@@ -44,25 +44,25 @@ This view contains `Security`, `SecurityMonitoring`, and `Cicd`.
 
 ## Synthesis
 
-Use the complete view for inventory and cross-stack reference review. Use the
-focused views when resource labels in the complete view become too small. The
-Mermaid diagram in the [repository README](../../../README.md) remains the
-logical data, model, serving, and drift flow.
+The complete view supports inventory and cross-stack reference review. The
+focused views keep resource labels readable. The Mermaid diagram in the
+[repository README](../../../README.md) describes the logical data, model,
+serving, and drift flow.
 
-These generated views complement the
-[resource and permission boundaries](permissions.md). They do not replace the
-[phased security status board](phased-security-hardening.md).
+The [resource and permission boundaries](permissions.md) page documents access
+boundaries. The [phased security status board](phased-security-hardening.md)
+documents deployment status.
 
 ## Tensions or open questions
 
 - The images show synthesized desired state. They do not prove that AWS
   deployed a stack or changed a resource.
-- The SDK upserts the SageMaker Pipeline after CDK deployment. The pipeline
-  steps and promotion behavior are therefore absent from the CDK tree.
+- The SDK upserts the SageMaker Pipeline after CDK deployment. The CDK tree
+  does not contain the pipeline steps or promotion behavior.
 - A construct reference shows an infrastructure dependency. It does not prove
   that a runtime event path was exercised.
 - `cdk-dia` diagram decorators support TypeScript and JavaScript projects. This
-  Python project uses stack filters instead.
+  Python project generates the views with stack filters.
 - The DOT source controls graph structure and automatic layout. A vector editor
   can change the SVG directly. A later `make diagrams` run replaces that edit.
 

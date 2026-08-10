@@ -1,11 +1,4 @@
-"""Unit tests for the drift-traffic demo helper.
-
-The helper must produce a window that moves the columns it names and no
-others. A background drawn from a repeated record, or from the vocabulary at
-uniform, moves every column, and the loop then fires on a population that
-differs everywhere. That demonstrates the plumbing but nothing about the
-intended shift, so these tests pin the isolation.
-"""
+"""Test the drift-traffic helper and its isolated feature shift."""
 
 import sys
 from unittest import mock
@@ -32,11 +25,11 @@ def test_the_shift_touches_only_the_columns_it_names():
         assert record["TotalCharges"] == pytest.approx(
             round(record["tenure"] * record["MonthlyCharges"], 2)
         )
-        # A valid record, or the API answers 422 and the demo sends no traffic.
+        # Require each shifted record to pass the API schema.
         CustomerRecord.model_validate(record)
         assert len(encode_features(record)) == len(FEATURE_COLUMNS)
 
-    # Untouched columns still come from the background population.
+    # Preserve untouched columns from the background population.
     assert {record["gender"] for record in window} <= background
 
 
@@ -62,7 +55,7 @@ def test_the_unshifted_background_does_not_drift():
 
 
 def test_the_window_stays_diverse_enough_to_be_scored():
-    """A window the uniformity guard would skip never reaches the statistic."""
+    """Keep the generated window above the distinct-record threshold."""
     window = send_drift_traffic.build_window(FIXTURE, 200)
     assert drift.distinct_record_count(window) >= 25
 
@@ -85,8 +78,7 @@ def _run_main(argv, post, fixture=FIXTURE):
         mock.patch.object(send_drift_traffic, "post_prediction", post),
         mock.patch.object(send_drift_traffic, "load_fixture", return_value=fixture),
         mock.patch.object(send_drift_traffic, "resolve_fixture_s3_uri", return_value="s3://b/f"),
-        # main() builds a signing session. A live one would leave sagemaker
-        # holding a real default session for tests/unit/test_pipeline.py.
+        # Stub the signing session created by `main`.
         mock.patch.object(send_drift_traffic.boto3, "Session"),
         mock.patch("builtins.print"),
     ):
@@ -122,8 +114,7 @@ def test_main_requires_an_api_url():
 
 
 def test_main_rejects_a_fixture_that_no_longer_matches_the_schema():
-    """The guard runs before any request. A bad payload would otherwise show
-    up as 200 rejected calls and no traffic."""
+    """Reject an invalid fixture before the first request."""
     broken = [{"record": {**FIXTURE[0]["record"], "Contract": "Fortnightly"}}]
     with pytest.raises(Exception, match="Contract"):
         _run_main(

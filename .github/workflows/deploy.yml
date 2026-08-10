@@ -2,9 +2,20 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_prod:
+        description: Deploy production after the dev smoke test
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  id-token: write   # OIDC federation. There are no long-lived AWS keys.
+  # Use OIDC federation. Do not store long-lived AWS keys.
+  id-token: write
   contents: read
 
 jobs:
@@ -21,8 +32,7 @@ jobs:
           version: "0.11.28"
           python-version: "3.12"
 
-      # Call the Make target, like every other workflow. The `install` target
-      # defines the extras once. Do not restate them here.
+      # Install the locked extras through the Make target.
       - name: Install locked dependencies
         run: make install
 
@@ -31,7 +41,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEV_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-      # Call the Make target. The Makefile pins the CDK CLI version once.
+      # Use the CDK CLI version pinned by the Makefile.
       - name: Deploy
         run: make deploy ENV=dev
       - name: Smoke test the deployed API
@@ -39,9 +49,9 @@ jobs:
 
   deploy-prod:
     needs: deploy-dev
+    if: ${{ inputs.deploy_prod }}
     runs-on: ubuntu-latest
-    # Naming the environment scopes the OIDC subject claim. It adds no review
-    # until the environment carries a required reviewer.
+    # The GitHub environment scopes the OIDC subject claim.
     environment: prod
     steps:
       - name: Check out repository
@@ -53,8 +63,7 @@ jobs:
           version: "0.11.28"
           python-version: "3.12"
 
-      # Call the Make target, like every other workflow. The `install` target
-      # defines the extras once. Do not restate them here.
+      # Install the locked extras through the Make target.
       - name: Install locked dependencies
         run: make install
 

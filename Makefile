@@ -1,7 +1,7 @@
 .PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
 	diagrams security bootstrap check-stack diff-stack deploy-stack deploy \
 	destroy verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest \
-	wiki-lint
+	wiki-lint public-check
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -11,9 +11,7 @@ DIAGRAM_FULL := $(abspath $(DIAGRAM_DIR))/cdk-full-$(ENV)
 DIAGRAM_PLATFORM := $(abspath $(DIAGRAM_DIR))/cdk-platform-$(ENV)
 DIAGRAM_SECURITY_CICD := $(abspath $(DIAGRAM_DIR))/cdk-security-cicd-$(ENV)
 
-# The tests need the `pipeline` extra, not only the SageMaker images.
-# src/pipeline/pipeline.py imports the SageMaker SDK at module level, and a
-# stub reduces the pipeline tests to assertions against mocks.
+# Install the development and pipeline dependencies from the lockfile.
 install:
 	uv sync --locked --extra dev --extra pipeline
 
@@ -24,23 +22,16 @@ lint:
 	uv run --locked ruff check .
 	uv run --locked ruff format --check .
 
-# Both extras, like `test`. Without sagemaker, mypy falls back to the
-# ignore_missing_imports override, src/pipeline/ types as Any, and the run
-# passes without checking that package.
+# Type-check with the development and pipeline dependencies.
 typecheck:
 	uv run --locked --extra dev --extra pipeline mypy
 
-# Every run measures coverage and enforces it against `fail_under` in
-# pyproject. Without a floor, coverage falls without any failure.
+# Run unit tests and enforce `fail_under` from `pyproject.toml`.
 test:
 	uv run --locked --extra dev --extra pipeline pytest tests/unit -q \
 		--cov --cov-report=term-missing
 
-# AGENTS.md is the single source, and CLAUDE.md is a symlink to it. The two
-# cannot drift while the symlink survives. A checkout without symlink support,
-# or an agent that writes CLAUDE.md directly, replaces it with a regular file.
-# Assert against the git index, not the working tree. The index is what CI
-# checks out and what a bad commit carries.
+# Require the Git index to store `CLAUDE.md` as a symlink to `AGENTS.md`.
 docs-sync:
 	@mode=$$(git ls-files -s CLAUDE.md | cut -d' ' -f1); \
 	if [ "$$mode" != "120000" ]; then \
@@ -61,16 +52,13 @@ audit:
 synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups
 
-# The authoritative cdk-nag gate. An acknowledgement whose construct path or
-# finding id embeds the environment fails only for that environment, so a
-# dev-only synth leaves prod unbuildable.
+# Run the cdk-nag synthesis gate for both environments.
 synth-all:
 	$(MAKE) synth ENV=dev
 	$(MAKE) synth ENV=prod
 
-# These diagrams show the synthesized design. They do not show live AWS state.
-# cdk-dia writes local icon paths into DOT files. The helper copies each icon
-# to a stable path. It embeds each icon in the editable SVG file.
+# Render the synthesized design. These diagrams do not represent live AWS state.
+# Convert local cdk-dia icon paths into portable DOT and SVG assets.
 diagrams: synth
 	@command -v dot >/dev/null 2>&1 || { \
 		echo "Graphviz is required. Install it with: brew install graphviz" >&2; \
@@ -97,9 +85,7 @@ diagrams: synth
 
 security: lock-check audit synth-all
 
-# Run this once per account and region, before the first deploy. It is a
-# target, so the bootstrap uses the same pinned CLI version as every other CDK
-# invocation.
+# Bootstrap each target account and region once with the pinned CDK CLI.
 bootstrap:
 	cd infra && $(CDK_CLI) bootstrap -c env=$(ENV)
 
@@ -121,21 +107,19 @@ deploy:
 destroy:
 	cd infra && $(CDK_CLI) destroy --all -c env=$(ENV)
 
-# What a deployment changed. Stack status does not answer this. CloudFormation
-# reports UPDATE_COMPLETE even when it touched no resource.
+# Report resource changes from CloudFormation events.
+# `UPDATE_COMPLETE` can represent a no-op stack update.
 #
-# This needs a profile with cloudformation:ListStacks. Use
-# mlops-security-auditor or aws-admin. mlops-deployer can deploy but cannot
-# enumerate stacks:
-#     AWS_PROFILE=mlops-security-auditor make verify-deploy SINCE=2026-08-01
+# Use a profile with `cloudformation:ListStacks`.
+# `${AWS_SECURITY_AUDITOR_USER_NAME}` and `${AWS_ADMIN_USER_NAME}` have this access.
+#     AWS_PROFILE=${AWS_SECURITY_AUDITOR_USER_NAME} \
+#         make verify-deploy SINCE=<YYYY-MM-DD>
 verify-deploy:
 	uv run --locked --extra dev python scripts/verify_deployment.py \
 		$(if $(SINCE),--since "$(SINCE)") $(if $(PREFIX),--prefix "$(PREFIX)")
 
-# Post-deploy check against the live API. tests/integration skips itself when
-# API_URL is unset, so this target resolves and asserts it. A missing output
-# must fail the run, not reduce it to zero tests. Each request is signed with
-# SigV4, so the caller needs execute-api:Invoke on the method.
+# Resolve the deployed API URL and run the signed integration tests.
+# The caller needs `execute-api:Invoke` on the method.
 smoke:
 	@set -eu; \
 	prefix=$$(uv run --locked --extra dev python -c \
@@ -169,3 +153,6 @@ wiki-ingest:
 
 wiki-lint:
 	uv run --locked python scripts/wiki.py lint
+
+public-check:
+	uv run --locked python scripts/check_public_release.py

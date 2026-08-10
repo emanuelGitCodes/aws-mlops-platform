@@ -1,32 +1,28 @@
 env_name: dev
-# Unsuffixed, because this group already holds deployed model lineage. A rename
-# replaces the group. Every other environment must pick a distinct name. See
-# the note in prod.yaml.
+# Keep this physical group name stable. Use a distinct name in every other environment.
 model_package_group: churn-model-group
-model_approval_status: Approved   # auto-approve challengers in dev
+# Auto-approve challengers in dev.
+model_approval_status: Approved
 endpoint_name: churn-serverless-dev
 pipeline_name: churn-training-pipeline-dev
 serverless:
   memory_mb: 2048
   max_concurrency: 5
 monitor:
-  schedule_cron: "cron(0 * ? * * *)"   # hourly
-  # Hours of zero endpoint invocations before the silence alarm pages. This
-  # environment has no traffic floor. An idle endpoint reaches the alarm state
-  # on its own, so `endpoint-silent` in ALARM here means nobody called it.
+  # Run drift evaluation each hour.
+  schedule_cron: "cron(0 * ? * * *)"
+  # Page after this many hours with no endpoint invocations.
+  # Dev has no minimum traffic level. Idle time can start this alarm.
   silence_alarm_hours: 24
 budget_usd: 20
 log_retention_days: 14
-# Days a captured prediction survives under the `capture/` prefix. The drift
-# job reads one hour, so this only bounds how far back a past violation can be
-# investigated. Nothing else in the artifacts bucket expires.
+# Expire captured predictions after this many days.
+# No other artifact prefix uses expiration.
 capture_retention_days: 30
 security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]
-  # Dev owns the account-wide budget. It holds the deployed $20 budget and its
-  # notification history. The budget is account-scoped, so it covers prod spend
-  # too. Prod must stay false. See the note there.
+  # Dev owns the account-wide budget. Prod must keep this flag false.
   account_budget: true
   services:
     access_analyzer: true
@@ -38,7 +34,5 @@ security:
     eventbridge_alerts: true
 cicd:
   github_repository: emanuelGitCodes/aws-mlops-platform
-  # Dev owns the account-wide OIDC provider. Prod must stay false. One
-  # account, two environment-agnostic apps, and one provider — the collision
-  # `security.account_budget` records.
+  # Dev owns the account-wide OIDC provider. Prod must keep this flag false.
   owns_oidc_provider: true

@@ -1,24 +1,17 @@
-"""Dependency-free feature contract shared by training and serving.
+"""Define the dependency-free feature contract for training and serving.
 
-Keep the ordered model columns separate from the Pydantic model, so SageMaker
-preprocessing can import the training contract in the stock sklearn image. That
-image does not include Pydantic.
-
-This module owns the whole raw-value contract: which columns exist, which
-values each one accepts, and how those values become numbers. Keep validation
-and encoding together here. Apart, they drift, and a value the schema accepts
-raises ``KeyError`` in the encoder. ``tests/unit/test_features.py`` asserts
-that the accepted vocabulary and the encodable vocabulary stay equal.
+This module owns the ordered columns, accepted raw values, and numeric encoding.
+The SageMaker sklearn image imports it without Pydantic.
+`tests/unit/test_features.py` compares validation and encoding vocabularies.
 """
 
-# The SageMaker ProcessingStep entrypoints import this module. Their managed
-# image runs an older Python than 3.12. Deferred annotations keep modern syntax
-# safe here.
+# The SageMaker managed image uses an older Python version.
+# Deferred annotations preserve compatibility with that image.
 from __future__ import annotations
 
 from typing import Any
 
-# The order matters. Training and inference both use this feature order.
+# Training and inference use this feature order.
 FEATURE_COLUMNS = [
     "gender",
     "SeniorCitizen",
@@ -42,13 +35,11 @@ FEATURE_COLUMNS = [
 ]
 LABEL_COLUMN = "Churn"
 
-# Decision rule shared by serving and evaluation: a score at or above this
-# threshold means churn.
+# Serving and evaluation classify scores at or above this threshold as churn.
 DEFAULT_THRESHOLD = 0.5
 
-# Promotion gate, shared by the pipeline definition and the evaluation step.
-# When the registry holds no approved package, the challenger is compared
-# against this baseline, so the first model still has a bar to clear.
+# The pipeline and evaluation step share this promotion baseline.
+# A challenger uses it when the registry has no approved package.
 NO_CHAMPION_ARN = "none"
 BASELINE_CHAMPION_AUC = 0.5
 
@@ -56,8 +47,7 @@ YES_NO = frozenset({"Yes", "No"})
 NO_PHONE_SERVICE = "No phone service"
 NO_INTERNET_SERVICE = "No internet service"
 
-# Fixed ordinal maps. They are deterministic, so no fitted state ships to the
-# Lambda.
+# These fixed ordinal maps require no fitted state in Lambda.
 YES_NO_MAP = {"No": 0, "Yes": 1, NO_PHONE_SERVICE: 2, NO_INTERNET_SERVICE: 2}
 CATEGORY_MAPS = {
     "gender": {"Female": 0, "Male": 1},
@@ -72,11 +62,8 @@ CATEGORY_MAPS = {
 }
 NUMERIC = {"SeniorCitizen", "tenure", "MonthlyCharges", "TotalCharges"}
 
-# Columns whose "No" variant the source data spells out. These columns are why
-# the vocabulary is per-column and not one shared Yes/No set. Only
-# MultipleLines may say "No phone service". Only these six add-on services may
-# say "No internet service". One shared set would accept
-# `Partner="No internet service"`.
+# These add-on columns accept `No internet service`.
+# Only `MultipleLines` accepts `No phone service`.
 _INTERNET_ADDON_COLUMNS = (
     "OnlineSecurity",
     "OnlineBackup",
@@ -97,11 +84,7 @@ FEATURE_VOCABULARY: dict[str, frozenset[str]] = {
 
 
 def encode_features(row: dict[str, Any]) -> list[float]:
-    """Encode one record of raw feature values into the numeric vector.
-
-    This function needs no pandas, so the serving proxy Lambda applies the same
-    encoding at inference time that training used.
-    """
+    """Encode one raw feature record into the model vector."""
     out = []
     for col in FEATURE_COLUMNS:
         v = row[col]
@@ -110,8 +93,7 @@ def encode_features(row: dict[str, Any]) -> list[float]:
             continue
         table = CATEGORY_MAPS[col] if col in CATEGORY_MAPS else YES_NO_MAP
         if v not in table:
-            # This is reachable only if a caller skipped CustomerRecord
-            # validation. Name the column instead of raising a bare KeyError.
+            # Include the column name when validation did not run.
             raise ValueError(f"{col}: value not in the feature vocabulary: {v!r}")
         out.append(float(table[v]))
     return out

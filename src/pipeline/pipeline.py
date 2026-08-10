@@ -1,5 +1,4 @@
-"""SageMaker Pipeline definition. The steps run in this order: preprocess,
-train, evaluate, gate, register.
+"""Define the preprocess, train, evaluate, gate, and register pipeline.
 
 `get_champion` reads the champion AUC from the Model Registry and sets it as
 the `ChampionAuc` parameter default. It refreshes each time CI or the retrain
@@ -30,27 +29,20 @@ from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
 
 from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
 
-# Sizing knobs, named here rather than buried at the call sites. Keep three
-# constants, not one. Processing, training, and the inference instance types
-# the registered model advertises are independent choices that share a value
-# today.
+# Configure processing, training, and inference instance types separately.
 PROCESSING_INSTANCE_TYPE = "ml.m5.large"
 TRAINING_INSTANCE_TYPE = "ml.m5.large"
 INFERENCE_INSTANCE_TYPES = ["ml.m5.large"]
 
-# The drift Lambda reads one fixed key, so the baseline output overrides the
-# default execution-scoped destination. `infra/stacks/shared.py` repeats this
-# prefix for the IAM grant and the Lambda environment; `src/pipeline/` cannot
-# import `infra`, so `tests/unit/test_pipeline.py` pins the two together.
+# The drift Lambda reads the baseline from this fixed prefix.
+# `infra/stacks/shared.py` repeats it for IAM and the Lambda environment.
+# `tests/unit/test_pipeline.py` compares both values.
 #
-# Every preprocessing run replaces this object. A rejected challenger resets it
-# too, which stops a shift the model cannot beat from starting a retrain every
-# hour.
+# Each preprocessing run replaces the baseline object.
 BASELINE_DESTINATION_PREFIX = "monitor/baseline"
 
-# These are strings, because SageMaker stringifies every hyperparameter value.
-# The annotation is explicit, because dict is invariant. A bare dict[str, str]
-# does not satisfy the SDK's dict[str, str | PipelineVariable].
+# SageMaker represents each hyperparameter as a string.
+# The SDK type also permits `PipelineVariable` values.
 TRAINING_HYPERPARAMETERS: dict[str, str | PipelineVariable] = {
     "objective": "binary:logistic",
     "eval_metric": "auc",
@@ -99,9 +91,7 @@ def build_pipeline(
         name="ChampionModelPackageArn", default_value=champion_model_arn
     )
 
-    # SKLearnProcessor uploads only the entrypoint script. Preprocessing also
-    # needs the shared ``src.common.features`` contract, so FrameworkProcessor
-    # bundles ``src`` beside the entrypoint.
+    # `FrameworkProcessor` bundles `src` with the preprocessing entrypoint.
     preprocess_processor = FrameworkProcessor(
         estimator_cls=SKLearn,
         framework_version="1.2-1",
@@ -130,8 +120,7 @@ def build_pipeline(
     preprocess = ProcessingStep(
         name="Preprocess",
         step_args=preprocess_args,
-        # Cache configuration belongs to the pipeline step, not to the
-        # ProcessingJob request that FrameworkProcessor.run() returns.
+        # Apply cache configuration to the pipeline step.
         cache_config=cache,
     )
 
@@ -164,9 +153,7 @@ def build_pipeline(
     evaluation_report = PropertyFile(
         name="EvaluationReport", output_name="evaluation", path="evaluation.json"
     )
-    # The sklearn Processing image does not include XGBoost. Only the
-    # evaluation step gets a source bundle with that pinned dependency.
-    # Preprocessing stays dependency-free and pays no install cost.
+    # The evaluation source bundle supplies XGBoost to the sklearn image.
     evaluate_processor = FrameworkProcessor(
         estimator_cls=SKLearn,
         framework_version="1.2-1",

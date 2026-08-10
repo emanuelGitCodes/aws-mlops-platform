@@ -22,14 +22,7 @@ def test_vocabulary_covers_exactly_the_categorical_columns():
     sorted((column, value) for column, values in FEATURE_VOCABULARY.items() for value in values),
 )
 def test_every_accepted_value_is_encodable(column, value):
-    """The drift guard: validation and encoding must accept the same values.
-
-    These two contracts lived in separate modules and silently diverged --
-    ten columns validated as bare `str` while the encoder knew a fixed set of
-    categories, so a plausible value like Contract="Three year" passed
-    validation and then raised KeyError during encoding. Anything the schema
-    accepts must encode; this fails the moment that stops being true.
-    """
+    """Encode every value accepted by the feature vocabulary."""
     vector = encode_features({**VALID, column: value})
     assert len(vector) == len(FEATURE_COLUMNS)
     assert all(isinstance(element, float) for element in vector)

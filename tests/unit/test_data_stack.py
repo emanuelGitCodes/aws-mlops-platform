@@ -26,8 +26,7 @@ def test_buckets_are_locked_down(stacks):
             "VersioningConfiguration": {"Status": "Enabled"},
         },
     )
-    # Exactly one. AWS Budgets is account-scoped, and dev and prod share an
-    # account, so a second budget measures the same dollars.
+    # Require one account-wide budget.
     template.resource_count_is("AWS::Budgets::Budget", 1)
     template.has_resource_properties(
         "AWS::Budgets::Budget",
@@ -111,12 +110,7 @@ def test_buckets_are_locked_down(stacks):
 
 
 def test_prod_creates_no_second_account_budget():
-    """AWS Budgets is account-scoped, and both environments share one account.
-
-    A budget in each environment scopes neither one's spend. Both measure the
-    whole account and alarm on the same dollars at every threshold. Only the
-    environment whose `account_budget` flag is true may build one.
-    """
+    """Prevent prod from creating a second account-wide budget."""
     prod_config = load_config("prod")
     assert prod_config["security"]["account_budget"] is False, (
         "prod must not own the account budget while dev does"
@@ -124,25 +118,18 @@ def test_prod_creates_no_second_account_budget():
 
     prod = Template.from_stack(synth_env("prod", "Test-Prod-Budget")["data"])
     prod.resource_count_is("AWS::Budgets::Budget", 0)
-    # The notification provider goes with it. Otherwise its acknowledgement
-    # matches no construct and fails the prod synthesis.
+    # The notification provider exists only with the account budget.
     prod.resource_count_is("Custom::AWS", 0)
 
 
 def test_exactly_one_environment_owns_the_account_budget():
-    """Assert the rule itself, not today's two values.
-
-    Nothing in CDK sees both environments at once, because each synthesis loads
-    one config. This is the only place that enforces the "exactly one" rule.
-    """
+    """Require exactly one account-budget owner across both configs."""
     owners = [env for env in ("dev", "prod") if load_config(env)["security"]["account_budget"]]
     assert owners == ["dev"], f"expected dev to be the sole budget owner, got {owners}"
 
 
 def test_only_the_capture_prefix_expires(stacks):
-    """The artifacts bucket also holds `model.tar.gz`, the evaluation reports,
-    and the drift baseline. Expiring any of those breaks the endpoint or the
-    drift job, so the rule must be prefix-scoped."""
+    """Apply artifact expiration only to the capture prefix."""
     buckets = stacks["data"].find_resources("AWS::S3::Bucket")
     with_rules = {
         logical_id: bucket["Properties"]["LifecycleConfiguration"]["Rules"]
@@ -150,7 +137,7 @@ def test_only_the_capture_prefix_expires(stacks):
         if "LifecycleConfiguration" in bucket["Properties"]
     }
 
-    # Exactly one bucket expires anything, and it is the artifacts bucket.
+    # Require one expiration rule on the artifacts bucket.
     assert len(with_rules) == 1
     logical_id, rules = next(iter(with_rules.items()))
     assert logical_id.startswith("ArtifactsBucket")
@@ -160,13 +147,12 @@ def test_only_the_capture_prefix_expires(stacks):
     assert rule["Prefix"] == "capture/"
     assert rule["Status"] == "Enabled"
     assert rule["ExpirationInDays"] == CONFIG["capture_retention_days"]
-    # The bucket is versioned, so the noncurrent version stays billable
-    # without this.
+    # Expire noncurrent capture versions after one day.
     assert rule["NoncurrentVersionExpiration"]["NoncurrentDays"] == 1
 
 
 def test_the_baseline_and_model_artifacts_are_outside_the_expiring_prefix(stacks):
-    """A rename on either side would silently start expiring live artifacts."""
+    """Keep model artifacts and the baseline outside the capture prefix."""
     from infra.stacks.shared import (
         BASELINE_KEY,
         CAPTURE_PREFIX,

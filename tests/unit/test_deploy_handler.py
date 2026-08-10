@@ -74,12 +74,7 @@ def test_subsequent_approval_updates_endpoint():
     ],
 )
 def test_describe_failure_is_not_mistaken_for_a_missing_endpoint(error):
-    """Only "could not find" may create. Anything else must surface as itself.
-
-    Catching every ClientError meant a denied or throttled DescribeEndpoint
-    fell through to CreateEndpoint, which then failed reporting the wrong
-    problem -- and, on a live endpoint, hid the real permissions fault.
-    """
+    """Create an endpoint only for the missing-endpoint error."""
     sm = _mock_sm(endpoint_exists=False, describe_error=error)
     with mock.patch.object(deploy_handler, "sm", sm), pytest.raises(_ClientError):
         deploy_handler.handler(APPROVAL_EVENT, None)
@@ -89,7 +84,7 @@ def test_describe_failure_is_not_mistaken_for_a_missing_endpoint(error):
 
 
 def test_update_failure_does_not_fall_through_to_create():
-    """A failed update on an existing endpoint must not try to create it."""
+    """Do not create an endpoint after an update failure."""
     sm = _mock_sm(endpoint_exists=True)
     sm.update_endpoint.side_effect = _ClientError("ValidationException", "Could not find endpoint")
     with mock.patch.object(deploy_handler, "sm", sm), pytest.raises(_ClientError):

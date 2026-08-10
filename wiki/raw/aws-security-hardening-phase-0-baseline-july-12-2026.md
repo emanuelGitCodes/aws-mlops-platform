@@ -114,7 +114,7 @@ comes from each workload bucket's configuration.
   been executed.
 - Current pipeline-definition SHA-256:
   `0c7c29c017a1ae4ca37fbefdbe34e0f4afa0936d4146af01aa8e36b43cb11a19`.
-- Latest execution `53ww289tjhoz` used version 8 and succeeded.
+- Latest execution `<pipeline-execution-id>` used version 8 and succeeded.
 - Its `Preprocess`, `Train`, `Evaluate`, and `BeatsChampion` steps all succeeded.
 - The successful execution retained eight report objects: the two JSON files,
   predictions CSV, and five PNG charts.
@@ -131,7 +131,7 @@ artifact is in the artifacts bucket under the successful training execution.
 - Endpoint `churn-serverless-dev` is `InService`.
 - It uses 2,048 MB serverless memory, maximum concurrency 5, and current instance
   count 0.
-- Endpoint config is `churn-serverless-dev-config-1783781373`.
+- Endpoint config is `churn-serverless-dev-config-<epoch>`.
 - No `DataCaptureConfig` is present; built-in Model Monitor capture remains
   unavailable for this serverless endpoint.
 - Network isolation is disabled; detailed observability is enabled.
@@ -208,7 +208,7 @@ AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-pipeline \
 # Re-check the last known-good pipeline execution and endpoint.
 AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-pipeline-execution \
   --pipeline-execution-arn \
-  arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/53ww289tjhoz \
+  arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id> \
   --region us-east-1
 AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-endpoint \
   --endpoint-name churn-serverless-dev --region us-east-1

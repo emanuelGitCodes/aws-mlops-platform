@@ -29,13 +29,7 @@ def _event(logical_id, status, minute=48):
 
 
 def test_metadata_only_update_reports_no_resource_change():
-    """The 2026-07-24 Monitoring case: UPDATE_COMPLETE, nothing changed.
-
-    CloudFormation resolved the partition-agnostic ARN rewrite to the same
-    policy document and skipped the IAM resource, so the stack succeeded
-    while touching nothing. Reporting that as a policy update was the
-    original error this tool exists to prevent.
-    """
+    """Report no resource change for a metadata-only stack update."""
     events = [
         _event(STACK, "UPDATE_COMPLETE"),
         _event(STACK, "UPDATE_IN_PROGRESS"),
@@ -59,7 +53,7 @@ def test_real_resource_change_is_reported():
 
 
 def test_events_before_the_last_update_are_excluded():
-    """Only the most recent update counts; older history must not leak in."""
+    """Exclude resource events before the latest stack update."""
     stale = {
         "LogicalResourceId": "OldFn",
         "ResourceStatus": "UPDATE_COMPLETE",

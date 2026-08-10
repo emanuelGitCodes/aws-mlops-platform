@@ -1,16 +1,8 @@
-"""The GitHub Actions deployment identity.
+"""Define the GitHub Actions deployment identity.
 
-`.github/workflows/deploy.yml` assumes a role here through OIDC federation.
-No long-lived AWS key exists for CI, and none may be created.
-
-The trust is scoped to one GitHub environment per role, so a role is reachable
-only by a job that names its environment. A branch-scoped trust would not carry
-that limit.
-
-**The environments carry no protection rules today.** GitHub creates a missing
-environment on demand with none, so naming `prod` does not by itself require a
-review. Add a required reviewer to the `prod` environment before treating this
-trust as an approval gate.
+`.github/workflows/deploy.yml` assumes this role through OIDC federation.
+CI uses no long-lived AWS key. Each role trust names one GitHub environment.
+GitHub environment settings own deployment protection and reviews.
 """
 
 from typing import Any
@@ -23,12 +15,11 @@ from infra.stacks.shared import PlatformConfig, github_deploy_role_name
 
 GITHUB_OIDC_DOMAIN = "token.actions.githubusercontent.com"
 GITHUB_OIDC_URL = f"https://{GITHUB_OIDC_DOMAIN}"
-# The audience GitHub requests when `aws-actions/configure-aws-credentials`
-# exchanges its token. A provider without this client id rejects every login.
+# `aws-actions/configure-aws-credentials` requests this audience.
+# The OIDC provider requires this client id.
 STS_AUDIENCE = "sts.amazonaws.com"
-# The one workflow permitted to assume a deploy role, and the ref it must run
-# from. GitHub sets `job_workflow_ref` from the workflow file that owns the job,
-# so a second workflow naming the same environment carries a different value.
+# The deploy role trust names this workflow and branch.
+# GitHub derives `job_workflow_ref` from the workflow file that owns the job.
 DEPLOY_WORKFLOW_PATH = ".github/workflows/deploy.yml"
 DEPLOY_WORKFLOW_REF = "refs/heads/main"
 
@@ -59,10 +50,8 @@ class CicdStack(Stack):
             resource_name=GITHUB_OIDC_DOMAIN,
         )
         if cicd_config["owns_oidc_provider"]:
-            # No thumbprint is pinned here. AWS validates the provider's
-            # certificate against its own trusted CAs and then stores a
-            # thumbprint it maintains. A thumbprint pinned by this repository
-            # becomes a rotation outage the day GitHub changes its chain.
+            # AWS validates the provider certificate against its trusted CAs.
+            # AWS maintains the stored thumbprint. Do not pin a thumbprint here.
             iam.CfnOIDCProvider(
                 self,
                 "GitHubOidcProvider",
@@ -81,42 +70,34 @@ class CicdStack(Stack):
                 conditions={
                     "StringEquals": {
                         f"{GITHUB_OIDC_DOMAIN}:aud": STS_AUDIENCE,
-                        # A `repo:<repo>:*` subject lets any branch or pull
-                        # request in the repository assume this role. A
-                        # ref-scoped subject ignores the environment entirely.
+                        # Require the named GitHub environment in the subject.
                         f"{GITHUB_OIDC_DOMAIN}:sub": (f"repo:{repository}:environment:{env_name}"),
-                        # The subject alone admits any workflow that names the
-                        # environment, and write access is enough to add one.
-                        # This names the file and the ref it runs from.
+                        # Require the workflow file and branch in `job_workflow_ref`.
                         f"{GITHUB_OIDC_DOMAIN}:job_workflow_ref": (
                             f"{repository}/{DEPLOY_WORKFLOW_PATH}@{DEPLOY_WORKFLOW_REF}"
                         ),
-                        # A repository of the same name under another owner
-                        # produces the same subject.
+                        # Require the repository owner claim.
                         f"{GITHUB_OIDC_DOMAIN}:repository_owner": repository.split("/", 1)[0],
-                        # A self-hosted runner executes on hardware this
-                        # account does not control.
+                        # Require a GitHub-hosted runner.
                         f"{GITHUB_OIDC_DOMAIN}:runner_environment": "github-hosted",
                     }
                 },
             ),
         )
 
-        # The same policy the human deployer carries. It grants no service
-        # access of its own: it only allows assuming the CDK bootstrap roles,
-        # which hold the deployment permissions.
+        # This policy permits assumption of the CDK bootstrap roles.
+        # The bootstrap roles hold the deployment permissions.
         deploy_role.add_managed_policy(
             iam.ManagedPolicy.from_managed_policy_name(
                 self, "CdkDeploymentPolicy", "MLOpsCdkDeploymentPolicy"
             )
         )
 
-        # `make smoke` reads the API URL from the Serving stack outputs, then
-        # calls the endpoint. Phase 6 authorizes that call with SigV4, so the
-        # caller needs execute-api:Invoke.
+        # `make smoke` reads the API URL from the Serving stack outputs.
+        # The signed request requires `execute-api:Invoke`.
         #
-        # A stack ARN ends in a generated id, and a REST API ARN embeds a
-        # generated api id. An ARN composed here needs a wildcard over both.
+        # A stack ARN ends in a generated id.
+        # A REST API ARN contains a generated API id.
         deploy_role.add_to_policy(
             iam.PolicyStatement(
                 sid="ReadServingStackOutputs",

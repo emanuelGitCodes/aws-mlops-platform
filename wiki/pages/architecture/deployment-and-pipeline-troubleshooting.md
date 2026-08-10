@@ -2,7 +2,7 @@
 type: architecture
 title: Deployment and pipeline troubleshooting checkpoint
 created: "2026-07-11"
-updated: "2026-07-12"
+updated: "2026-08-10"
 sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../scripts/evaluate_api.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py"]
 summary: "The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving."
 ---
@@ -67,8 +67,8 @@ The API key is active and associated with the `dev` usage-plan stage. Early test
 The Telco CSV was uploaded to the raw bucket and appeared under the curated prefix after ingestion:
 
 ```text
-s3://mlops-dev-data-rawbucket0c3ee094-hfnbrdy9u4vl/telco.csv
-s3://mlops-dev-data-curatedbucket6a59c97e-2thni2kwufpm/telco/telco.csv
+s3://${RAW_BUCKET}/telco.csv
+s3://${CURATED_BUCKET}/telco/telco.csv
 ```
 
 The validation Lambda logged:
@@ -83,7 +83,7 @@ This confirms the training-data path independently of the API inference path. Th
 
 The pipeline environment uses `.venv-cdk/bin/python`. The pipeline extra was constrained to SageMaker 2.x and supplied `pytz` after the initial environment failed to import SageMaker modules. The pipeline evaluation S3 path was changed from Python string concatenation to SageMaker's `Join` expression because pipeline variables cannot be concatenated as ordinary strings.
 
-The first pipeline execution, `tsjaspu5m480`, failed in `Preprocess` before
+The first pipeline execution, `<pipeline-execution-id>`, failed in `Preprocess` before
 `Train` because the Processing job uploaded `preprocess.py` but not the
 repository package containing `src.common.schema`:
 
@@ -102,7 +102,7 @@ loading the Pydantic model.
 The first successful end-to-end pipeline execution was:
 
 ```text
-arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/nntqc422p0p1
+arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id>
 ```
 
 Its `Preprocess` step wrote 4,930 training rows, 1,056 validation rows, and
@@ -114,7 +114,7 @@ does not include `xgboost`. Evaluation now uses a separate `FrameworkProcessor`
 source bundle with `xgboost==1.7.6` in `requirements.txt`. CloudWatch confirmed
 the dependency installed successfully and reported `test AUC: 0.8398`.
 
-Execution `nntqc422p0p1` succeeded and registered approved model package:
+Execution `<pipeline-execution-id>` succeeded and registered approved model package:
 
 ```text
 arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:model-package/churn-model-group/1
@@ -123,9 +123,9 @@ arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:model-package/churn-model-group/1
 The relevant successful CloudWatch streams are:
 
 ```text
-Processing: pipelines-nntqc422p0p1-Preprocess-sttnjQpjS0/algo-1-1783772646
-Training:   pipelines-nntqc422p0p1-Train-beG0CsQiXC/algo-1-1783772939
-Evaluate:   pipelines-nntqc422p0p1-Evaluate-kij0xE0MAF/algo-1-1783773129
+Processing: pipelines-<pipeline-execution-id>-Preprocess-sttnjQpjS0/algo-1-1783772646
+Training:   pipelines-<pipeline-execution-id>-Train-beG0CsQiXC/algo-1-1783772939
+Evaluate:   pipelines-<pipeline-execution-id>-Evaluate-kij0xE0MAF/algo-1-1783773129
 ```
 
 ### Held-out evaluation reports
@@ -145,14 +145,14 @@ lineage identifier. Its artifacts are `metrics.json`, `predictions.csv`, `confus
 `roc_curve.png`, `precision_recall_curve.png`, `calibration_curve.png`, and
 `score_distribution.png`.
 
-The first report execution, `3sg58t1vx4uv`, reached `Evaluate` but failed only
+The first report execution, `<pipeline-execution-id>`, reached `Evaluate` but failed only
 after it wrote JSON/CSV output. CloudWatch showed that the Python 3.9
 Processing image does not support `zip(..., strict=True)`. The chart loops were
 rewritten with index-based access, the pipeline was upserted again, and retry
-execution `53ww289tjhoz` produced the complete bundle:
+execution `<pipeline-execution-id>` produced the complete bundle:
 
 ```text
-s3://mlops-dev-data-artifactsbucket2aac5544-wtqxu2n8hv4n/churn-training-pipeline-dev/53ww289tjhoz/Evaluate/output/evaluation/
+s3://${ARTIFACTS_BUCKET}/churn-training-pipeline-dev/<pipeline-execution-id>/Evaluate/output/evaluation/
 ```
 
 Its 1,057 held-out records contained 270 churners and 787 non-churners. At the
@@ -197,7 +197,7 @@ The relevant Processing logs are in:
 
 ```text
 Log group:  /aws/sagemaker/ProcessingJobs
-Log stream: pipelines-tsjaspu5m480-Preprocess-66TI5ctfRx/algo-1-1783738269
+Log stream: pipelines-<pipeline-execution-id>-Preprocess-66TI5ctfRx/algo-1-1783738269
 ```
 
 ## Synthesis
@@ -226,11 +226,9 @@ endpoint.
   real-time hosting instance; it has no configured provisioned concurrency.
   Delete it only when a complete teardown is desired. The model package and
   endpoint configuration can remain for future recreation.
-- If Model Monitor is required later, choose another capture mechanism or a
-  provisioned endpoint that supports data capture. This is a
-  product/cost/observability decision rather than a training failure.
-- The training role's broad SageMaker policy remains a separate hardening
-  opportunity; it was not part of the July 10 deployment fix.
+- The PSI drift Lambda replaces Model Monitor for this serverless endpoint.
+- The training role uses the scoped Phase 5 policy. It does not attach
+  `AmazonSageMakerFullAccess`.
 
 ## Operational checkpoints
 
@@ -238,7 +236,7 @@ Check the successful pipeline execution:
 
 ```zsh
 AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-pipeline-execution \
-  --pipeline-execution-arn arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/nntqc422p0p1 \
+  --pipeline-execution-arn arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id> \
   --region us-east-1 \
   --query '{Status:PipelineExecutionStatus,StartTime:PipelineExecutionStartTime,EndTime:PipelineExecutionEndTime,FailureReason:FailureReason}'
 ```
@@ -252,26 +250,16 @@ AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-endpoint \
   --query '{Status:EndpointStatus,Variant:ProductionVariants[0].VariantName,Model:ProductionVariants[0].ModelName}'
 ```
 
-Once the endpoint is `InService`, retrieve the API key without printing it and
-send the repository test payload:
+Once the endpoint is `InService`, run the SigV4 smoke test:
 
 ```zsh
-API_KEY_ID=$(AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws cloudformation list-stack-resources \
-  --stack-name Mlops-Dev-Serving --region us-east-1 \
-  --query "StackResourceSummaries[?ResourceType=='AWS::ApiGateway::ApiKey'].PhysicalResourceId | [0]" \
-  --output text)
-API_KEY=$(AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws apigateway get-api-key \
-  --api-key "$API_KEY_ID" --include-value --region us-east-1 \
-  --query value --output text)
-curl -sS -X POST https://${API_GATEWAY_ID}.execute-api.us-east-1.amazonaws.com/dev/predict \
-  -H 'Content-Type: application/json' -H "x-api-key: $API_KEY" --data @sample.json
+AWS_PROFILE=${AWS_ADMIN_USER_NAME} make smoke ENV=dev
 ```
 
 ## Related pages
 
 - [CDK deployment identity and bootstrap boundary](cdk-deployment-iam.md)
 - [Data and ingestion path](data-and-ingestion.md)
-- [Closed drift-to-retrain loop](../concepts/closed-drift-loop.md)
 - [Validation versus preprocessing contracts](../concepts/contracts-and-preprocessing.md)
 - [Closed drift-to-retrain loop](../concepts/closed-drift-loop.md)
 - [Raw troubleshooting source](../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md)

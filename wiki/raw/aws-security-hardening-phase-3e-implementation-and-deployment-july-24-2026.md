@@ -11,7 +11,7 @@ The repository began clean on `main` at `b5df151`; work is on branch
 (acknowledgement scoping and policy tightening).
 
 A complete read-only pre-flight ran first with the least-privilege
-`mlops-security-auditor` profile, as the roadmap requires before any account-wide
+`${AWS_SECURITY_AUDITOR_USER_NAME}` profile, as the roadmap requires before any account-wide
 control is applied:
 
 1. The account still reported `NoSuchPublicAccessBlockConfiguration`, matching the

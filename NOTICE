@@ -1,0 +1,11 @@
+aws-mlops-platform
+Copyright 2026 Emanuel J. Cortes-Lugo
+All rights reserved.
+
+The generated architecture diagrams use AWS Architecture Icons. Amazon Web
+Services permits customers and partners to use these assets to create
+architecture diagrams. AWS names and icons remain trademarks of Amazon.com,
+Inc. or its affiliates. See https://aws.amazon.com/architecture/icons/.
+
+The diagrams are generated with cdk-dia 0.12.3, which uses the MIT License.
+See https://github.com/pistazie/cdk-dia.

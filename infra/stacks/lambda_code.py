@@ -1,9 +1,7 @@
-"""Shared Lambda asset: bundles src/ plus pydantic.
+"""Bundle `src/` and Pydantic into the shared Lambda asset.
 
-Local bundling runs first. It uses pip on the host, which is fast and needs no
-Docker in CI. If local pip fails, bundling falls back to the SAM build image in
-Docker. Every function reuses this one asset, so each deployed handler imports
-the same src.common.schema the pipeline uses.
+Local pip bundling runs first. The SAM build image handles local bundling
+failures. Every platform function uses this asset.
 """
 
 import pathlib
@@ -20,9 +18,9 @@ from aws_cdk import aws_lambda as lambda_
 _RUNTIME_DEPS = ["pydantic==2.*"]
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# The wheels must match the Lambda runtime, not the host that builds the asset.
-# The host's native wheels cause a pydantic_core import failure at runtime.
-# Both bundling paths below share these flags.
+# Install wheels for the Lambda runtime platform.
+# Host-native wheels fail to import `pydantic_core` in Lambda.
+# Both bundling paths use these flags.
 _PIP_TARGET_FLAGS = [
     "--platform",
     "manylinux2014_x86_64",
@@ -62,15 +60,12 @@ class _LocalPipBundling:
         return True
 
 
-# This is an allowlist, not a denylist. CDK computes the asset fingerprint over
-# the whole source directory, so anything reachable here moves the Lambda code
-# hash. Bundling copies only `src/`. Under a denylist, a README edit redeploys
-# all four functions, and every new top-level file joins the fingerprint.
+# Use an allowlist for the CDK asset fingerprint.
+# CDK fingerprints every included file in the source directory.
+# Bundling copies only `src/`.
 #
-# The last two patterns exclude `__pycache__`, which re-including `src/**`
-# pulls back in. A `.pyc` header embeds the source mtime, so a test run moves
-# the code hash with no source change. Bundling already skips `__pycache__`, so
-# the shipped package is unaffected.
+# Exclude `__pycache__` after re-including `src/**`.
+# A `.pyc` header contains the source modification time and changes the asset hash.
 _ASSET_CONTENT = [
     "*",
     "!src",

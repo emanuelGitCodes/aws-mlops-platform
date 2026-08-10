@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3C implementation and deployment — August 3, 2026"
 created: "2026-08-03"
-updated: "2026-08-05"
+updated: "2026-08-10"
 sources: ["../../raw/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/config/dev.yaml", "../../../tests/unit/test_deployment_policy.py"]
 summary: "AWS Config is live in dev with a ten-type recorder delivering into the audit bucket, after a pre-flight proved Free-plan availability and three defects — two of them pre-existing — blocked the first attempts."
 ---
@@ -82,7 +82,7 @@ creation calls `StartConfigurationRecorder`, which fails until a channel
 exists. Neither ordering can work. What made this expensive to diagnose is
 that CloudFormation *retries* both errors rather than failing them, so each
 attempt sat in `CREATE_IN_PROGRESS` for around ten minutes and had to be
-stopped with `cancel-update-stack` — a call `mlops-deployer` is not authorized
+stopped with `cancel-update-stack` — a call `${MLOPS_DEPLOYER_USER_NAME}` is not authorized
 to make, so the administrator profile issued it. Declaring no dependency
 between the two resources lets the retries converge, and a test now pins that
 absence, because the failure mode is a hang rather than an error and would not

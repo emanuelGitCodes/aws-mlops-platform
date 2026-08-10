@@ -10,28 +10,23 @@ from infra.stacks.monitoring_stack import (
 from src.common import drift
 from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
 
-# Stub this, like every other handler import in the suite. The module builds a
-# real boto3 client at import time, and that client caches credential state
-# which leaks into the SageMaker pipeline tests.
+# Stub the module-level boto3 client during handler import.
 VIOLATION_STATUS = import_with_stubbed_boto3("src.monitoring.retrain_handler").VIOLATION_STATUS
 
 
 def test_the_stack_and_the_drift_module_agree_on_the_event():
-    # The stack repeats these three, because importing a handler during synth
-    # would run its module-level env lookups. This is what keeps the copies
-    # from drifting apart.
+    # Compare the stack literals with the handler event contract.
     assert DRIFT_EVENT_SOURCE == drift.EVENT_SOURCE
     assert DRIFT_EVENT_DETAIL_TYPE == drift.EVENT_DETAIL_TYPE
     assert DRIFT_STATUS == drift.DRIFT_STATUS
-    # The producer's status must satisfy the consumer's guard.
+    # Match the producer status with the consumer guard.
     assert VIOLATION_STATUS == DRIFT_STATUS
 
 
 def test_the_violation_rule_matches_the_platforms_own_event(stacks):
     template = stacks["monitoring"]
 
-    # Not `aws.sagemaker`. Model Monitor is not in this loop, so nothing
-    # emits a SageMaker monitoring event for the rule to catch.
+    # Match the platform event source.
     template.has_resource_properties(
         "AWS::Events::Rule",
         {
@@ -54,7 +49,7 @@ def test_the_drift_evaluation_runs_on_the_configured_schedule(stacks):
 
 
 def test_both_loop_handlers_are_bundled_source(stacks):
-    # Real modules, not inline strings, so ruff, mypy, and pytest see them.
+    # Require bundled module handlers.
     template = stacks["monitoring"]
     for handler in (
         "src.monitoring.retrain_handler.handler",
@@ -94,8 +89,7 @@ def test_the_drift_lambda_has_its_own_role(stack_constructs):
 
 def test_the_drift_lambda_reads_capture_and_never_writes_it(stacks):
     template = stacks["monitoring"]
-    # A drift evaluation that could write the capture prefix could forge the
-    # evidence it reports on.
+    # The drift role has no write action for capture data.
     template.has_resource_properties(
         "AWS::IAM::Policy",
         {
@@ -190,8 +184,7 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
     template.resource_count_is("AWS::CloudWatch::Dashboard", 1)
     template.resource_count_is("AWS::CloudWatch::Alarm", 2)
 
-    # An alarm with no action only changes colour in the console. This one
-    # must page the same topic as the security alarms.
+    # Send the endpoint error alarm to the security alert topic.
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
@@ -204,13 +197,7 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
 
 
 def test_the_silence_alarm_fills_the_empty_periods(stacks):
-    """SageMaker publishes no Invocations datapoint for an idle hour.
-
-    A plain metric returns an empty series, so no datapoint arrives to drive an
-    evaluation and the alarm holds its last state. A 25-hour idle window on
-    2026-08-09 left the deployed alarm in OK with two history entries. FILL
-    supplies a zero per empty period, which keeps evaluation running.
-    """
+    """Use `FILL` to evaluate idle hours as zero invocations."""
     alarm = next(
         resource["Properties"]
         for resource in stacks["monitoring"].to_json()["Resources"].values()
@@ -227,7 +214,7 @@ def test_the_silence_alarm_fills_the_empty_periods(stacks):
     assert alarm["ComparisonOperator"] == "LessThanThreshold"
     assert alarm["EvaluationPeriods"] == CONFIG["monitor"]["silence_alarm_hours"]
     assert alarm["TreatMissingData"] == "breaching"
-    # The alert topic is a cross-stack import, so match its shape.
+    # Match the cross-stack alert-topic import.
     assert list(alarm["AlarmActions"][0]) == ["Fn::ImportValue"]
 
 

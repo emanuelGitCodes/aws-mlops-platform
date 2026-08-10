@@ -5,9 +5,8 @@ gate reads. The same step also writes a fuller per-execution report: a metrics
 JSON file, a prediction CSV, and diagnostic PNG charts.
 """
 
-# This module runs inside the SageMaker FrameworkProcessor managed image. That
-# image runs an older Python than 3.12. Deferred annotations keep modern syntax
-# here from becoming a runtime error.
+# The SageMaker managed image uses an older Python version.
+# Deferred annotations preserve compatibility with that image.
 from __future__ import annotations
 
 import argparse
@@ -245,8 +244,8 @@ def main() -> None:
     parser.add_argument("--challenger-model-artifact", default="unknown")
     args = parser.parse_args()
 
-    # Import inside the entrypoint, so the local report unit tests do not need
-    # the XGBoost runtime. Only this ProcessingStep bundles it.
+    # Load XGBoost inside the processing entrypoint.
+    # This processing step supplies the XGBoost runtime.
     import xgboost as xgb
 
     with tarfile.open(f"{MODEL_DIR}/model.tar.gz") as tar:

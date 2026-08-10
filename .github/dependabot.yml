@@ -1,40 +1,28 @@
 version: 2
 
-# CI detects dependency problems: pip-audit for published CVEs, and gitleaks
-# for secrets. This file is the remediation half. Without it, remediation is
-# manual and packages drift behind.
+# Dependabot updates locked Python dependencies and pinned GitHub Actions.
 updates:
-  # Use `uv`, not `pip`. The resolved versions live in uv.lock, and
-  # `make lock-check` fails CI whenever the lock and pyproject disagree. Only
-  # the uv ecosystem updates both together.
+  # Update Python dependencies through the `uv` ecosystem.
+  # Keep `uv.lock` synchronized with `pyproject.toml`.
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    # Update within the declared constraints. Never rewrite a constraint. The
-    # ceilings in pyproject are policy. `sagemaker>=2.220,<3` holds v2 until the
-    # pipeline moves to the v3 API. `cdk-nag==3.0.1` is exact, because a bump
-    # changes which findings fire, and therefore which acknowledgements in
-    # infra/security_checks.py still bind. Raise either one on its own branch.
+    # Update the lockfile within the declared version constraints.
+    # Change `sagemaker` and `cdk-nag` constraints in separate pull requests.
     versioning-strategy: "lockfile-only"
-    # Group the updates, so a red run is attributable. Ungrouped, a week of
-    # transitive churn is 20 PRs. In one all-in group, a synth failure can come
-    # from any package. Groups match in order, so the catch-all stays last.
+    # Group related packages. Keep the transitive catch-all group last.
     groups:
-      # aws-cdk-lib, constructs, and jsii are version-coupled. A partial bump
-      # fails synthesis. cdk-nag joins them, because it is the gate that reads
-      # the synthesized tree.
+      # Update CDK, jsii, constructs, and cdk-nag together.
       aws-cdk:
         patterns:
           - "aws-cdk*"
           - "constructs"
           - "cdk-nag"
           - "jsii"
-      # Keep these apart from aws-cdk. They change what the pipeline and the
-      # evaluation image compute, so a regression here is a model-behaviour
-      # regression, not a build break.
+      # Update the SageMaker pipeline runtime as one group.
       pipeline-runtime:
         patterns:
           - "sagemaker"
@@ -43,16 +31,14 @@ updates:
           - "scikit-learn"
           - "matplotlib"
           - "xgboost"
-      # The stubs must track the SDK they describe. Otherwise `make typecheck`
-      # fails on signatures that no longer exist.
+      # Update boto3, botocore, and their type stubs together.
       boto3:
         patterns:
           - "boto3*"
           - "botocore"
           - "s3transfer"
           - "mypy-boto3-*"
-      # Gate tooling. A bump here adds lint rules or type errors and turns CI
-      # red on untouched code, so it takes its own PR.
+      # Update lint, type, test, and audit tools together.
       dev-tooling:
         patterns:
           - "ruff"
@@ -64,9 +50,7 @@ updates:
         patterns:
           - "*"
 
-  # Every action is SHA-pinned with a version comment. Dependabot updates the
-  # SHA and the comment together. The interval is monthly, because these move
-  # more slowly than the Python tree.
+  # Update SHA-pinned GitHub Actions and their version comments monthly.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

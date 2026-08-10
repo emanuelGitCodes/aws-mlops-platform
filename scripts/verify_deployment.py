@@ -1,33 +1,15 @@
 #!/usr/bin/env python3
-"""Report what a CloudFormation deployment actually changed.
+"""Report the resources changed by a CloudFormation deployment.
 
-This module exists because nothing else in the repo queries CloudFormation. The
-other scripts call SageMaker, S3, or the API.
+`UPDATE_COMPLETE` can include a no-op update. Resource events identify changed
+resources. The console `Created time` value does not change during an update.
+Use `Updated time` or the stack Events tab.
 
-Stack status does not answer "what changed". A stack reaches
-``UPDATE_COMPLETE`` even when CloudFormation resolved the new template to a
-no-op and updated no resource. That happened on 2026-07-24: a partition-agnostic
-ARN rewrite produced a diff, but CloudFormation skipped both IAM policies,
-because the resolved documents were identical. Only resource-level events
-answer the question.
+The AWS identity needs `cloudformation:ListStacks`. Use
+`${AWS_SECURITY_AUDITOR_USER_NAME}` or `${AWS_ADMIN_USER_NAME}`.
 
-The console holds the same trap. The stack list's default **Created time**
-column never changes on update, so it cannot tell you whether a stack was
-deployed today. **Updated time** and the Events tab can.
-
-Run this with a profile that can enumerate stacks. ``describe_stacks`` with no
-``StackName`` is authorized as ``cloudformation:ListStacks``. The deploy
-identity ``mlops-deployer`` does not have it: that identity can create the
-change set that updates a stack, but it cannot list stacks afterwards, so it
-fails here with AccessDenied. Use ``mlops-security-auditor``, the read-only
-identity for this. ``aws-admin`` also works.
-
-Prefer ``AWS_PROFILE=mlops-security-auditor make verify-deploy
-SINCE=<YYYY-MM-DD>``. The commands below are the same call with the ``dev``
-extra that supplies boto3:
-
-    uv run --locked --extra dev python scripts/verify_deployment.py --prefix Mlops-Dev
-    uv run --locked --extra dev python scripts/verify_deployment.py --since 2026-07-24
+Run `AWS_PROFILE=${AWS_SECURITY_AUDITOR_USER_NAME} make verify-deploy
+SINCE=<YYYY-MM-DD>`.
 """
 
 import argparse
@@ -37,8 +19,7 @@ from typing import Any
 
 import boto3
 
-# These are not real resources. They are the stack's own lifecycle events and
-# the metadata resource CDK rewrites on nearly every deployment.
+# Exclude stack lifecycle events from the resource report.
 _STACK_LEVEL_STATUSES = ("REVIEW_IN_PROGRESS",)
 CDK_METADATA = "CDKMetadata"
 
@@ -51,10 +32,8 @@ def select_changed_resources(
 ) -> list[tuple[str, str]]:
     """Return the resources with a terminal event at or after ``since``.
 
-    This drops the stack's own lifecycle events. It keeps only completed and
-    failed states, so in-progress events do not double-count. It also drops
-    ``CDKMetadata`` unless the caller asks for it, because that resource
-    changes on nearly every deploy.
+    Exclude stack lifecycle events and in-progress states. Exclude
+    `CDKMetadata` unless `include_metadata` is true.
     """
     seen: dict[str, str] = {}
     for event in events:
@@ -69,7 +48,7 @@ def select_changed_resources(
             continue
         if not (status.endswith("_COMPLETE") or status.endswith("_FAILED")):
             continue
-        # Events arrive newest-first. Keep the newest terminal status.
+        # Events arrive newest first. Keep the newest terminal status.
         seen.setdefault(logical_id, status)
     return sorted(seen.items())
 

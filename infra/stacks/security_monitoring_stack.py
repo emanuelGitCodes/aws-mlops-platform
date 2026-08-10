@@ -1,4 +1,4 @@
-"""Threat detection and configuration monitoring, one flag-gated service at a time."""
+"""Define the flag-gated threat detection and configuration services."""
 
 from typing import Any
 
@@ -29,10 +29,9 @@ PHASE_3_SERVICE_FLAGS = (
     "eventbridge_alerts",
 )
 
-# The flags this stack builds resources for. The other flags keep the config
-# contract stable, but have no CDK behind them. Enabling one of those must fail
-# loudly. A silent no-op deploy looks like an enabled security service. Add a
-# flag here in the change that implements it.
+# This set lists service flags with CDK implementations.
+# Enabling any other service flag raises `ValueError`.
+# Add a flag only with its implementation.
 IMPLEMENTED_SERVICE_FLAGS = frozenset(
     {
         "access_analyzer",
@@ -43,11 +42,8 @@ IMPLEMENTED_SERVICE_FLAGS = frozenset(
     }
 )
 
-# Config records history for the resource types the metric detections alarm
-# on, and no others. It bills per configuration item, so an all-types recorder
-# pays to version resources no control reads, and it grows when EC2 arrives.
-# Recording is continuous: at $0.003 an item against about 100 resources, the
-# periodic rate costs more for less.
+# Config records only the resource types used by the security detections.
+# Continuous recording bills for each configuration item.
 CONFIG_RECORDED_TYPES = (
     "AWS::CloudTrail::Trail",
     "AWS::IAM::Group",
@@ -61,10 +57,8 @@ CONFIG_RECORDED_TYPES = (
     "AWS::SQS::Queue",
 )
 
-# Account-level Block Public Access is the backstop under every per-bucket
-# setting. It covers buckets this repository does not create, and it survives a
-# bucket-level mistake. All four settings move together. A partial block leaves
-# one route to public exposure open.
+# Account-level Block Public Access applies to every bucket in the account.
+# Keep all four public-access settings enabled together.
 ACCOUNT_BPA_CONFIGURATION = {
     "BlockPublicAcls": True,
     "IgnorePublicAcls": True,
@@ -72,19 +66,19 @@ ACCOUNT_BPA_CONFIGURATION = {
     "RestrictPublicBuckets": True,
 }
 
-# The analyzer emits an event when a finding appears, when its status changes,
-# and when it is deleted. These two fields select the live findings.
+# Access Analyzer emits events for finding creation, changes, and deletion.
+# This pattern selects active findings that are not deleted.
 ACCESS_ANALYZER_FINDING_PATTERN = {
     "source": ["aws.access-analyzer"],
     "detail-type": ["Access Analyzer Finding"],
     "detail": {"status": ["ACTIVE"], "isDeleted": [False]},
 }
 
-# Config writes its history and snapshots to the audit bucket. A failed
-# delivery stops that evidence and leaves the recorder running.
+# Config writes configuration history and snapshots to the audit bucket.
+# A delivery failure does not stop the recorder.
 #
-# Item-change events arrive one per change, for every recorded resource.
-# Compliance events need Config rules. This account deploys none.
+# Config emits one item-change event for each recorded resource change.
+# Compliance events require Config rules. This stack defines no Config rules.
 CONFIG_DELIVERY_FAILURE_PATTERN = {
     "source": ["aws.config"],
     "detail-type": [
@@ -208,10 +202,9 @@ class SecurityMonitoringStack(Stack):
                 Tags.of(detector).add(key, value)
 
         if services["account_bpa"]:
-            # CloudFormation has no resource type for the account-level
-            # setting, so this calls the S3 Control API directly. The account id
-            # stays a pseudo-parameter, never a literal. The Custom::AWS
-            # resource is not taggable, so it carries no tags.
+            # CloudFormation has no account-level Block Public Access resource.
+            # This custom resource calls the S3 Control API.
+            # The account id remains a pseudo-parameter. `Custom::AWS` is not taggable.
             bpa_resource_id = f"mlops-{self.env_name}-account-bpa"
             put_account_bpa = cr.AwsSdkCall(
                 service="S3Control",
@@ -227,11 +220,9 @@ class SecurityMonitoringStack(Stack):
                 "AccountPublicAccessBlock",
                 install_latest_aws_sdk=False,
                 on_create=put_account_bpa,
-                # Repeat the call on update. Otherwise a later change to the
-                # four settings synthesizes but never reaches the account.
+                # Apply all four settings during each update.
                 on_update=put_account_bpa,
-                # Delete restores the pre-state, which is no account-level
-                # configuration. A failed phase rolls back to where it began.
+                # Delete the account-level configuration during stack deletion.
                 on_delete=cr.AwsSdkCall(
                     service="S3Control",
                     action="deletePublicAccessBlock",
@@ -240,10 +231,8 @@ class SecurityMonitoringStack(Stack):
                 policy=cr.AwsCustomResourcePolicy.from_statements(
                     [
                         iam.PolicyStatement(
-                            # Only the two actions the calls above make. These
-                            # account-level actions are not bucket-scoped, and
-                            # AWS accepts only "*" as their resource. A third
-                            # grant would be unused wildcard debt.
+                            # Grant only the two account-level API actions.
+                            # AWS requires `"*"` as their resource.
                             actions=[
                                 "s3:PutAccountPublicAccessBlock",
                                 "s3:DeleteAccountPublicAccessBlock",
@@ -255,10 +244,8 @@ class SecurityMonitoringStack(Stack):
             )
 
         if services["config_recorder"]:
-            # Config authorizes itself through the service-linked role, not a
-            # role this stack writes. AWS owns that policy, so the recorder
-            # cannot receive more than the service needs. The CloudFormation
-            # execution policy grants the scoped CreateServiceLinkedRole.
+            # Config uses its AWS-owned service-linked role.
+            # The CloudFormation execution policy grants scoped role creation.
             service_linked_role = iam.CfnServiceLinkedRole(
                 self,
                 "ConfigServiceLinkedRole",
@@ -271,8 +258,8 @@ class SecurityMonitoringStack(Stack):
                 role_arn=self.format_arn(
                     service="iam",
                     region="",
-                    # Use `aws-service-role`. `aws-service-linked-role` is not
-                    # a real IAM path, and CreateServiceLinkedRole fails on it.
+                    # Use the IAM path `aws-service-role`.
+                    # `CreateServiceLinkedRole` rejects `aws-service-linked-role`.
                     resource="role/aws-service-role/config.amazonaws.com",
                     resource_name="AWSServiceRoleForConfig",
                     arn_format=ArnFormat.SLASH_RESOURCE_NAME,
@@ -285,13 +272,10 @@ class SecurityMonitoringStack(Stack):
             )
             recorder.add_dependency(service_linked_role)
 
-            # Do not order this against the recorder. The two depend on each
-            # other at the API. PutDeliveryChannel fails until a recorder
-            # exists. The recorder calls StartConfigurationRecorder, which
-            # fails until a channel exists. Either order deadlocks, and
-            # CloudFormation retries both errors rather than failing, so the
-            # deploy hangs until it is cancelled. Left concurrent, the retries
-            # converge.
+            # Do not order this resource against the recorder.
+            # `PutDeliveryChannel` retries until a recorder exists.
+            # `StartConfigurationRecorder` retries until a channel exists.
+            # Concurrent creation lets both retries complete.
             config_.CfnDeliveryChannel(
                 self,
                 "ConfigDeliveryChannel",
@@ -306,8 +290,7 @@ class SecurityMonitoringStack(Stack):
             )
 
         if services["eventbridge_alerts"]:
-            # A source routes only while its own service runs. A rule for a
-            # stopped service matches nothing.
+            # Route events only for enabled source services.
             routed_sources = (
                 (
                     "AccessAnalyzerFindingRule",
@@ -332,9 +315,7 @@ class SecurityMonitoringStack(Stack):
                     construct_id,
                     description=f"{description} to the {self.env_name} alert topic",
                     event_pattern=pattern,
-                    # The topic policy and the audit key grant publication to
-                    # this name prefix. A rule named outside it matches its
-                    # events, then fails to deliver them.
+                    # The topic policy and audit key grant this rule-name prefix.
                     name=f"mlops-{self.env_name}-security-{slug}",
                     state="ENABLED",
                     targets=[

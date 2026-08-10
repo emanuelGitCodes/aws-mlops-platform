@@ -50,7 +50,7 @@ def test_parse_s3_uri_splits_bucket_from_key(uri, expected):
     ],
 )
 def test_parse_s3_uri_rejects_malformed_input(uri):
-    """A malformed URI must fail here, not as a confusing S3 404 later."""
+    """Reject a malformed S3 URI before an S3 request."""
     with pytest.raises(ValueError, match="fixture S3 URI"):
         evaluate_api.parse_s3_uri(uri)
 
@@ -92,7 +92,7 @@ def test_resolve_fixture_s3_uri_finds_the_api_test_output():
 
 
 def test_resolve_fixture_s3_uri_fails_when_the_execution_has_no_api_test_output():
-    """An execution predating the fixture output must say so, not return None."""
+    """Raise an explicit error when an execution has no fixture output."""
     pages, job = _preprocess_page(
         [{"OutputName": "train", "S3Output": {"S3Uri": "s3://bucket/train"}}]
     )
@@ -130,7 +130,7 @@ def test_load_fixture_uses_an_explicit_jsonl_key_as_given():
 
 
 def test_load_fixture_rejects_an_empty_fixture():
-    """An empty fixture would otherwise report a perfect score over zero records."""
+    """Reject an empty evaluation fixture."""
     with mock.patch.object(evaluate_api.boto3, "client", return_value=_s3_client_returning(b"\n")):
         with pytest.raises(evaluate_api.ApiEvaluationError, match="empty"):
             evaluate_api.load_fixture("s3://bucket/prefix")
@@ -212,7 +212,7 @@ def test_invoke_prediction_reports_a_transport_failure():
     ],
 )
 def test_invoke_prediction_rejects_contract_violations(payload, expected):
-    """A bool is an int in Python, so `churn_probability: true` must not pass as a score."""
+    """Reject each response that violates the prediction contract."""
     with _responding(payload):
         with pytest.raises(evaluate_api.ApiEvaluationError, match=expected):
             evaluate_api.invoke_prediction("https://example.test/predict", VALID, _session())
@@ -250,7 +250,7 @@ def test_main_evaluates_an_explicit_fixture_and_prints_the_report(capsys):
         evaluate_api.main(["--fixture-s3-uri", "s3://bucket/prefix", "--api-url", "https://x/p"])
 
     report = json.loads(capsys.readouterr().out)
-    # The report echoes the URI, so a saved run records what it read.
+    # Include the source fixture URI in the report.
     assert report["fixture_s3_uri"] == "s3://bucket/prefix"
     assert load.call_args.args[0] == "s3://bucket/prefix"
 
@@ -314,8 +314,7 @@ def test_main_refuses_to_run_without_a_complete_invocation(argv, monkeypatch):
 
 
 def test_signing_without_credentials_names_the_cause():
-    """botocore would raise NoCredentialsError from inside the signer. Say
-    which input was missing instead."""
+    """Report missing credentials before SigV4 signing."""
     session = _session()
     session.get_credentials.return_value = None
     with pytest.raises(evaluate_api.ApiEvaluationError, match="credentials"):
@@ -323,8 +322,7 @@ def test_signing_without_credentials_names_the_cause():
 
 
 def test_signing_without_a_region_names_the_cause():
-    """SigV4 puts the region in the credential scope, so an unset region signs
-    a request the API rejects as a signature mismatch."""
+    """Require a region for the SigV4 credential scope."""
     session = _session()
     session.region_name = None
     with pytest.raises(evaluate_api.ApiEvaluationError, match="region"):

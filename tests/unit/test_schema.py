@@ -30,15 +30,14 @@ def test_blank_total_charges_coerced_to_zero():
         ("Partner", "Maybe"),
         ("tenure", -1),
         ("Churn", "Perhaps"),
-        # The ten columns that once validated as bare `str`. Each one reached
-        # the encoder and raised KeyError instead of being rejected.
+        # Reject unknown values for each categorical column.
         ("Contract", "Three year"),
         ("PaymentMethod", "Crypto"),
         ("InternetService", "5G"),
         ("MultipleLines", "Sometimes"),
         ("OnlineSecurity", "Maybe"),
         ("StreamingTV", "Occasionally"),
-        # A column-specific "No" variant must not leak across columns.
+        # Reject column-specific `No` values in other columns.
         ("Partner", "No internet service"),
         ("PhoneService", "No phone service"),
     ],
@@ -58,7 +57,7 @@ def test_invalid_values_rejected(field, value):
     ],
 )
 def test_real_source_values_still_accepted(field, value):
-    """Tightening the schema must not reject values the public Telco CSV uses."""
+    """Accept categorical values present in the Telco CSV."""
     assert CustomerRecord.model_validate({**VALID, field: value})
 
 
@@ -68,11 +67,6 @@ def test_feature_columns_match_model_fields():
 
 @pytest.mark.parametrize("path", sorted(REPO_ROOT.glob("sample*.json")), ids=lambda p: p.name)
 def test_committed_sample_payloads_stay_valid(path):
-    """Every sample payload in the repo must still validate and encode.
-
-    These are what a reader curls at the API, so a schema change that leaves
-    them behind is a broken example. Tightening the categorical vocabulary
-    could have invalidated them silently; this makes that a test failure.
-    """
+    """Validate and encode each committed sample payload."""
     record = CustomerRecord.model_validate(json.loads(path.read_text()))
     encode_features({column: getattr(record, column) for column in FEATURE_COLUMNS})

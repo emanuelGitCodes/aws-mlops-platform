@@ -17,10 +17,7 @@ os.environ.setdefault("CAPTURE_PREFIX", "capture")
 
 drift_handler = import_with_stubbed_boto3("src.monitoring.drift_handler")
 
-# Windows are drawn from the feature vocabulary, not repeated from one record.
-# A repeated record is a point mass, and every drift statistic reports total
-# drift against it, so such a fixture cannot tell a working detector from a
-# broken one.
+# Build baseline and stable windows from varied feature records.
 BASELINE = drift.build_baseline(varied_records(600, seed=1))
 STABLE = varied_records(200, seed=2)
 SHIFTED = varied_records(
@@ -74,8 +71,7 @@ def test_window_prefixes_cover_the_hours_before_now():
 
 
 def test_the_window_never_includes_the_current_hour():
-    # The current hour is still filling. Scoring it would read a partial
-    # window and score those same records again on the next run.
+    # Exclude the incomplete current hour from the scoring window.
     now = datetime.datetime(2026, 8, 7, 10, 30, tzinfo=datetime.UTC)
     assert "capture/2026/08/07/10/" not in drift_handler.window_prefixes(now, 5)
 
@@ -110,8 +106,7 @@ def test_an_empty_window_is_skipped(aws):
 
 
 def test_a_uniform_window_is_skipped_even_when_it_is_large(aws):
-    """The defect the live check found. `make smoke` posts one fixed payload,
-    so a health check on /predict produces a large point-mass window."""
+    """Skip a large point-mass window from repeated prediction requests."""
     s3, events = aws
     stub_capture(s3, UNIFORM)
 
@@ -156,7 +151,7 @@ def test_the_shift_is_detected_on_its_merits_not_on_uniformity(aws):
     """The window that triggers a violation is as diverse as the stable one."""
     assert drift.distinct_record_count(SHIFTED) == len(SHIFTED)
     assert drift.distinct_record_count(STABLE) == len(STABLE)
-    # Only the deliberately shifted columns move.
+    # Only the configured shifted columns move.
     moved = drift.compare(BASELINE, SHIFTED)["drifted_columns"]
     assert set(moved) <= {
         "tenure",

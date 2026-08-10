@@ -8,7 +8,7 @@ Examples:
 
     API_URL=https://.../predict \\
       uv run --locked --extra dev python scripts/evaluate_api.py \\
-      --fixture-s3-uri s3://bucket/path/api_test/ --all --profile mlops-admin
+      --fixture-s3-uri s3://bucket/path/api_test/ --all --profile <profile>
 
 The caller signs each request with SigV4 and needs `execute-api:Invoke` on the
 method. Credentials come from the named profile, or from the default chain.
@@ -29,8 +29,7 @@ import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
-# This lets the file-path invocation above import the repository package. The
-# caller does not have to set PYTHONPATH.
+# Add the repository root for direct file-path invocation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.common.features import DEFAULT_THRESHOLD

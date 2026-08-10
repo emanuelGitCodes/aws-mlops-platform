@@ -71,11 +71,7 @@ def test_missing_body_returns_422():
 
 
 def test_unknown_category_returns_422_not_a_500():
-    """An unknown category is a client error, not an unhandled encoder crash.
-
-    This used to escape validation as a bare `str`, raise KeyError inside
-    `encode_features`, and surface to the caller as a 502 from API Gateway.
-    """
+    """Return HTTP 422 for an unknown category."""
     with mock.patch.object(proxy_handler, "runtime") as runtime:
         resp = proxy_handler.handler(_event({**VALID, "Contract": "Three year"}), None)
 
@@ -86,19 +82,14 @@ def test_unknown_category_returns_422_not_a_500():
 
 @pytest.mark.parametrize("code", sorted(proxy_handler.UNAVAILABLE_ERROR_CODES))
 def test_endpoint_not_ready_returns_503_with_retry_after(code):
-    """The endpoint-updating window is routine here, not exceptional.
-
-    Every approved challenger updates the endpoint, and invocations during that
-    window fail. Unguarded, they reached the caller as a 502 with a Lambda
-    stack trace instead of a retryable 503.
-    """
+    """Return HTTP 503 and `Retry-After` for an unavailable endpoint."""
     runtime = _runtime_raising(ClientError(code, "endpoint is updating"))
     with mock.patch.object(proxy_handler, "runtime", runtime):
         resp = proxy_handler.handler(_event(VALID), None)
 
     assert resp["statusCode"] == 503
     assert resp["headers"]["Retry-After"] == str(proxy_handler.RETRY_AFTER_SECONDS)
-    # The AWS error code is operator detail. It must not reach a caller.
+    # Keep the AWS error code out of the API response.
     assert code not in resp["body"]
     assert "retry" in json.loads(resp["body"])["error"]
 
@@ -115,7 +106,7 @@ def test_unexpected_client_error_returns_502_not_503():
 
 
 def test_client_error_is_logged_with_its_code():
-    """The code is withheld from the response, so it must be in the log."""
+    """Write the SageMaker error code to the operator log."""
     runtime = _runtime_raising(ClientError("ModelNotReadyException", "warming up"))
     with (
         mock.patch.object(proxy_handler, "runtime", runtime),
@@ -162,7 +153,7 @@ def test_a_served_prediction_is_captured_to_s3():
     call = s3.put_object.call_args.kwargs
     assert call["Bucket"] == "test-artifacts"
     captured = json.loads(call["Body"])
-    # The raw record, so the drift job never has to reverse the encoding.
+    # Store the raw feature record for drift scoring.
     assert captured["record"] == VALID
     assert captured["churn_probability"] == 0.83
     assert captured["churn"] is True
@@ -185,8 +176,7 @@ def test_capture_is_off_when_no_bucket_is_configured():
 
 
 def test_a_capture_failure_never_changes_the_response():
-    # The caller already has a correct prediction. Losing one captured record
-    # costs the next drift window one sample and nothing else.
+    # Preserve the completed prediction response after a capture failure.
     with (
         mock.patch.object(proxy_handler, "runtime") as runtime,
         mock.patch.object(proxy_handler, "s3") as s3,

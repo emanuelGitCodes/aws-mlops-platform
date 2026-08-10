@@ -359,7 +359,7 @@ lambda:InvokeFunction
 The denied resource was the generated Lambda function:
 
 ```text
-Mlops-Dev-Data-BucketNotificationsHandler050a0587b-9dkMqJlLvXCL
+Mlops-Dev-Data-BucketNotificationsHandler<suffix>
 ```
 
 CloudFormation then rolled the stack back to `ROLLBACK_COMPLETE`. The buckets again emitted `DELETE_SKIPPED` because they use `RemovalPolicy.RETAIN`; their empty state must be checked and cleaned after the stack failure.
@@ -378,9 +378,9 @@ Add only `lambda:InvokeFunction` to the Lambda actions in the local `MLOpsCloudF
 
 The three buckets retained by the third failed Data-stack attempt were confirmed empty with zero object versions and zero delete markers. They were deleted with `${AWS_ADMIN_USER_NAME}`:
 
-- `mlops-dev-data-rawbucket0c3ee094-9dn8m844frun`
-- `mlops-dev-data-curatedbucket6a59c97e-lxdysi6zkqtx`
-- `mlops-dev-data-artifactsbucket2aac5544-fxrncmav2v0j`
+- `${RAW_BUCKET}`
+- `${CURATED_BUCKET}`
+- `${ARTIFACTS_BUCKET}`
 
 The deletion loop returned no errors. The next checkpoint is a final account-wide prefix query, followed by a deployment retry using policy version `v4`.
 ## [2026-07-11] query | deployment pipeline CloudWatch Lambda API Gateway SageMaker
@@ -411,7 +411,7 @@ Carry the July 10 AWS deployment and testing work into the maintained wiki so th
 - Lambda packaging had to target Python 3.12 because the local bundler ran under Python 3.14 while Lambda used Python 3.12.
 - API Gateway accepted the authenticated POST after the payload and shell environment were corrected; the remaining `502` was the downstream missing SageMaker endpoint.
 - The ingestion Lambda validated 7,043 Telco rows with zero rejected rows and wrote the curated object.
-- SageMaker execution `tsjaspu5m480` failed in `Preprocess` with `ModuleNotFoundError: No module named 'src'`, before the `Train` step. The training log group is therefore expected to be empty for this execution.
+- SageMaker execution `<pipeline-execution-id>` failed in `Preprocess` with `ModuleNotFoundError: No module named 'src'`, before the `Train` step. The training log group is therefore expected to be empty for this execution.
 
 ### Decision and next checkpoint
 
@@ -445,7 +445,7 @@ state, and identify the exact remaining blocker before testing the API.
 
 ### Commands and observed results
 
-1. The prior execution `tsjaspu5m480` failed before training because a
+1. The prior execution `<pipeline-execution-id>` failed before training because a
    Processing job uploaded only `preprocess.py`, causing
    `ModuleNotFoundError: No module named 'src'`.
 2. Preprocessing was changed to `FrameworkProcessor` source bundling with the
@@ -461,15 +461,15 @@ state, and identify the exact remaining blocker before testing the API.
    ```
 
 4. Training completed in
-   `pipelines-nntqc422p0p1-Train-beG0CsQiXC`. CloudWatch confirmed a 4,930-row,
+   `pipelines-<pipeline-execution-id>-Train-beG0CsQiXC`. CloudWatch confirmed a 4,930-row,
    19-feature training matrix and 1,056 validation rows; validation AUC reached
    `0.80610` during the logged rounds.
 5. The first evaluation run failed with `ModuleNotFoundError: No module named
    'xgboost'`. Evaluation was moved to its own `FrameworkProcessor` bundle with
    `xgboost==1.7.6` in `evaluation_runtime/requirements.txt`.
-6. CloudWatch for `pipelines-nntqc422p0p1-Evaluate-kij0xE0MAF` confirmed the
+6. CloudWatch for `pipelines-<pipeline-execution-id>-Evaluate-kij0xE0MAF` confirmed the
    wheel downloaded and installed, then printed `test AUC: 0.8398`.
-7. Pipeline execution `nntqc422p0p1` succeeded and registered approved model
+7. Pipeline execution `<pipeline-execution-id>` succeeded and registered approved model
    package `arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:model-package/churn-model-group/1`.
 8. `describe-endpoint churn-serverless-dev` returned endpoint-not-found. The
    approval EventBridge rule did invoke the deployment Lambda, whose CloudWatch
@@ -605,7 +605,7 @@ held-out model evaluation reports and API-ready test fixtures.
   `src/pipeline/pipeline.py`, and `scripts/evaluate_api.py`.
 - SageMaker pipeline `churn-training-pipeline-dev` in `us-east-1`, account
   `${AWS_ACCOUNT_ID}`.
-- Artifacts bucket execution prefix for retry `53ww289tjhoz`.
+- Artifacts bucket execution prefix for retry `<pipeline-execution-id>`.
 - Deployment checkpoint, closed-loop concept, overview, and new immutable
   rollout source.
 
@@ -618,13 +618,13 @@ therefore upserted only the SDK-managed pipeline; no IAM policy was widened.
 
 ### Commands and observed results
 
-1. The first post-update execution `3sg58t1vx4uv` reached `Evaluate`, wrote
+1. The first post-update execution `<pipeline-execution-id>` reached `Evaluate`, wrote
    `evaluation.json`, `metrics.json`, and `predictions.csv`, then failed with
    Python 3.9 `TypeError: zip() takes no keyword arguments` before PNG output.
 2. The error came from `zip(..., strict=True)` in the report writer. The loops
    were changed to index-based access, focused evaluation tests passed, and the
    pipeline was upserted again.
-3. Retry execution `53ww289tjhoz` succeeded and wrote the full metrics,
+3. Retry execution `<pipeline-execution-id>` succeeded and wrote the full metrics,
    predictions, confusion matrix, ROC, precision-recall, calibration, and
    score-distribution artifact bundle to S3.
 4. The report measured AUC `0.8398`, accuracy `0.8023`, precision `0.6332`,
@@ -789,7 +789,7 @@ or recorded. No training execution or CloudFormation change set was created.
    Enforced, and encrypted with the AWS-managed S3 KMS key. Raw and curated
    Telco objects remain present with matching sizes.
 6. Pipeline version 9 is Active but unexecuted. Version-8 execution
-   `53ww289tjhoz` succeeded through all steps and retains the complete report
+   `<pipeline-execution-id>` succeeded through all steps and retains the complete report
    bundle under its older prefix. Approved package `/1` retains AUC `0.8398`.
 7. `churn-serverless-dev` is `InService`; a normal API-key request returned
    probability `0.3656342029571533` and `churn: false`.
@@ -3286,7 +3286,7 @@ three `Decrypt`; `list-model-packages` confirming the
 Mutating: one commit on `feat/phase-5c-deploy-role` (PR #41, CI green);
 `make deploy-stack STACK=Mlops-Dev-Serving` at 23:58Z (70 s); an upload of 1,200
 new rows to the raw bucket; `python -m src.pipeline.pipeline --start`, execution
-`z4y8kc4qz0kf`.
+`<pipeline-execution-id>`.
 
 `make verify-deploy SINCE=2026-08-05` reported six changed resources — the old
 role and policy deleted, the new role and policy created, the function
@@ -3515,11 +3515,11 @@ account, so no evidence exists or could. The prefix is pinned to the script in
 
 ```
 2026-08-06T01:49:23Z  deploy 1   role + policy, in place, nothing replaced
-2026-08-06T01:50Z     run ik4h7l6y020c  Failed  AddTags on the processing job
+2026-08-06T01:50Z     run <pipeline-execution-id>  Failed  AddTags on the processing job
 2026-08-06T01:54:09Z  deploy 2   policy only
-2026-08-06T01:54Z     run t5z537c2f85z  Failed  4/5 steps green; AddTags on the group
+2026-08-06T01:54Z     run <pipeline-execution-id>  Failed  4/5 steps green; AddTags on the group
 2026-08-06T02:12:40Z  deploy 3   policy only
-2026-08-06T02:12Z     run u2p5fi2f79aq  Succeeded  all five steps
+2026-08-06T02:12Z     run <pipeline-execution-id>  Succeeded  all five steps
 2026-08-06T02:18:16Z  model package v3 registered, auto-approved
 2026-08-06T02:18:22Z  endpoint -> Updating   (six seconds later)
 2026-08-06T02:21:01Z  endpoint InService
@@ -3617,8 +3617,8 @@ still constrained by IAM policy version pressure: four of five slots used.
 
 ### A gap this window exposed
 
-**`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is denied
-for that identity, so the budget check here had to run under `aws-admin`.
+**`${AWS_SECURITY_AUDITOR_USER_NAME}` cannot read budgets.** `budgets:ViewBudget` is denied
+for that identity, so the budget check here had to run under `${AWS_ADMIN_USER_NAME}`.
 
 That matters more than the missing permission itself. Every prior observation
 window reported budget state, which means each one quietly reached for a broader
@@ -3863,8 +3863,8 @@ before any mutation, and resource-level evidence after it.
 
 `Mlops-Dev-Data`, `Mlops-Dev-Serving`, `Mlops-Dev-Monitoring`, in that order.
 Data first, because both other stacks import a new export from it. Identity:
-`mlops-deployer` for the diff and the deploys, `mlops-security-auditor` for
-verification, `aws-admin` for the budget and CloudTrail reads the auditor is
+`${MLOPS_DEPLOYER_USER_NAME}` for the diff and the deploys, `${AWS_SECURITY_AUDITOR_USER_NAME}` for
+verification, `${AWS_ADMIN_USER_NAME}` for the budget and CloudTrail reads the auditor is
 denied.
 
 ### Pre-flight baseline
@@ -3989,28 +3989,28 @@ check the loop against real artifacts rather than fixtures.
 
 ### Scope
 
-Pipeline `churn-training-pipeline-dev`, execution `bib1c66yrmkk`. The baseline
+Pipeline `churn-training-pipeline-dev`, execution `<pipeline-execution-id>`. The baseline
 object under the `monitor/baseline` prefix. Local scoring of real captured
 records and real curated records against that baseline.
 
 ### The upsert needs an identity the platform does not have
 
-`mlops-deployer` cannot upsert the pipeline. `get_champion` calls
+`${MLOPS_DEPLOYER_USER_NAME}` cannot upsert the pipeline. `get_champion` calls
 `ListModelPackages`, and that identity is denied it:
 
 ```
-AccessDeniedException ... user/mlops-deployer is not authorized to perform:
+AccessDeniedException ... user/${MLOPS_DEPLOYER_USER_NAME} is not authorized to perform:
 sagemaker:ListModelPackages on resource: model-package/churn-model-group/*
 ```
 
-The upsert ran under `aws-admin` instead. This is the same shape as the
+The upsert ran under `${AWS_ADMIN_USER_NAME}` instead. This is the same shape as the
 existing rule that deploying and verifying are different identities: there is a
 **third** out-of-band operator step, and it has no scoped identity of its own.
 Recorded as open work, not fixed here.
 
 ### The run
 
-Execution `bib1c66yrmkk`, 17:35:16Z → 17:48:35Z, `Succeeded`.
+Execution `<pipeline-execution-id>`, 17:35:16Z → 17:48:35Z, `Succeeded`.
 
 ```
 Preprocess       Succeeded  17:35:17 -> 17:40:20
@@ -4237,7 +4237,7 @@ scheduled run at 20:00Z carried the whole chain with no operator in it:
 
 ```
 drift_violation   record_count 200, every column over threshold
-retrain_started   execution xk0bvzv647ni
+retrain_started   execution <pipeline-execution-id>
 pipeline          "drift-triggered retrain"  Executing -> Succeeded
 ```
 
@@ -4441,7 +4441,7 @@ The local prediction matched the live result exactly — `tenure` predicted
 places from the deployed baseline and fixture is a useful check on the whole
 capture-to-statistic path, not just the threshold.
 
-`RetrainTriggerFn` started execution `k6hglww9i8xw` two seconds later. That run
+`RetrainTriggerFn` started execution `<pipeline-execution-id>` two seconds later. That run
 repeated the cached pattern: `Preprocess` and `Train` one second each,
 `Evaluate` seven minutes, gate `False`, endpoint unchanged since
 2026-08-05T22:21Z. The baseline was again not refreshed, which is the third
@@ -4453,11 +4453,11 @@ Deployed 02:09:58Z, after the run above finished so the in-flight branch could
 not confound it. `make verify-deploy` confirms three resources:
 `DriftEvaluationFn`, `RetrainTriggerFn`, and the retrain role's policy.
 
-The component check cost nothing. Nine minutes after `k6hglww9i8xw` started,
+The component check cost nothing. Nine minutes after `<pipeline-execution-id>` started,
 the handler was invoked directly with a violation event:
 
 ```
-response: {"suppressed": ".../execution/k6hglww9i8xw"}
+response: {"suppressed": ".../execution/<pipeline-execution-id>"}
 log:      {"event": "retrain_suppressed", "pipeline": "churn-training-pipeline-dev",
            "reason": "cooldown", "latest_status": "Succeeded", "cooldown_hours": 6}
 ```
@@ -4489,16 +4489,16 @@ rule and no phase that adds one before 4C.
 
 ### A drift-triggered retrain re-evaluates a bit-identical model
 
-The `Evaluate` step of execution `k6hglww9i8xw` logged:
+The `Evaluate` step of execution `<pipeline-execution-id>` logged:
 
 ```
-challenger_model_artifact : .../training/pipelines-bib1c66yrmkk-Train-.../model.tar.gz
+challenger_model_artifact : .../training/pipelines-<pipeline-execution-id>-Train-.../model.tar.gz
 challenger_test_auc       : 0.8535
 champion_test_auc         : 0.8679385964912282
 promotion_decision        : reject
 ```
 
-The artifact path names execution **`bib1c66yrmkk`** — the 13:35Z baseline run,
+The artifact path names execution **`<pipeline-execution-id>`** — the 13:35Z baseline run,
 not this one. `Train` was a cache hit, so the challenger under evaluation is
 the same `model.tar.gz` that was already trained, evaluated, and rejected
 hours earlier. The verdict was deterministic before the run started.
@@ -4627,8 +4627,8 @@ last pre-3C state and the only console-side undo for the 3C narrowing.
 
 ### Identities
 
-The audit ran under `mlops-security-auditor`, which can read policy versions.
-The deletion needs `aws-admin` — the auditor profile is read-only.
+The audit ran under `${AWS_SECURITY_AUDITOR_USER_NAME}`, which can read policy versions.
+The deletion needs `${AWS_ADMIN_USER_NAME}` — the auditor profile is read-only.
 ## [2026-08-07] query | 3F EventBridge alert routing
 
 Found 23 matching page(s).
@@ -4646,8 +4646,8 @@ resources, the `eventbridge_alerts` flag added to `IMPLEMENTED_SERVICE_FLAGS`),
 grant), `infra/config/dev.yaml`, and the two stack test modules. Deployed
 stacks: `Mlops-Dev-Security`, then `Mlops-Dev-SecurityMonitoring`.
 
-**Identity and environment.** `mlops-deployer` for both deploys,
-`mlops-security-auditor` for verification and the live reads. Region
+**Identity and environment.** `${MLOPS_DEPLOYER_USER_NAME}` for both deploys,
+`${AWS_SECURITY_AUDITOR_USER_NAME}` for verification and the live reads. Region
 `us-east-1`, dev only.
 
 ### What was built
@@ -4685,7 +4685,7 @@ The version slots freed on 2026-08-07 stay banked at three of five used.
 passed**, coverage `93.4534%`, floor `93.37 → 93.45`. cdk-nag passes both
 environments with no new acknowledgement.
 
-`make verify-deploy SINCE=2026-08-08` under `mlops-security-auditor` reports
+`make verify-deploy SINCE=2026-08-08` under `${AWS_SECURITY_AUDITOR_USER_NAME}` reports
 exactly the intended four resources:
 
 ```
@@ -4723,8 +4723,8 @@ next once 3F closes as a go.
 **Objective.** Close the 3F record's open gap by making a real Access Analyzer
 finding travel the full path to the alert topic.
 
-**Identity and environment.** `aws-admin` for the mutating setup and for the
-CloudWatch reads, `mlops-security-auditor` for the analyzer reads. Dev,
+**Identity and environment.** `${AWS_ADMIN_USER_NAME}` for the mutating setup and for the
+CloudWatch reads, `${AWS_SECURITY_AUDITOR_USER_NAME}` for the analyzer reads. Dev,
 `us-east-1`.
 
 ### The path to a usable test
@@ -4750,7 +4750,7 @@ outside access is indistinguishable in shape from an exfiltration setup.
 | Time (UTC) | Event |
 |---|---|
 | 13:15:26 | Public queue policy live |
-| 13:17:08 | Finding `efcd6600` created — `ACTIVE`, `isPublic true`, `AWS::SQS::Queue` |
+| 13:17:08 | Finding `<finding-id>` created — `ACTIVE`, `isPublic true`, `AWS::SQS::Queue` |
 | 13:13–13:18 | Rule `MatchedEvents` 1, `Invocations` 1, `FailedInvocations` **0** |
 | 13:13–13:18 | Topic `NumberOfMessagesPublished` 2, `NumberOfNotificationsDelivered` 2 |
 | 13:18:21 | Queue and the unused throwaway bucket both deleted |
@@ -4771,12 +4771,12 @@ evidence, not the topic count.
 own bucket-policy writes — a true positive on this work, matching the 2E
 precedent and 3C's six emails.
 
-Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
+Finding `<finding-id>` stayed `ACTIVE` immediately after the queue was deleted.
 Access Analyzer resolves findings for deleted resources on a later pass, so
 this is expected rather than a leak.
 
-`mlops-security-auditor` cannot call `cloudwatch:GetMetricStatistics`, so the
-metric evidence needed `aws-admin`. That is a second auditor gap beside the
+`${AWS_SECURITY_AUDITOR_USER_NAME}` cannot call `cloudwatch:GetMetricStatistics`, so the
+metric evidence needed `${AWS_ADMIN_USER_NAME}`. That is a second auditor gap beside the
 known `config:ListConfigurationRecorders` one.
 
 **Decision and next checkpoint.** The Config delivery-failure rule stays
@@ -4795,11 +4795,11 @@ closing edge of the drift loop had never run.
 |---|---|
 | 01:21 | Inference traffic writes the capture window |
 | 02:00:38 | `drift_violation` — 200 records, `drifted: true`, `tenure` 12.648, `MonthlyCharges` 12.455, `TotalCharges` 12.438 |
-| 02:00:40 | `retrain_started` — execution `k6hglww9i8xw` |
+| 02:00:40 | `retrain_started` — execution `<pipeline-execution-id>` |
 | 02:05:13 | `challenger_evaluation` — challenger 0.8535 AUC, champion 0.8679, `promotion_decision: reject` |
 | 02:11:07 | `retrain_suppressed` — `reason: cooldown`, `cooldown_hours: 6` |
 
-`describe-pipeline-execution` reports `k6hglww9i8xw` as `Succeeded`.
+`describe-pipeline-execution` reports `<pipeline-execution-id>` as `Succeeded`.
 
 Three mechanisms are now proved live, not only in tests: the drift Lambda's
 violation path, the promotion gate rejecting a worse challenger, and the
@@ -4826,7 +4826,7 @@ address received the finding at 13:17Z as an `AWS Notification Message` — raw
 EventBridge JSON, not an alarm email, which is why it did not resemble the
 alarm traffic around it.
 
-The delivered body carries finding id `efcd6600`, the same id
+The delivered body carries finding id `<finding-id>`, the same id
 `list-findings` reported, with `"detail-type":"Access Analyzer Finding"`,
 `"source":"aws.access-analyzer"`, `"status":"ACTIVE"`, `"isDeleted":false`,
 `"isPublic":true`, and the resource `mlops-dev-3f-routing-proof`.
@@ -4890,8 +4890,8 @@ validation at a time, so 2F and 2G are eligible after 3F reaches its go/no-go.
 **Objective.** Close the partial 3F observation window with an explicit
 go/no-go, using resource-level and metric evidence rather than stack status.
 
-**Identity.** `mlops-security-auditor` for rules, alarms, analyzer, and stack
-status. `aws-admin` for CloudWatch metrics, Config status, and the budget —
+**Identity.** `${AWS_SECURITY_AUDITOR_USER_NAME}` for rules, alarms, analyzer, and stack
+status. `${AWS_ADMIN_USER_NAME}` for CloudWatch metrics, Config status, and the budget —
 the auditor lacks `cloudwatch:GetMetricStatistics`, `budgets:ViewBudget`, and
 `config:ListConfigurationRecorders`. All three known gaps held again.
 
@@ -4925,7 +4925,7 @@ hours would have added cost data the budget already reports as zero.
    unproved by choice. Snapshot delivery is on a `TwentyFour_Hours` frequency
    and its last success predates the deploy, so no post-deploy snapshot was
    observed.
-2. **Finding `efcd6600` resolved on its own at 13:19:35Z**, about a minute
+2. **Finding `<finding-id>` resolved on its own at 13:19:35Z**, about a minute
    after the queue delete, closing the record's open question about
    short-lived `ACTIVE` findings. The rule's match count stayed at 1 across
    that transition. That is consistent with the `status ACTIVE` predicate, but
@@ -5154,7 +5154,7 @@ still wants the key, and 2F's window needs `make smoke` to prove
 OIDC provider actions `CicdStack` needs. The rotation failed, and the failure
 corrects a constraint this wiki has tracked since Phase 2A.
 
-**Identity.** `aws-admin`. `mlops-security-auditor` cannot write IAM.
+**Identity.** `${AWS_ADMIN_USER_NAME}`. `${AWS_SECURITY_AUDITOR_USER_NAME}` cannot write IAM.
 
 **Pre-flight, which passed.** The live default `v11` was fetched, normalised,
 and compared against the repository JSON with the new statement removed. The
@@ -5276,7 +5276,7 @@ the same failure at the next phase.
 
 **Scope.** New `infra/policies/mlops-cloudformation-execution-policy-extension.json`
 and new live policy `MLOpsCloudFormationExecutionPolicyExtension`, attached to
-`cdk-hnb659fds-cfn-exec-role-*`. Identity `aws-admin`.
+`cdk-hnb659fds-cfn-exec-role-*`. Identity `${AWS_ADMIN_USER_NAME}`.
 
 **The main policy was not rotated, and that is the point of this shape.** The
 OIDC statement moved out of the main document rather than the main document
@@ -5349,7 +5349,7 @@ this group unless KMS is the subject. Under the same 10000-row cap that moves
 coverage from nine minutes to about a week.
 
 **One alarm interaction.** Three `AccessDenied` events appear, all Cost
-Explorer `GetCostAndUsage` and `GetCostForecast` from `aws-admin`, all
+Explorer `GetCostAndUsage` and `GetCostForecast` from `${AWS_ADMIN_USER_NAME}`, all
 `IAM user access not activated`. That is Cost Explorer's separate IAM-user
 opt-in rather than a platform permission fault, and it still counts toward
 `unauthorized-api-calls`. Routine Billing console use therefore contributes
@@ -5474,7 +5474,7 @@ contain no workstation path. The SVG files contain no external image link.
 passed. The silence criterion failed in a way that no test caught and only a
 full idle window could expose.
 
-**Identity.** `aws-admin` for CloudWatch reads. No AWS resource was changed.
+**Identity.** `${AWS_ADMIN_USER_NAME}` for CloudWatch reads. No AWS resource was changed.
 
 **The 5xx half: go.** `mlops-dev-endpoint-5xx` held `OK` across 24 unbroken
 hours of an idle serverless endpoint, having left `INSUFFICIENT_DATA` 48
@@ -5531,8 +5531,8 @@ from `MetricName`/`Period`/`Statistic` to a `Metrics` array.
 the detector fires. It did. The same deploy also shipped sub-phase 2G, which was
 not intended.
 
-**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
-`aws-admin` for alarm reads.
+**Identity.** `${MLOPS_DEPLOYER_USER_NAME}` to deploy, `${AWS_SECURITY_AUDITOR_USER_NAME}` to verify,
+`${AWS_ADMIN_USER_NAME}` for alarm reads.
 
 **Pre-flight.** The deployed alarm carried a plain `Invocations` metric, no
 `Metrics` array, `TreatMissingData` `breaching`, state `OK` unchanged since
@@ -5593,7 +5593,7 @@ One `/predict` call closes that, and the deployed API still expects `x-api-key`.
 **Objective.** Close the observation window that 2F's silence fix and 2G share.
 Every criterion is met, and both sub-phases are a go.
 
-**Identity.** `aws-admin` for reads and the one `/predict` call.
+**Identity.** `${AWS_ADMIN_USER_NAME}` for reads and the one `/predict` call.
 
 **The silence detector is fully exercised.** Its history holds the whole cycle
 inside 16 minutes:
@@ -5663,8 +5663,8 @@ history; do not model its schedule.**
 **Objective.** Move `/predict` from an API key to SigV4, and confirm the
 boundary actually moved rather than merely changing shape.
 
-**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
-`aws-admin` for live calls.
+**Identity.** `${MLOPS_DEPLOYER_USER_NAME}` to deploy, `${AWS_SECURITY_AUDITOR_USER_NAME}` to verify,
+`${AWS_ADMIN_USER_NAME}` for live calls.
 
 **The dependency check ran first, and it mattered.** `make diff-stack
 STACK=Mlops-Dev-Serving` announced `Including dependency stacks:
@@ -5725,8 +5725,8 @@ call, `make smoke`. `python scripts/wiki.py lint`.
 **Objective.** Deploy `CicdStack`, so `.github/workflows/deploy.yml` has an
 identity to assume and deployment stops depending on a workstation.
 
-**Identity.** `mlops-deployer` to deploy, `mlops-security-auditor` to verify,
-`aws-admin` for IAM reads.
+**Identity.** `${MLOPS_DEPLOYER_USER_NAME}` to deploy, `${AWS_SECURITY_AUDITOR_USER_NAME}` to verify,
+`${AWS_ADMIN_USER_NAME}` for IAM reads.
 
 **A sequencing choice made before deploying.** `main` carried the two-claim
 trust, and `#57`'s hardening was green and unmerged. Deploying first would have
@@ -5832,7 +5832,7 @@ would read a permanent expected finding as a regression. The roadmap's
 stable-interfaces section now records this.
 
 **Pre-deploy baseline.** A read-only check on 2026-08-09 returned no archive
-rules and one active finding for `mlops-dev-github-deploy`. This confirms that
+rules and one active finding for `${GITHUB_DEPLOY_ROLE_NAME}`. This confirms that
 the rule is not deployed and gives the deployment a deterministic live check.
 
 **Verification.** `make lint`, `make typecheck`, and `make security` pass.
@@ -5905,7 +5905,7 @@ its earlier update time and changed nothing in this deploy.
 
 **Live rule check.** `list-archive-rules` returns exactly
 `ArchiveCiDeployRoleFederation`, with one `resource` equality filter for
-`mlops-dev-github-deploy`. The existing finding stayed `ACTIVE` after rule
+`${GITHUB_DEPLOY_ROLE_NAME}`. The existing finding stayed `ACTIVE` after rule
 creation, as the API contract predicts. The approved `apply-archive-rule`
 action changed it to `ARCHIVED` at 23:33Z. An `ACTIVE` query now returns no
 findings, and the archived query returns that one finding.
@@ -5956,3 +5956,52 @@ after hosted CI passes. Continue to use live AWS checks for deployment claims.
 `make wiki-lint`, and `make security` pass. `make test` reports 335 passed at
 94.04% coverage. The coverage floor moves from 93.65% to 94.03%. The wiki
 contains 46 healthy pages.
+
+## [2026-08-10] security | Prepare the repository for public release
+
+**Objective.** Remove publishable account metadata, repair security gates, and
+prepare the repository controls without changing visibility.
+
+**Repository changes.** Replaced bucket names, IAM identity names, execution
+identifiers, one API key identifier, one finding identifier, and generated
+physical names with `.env.example` placeholders. This sanitization includes
+the raw wiki records because the wiki sensitive-value rule covers every file.
+Added `make public-check` with unit tests. The check reports only file, line,
+and rule names, so it does not print a matched value.
+
+Updated the README and roadmap to match IAM/SigV4, AWS Config, the completed
+least-privilege phase, the deployed drift loop, and the current CI/CD boundary.
+Added the all-rights-reserved terms to the README. Added third-party asset
+notices and `SECURITY.md`.
+Production deployment is now an explicit workflow input. CodeQL is ready to
+run when the repository becomes public.
+
+**Secret scanning.** The old hosted Gitleaks action reported zero scanned
+commits. CI now installs a checksum-pinned Gitleaks binary and scans `--all -m`.
+An independent local scan covered all 230 commits and found no leak. A second
+scan exported only tracked and nonignored worktree files, covered 1.70 MB, and
+found no leak. A broad filesystem scan matched only CDK asset hashes in ignored
+build outputs and old local worktrees.
+
+**GitHub controls.** `main` now requires the `validate` and `secret-scan`
+checks, one approval, last-push approval, current-branch checks, linear history,
+and resolved conversations. Force pushes and deletions are disabled. Dev and
+prod environments allow only `main`; dev holds its OIDC role ARN as an
+environment secret. Dependabot vulnerability alerts and security updates are
+enabled. The private-repository plan does not provide environment reviewers,
+GitHub secret scanning, CodeQL, or private vulnerability reporting. Those
+features require the visibility transition.
+
+**Local controls.** Removed the obsolete API-key variable from the ignored
+`.env`, changed its mode to `600`, and set future repository commits to the
+GitHub noreply address. No tracked credential or AWS resource changed.
+
+**Verification.** `make lint`, `make typecheck`, `make docs-sync`,
+`make public-check`, `make wiki-lint`, dependency audit, and both environment
+syntheses pass. `make test` reports 343 passed at 94.13% coverage. The coverage
+floor moves from 94.03% to 94.12%.
+
+**Decision and next checkpoint.** Keep the repository private until the final
+history choice is explicit. A clean public mirror avoids publishing personal
+commit email, stale branches, and existing Actions logs. A history rewrite is
+the destructive alternative.

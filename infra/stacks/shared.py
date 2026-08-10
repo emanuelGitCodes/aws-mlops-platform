@@ -1,11 +1,7 @@
-"""Cross-stack CDK helpers and the environment config contract.
+"""Define cross-stack CDK helpers and the environment config contract.
 
-This module exists because these patterns repeat across several stacks.
-``lambda_code.py`` covers only the bundled Lambda asset.
-
-The ``*Config`` TypedDicts define the shape of
-``infra/config/{dev,prod}.yaml``. They are build-time only. Keep them
-separate from ``src/common/schema.py``, which is the runtime contract.
+The ``*Config`` types define ``infra/config/{dev,prod}.yaml`` at build time.
+``src/common/schema.py`` defines the runtime request contract.
 """
 
 from typing import Any, TypedDict
@@ -22,21 +18,21 @@ from infra.stacks.lambda_code import src_code
 
 
 class ServerlessConfig(TypedDict):
-    """``serverless:`` — SageMaker serverless endpoint sizing."""
+    """Define the SageMaker serverless endpoint size."""
 
     memory_mb: int
     max_concurrency: int
 
 
 class MonitorConfig(TypedDict):
-    """``monitor:`` — the drift job schedule and the endpoint alarms."""
+    """Define the drift schedule and endpoint alarm settings."""
 
     schedule_cron: str
     silence_alarm_hours: int
 
 
 class SecurityServicesConfig(TypedDict):
-    """``security.services:`` — the six security-service enablement flags.
+    """Define the six `security.services` enablement flags.
 
     ``SecurityMonitoringStack`` requires exactly these keys. Keep them in sync
     with ``PHASE_3_SERVICE_FLAGS``.
@@ -51,24 +47,20 @@ class SecurityServicesConfig(TypedDict):
 
 
 class SecurityConfig(TypedDict):
-    """``security:`` — audit retention, budget alarms, and service flags."""
+    """Define audit retention, budget alarms, and service flags."""
 
     audit_log_retention_days: int
     budget_thresholds: list[int]
-    # AWS Budgets is account-scoped, and dev and prod share one account. Only
-    # one environment may own the budget. A second one measures the same
-    # dollars and alarms twice.
+    # AWS Budgets operates at account scope. Only one environment owns the budget.
     account_budget: bool
     services: SecurityServicesConfig
 
 
 class CicdConfig(TypedDict):
-    """``cicd:`` — the GitHub Actions deployment identity."""
+    """Define the GitHub Actions deployment identity."""
 
     github_repository: str
-    # The OIDC provider is one account-wide resource. Two environments that
-    # both create it collide, in the way `account_budget` describes. Dev owns
-    # it, and prod reads it by ARN.
+    # The OIDC provider is account-wide. Dev owns it. Prod reads it by ARN.
     owns_oidc_provider: bool
 
 
@@ -84,34 +76,28 @@ class PlatformConfig(TypedDict):
     monitor: MonitorConfig
     budget_usd: int
     log_retention_days: int
-    # Days a captured prediction survives. The drift job reads one hour, so
-    # anything older only serves an investigation of a past violation.
+    # Set the lifetime for objects under the capture prefix.
     capture_retention_days: int
     security: SecurityConfig
     cicd: CicdConfig
 
 
-# S3 prefixes shared between a writer and an IAM grant. A rename in one place
-# only fails at runtime, never at synth, so each is pinned to its writer in
-# `tests/unit/test_pipeline.py`. `src/pipeline/` runs in the SageMaker image,
-# where `infra` is not installed, so it cannot import these.
+# These S3 prefixes connect writers with IAM grants.
+# A mismatched prefix fails at run time. `tests/unit/test_pipeline.py` compares them.
+# The SageMaker image does not install `infra` for `src/pipeline/` imports.
 #
-# - `config`: SecurityMonitoring sets it on the delivery channel. Security
-#   scopes the audit-bucket policy to it.
-# - `training`: the training step writes `model.tar.gz` here. It is the only
-#   prefix the model container reads.
-# - `evaluations` and `monitor`: written by the evaluation and preprocessing
-#   steps. The pipeline role is scoped to both.
-# - `capture`: the proxy Lambda writes one object per served prediction. The
-#   drift Lambda reads them.
+# - `config`: Config writes audit data under this prefix.
+# - `training`: The training step writes `model.tar.gz` under this prefix.
+# - `evaluations`: The evaluation step writes reports under this prefix.
+# - `monitor`: The preprocessing step writes the drift baseline under this prefix.
+# - `capture`: The proxy writes predictions and the drift Lambda reads them.
 CONFIG_DELIVERY_PREFIX = "config"
 MODEL_ARTIFACT_PREFIX = "training"
 EVALUATION_REPORT_PREFIX = "evaluations"
 MONITOR_OUTPUT_PREFIX = "monitor"
 CAPTURE_PREFIX = "capture"
 
-# The one key the drift Lambda reads. The preprocessing step writes it through
-# the pipeline's `BASELINE_DESTINATION_PREFIX`, which repeats the same path.
+# The preprocessing step writes this key. The drift Lambda reads it.
 BASELINE_KEY = f"{MONITOR_OUTPUT_PREFIX}/baseline/baseline.json"
 
 
@@ -148,18 +134,11 @@ def platform_lambda(
     least_privilege_logs: bool = False,
     **kwargs: Any,
 ) -> lambda_.Function:
-    """Lambda with platform defaults: Python 3.12, its own log group at the
-    config retention, and the shared src/ asset unless other code is supplied.
+    """Create a Python 3.12 Lambda with platform defaults.
 
-    The log group is explicit. CDK deprecated `log_retention=`, and that prop
-    builds a provider Lambda per stack whose `Resource: *` log policy needs six
-    cdk-nag acknowledgements.
-
-    The group name is CDK-generated, not `/aws/lambda/<function>`. The function
-    name is generated too, so naming the group after it would be circular.
-    Lambda still writes to it, because the managed log policy grants the log
-    actions on `*`. Use `DESTROY`, because a retained group with a generated
-    name would be orphaned by the next deploy.
+    The function uses an explicit log group with the configured retention.
+    CDK generates the log group name. Stack deletion removes the log group.
+    The function uses the shared `src/` asset unless `code` is supplied.
     """
     log_group = logs.LogGroup(
         scope,
@@ -169,10 +148,8 @@ def platform_lambda(
     )
     role: iam.IRole | None = None
     if least_privilege_logs:
-        # `AWSLambdaBasicExecutionRole` grants the log actions on every log
-        # group in the account. Supplying a role stops CDK from attaching that
-        # policy, so the function writes only to the group created above. This
-        # is opt-in, because roles are converted one per change set.
+        # `AWSLambdaBasicExecutionRole` grants access to all account log groups.
+        # This role writes only to the explicit log group.
         role = iam.Role(
             scope,
             f"{construct_id}Role",
@@ -194,17 +171,14 @@ def platform_lambda(
 def sagemaker_execution_role(
     scope: Construct, construct_id: str, *, least_privilege: bool = False
 ) -> iam.Role:
-    """Execution role SageMaker assumes.
+    """Create an execution role for SageMaker.
 
     The role carries `AmazonSageMakerFullAccess` unless `least_privilege` is
     set. With that flag it carries no managed policy, and the caller grants
     every permission explicitly.
 
-    Never pass `role_name`, and never rename the construct. Both roles this
-    function builds are pinned by ARN outside CloudFormation, so each must be
-    updated in place. A replaced model role strands the endpoint at its next
-    cold start. A replaced pipeline role strands the deployed pipeline
-    definition, which pins that ARN.
+    Never pass `role_name`. Never rename the construct. Update each role in
+    place. The endpoint and pipeline definition pin their role ARNs.
     """
     return iam.Role(
         scope,
@@ -227,10 +201,10 @@ def lambda_event_rule(
     handler: lambda_.IFunction,
     source: str = "aws.sagemaker",
 ) -> events.Rule:
-    """EventBridge rule on one event source that invokes a Lambda.
+    """Create an EventBridge rule that invokes a Lambda.
 
-    The default source covers the registry and endpoint events. The drift loop
-    passes its own source, because the platform emits that event itself.
+    The default source covers registry and endpoint events. The drift loop
+    supplies its platform event source.
     """
     return events.Rule(
         scope,

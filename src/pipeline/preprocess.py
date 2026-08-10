@@ -1,18 +1,15 @@
-"""Preprocessing: it turns the curated Telco CSV into train, validation, and
-test CSVs for XGBoost.
+"""Convert the curated Telco CSV into XGBoost data splits.
 
-The encoding lives in `src.common.features`, beside the vocabulary it uses, so
-the serving proxy Lambda applies the same encoding at inference time. This
-module holds the training-only half: labels and splits.
+`src.common.features` owns the shared encoding and vocabulary. This module owns
+the training labels and data splits.
 
 This runs as a script inside a SageMaker ProcessingStep. It reads curated CSVs
 from /opt/ml/processing/input. It writes label-first headerless CSVs, the
 format XGBoost expects, to /opt/ml/processing/{train,validation,test}.
 """
 
-# This module runs inside the SageMaker FrameworkProcessor managed image. That
-# image runs an older Python than 3.12. Deferred annotations keep modern syntax
-# here from becoming a runtime error.
+# The SageMaker managed image uses an older Python version.
+# Deferred annotations preserve compatibility with that image.
 from __future__ import annotations
 
 import csv
@@ -54,9 +51,7 @@ def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -
         with open(out_dir / f"{name}.csv", "w", newline="") as f:
             csv.writer(f).writerows(encode_labeled_row(row) for row in splits[name])
 
-    # This file holds only fields the public prediction API accepts. The label
-    # stays separate, so an operator can evaluate a deployed endpoint without
-    # reversing the lossy categorical encoding XGBoost uses.
+    # Store API fields and labels separately in the held-out fixture.
     api_test_dir = root / "api_test"
     api_test_dir.mkdir(parents=True, exist_ok=True)
     with open(api_test_dir / "api_test.jsonl", "w") as f:
@@ -71,9 +66,7 @@ def write_preprocessed_splits(splits: dict[str, list[dict]], output_root: str) -
             )
             f.write("\n")
 
-    # The drift baseline describes the data the model was fitted on, so it
-    # comes from the train split alone. Including validation or test rows would
-    # compare live traffic against data the model never learned.
+    # Build the drift baseline from the training split only.
     baseline_dir = root / "baseline"
     baseline_dir.mkdir(parents=True, exist_ok=True)
     with open(baseline_dir / "baseline.json", "w") as f:

@@ -76,12 +76,7 @@ def test_serving_endpoint_auth_and_least_privilege(stacks):
 
 
 def test_the_model_role_carries_no_managed_policy(stacks):
-    """The model container role carries no managed policy.
-
-    Its grants are read-only and specific: the training prefix of the artifacts
-    bucket, plus the endpoint log group. A serverless model has no data
-    capture, so it never writes back to the artifacts bucket.
-    """
+    """Limit the model role to artifact reads and endpoint logging."""
     resources = stacks["serving"].to_json()["Resources"]
     role = next(
         v
@@ -117,21 +112,13 @@ def test_the_model_role_carries_no_managed_policy(stacks):
     }
     for statement in statements:
         assert statement["Resource"] != "*"
-    # The object grant reaches only the prefix the training step writes.
+    # Limit object reads to the model artifact prefix.
     get_object = next(s for s in statements if s["Action"] == "s3:GetObject")
     assert get_object["Resource"]["Fn::Join"][1][-1] == f"/{MODEL_ARTIFACT_PREFIX}/*"
 
 
 def test_the_deploy_role_names_every_resource_it_touches(stacks):
-    """The deploy Lambda carries no managed log policy and no `Resource: "*"`.
-
-    Each SageMaker action names the resources `deploy_handler` builds. Under
-    one shared wildcard statement, the role that reacts to a registry approval
-    could point any endpoint in the account at any model.
-    `DescribeModelPackage` is pinned to this platform's own group, because the
-    package ARN arrives in the EventBridge detail, and a crafted event would
-    otherwise reach a foreign package.
-    """
+    """Limit the deploy role to resources named by `deploy_handler`."""
     resources = stacks["serving"].to_json()["Resources"]
     role = next(
         v
@@ -154,10 +141,7 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
         for s in statements
         for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
     }
-    # The two log actions the CDK group grant supplies, again without
-    # logs:CreateLogGroup, plus what the handler calls and nothing else. No
-    # Delete*, no List*, and no kms:Decrypt. The AWS-managed key policy
-    # authorizes the cold-start environment decrypt.
+    # Match the deploy handler and explicit log-group actions.
     assert actions == {
         "logs:CreateLogStream",
         "logs:PutLogEvents",
@@ -172,7 +156,7 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
     for statement in statements:
         assert statement["Resource"] != "*"
 
-    # The package grant reaches only versions of this platform's group.
+    # Limit package reads to this platform model package group.
     describe = next(s for s in statements if s["Action"] == "sagemaker:DescribeModelPackage")
     assert (
         describe["Resource"]["Fn::Join"][1][-1]
@@ -181,12 +165,7 @@ def test_the_deploy_role_names_every_resource_it_touches(stacks):
 
 
 def test_the_proxy_role_carries_no_managed_policy(stacks):
-    """The proxy role carries no `AWSLambdaBasicExecutionRole`.
-
-    That managed policy grants the three log actions on every log group in the
-    account. This role writes to the function's own group and nothing else, so
-    a compromised proxy cannot write into or create an audit trail log group.
-    """
+    """Keep `AWSLambdaBasicExecutionRole` off the proxy role."""
     resources = stacks["serving"].to_json()["Resources"]
     role_id, role = next(
         (k, v)
@@ -209,8 +188,7 @@ def test_the_proxy_role_carries_no_managed_policy(stacks):
         for s in statements
         for a in ([s["Action"]] if isinstance(s["Action"], str) else s["Action"])
     }
-    # The two log actions, the one business permission, and the capture write.
-    # There is no logs:CreateLogGroup, because CDK creates the group.
+    # Match the proxy handler and explicit log-group actions.
     assert actions == {
         "logs:CreateLogStream",
         "logs:PutLogEvents",
@@ -222,8 +200,7 @@ def test_the_proxy_role_carries_no_managed_policy(stacks):
 
 
 def test_the_proxy_may_write_capture_and_read_nothing(stacks):
-    """A serverless endpoint has no data capture, so the proxy is the capture
-    point. Its role must not gain read access to the bucket it writes into."""
+    """Grant capture writes without bucket reads."""
     template = stacks["serving"]
     template.has_resource_properties(
         "AWS::Lambda::Function",

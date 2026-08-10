@@ -23,12 +23,7 @@ def _role_and_policy(stacks: dict) -> tuple[dict, dict]:
 
 
 def test_the_pipeline_role_carries_no_managed_policy(stacks):
-    """The role carries no managed policy.
-
-    `AmazonSageMakerFullAccess` lets the training pipeline read and write every
-    SageMaker resource in the account, including endpoints, models, and model
-    packages belonging to unrelated work.
-    """
+    """Keep `AmazonSageMakerFullAccess` off the pipeline role."""
     role, _ = _role_and_policy(stacks)
     assert "ManagedPolicyArns" not in role["Properties"]
     assert role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]["Principal"] == {
@@ -37,14 +32,7 @@ def test_the_pipeline_role_carries_no_managed_policy(stacks):
 
 
 def test_the_pipeline_role_names_every_resource_it_touches(stacks):
-    """The action set matches what a full pipeline run calls.
-
-    The omissions: no `ecr:`, because SageMaker pulls the first-party images
-    with its own credentials. No `kms:`, because the `aws/s3` key policy
-    authorizes `GenerateDataKey` and `Decrypt`. No `s3:DeleteObject*`, because
-    no step deletes. No `cloudwatch:PutMetricData`, because it takes no ARN and
-    restores the wildcard.
-    """
+    """Match the pipeline role actions to one full pipeline execution."""
     _, policy = _role_and_policy(stacks)
     statements = policy["Properties"]["PolicyDocument"]["Statement"]
     actions = {
@@ -64,8 +52,7 @@ def test_the_pipeline_role_names_every_resource_it_touches(stacks):
         "sagemaker:CreateModelPackage",
         "sagemaker:DescribeModelPackage",
         "sagemaker:CreateModelPackageGroup",
-        # This is absent from CloudTrail. Pipelines tags each resource inside
-        # the create call, so the check never appears as its own event.
+        # Pipelines adds tags inside each resource creation call.
         "sagemaker:AddTags",
         "iam:PassRole",
         "logs:CreateLogGroup",
@@ -78,12 +65,7 @@ def test_the_pipeline_role_names_every_resource_it_touches(stacks):
 
 
 def test_the_pipeline_role_may_only_pass_itself_to_sagemaker(stacks):
-    """`iam:PassRole` is the grant that would otherwise widen the role.
-
-    Every step hands this role to SageMaker when it creates its job, so the
-    grant is unavoidable. An unconditioned grant passes the role to any service
-    that accepts one, including to a stolen credential.
-    """
+    """Limit `iam:PassRole` to this role and the SageMaker service."""
     _, policy = _role_and_policy(stacks)
     pass_role = next(
         s
@@ -96,11 +78,7 @@ def test_the_pipeline_role_may_only_pass_itself_to_sagemaker(stacks):
 
 
 def test_the_pipeline_role_reads_only_the_training_dataset(stacks):
-    """`InputDataUri` is a pipeline parameter, so this is a real narrowing.
-
-    A crafted `StartPipelineExecution` can override the URI. Scoping the
-    curated-bucket read to `telco/` stops that call reading another prefix.
-    """
+    """Limit `InputDataUri` reads to the `telco/` prefix."""
     _, policy = _role_and_policy(stacks)
     curated_reads = [
         r

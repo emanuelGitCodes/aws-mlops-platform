@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-09"
+updated: "2026-08-10"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -47,12 +47,12 @@ the boundary.
 | 0 | Read-only baseline and rollback preparation | Existing ingestion, pipeline, endpoint, and API behavior are recorded and unchanged. |
 | 1 | Repository and CI security guardrails | Tests, lint, synth, dependency scan, and secret scan pass without an AWS deployment. |
 | 2 | CloudTrail, audit storage, SNS email, security alarms, and budget alerts | Trail is logging and a controlled alarm reaches the confirmed email. |
-| 3 | Access Analyzer and account S3 blocking done; Config and partial alert routing next; GuardDuty and Security Hub deferred behind the paid-plan upgrade gate | Enable one service at a time; each is healthy and credit burn remains acceptable. Revised July 19 for the AWS Free plan. |
+| 3 | Access Analyzer, AWS Config, account S3 blocking, and alert routing live in dev; GuardDuty and Security Hub remain behind the paid-plan gate | Enable one service at a time; each is healthy and credit burn remains acceptable. Revised July 19 for the AWS Free plan. |
 | 4A | Create the data KMS key and pre-grant roles | Every workload role passes controlled KMS access tests before bucket changes. |
 | 4B | Change bucket encryption defaults | Migrate artifacts, curated, then raw; verify each bucket before continuing. |
 | 4C | Re-encrypt existing objects and add lifecycle rules | Checksums, metadata, readability, key IDs, and retention are verified. |
 | 5 | Replace broad IAM one role at a time — **complete** | Proxy, model, deploy, then pipeline roles pass their component checks; a billable pipeline run succeeds. All met by 2026-08-06. |
-| 6 | Replace API keys with IAM/SigV4 | Signed authorized calls succeed; unsigned and unauthorized calls fail; response contract is unchanged. |
+| 6 | Replace API keys with IAM/SigV4 — **deployed to dev; observation open** | Signed authorized calls succeed; unsigned and unauthorized calls fail; response contract is unchanged. |
 | 7 | TLS 1.2, API logs, metrics, tracing, and alarms | TLS and observability work without logging credentials or customer inputs. |
 | 8 | WAF in count mode, then rule-by-rule blocking | Legitimate evaluation traffic passes and controlled malicious/rate traffic is blocked. |
 | 9 | Identity Center, long-lived-key retirement, finding review, and final docs | Temporary access works before old keys are disabled; no high finding is unexplained. |
@@ -475,8 +475,7 @@ the boundary.
   sub-phase — pre-flight baseline, tests, reviewed named diff, scoped
   deployment, resource-level verification, live checks, and an observation
   window — rather than a drive-by edit, exactly as the 07-24 finding
-  required. Sub-phases 2F and 2G are the next two revisions under that
-  precedent, and each takes the same gate.
+  required. Sub-phases 2F and 2G used that precedent and closed as a go.
 
 ### Next checkpoint
 
@@ -594,7 +593,7 @@ reproducibility gap, not a spurious-republish one.
 The third 5C finding no longer holds. **The drift → retrain edge fired for the
 first time on 2026-08-08 at 02:00:40Z.** A `drift_violation` over 200 captured
 records (`tenure`, `MonthlyCharges`, and `TotalCharges` at PSI ≈ 12.4) produced
-`retrain_started`, and pipeline execution `k6hglww9i8xw` reached `Succeeded`.
+`retrain_started`, and pipeline execution `<pipeline-execution-id>` reached `Succeeded`.
 The challenger scored 0.8535 test AUC against the champion's 0.8679 and was
 rejected, so the champion stands. A second violation at 02:11:07Z logged
 `retrain_suppressed` on the six-hour cooldown. The closing edge of the drift
@@ -656,40 +655,13 @@ the per-statement sizes.
 Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
-**2F is deployed to dev and its observation window is open.** `make
-verify-deploy SINCE=2026-08-08` reports four changed resources in
-`Mlops-Dev-Monitoring`: `Endpoint5xxAlarm` updated, `EndpointSilentAlarm`
-created, and `DriftEvaluationFn` and `RetrainTriggerFn` republished. **Only the
-first two are 2F**, but the other two are legitimate. The Monitoring stack had
-not been deployed since `src/` last changed, most recently by `982de01` on
-2026-08-08, so both functions were carrying stale code and the republish
-shipped it. An earlier reading of this deploy blamed the withdrawn 5C
-asset-hash finding. That was wrong: the asset hash tracks `src/` content
-faithfully, and a changed hash here means changed source.
+**Sub-phases 2F and 2G are deployed and closed as a go.** Phase 6 is deployed
+to dev with its observation window open. `POST /predict` requires `AWS_IAM`,
+the account has no API key or usage plan, and `make smoke` signs each request.
 
-The window closes on: `endpoint-silent` reaching `ALARM` after a full idle
-window and clearing on real traffic, the 5xx alarm holding `OK` while idle and
-still paging on a forced 5xx, the six security alarms unchanged, `/predict`
-working, and the `$20` budget intact.
-
-**Two change sets now sit on `main` and not in the account: 2G and Phase 6.**
-Merging is not landing. `deploy.yml` is `workflow_dispatch` only and the account
-carries no OIDC provider, so nothing reaches AWS without a deliberate local
-deploy. The live `POST /predict` still reports `authorizationType: NONE` with
-`apiKeyRequired: true`, and the live `unauthorized-api-calls` alarm still
-carries a plain metric.
-
-**A single `make deploy` would ship both at once.** That breaks the
-one-sub-phase-at-a-time rule and takes the `x-api-key` break in the same change
-set. Deploy each with `make deploy-stack`, in this order: 2F's window closes,
-then `Mlops-Dev-Security` for 2G with its own window, then `Mlops-Dev-Serving`
-for Phase 6.
-
-One trap follows from the gap. **`make smoke` on `main` signs with SigV4 while
-the deployed API still wants the key.** A 403 from it today means the tooling
-moved ahead of the account, not that the endpoint is broken. 2F's window needs
-`make smoke` to prove `endpoint-silent` clears, so run that check from a
-checkout of the deployed state.
+The next checkpoint closes the Phase 6 observation window. CI/CD activation is
+separate: both environments allow only `main`, and dev holds its role ARN as an
+environment secret. The manual workflow still needs its first run.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and
@@ -709,9 +681,6 @@ Related runtime and human authority boundaries are documented in
   would cost about a dollar a month, and it is **approved in principle**,
   waiting on a workload trigger rather than on price. See
   [paid Phase 3 security services](../decisions/phase-3-paid-security-services.md).
-- AWS Config availability on the Free plan is unproven until the gated 3C
-  deployment attempts the first recorder create; its recording scope must
-  stay minimal because configuration items consume the remaining credits.
 - ~~The repository execution policy retains the GuardDuty actions.~~ **Closed
   and stale.** The policy holds zero `guardduty:` actions today, and the live
   default is `v11`, not `v8`. Enabling GuardDuty therefore needs its actions
@@ -724,19 +693,20 @@ Related runtime and human authority boundaries are documented in
   **No decision is taken yet.**
 - ~~The account has no GitHub OIDC provider and no role trusting GitHub.~~
   **Closed on 2026-08-09.** `CicdStack` is deployed: the provider exists and
-  `mlops-dev-github-deploy` carries the four-claim trust. **The workflow still
-  has not run**, because nothing yet holds the role ARN. Two settings remain,
-  both outside this repository: create the `dev` and `prod` GitHub environments,
-  and set `AWS_DEV_DEPLOY_ROLE_ARN` from the `GitHubDeployRoleArn` output. Every
-  deployment to date still came from a workstation.
+  `${GITHUB_DEPLOY_ROLE_NAME}` carries the four-claim trust. Dev and prod GitHub
+  environments allow only `main`, and dev holds `AWS_DEV_DEPLOY_ROLE_ARN`.
+  **The workflow still has not run.** Prod has no role ARN until its stack is
+  deployed. Required environment reviewers remain unavailable while the
+  repository uses its current private-repository plan. Every deployment to
+  date still came from a workstation.
 - **Production has never been deployed.** Nine stacks exist, all
   `Mlops-Dev-*`. The two-environment design is proven at synthesis only, which
   means the shared-account collisions this page warns about — the model package
   group, the account budget, and now the OIDC provider — have never been tested
   against a live second environment.
-- **`mlops-security-auditor` cannot read budgets.** `budgets:ViewBudget` is
+- **`${AWS_SECURITY_AUDITOR_USER_NAME}` cannot read budgets.** `budgets:ViewBudget` is
   denied for that identity, exposed when 5D's observation window tried to check
-  the budget and had to fall back to `aws-admin`. Every prior window reported
+  the budget and had to fall back to `${AWS_ADMIN_USER_NAME}`. Every prior window reported
   budget state, so each one quietly did the same — the auditor is meant to be
   the identity that closes a window without administrator access, and on this
   one criterion it never was. Phase 2E is the precedent for the fix: an

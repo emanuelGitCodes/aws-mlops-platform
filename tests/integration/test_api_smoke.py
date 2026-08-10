@@ -1,19 +1,14 @@
-"""Post-deploy smoke test: hits the live /predict endpoint.
+"""Test the deployed `/predict` endpoint.
 
 Run manually or from CI after a deploy:
     API_URL=... pytest tests/integration -q
-Skipped when the env var isn't set (e.g. during unit CI).
+The tests skip when `API_URL` is not set.
 
 Each test signs its request with SigV4. Credentials come from the ambient AWS
 session. That identity needs `execute-api:Invoke` on the method.
 
-These tests cover every status the public path reaches from outside: 200, the
-422 and 400 request rejections, and the 403 from the SigV4 boundary.
-
-The 503 and 502 mappings are absent. Both need the SageMaker endpoint to be
-missing, mid-update, or answering with something other than a probability, and
-the public API cannot induce that without breaking real traffic.
-tests/unit/test_proxy_handler.py covers them against a stubbed runtime client.
+These tests cover HTTP 200, 422, 400, and 403 responses.
+`tests/unit/test_proxy_handler.py` covers HTTP 503 and 502 mappings.
 """
 
 import json
@@ -43,7 +38,7 @@ def _sign(url, body):
 
 
 def _post(payload=None, *, sign=True, tamper=False, raw=None):
-    """POST to /predict, returning (status, body) rather than raising on 4xx."""
+    """POST to `/predict` and return the status and body for all responses."""
     url = os.environ["API_URL"]
     body = raw if raw is not None else json.dumps(payload).encode()
     headers = {"Content-Type": "application/json"}

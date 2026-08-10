@@ -38,7 +38,7 @@ inline    PipelineExecutionRoleDefaultPolicy<suffix>
 Role ARN, which must survive the change unchanged:
 
 ```
-arn:aws:iam::${AWS_ACCOUNT_ID}:role/Mlops-Dev-Training-PipelineExecutionRoleF9B1F2D0-<suffix>
+${PIPELINE_ROLE_ARN}
 ```
 
 ## Empirical scope of the role
@@ -84,7 +84,7 @@ Every management event attributed to the pipeline role's session:
 ```
 
 Job names confirm the ARN pattern:
-`pipelines-z4y8kc4qz0kf-{Preprocess,Train,Evaluate}-<suffix>`.
+`pipelines-<pipeline-execution-id>-{Preprocess,Train,Evaluate}-<suffix>`.
 
 Two of those are **success-by-error paths**, which is the finding that changed
 the policy. `CreateLogGroup` and `CreateModelPackageGroup` are both called
@@ -193,13 +193,13 @@ No other stack reports a change.
 
 ### First run: the finding
 
-Execution `ik4h7l6y020c`, started 2026-08-06T01:50Z, **Failed** at Preprocess:
+Execution `<pipeline-execution-id>`, started 2026-08-06T01:50Z, **Failed** at Preprocess:
 
 ```
 ClientError: Failed to invoke sagemaker:CreateProcessingJob.
-User: .../PipelineExecutionRoleF9B1F2D0-<suffix>/sagemaker-pipeline-ik4h7l6y020c-Preprocess
+User: .../PipelineExecutionRoleF9B1F2D0-<suffix>/sagemaker-pipeline-<pipeline-execution-id>-Preprocess
 is not authorized to perform: sagemaker:AddTags
-on resource: .../processing-job/pipelines-ik4h7l6y020c-Preprocess-<suffix>
+on resource: .../processing-job/pipelines-<pipeline-execution-id>-Preprocess-<suffix>
 because no identity-based policy allows the sagemaker:AddTags action
 ```
 
@@ -222,13 +222,13 @@ Granted first on the three job and package creates.
 
 ### Second run: the same finding, one statement short
 
-Execution `t5z537c2f85z`, 2026-08-06T01:54Z → 02:10Z. Four of five steps
+Execution `<pipeline-execution-id>`, 2026-08-06T01:54Z → 02:10Z. Four of five steps
 **Succeeded** — Preprocess, Train, Evaluate, BeatsChampion — and
 `RegisterChallenger` failed:
 
 ```
 ClientError: Failed to invoke sagemaker:CreateModelPackageGroup.
-User: .../sagemaker-pipeline-t5z537c2f85z-RegisterChallenger-R
+User: .../sagemaker-pipeline-<pipeline-execution-id>-RegisterChallenger-R
 is not authorized to perform: sagemaker:AddTags
 on resource: .../model-package-group/churn-model-group
 ```
@@ -244,11 +244,11 @@ first step that needs one, and nothing in CloudTrail lists them ahead of time.
 
 ### Third run: clean
 
-Execution `u2p5fi2f79aq`, 2026-08-06T02:12Z → 02:18Z, **Succeeded**:
+Execution `<pipeline-execution-id>`, 2026-08-06T02:12Z → 02:18Z, **Succeeded**:
 
 ```
-Preprocess                      Succeeded   cache hit from t5z537c2f85z
-Train                           Succeeded   cache hit from t5z537c2f85z
+Preprocess                      Succeeded   cache hit from <pipeline-execution-id>
+Train                           Succeeded   cache hit from <pipeline-execution-id>
 Evaluate                        Succeeded
 BeatsChampion                   Succeeded
 RegisterChallenger-RegisterModel Succeeded
@@ -256,7 +256,7 @@ RegisterChallenger-RegisterModel Succeeded
 
 Preprocess and Train were 30-day cache hits, so this execution did not itself
 re-run them. It does not need to: **both ran live under the least-privilege
-policy in `t5z537c2f85z`**, whose policy differs from this one only by the
+policy in `<pipeline-execution-id>`**, whose policy differs from this one only by the
 model-package-group `AddTags` — an ARN neither step touches. The union of the
 two runs exercises every statement.
 

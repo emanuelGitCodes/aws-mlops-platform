@@ -2,7 +2,7 @@
 type: architecture
 title: AWS security hardening Phase 0 baseline
 created: "2026-07-12"
-updated: "2026-07-18"
+updated: "2026-08-10"
 sources: ["../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../../src/pipeline/pipeline.py"]
 summary: "The pre-hardening dev baseline is captured: runtime paths work, security gaps are measured, and the Data-stack export rollback blocks an all-stack deploy."
 ---
@@ -20,7 +20,7 @@ user; `${MLOPS_DEPLOYER_USER_NAME}` was used only for a CDK diff without a chang
 | Boundary | Evidence |
 |---|---|
 | Storage and ingestion | Raw and curated Telco objects are present with matching 977,501-byte sizes; all workload buckets are private, versioned, Bucket Owner Enforced, and encrypted with the AWS-managed S3 KMS key. |
-| Pipeline | `churn-training-pipeline-dev` is Active. Execution `53ww289tjhoz` succeeded through Preprocess, Train, Evaluate, and BeatsChampion. |
+| Pipeline | `churn-training-pipeline-dev` is Active. Execution `<pipeline-execution-id>` succeeded through Preprocess, Train, Evaluate, and BeatsChampion. |
 | Evaluation | The successful version-8 run retains JSON, CSV, and all five PNG charts under its older execution prefix. |
 | Registry | Approved package `churn-model-group/1` is Completed with test AUC `0.8398418749117607`. |
 | Serving | `churn-serverless-dev` is InService with 2,048 MB memory, concurrency 5, and zero current instances. |
@@ -91,8 +91,8 @@ The rollback hierarchy is:
    SHA-256 fingerprint.
 3. Re-export SageMaker pipeline version 9 and compare its recorded definition
    fingerprint.
-4. Use successful execution `53ww289tjhoz`, model package `/1`, and endpoint
-   config `churn-serverless-dev-config-1783781373` as the last-known-good runtime
+4. Use successful execution `<pipeline-execution-id>`, model package `/1`, and endpoint
+   config `churn-serverless-dev-config-<epoch>` as the last-known-good runtime
    checkpoints.
 5. Never delete or rewrite retained bucket objects as part of a rollback audit.
 

@@ -242,13 +242,14 @@ Current dev baseline:
   or usage plan. The API stage retains rate 10 and burst 20 throttles.
 - Audit and detection are deployed. A multi-region CloudTrail with log-file
   validation writes to a retained, customer-managed-KMS-encrypted bucket and to
-  a 90-day CloudWatch log group; six CIS metric filters (root activity,
+  a 90-day CloudWatch log group. Six CIS metric filters cover root activity,
   unauthorized API calls, IAM policy changes, trail changes, KMS key
-  disable/delete, bucket policy changes) alarm to an SNS topic. IAM Access
-  Analyzer, AWS Config, account-level S3 Block Public Access, and security
-  event routing are enabled in dev through the `security.services` flags.
-  GuardDuty and Security Hub remain behind the paid-plan gate. WAF is not
-  enabled.
+  disable/delete, and bucket policy changes. A seventh security detection
+  alarms on each production deploy-role assumption. All seven alarms publish
+  to the security SNS topic. IAM Access Analyzer, AWS Config, account-level S3
+  Block Public Access, and security event routing are enabled in dev through
+  the `security.services` flags. GuardDuty and Security Hub remain behind the
+  paid-plan gate. WAF is not enabled.
 - Serverless inference has no configured provisioned concurrency, so endpoint
   compute has no standing instance while idle. S3, logs, and other retained AWS
   resources still incur small ongoing charges. The monthly budget is `$20` and

@@ -6005,3 +6005,33 @@ floor moves from 94.03% to 94.12%.
 history choice is explicit. A clean public mirror avoids publishing personal
 commit email, stale branches, and existing Actions logs. A history rewrite is
 the destructive alternative.
+
+## [2026-08-11] update | Three stale status records corrected on the roadmap page
+
+**Objective.** Remove three statements on
+`pages/architecture/phased-security-hardening.md` that the page's own later
+sections already contradict.
+
+**The two open windows are closed.** The Phase 2E bullet read "observation
+open" and the Phase 3E bullet read the same. Both windows closed with every
+criterion met — 2E on 2026-08-02 with the synthetic burst that fired the 3-of-3
+alarm, 3E on 2026-07-30 — and the "Next checkpoint" section of the same page
+records both closures. Each bullet now carries its close date and its go
+decision.
+
+**The execution-policy size tension is closed, not undecided.** The tension
+read "No decision is taken yet". The decision landed on 2026-08-08:
+`MLOpsCloudFormationExecutionPolicyExtension` carries the overflow at 492 of
+6144 bytes and attaches to the same execution role, so the grants union. The
+tension now states the resolution and the rule that follows from it — new
+grants go in the extension. Four dependent statements moved with it: the 3B
+deferral, the GuardDuty-actions tension, the "no grant fits today" paragraph,
+and the lead sentence that named the policy without saying which one.
+
+**Scope.** Documentation only. No AWS resource, policy document, or code
+changed.
+
+**Verification.** `python scripts/wiki.py lint`.
+
+**Decision and next checkpoint.** Unchanged: the Phase 6 observation window is
+still the next checkpoint.

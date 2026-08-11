@@ -96,7 +96,8 @@ the boundary.
   [completion record](../sources/aws-security-hardening-phase-2d-completion-july-12-2026.md)
   and the
   [Phase 3-prep record](../sources/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md).
-- **Phase 2E: complete; observation open.** The `unauthorized-api-calls`
+- **Phase 2E: complete; observation closed as a go 2026-08-02.** The
+  `unauthorized-api-calls`
   alarm now requires three consecutive breaching five-minute datapoints
   (`EvaluationPeriods 3`, `DatapointsToAlarm 3`) after ten isolated-denial
   fire/auto-resolve cycles in three days — most from the security auditor's
@@ -235,14 +236,15 @@ the boundary.
   July 19 revision defers 3B and 3D behind an explicit manual upgrade
   decision; `dev.yaml` sets `guardduty: false`, the flag-gated detector code
   and its locked contract tests remain for the retry. The execution policy no
-  longer carries the GuardDuty actions, so the retry must add them, and the
-  size ceiling recorded below decides whether they fit. See the
+  longer carries the GuardDuty actions, so the retry must add them to the
+  extension policy recorded below. See the
   [implementation record](../sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md),
   [first deployment rollback](../sources/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md),
   [Free-plan service limits](../sources/aws-free-plan-account-service-limits-july-18-2026.md),
   and the
   [Phase 3 plan revision](../sources/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md).
-- **Phase 3E: complete; observation open.** Account-level S3 Block Public Access
+- **Phase 3E: complete; observation closed as a go 2026-07-30.** Account-level
+  S3 Block Public Access
   is live in dev with all four settings true, where the pre-flight recorded
   `NoSuchPublicAccessBlockConfiguration`. CloudFormation has no resource type for
   the account-level setting, so it is set through the `AwsCustomResource` pattern
@@ -632,7 +634,7 @@ with the pattern's `status ACTIVE` predicate rather than as proof of filtering:
 metrics cannot show whether a resolution event was emitted and rejected, or
 never emitted at all.
 
-Two constraints continue past it. First, **the execution policy is out of
+Two constraints continue past it. First, **the main execution policy is out of
 room, and the constraint is size rather than version slots.** This roadmap has
 tracked slots since Phase 2A: `v6` and `v7` were deleted on 2026-08-07, leaving
 `v8`, `v10`, and the default `v11` in three of five. That count is still
@@ -645,12 +647,13 @@ failed with `LimitExceeded: Cannot exceed quota for PolicySize: 6144`.
 | Live plus one OIDC statement | 6337 |
 | AWS quota | 6144 |
 
-**Read "two grants fit" as withdrawn.** The policy carried 256 bytes of
-headroom, and a single eight-action statement needs 448. No grant fits today,
-and the next phase to need one — Phase 4's KMS actions, or Security Hub's
-return at 3D — hits the same wall. The version slots are a real limit that has
-simply not been the first one reached. The 2026-08-08 `wiki/log.md` entry holds
-the per-statement sizes.
+**Read "two grants fit" as withdrawn.** The main policy carries 256 bytes of
+headroom, and a single eight-action statement needs 448. No grant fits that
+document. `MLOpsCloudFormationExecutionPolicyExtension` resolved this on
+2026-08-08 and holds the overflow at 492 of 6144 bytes. The next phase to need
+a grant — Phase 4's KMS actions, or Security Hub's return at 3D — adds it
+there. The version slots are a real limit that has simply not been the first
+one reached. The 2026-08-08 `wiki/log.md` entry holds the per-statement sizes.
 
 Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
@@ -684,13 +687,19 @@ Related runtime and human authority boundaries are documented in
 - ~~The repository execution policy retains the GuardDuty actions.~~ **Closed
   and stale.** The policy holds zero `guardduty:` actions today, and the live
   default is `v11`, not `v8`. Enabling GuardDuty therefore needs its actions
-  added, not reconciled — and under the size ceiling above, they do not fit.
-- **The execution policy has no room for another grant.** Size, not version
-  slots, is the limit: 5888 bytes live against a 6144 quota. Three ways out
-  are costed in the 2026-08-08 log entry — trim the new statement, drop the
-  ten unused `securityhub:` actions, or split into a second managed policy
-  attached to the same role. Only the split survives the phase after next.
-  **No decision is taken yet.**
+  added, not reconciled — and they belong in the extension policy, because the
+  main document has no room.
+- ~~The execution policy has no room for another grant.~~ **Closed on
+  2026-08-08 by the split.** Size, not version slots, was the limit: the main
+  document holds 5888 of 6144 bytes, with 256 free. The two alternatives costed
+  in the 2026-08-08 log entry — trim the new statement, or drop the ten unused
+  `securityhub:` actions — left two bytes and 123 bytes, so each bought one
+  deploy and re-raised the failure at the next phase.
+  `MLOpsCloudFormationExecutionPolicyExtension` now carries the overflow at 492
+  of 6144 bytes, and attaches to the same `cdk-hnb659fds-cfn-exec-role-*`, so
+  the grants union. **Add every new grant to the extension; the main document
+  cannot take one.** `make test` measures both documents against the quota and
+  rejects a `Sid` reused across the two files.
 - ~~The account has no GitHub OIDC provider and no role trusting GitHub.~~
   **Closed on 2026-08-09.** `CicdStack` is deployed: the provider exists and
   `${GITHUB_DEPLOY_ROLE_NAME}` carries the four-claim trust. Dev and prod GitHub

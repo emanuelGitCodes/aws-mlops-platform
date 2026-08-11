@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 5D pipeline execution role — August 6, 2026"
 created: "2026-08-06"
-updated: "2026-08-06"
+updated: "2026-08-10"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/shared.py", "../../../infra/security_checks.py", "../../../src/pipeline/pipeline.py", "../../../tests/unit/test_training_stack.py", "../../../tests/unit/test_security_checks.py"]
 summary: "The last role off AmazonSageMakerFullAccess, and the phase that showed CloudTrail enumerates a role's API surface but not its authorization surface."
 ---
@@ -30,7 +30,7 @@ summary: "The last role off AmazonSageMakerFullAccess, and the phase that showed
   takes the same ARN, so a replacement would strand both. The template diff
   confirms it: two resources changed, none added, removed, or renamed.
 - **The component check was a real workload run, and it took three attempts.**
-  Execution `u2p5fi2f79aq` reached `Succeeded` on all five steps at
+  Execution `<pipeline-execution-id>` reached `Succeeded` on all five steps at
   2026-08-06T02:18Z, registered model package version 3, and the endpoint
   reached `InService` at 02:21Z with `make smoke` passing 6 tests.
 

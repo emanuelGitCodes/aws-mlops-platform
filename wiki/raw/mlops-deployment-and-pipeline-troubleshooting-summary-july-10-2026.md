@@ -112,7 +112,7 @@ No Git commit was created as part of this work.
 
 The API Gateway API key was visible in the API Gateway console, but the actual value was masked. The API key resource had:
 
-- API key ID: `hf7eqpghnj`
+- API key ID: `<api-key-id>`
 - Status: active
 - Usage plan association for API `${API_GATEWAY_ID}`
 - Stage: `dev`
@@ -140,7 +140,7 @@ API_KEY="$(aws apigateway get-api-keys \
   --include-values \
   --region us-east-1 \
   --profile ${AWS_ADMIN_USER_NAME} \
-  --query 'items[?id==`hf7eqpghnj`].value' \
+  --query 'items[?id==`<api-key-id>`].value' \
   --output text)"
 ```
 
@@ -199,13 +199,13 @@ After that fix, the pipeline was successfully upserted and started.
 The initial pipeline attempt had no input objects under the expected curated S3 prefix. A public Telco churn CSV was downloaded and uploaded to the raw bucket:
 
 ```text
-s3://mlops-dev-data-rawbucket0c3ee094-hfnbrdy9u4vl/telco.csv
+s3://${RAW_BUCKET}/telco.csv
 ```
 
 The ingestion flow produced the curated object:
 
 ```text
-s3://mlops-dev-data-curatedbucket6a59c97e-2thni2kwufpm/telco/telco.csv
+s3://${CURATED_BUCKET}/telco/telco.csv
 ```
 
 CloudWatch confirmed successful validation:
@@ -229,20 +229,20 @@ churn-training-pipeline-dev
 The execution that was inspected was:
 
 ```text
-arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/tsjaspu5m480
+arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id>
 ```
 
 The execution eventually failed in the `Preprocess` step. The Processing job was:
 
 ```text
-pipelines-tsjaspu5m480-Preprocess-66TI5ctfRx
+pipelines-<pipeline-execution-id>-Preprocess-66TI5ctfRx
 ```
 
 The relevant CloudWatch log group and stream were:
 
 ```text
 Log group:  /aws/sagemaker/ProcessingJobs
-Log stream: pipelines-tsjaspu5m480-Preprocess-66TI5ctfRx/algo-1-1783738269
+Log stream: pipelines-<pipeline-execution-id>-Preprocess-66TI5ctfRx/algo-1-1783738269
 ```
 
 The error was:
@@ -284,7 +284,7 @@ The dev pipeline uses approval status `Approved`, so a successful registration s
 
 ```zsh
 AWS_PROFILE=${AWS_ADMIN_USER_NAME} aws sagemaker describe-pipeline-execution \
-  --pipeline-execution-arn arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/tsjaspu5m480 \
+  --pipeline-execution-arn arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id> \
   --region us-east-1 \
   --query '{Status:PipelineExecutionStatus,StartTime:PipelineExecutionStartTime,EndTime:PipelineExecutionEndTime,FailureReason:FailureReason}'
 ```

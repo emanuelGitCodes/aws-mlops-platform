@@ -1,4 +1,4 @@
-"""Buckets + budget tripwire. Stable stack — never torn down with serving/training."""
+"""Define the data buckets and the account budget."""
 
 from typing import Any
 
@@ -73,14 +73,12 @@ class DataStack(Stack):
             access_log_bucket=access_log_bucket,
             access_log_prefix="artifacts/",
         )
-        # The proxy writes one object per prediction, so this prefix grows
-        # without bound. Scope the rule to it by prefix: the same bucket holds
-        # `model.tar.gz`, the evaluation reports, and the drift baseline, and
-        # expiring any of those would break the endpoint or the drift job.
+        # The proxy writes one capture object for each prediction.
+        # Apply expiration only to the `capture/` prefix.
+        # The same bucket holds model artifacts, reports, and the drift baseline.
         #
-        # The bucket is versioned, so expiring a current version leaves a
-        # noncurrent one behind. A noncurrent version stays billable after the
-        # object disappears from a listing.
+        # Expiration makes the current object version noncurrent.
+        # Expire the noncurrent version to stop its storage charge.
         self.artifacts_bucket.add_lifecycle_rule(
             id="ExpireCapturedPredictions",
             enabled=True,
@@ -93,14 +91,11 @@ class DataStack(Stack):
             self._account_budget(config=config, alert_topic=alert_topic)
 
     def _account_budget(self, *, config: PlatformConfig, alert_topic: sns.ITopic) -> None:
-        """The account-wide monthly budget and its threshold notifications.
+        """Define the account-wide monthly budget and threshold notifications.
 
-        This budget uses no ``CostFilters``. A tag filter is the only way to
-        scope a budget to one environment, and it reports zero until someone
-        activates the tag in Billing. That is a manual step with a 24-hour lag,
-        and CDK cannot perform it. A budget that matches nothing never alarms,
-        which is worse than a budget that measures both environments. One
-        owning environment removes the duplicate and keeps the tripwire armed.
+        This budget uses no ``CostFilters``. A tag filter reports zero until an
+        operator activates the tag in Billing. Tag activation can take 24 hours.
+        CDK cannot activate billing tags. One environment owns this budget.
         """
         monthly_budget = budgets.CfnBudget(
             self,
@@ -114,9 +109,8 @@ class DataStack(Stack):
             ),
         )
 
-        # CloudFormation replaces AWS::Budgets::Budget when you add a
-        # notification. Manage each notification through the Budgets API, so
-        # the existing $20 budget keeps its physical name and its history.
+        # CloudFormation replaces `AWS::Budgets::Budget` after a notification change.
+        # The Budgets API updates notifications on the current physical budget.
         budget_arn = self.format_arn(
             service="budgets",
             region="",

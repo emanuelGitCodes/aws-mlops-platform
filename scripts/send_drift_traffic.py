@@ -1,5 +1,4 @@
-"""Demo helper. It sends distribution-shifted traffic to the API, so the drift
-job reports drift and the retrain loop fires where you can see it.
+"""Send distribution-shifted traffic through the drift and retraining loop.
 
     uv run --locked --extra dev python scripts/send_drift_traffic.py \\
         --api-url <api-url> --pipeline-execution-arn <arn> -n 200
@@ -7,15 +6,9 @@ job reports drift and the retrain loop fires where you can see it.
 The script signs each request with SigV4. The caller needs
 `execute-api:Invoke` on the method.
 
-The background records come from the same held-out `api_test` fixture that
-``evaluate_api.py`` replays, and only the tenure and charge columns are
-shifted. Every other column therefore keeps the training distribution, so the
-drift the job reports is the shift this script applied and nothing else.
-
-Generating the background instead — one fixed record repeated, or values drawn
-uniformly from the vocabulary — moves every other column too. The loop still
-fires, but on a population that differs everywhere, which demonstrates nothing
-about the intended shift.
+The script loads background records from the held-out `api_test` fixture.
+It shifts only the tenure and charge columns. Other columns keep their fixture
+values.
 """
 
 import argparse
@@ -25,8 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# This lets the file-path invocation above import the repository package. The
-# caller does not have to set PYTHONPATH.
+# Add the repository root for direct file-path invocation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import boto3
@@ -35,9 +27,8 @@ from scripts.evaluate_api import load_fixture, post_prediction, resolve_fixture_
 from src.common.features import FEATURE_COLUMNS
 from src.common.schema import CustomerRecord
 
-# The shift: a customer base with far longer tenure and far higher charges than
-# anything the model trained on. `TotalCharges` follows from the other two, so
-# leaving it consistent keeps the record plausible.
+# Shift tenure and charges beyond the training distribution.
+# Derive `TotalCharges` from tenure and monthly charges.
 SHIFTED_COLUMNS = ("tenure", "MonthlyCharges", "TotalCharges")
 TENURE_RANGE = (120, 200)
 MONTHLY_CHARGES_RANGE = (300.0, 500.0)
@@ -56,11 +47,7 @@ def shift(record: dict[str, Any], rng: random.Random) -> dict[str, Any]:
 
 
 def build_window(records: list[dict[str, Any]], count: int, seed: int = 7) -> list[dict[str, Any]]:
-    """Draw `count` background records and shift each one.
-
-    Sampling with replacement keeps the script usable when the fixture holds
-    fewer records than the window needs.
-    """
+    """Draw `count` records with replacement and shift each record."""
     rng = random.Random(seed)
     return [shift(rng.choice(records)["record"], rng) for _ in range(count)]
 
@@ -84,9 +71,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     window = build_window(load_fixture(fixture_s3_uri, args.region), args.n)
 
-    # Fail loudly before sending anything. Do not use `assert`. Python -O
-    # strips assertions, and this check is the only thing that keeps the
-    # generated payload valid.
+    # Validate the first generated payload before sending requests.
+    # Do not use `assert`. Python `-O` removes assertions.
     CustomerRecord.model_validate(window[0])
 
     print(f"background records: {fixture_s3_uri}")

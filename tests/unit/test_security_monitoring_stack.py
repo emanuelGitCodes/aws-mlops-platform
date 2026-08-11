@@ -66,7 +66,7 @@ def test_security_monitoring_enables_only_the_unpaid_phase_3_services(stacks):
 
 
 def test_guardduty_detector_contract_stays_locked_for_deferred_phase_3b():
-    """The flag-gated detector keeps its shape for a later enablement."""
+    """Require the foundational GuardDuty detector shape when enabled."""
     config = load_config("dev")
     config["security"]["services"]["guardduty"] = True
     # Isolate the detector. The recorder dereferences the stub audit bucket
@@ -154,8 +154,7 @@ def test_account_bpa_blocks_all_four_public_access_routes(stacks):
     template = stacks["security_monitoring"]
     template.resource_count_is("Custom::AWS", 1)
 
-    # Create and Update must be identical. Otherwise a later settings change
-    # synthesizes but never reaches the account.
+    # Require identical Create and Update calls.
     for key in ("Create", "Update"):
         call = _account_bpa_call(template, key)
         assert call["service"] == "S3Control"
@@ -225,8 +224,8 @@ def test_enabling_an_unimplemented_service_flag_fails_loudly(flag):
     with pytest.raises(ValueError, match="no stack implementation") as excinfo:
         SecurityMonitoringStack(
             app,
-            # Stack ids must match /^[A-Za-z][A-Za-z0-9-]*$/. Drop the
-            # underscores, so CDK does not reject the name first.
+            # Stack ids must match `/^[A-Za-z][A-Za-z0-9-]*$/`.
+            # Remove underscores from the tested flag name.
             f"Test-SecurityMonitoring-Unimplemented-{flag.replace('_', '-')}",
             alert_topic=None,
             access_log_bucket=None,
@@ -238,13 +237,12 @@ def test_enabling_an_unimplemented_service_flag_fails_loudly(flag):
 
 
 def test_implemented_service_flags_are_a_subset_of_the_declared_contract():
-    """Catch a typo in IMPLEMENTED_SERVICE_FLAGS that would disable the
-    guard."""
+    """Keep implemented service flags inside the declared contract."""
     assert IMPLEMENTED_SERVICE_FLAGS <= set(PHASE_3_SERVICE_FLAGS)
 
 
 def test_prod_security_monitoring_stays_a_disabled_shell():
-    """Production stays unchanged until its own approved rollout."""
+    """Synthesize prod with all security service flags disabled."""
     config = load_config("prod")
     assert set(config["security"]["services"].values()) == {False}
 
@@ -269,14 +267,7 @@ def test_prod_security_monitoring_stays_a_disabled_shell():
 
 
 def test_disabling_a_phase_3_flag_still_synthesizes():
-    """Turning a service off must not break synthesis. Otherwise rollback is
-    stuck.
-
-    Acknowledgements are matched to real constructs, so one naming a flag-gated
-    Phase 3 construct fails synthesis the moment that flag goes false. That is
-    the rollback path. An acknowledgement with no requires_flag leaves the
-    environment unable to synthesize the revert.
-    """
+    """Allow synthesis after disabling a flag-gated service."""
     config = load_config("dev")
     config["security"]["services"]["account_bpa"] = False
 
@@ -294,11 +285,7 @@ def test_disabling_a_phase_3_flag_still_synthesizes():
 
 
 def test_config_recorder_records_only_the_named_security_types(stacks):
-    """This is not an all-types recorder. Config bills per item.
-
-    `AllSupported` true would silently start versioning every resource class,
-    including whatever the planned EC2 work adds, with no diff to review.
-    """
+    """Record only the named security resource types."""
     template = stacks["security_monitoring"]
     template.resource_count_is("AWS::Config::ConfigurationRecorder", 1)
 
@@ -311,10 +298,7 @@ def test_config_recorder_records_only_the_named_security_types(stacks):
     assert recorder["RecordingGroup"]["AllSupported"] is False
     assert recorder["RecordingGroup"]["IncludeGlobalResourceTypes"] is False
     assert recorder["RecordingGroup"]["ResourceTypes"] == list(CONFIG_RECORDED_TYPES)
-    # The recorder authorizes through the AWS-owned service-linked role, so no
-    # role in this repository can be over-granted on its behalf. The path is
-    # `aws-service-role`. `aws-service-linked-role` is not a real IAM path. It
-    # would be denied at CreateServiceLinkedRole and roll the deploy back.
+    # Require the AWS-owned service-linked role and its valid IAM path.
     role_arn = json.dumps(recorder["RoleARN"])
     assert "role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig" in role_arn
     assert "aws-service-linked-role" not in role_arn
@@ -322,8 +306,7 @@ def test_config_recorder_records_only_the_named_security_types(stacks):
 
 
 def test_config_delivers_into_the_audit_bucket_under_its_own_prefix(stacks):
-    """Snapshots are audit evidence. They land in the audit bucket and inherit
-    its KMS key, its versioning, and its RETAIN policy."""
+    """Deliver Config snapshots under the audit-bucket prefix."""
     template = stacks["security_monitoring"]
     template.resource_count_is("AWS::Config::DeliveryChannel", 1)
 
@@ -333,13 +316,12 @@ def test_config_delivers_into_the_audit_bucket_under_its_own_prefix(stacks):
         if resource["Type"] == "AWS::Config::DeliveryChannel"
     )
     assert channel["S3KeyPrefix"] == CONFIG_DELIVERY_PREFIX
-    # This is imported from the Security stack, never a literal name.
+    # Require a Security stack bucket import.
     assert "Fn::ImportValue" in json.dumps(channel["S3BucketName"])
 
 
 def test_disabling_config_leaves_no_recorder_and_no_bucket_grant():
-    """The rollback path. Turning the recorder off must remove the
-    principal."""
+    """Remove the recorder principal when Config is disabled."""
     config = load_config("dev")
     config["security"]["services"]["config_recorder"] = False
 
@@ -354,22 +336,13 @@ def test_disabling_config_leaves_no_recorder_and_no_bucket_grant():
 
     monitoring = Template.from_stack(built["security_monitoring"]).to_json()["Resources"]
     assert not [r for r in monitoring.values() if r["Type"].startswith("AWS::Config::")]
-    # The grant lives in the Security stack. Assert it disappears there too.
+    # Remove the Config grant from the Security stack.
     security = json.dumps(Template.from_stack(built["security"]).to_json())
     assert "config.amazonaws.com" not in security
 
 
 def test_the_recorder_and_channel_are_not_ordered_against_each_other(stacks):
-    """The two Config resources depend on each other, so neither may depend on
-    the other.
-
-    PutDeliveryChannel fails until a recorder exists; the recorder's creation
-    calls StartConfigurationRecorder, which fails until a channel exists. Both
-    orderings were deployed and both deadlocked -- and because CloudFormation
-    retries those two errors rather than failing, each hung in
-    CREATE_IN_PROGRESS until it was cancelled by hand instead of rolling back.
-    Left concurrent, the retries converge.
-    """
+    """Create the Config recorder and delivery channel concurrently."""
     resources = stacks["security_monitoring"].to_json()["Resources"]
     recorder_id, recorder = next(
         (key, value)
@@ -384,7 +357,7 @@ def test_the_recorder_and_channel_are_not_ordered_against_each_other(stacks):
 
     assert recorder_id not in channel.get("DependsOn", [])
     assert channel_id not in recorder.get("DependsOn", [])
-    # The recorder still waits on the service-linked role it uses.
+    # Create the service-linked role before the recorder.
     slr_id = next(
         key for key, value in resources.items() if value["Type"] == "AWS::IAM::ServiceLinkedRole"
     )

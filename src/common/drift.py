@@ -1,22 +1,13 @@
-"""Population Stability Index over the raw feature contract.
+"""Calculate Population Stability Index over the raw feature contract.
 
-This module is the one definition of the drift statistic. The preprocessing
-step imports it to build the training baseline. The drift Lambda imports it to
-score a capture window against that baseline. A second copy would let the two
-sides bin the same value differently and report drift that is not there.
-
-Drift is measured on raw values, not on the encoded vector from
-``features.encode_features``. Raw values name the column and the category that
-moved, which an ordinal code cannot.
-
-The module uses the standard library only. The drift Lambda ships it in the
-same bundle as the handlers, and the SageMaker processing image installs
-nothing extra for it.
+The preprocessing step builds the training baseline with this module. The drift
+Lambda scores capture windows with the same functions. Raw values preserve the
+column names and categories in drift results. This module uses only the
+standard library.
 """
 
-# The preprocessing step imports this module inside the SageMaker managed
-# image. That image runs an older Python than 3.12. Deferred annotations keep
-# modern syntax here from becoming a runtime error.
+# The SageMaker managed image uses an older Python version.
+# Deferred annotations preserve compatibility with that image.
 from __future__ import annotations
 
 import bisect
@@ -25,52 +16,32 @@ from typing import Any
 
 from src.common.features import FEATURE_COLUMNS, NUMERIC
 
-# Quantile bins per numeric column. Ten is enough to show a shift in a column
-# with a few thousand distinct values, and coarse enough that an hourly window
-# of a few hundred records still fills most bins.
+# Use ten quantile bins for each numeric column.
 NUMERIC_BINS = 10
 
-# A bucket that holds no records would make the ratio below zero or infinite.
-# Substituting this floor keeps one empty bucket from dominating the sum.
+# Replace empty bucket shares with this positive floor.
 EPSILON = 1e-6
 
-# Above this, a column's distribution has moved enough to act on. The
-# convention this follows reads 0.1 to 0.2 as a moderate shift and anything
-# above 0.2 as a large one.
+# A column reaches drift at this PSI value.
 COLUMN_PSI_THRESHOLD = 0.2
 
-# The share of columns that must breach `COLUMN_PSI_THRESHOLD` before the
-# window counts as drift. One column moving is a data-quality question. Six of
-# nineteen is a different population.
+# This fraction of columns must reach `COLUMN_PSI_THRESHOLD`.
 DRIFTED_COLUMN_FRACTION = 0.3
 
-# A single column this far past `COLUMN_PSI_THRESHOLD` is drift on its own.
-# The fraction rule alone misses a targeted shift: tripling `tenure` and both
-# charge columns moves three of nineteen, which is under the fraction, while
-# their PSI reaches double digits. Those three carry most of the model's
-# signal, so silence there is the wrong answer.
-#
-# Windows drawn from the training population score every column under
-# `COLUMN_PSI_THRESHOLD`, so this leaves a wide margin over observed noise.
+# One column at this PSI value declares drift.
+# This rule detects targeted shifts below `DRIFTED_COLUMN_FRACTION`.
 SEVERE_COLUMN_PSI = 1.0
 
-# The platform's own violation event, shared by the Lambda that emits it and
-# the Lambda that consumes it. `infra/stacks/monitoring_stack.py` repeats these
-# three as literals, because importing a handler during synth would run its
-# module-level environment lookups. tests/unit/test_monitoring_stack.py asserts
-# the stack and this module agree.
+# The drift Lambda emits this platform event. The retrain Lambda consumes it.
+# `infra/stacks/monitoring_stack.py` repeats these literals.
+# Importing a handler evaluates its environment lookups during synthesis.
 EVENT_SOURCE = "mlops.monitoring"
 EVENT_DETAIL_TYPE = "Drift Evaluation Result"
 DRIFT_STATUS = "DriftDetected"
 
 
 def numeric_value(raw: Any) -> float:
-    """Read one numeric feature value.
-
-    Blank strings become ``0.0``. The curated Telco data spells an unbilled
-    account's ``TotalCharges`` as a blank, and ``features.encode_features``
-    reads it the same way.
-    """
+    """Return one numeric feature value. Convert a blank string to `0.0`."""
     text = str(raw).strip()
     if not text:
         return 0.0
@@ -80,9 +51,8 @@ def numeric_value(raw: Any) -> float:
 def numeric_edges(values: list[float], bins: int = NUMERIC_BINS) -> list[float]:
     """Return the interior quantile edges that split ``values`` into ``bins``.
 
-    Repeated edges collapse. A column where one value holds most of the rows
-    yields fewer buckets than ``bins``, which is correct: the bins it would
-    have had are empty.
+    Repeated edges collapse. A dominant value can produce fewer than `bins`
+    buckets.
     """
     ordered = sorted(values)
     if not ordered:
@@ -97,13 +67,9 @@ def numeric_edges(values: list[float], bins: int = NUMERIC_BINS) -> list[float]:
 def bucket_of(column: str, raw: Any, edges: list[float]) -> str:
     """Return the bucket key one raw value falls in.
 
-    A categorical value is its own bucket, so an unseen category appears as a
-    new key rather than being folded into a neighbour.
-
-    Numeric bins are left-open: a value equal to an edge falls below it. That
-    matters for a low-cardinality column. `SeniorCitizen` holds 0 and 1, so its
-    only edge is `0.0`; binning right-open would put both values in the same
-    bucket and make that column's drift undetectable.
+    Each categorical value uses its own bucket. An unseen category creates a
+    new key. Numeric bins are left-open. A value equal to an edge uses the
+    lower bucket.
     """
     if column not in NUMERIC:
         return str(raw)
@@ -125,22 +91,12 @@ def bucket_counts(
 
 
 def distinct_record_count(rows: list[dict[str, Any]]) -> int:
-    """Count the distinct feature vectors in a window.
-
-    A window of repeated identical records is a point mass. Every column's PSI
-    against the training distribution then explodes, and `compare` reports that
-    every column moved. The count of records cannot detect this, so the caller
-    needs the count of distinct ones.
-    """
+    """Count the distinct feature vectors in a capture window."""
     return len({tuple(str(row.get(column)) for column in FEATURE_COLUMNS) for row in rows})
 
 
 def build_baseline(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build the reference distribution the drift job compares windows against.
-
-    The edges are stored beside the counts. The drift job must bin a live
-    window on the training data's edges, never on the window's own.
-    """
+    """Build the reference distribution and numeric edges for drift scoring."""
     edges = {
         column: numeric_edges([numeric_value(row[column]) for row in rows if column in row])
         for column in FEATURE_COLUMNS
@@ -154,11 +110,7 @@ def build_baseline(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def population_stability_index(reference: dict[str, int], current: dict[str, int]) -> float:
-    """Return the PSI between two bucket-count distributions.
-
-    The result is 0.0 when the two distributions are identical, and grows
-    without bound as they separate.
-    """
+    """Return the PSI between two bucket-count distributions."""
     reference_total = sum(reference.values())
     current_total = sum(current.values())
     if not reference_total or not current_total:
@@ -194,6 +146,6 @@ def compare(baseline: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         "drifted_columns": drifted,
         "drifted_fraction": round(fraction, 6),
         "max_column_psi": round(worst, 6),
-        # Two ways in: many columns moved, or one moved severely.
+        # Declare drift from a broad shift or one severe column shift.
         "drifted": fraction >= DRIFTED_COLUMN_FRACTION or worst >= SEVERE_COLUMN_PSI,
     }

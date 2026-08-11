@@ -1,5 +1,9 @@
 # aws-mlops-platform
 
+> **Portfolio review only.** All rights are reserved. This project is not open
+> source. No license is granted to copy, use, modify, distribute, or deploy it
+> beyond GitHub's required public-repository rights.
+
 A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
 `make deploy ENV=dev` creates the nine infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
@@ -122,7 +126,7 @@ that the model got worse. See the
 | `src/ingestion/`, `src/serving/`, `src/monitoring/` | Lambda handlers (validate, proxy with capture, endpoint deploy, drift evaluation, drift retrain) |
 | `scripts/` | API evaluation, deployment verification, and the drift-traffic demo helper |
 | `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
-| `.github/workflows/` | CI (lint/test/synth) and OIDC-federated deploy (dev → manual gate → prod) |
+| `.github/workflows/` | CI, full-history secret scanning, and manual OIDC-federated deployment |
 
 ## Quickstart
 
@@ -145,8 +149,8 @@ uv run --locked --extra pipeline python -m src.pipeline.pipeline \
   --role-arn <PipelineRoleArn output> --curated-bucket <curated> \
   --artifacts-bucket <artifacts> --model-package-group churn-model-group --start
 
-# 3. Serve: approval event auto-deploys the endpoint; then
-curl -X POST <ApiUrl> -H "x-api-key: <key>" -H "Content-Type: application/json" -d @sample.json
+# 3. Serve: approval auto-deploys the endpoint. The smoke test uses SigV4.
+AWS_PROFILE=<profile> make smoke ENV=dev
 
 # 4. Inspect the execution's report bundle in the artifacts bucket, then run
 # the API verification command shown in the next section.
@@ -169,21 +173,21 @@ calibration, and score-distribution charts. The confusion matrix uses the same
 `0.50` cutoff as the `/predict` API: a probability of `0.50` or above is
 classified as churn.
 
-After an endpoint deployment, validate the public serving path against the
+After an endpoint deployment, validate the deployed serving path against the
 same raw, labeled held-out records. The default is a deterministic,
 class-balanced sample of 25 records; use `--all` for the full test split.
 
 ```bash
 API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
-API_KEY="$API_KEY" \
 uv run --locked --extra dev python scripts/evaluate_api.py \
-  --pipeline-execution-arn <pipeline-execution-arn>
+  --pipeline-execution-arn <pipeline-execution-arn> \
+  --profile <profile> --region us-east-1
 
 # Full held-out test-set API evaluation (more endpoint invocations):
 API_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com/dev/predict \
-API_KEY="$API_KEY" \
 uv run --locked --extra dev python scripts/evaluate_api.py \
-  --pipeline-execution-arn <pipeline-execution-arn> --all
+  --pipeline-execution-arn <pipeline-execution-arn> --all \
+  --profile <profile> --region us-east-1
 ```
 
 The evaluator discovers the `api_test` fixture output of that execution,
@@ -234,17 +238,17 @@ Current dev baseline:
   uses. Phase 5 is complete: no role attaches `AmazonSageMakerFullAccess`, and
   the only remaining wildcard resource is account-level S3 Block Public Access,
   where AWS accepts nothing else.
-- `/predict` currently requires an API key and is throttled, but the key is not
-  strong user authentication. The approved roadmap replaces it with IAM/SigV4
-  in phase 6.
+- `/predict` requires IAM authorization and SigV4. The account has no API key
+  or usage plan. The API stage retains rate 10 and burst 20 throttles.
 - Audit and detection are deployed. A multi-region CloudTrail with log-file
   validation writes to a retained, customer-managed-KMS-encrypted bucket and to
   a 90-day CloudWatch log group; six CIS metric filters (root activity,
   unauthorized API calls, IAM policy changes, trail changes, KMS key
   disable/delete, bucket policy changes) alarm to an SNS topic. IAM Access
-  Analyzer and account-level S3 Block Public Access are enabled in dev via the
-  `security.services` flags. GuardDuty is deferred behind the AWS Free plan
-  upgrade gate; AWS Config, Security Hub, and WAF are not enabled.
+  Analyzer, AWS Config, account-level S3 Block Public Access, and security
+  event routing are enabled in dev through the `security.services` flags.
+  GuardDuty and Security Hub remain behind the paid-plan gate. WAF is not
+  enabled.
 - Serverless inference has no configured provisioned concurrency, so endpoint
   compute has no standing instance while idle. S3, logs, and other retained AWS
   resources still incur small ongoing charges. The monthly budget is `$20` and
@@ -260,8 +264,17 @@ The [phased security hardening roadmap](wiki/pages/architecture/phased-security-
 runs 0-9: baseline, repository guardrails, audit and detection, threat
 detection services, customer-managed KMS encryption, least-privilege IAM,
 IAM/SigV4 API authorization, TLS/logging, WAF, and operator-identity cleanup.
-Phases 0-2 are complete and phase 3 is partial (Access Analyzer and account S3
-blocking done; GuardDuty deferred behind the paid-plan gate; Config and
-Security Hub pending); 4-9 remain. Every phase has its own commit, deployment,
-verification, rollback point, and explicit stop before the next phase — the
-per-phase records live in `wiki/pages/sources/`.
+Phases 0-2 and 5 are complete. Phase 3 is partial: Access Analyzer, AWS Config,
+account S3 blocking, and alert routing are live in dev. GuardDuty and Security
+Hub remain behind the paid-plan gate. Phase 6 is deployed to dev with its
+observation window open. Phases 4 and 7-9 are not started. The per-phase
+records live in `wiki/pages/sources/`.
+
+## Copyright and security
+
+Copyright 2026 Emanuel J. Cortes-Lugo. All rights are reserved. This repository
+is available for portfolio review only. It is not open source. No license is
+granted to copy, use, modify, distribute, or deploy the project. Third-party
+asset notices are in [NOTICE](NOTICE).
+Report vulnerabilities through GitHub's private reporting flow as described in
+[SECURITY.md](SECURITY.md). Do not include security details in a public issue.

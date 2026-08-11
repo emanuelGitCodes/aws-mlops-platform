@@ -56,8 +56,8 @@ def test_bucket_of_bins_a_numeric_value_on_the_supplied_edges():
 
 
 def test_a_low_cardinality_numeric_column_still_separates():
-    # SeniorCitizen holds 0 and 1, so its only edge is 0.0. Right-open binning
-    # would put both values in bucket 1 and hide every shift in this column.
+    # `SeniorCitizen` values are zero and one. Its only edge is zero.
+    # Left-open binning keeps the values in separate buckets.
     baseline = drift.build_baseline(spread(200, "SeniorCitizen", [0, 0, 0, 1]))
     result = drift.compare(baseline, rows(200, SeniorCitizen=1))
     assert result["column_psi"]["SeniorCitizen"] > drift.COLUMN_PSI_THRESHOLD
@@ -114,8 +114,7 @@ def test_an_unseen_category_registers_as_drift():
 
 
 def test_compare_reports_no_drift_between_two_draws_of_one_population():
-    # Two independent draws, not the same rows twice. Comparing a window with
-    # itself cannot fail and so proves nothing.
+    # Compare two independent draws from the same distribution.
     baseline = drift.build_baseline(varied_records(600, seed=1))
     result = drift.compare(baseline, varied_records(200, seed=2))
     assert result["drifted"] is False
@@ -124,8 +123,7 @@ def test_compare_reports_no_drift_between_two_draws_of_one_population():
 
 
 def test_compare_detects_a_shifted_population():
-    # The shift `scripts/send_drift_traffic.py` sends: extreme tenure and
-    # charges. The window stays diverse, so the detection is on the shift.
+    # Match the tenure and charge shift from `scripts/send_drift_traffic.py`.
     baseline = drift.build_baseline(varied_records(600, seed=1))
     shifted = varied_records(
         200,
@@ -162,8 +160,7 @@ def test_one_column_moved_mildly_is_not_drift():
 
 
 def test_one_column_moved_severely_is_drift():
-    """The counterpart. `Contract` collapsing to a single value is a changed
-    population, and the fraction rule alone would let it pass."""
+    """Detect one severe column shift below the fraction threshold."""
     baseline = drift.build_baseline(varied_records(600, seed=1))
     result = drift.compare(baseline, varied_records(400, seed=6, Contract="Two year"))
 
@@ -174,8 +171,7 @@ def test_one_column_moved_severely_is_drift():
 
 
 def test_compare_scores_a_window_on_the_baseline_edges():
-    # A window binned on its own edges would report zero drift for any
-    # distribution, because it would always be compared with itself.
+    # Score the window with the baseline edges.
     baseline = drift.build_baseline(spread(200, "MonthlyCharges", [20.0, 30.0, 40.0]))
     result = drift.compare(baseline, rows(200, MonthlyCharges=500.0))
     assert result["column_psi"]["MonthlyCharges"] > drift.COLUMN_PSI_THRESHOLD
@@ -199,12 +195,7 @@ def test_distinct_record_count_ignores_columns_outside_the_contract():
 
 
 def test_a_repeated_payload_reports_every_column_as_drifted():
-    """Why the caller needs a distinctness guard, not just a record count.
-
-    A window of identical records is a point mass, so every column's PSI
-    against the training distribution explodes. `DRIFTED_COLUMN_FRACTION`
-    cannot catch it, because every column moved.
-    """
+    """Report all columns as drifted for a repeated-record window."""
     baseline = drift.build_baseline(varied_records(600, seed=1))
     result = drift.compare(baseline, rows(500))
     assert result["drifted"] is True

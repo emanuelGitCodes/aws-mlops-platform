@@ -36,22 +36,13 @@ def _approval_rule_patterns(stacks: dict) -> list[dict]:
 
 
 def test_environments_never_share_a_model_package_group():
-    """Two environments must not resolve to the same physical registry group.
-
-    No stack sets `env=cdk.Environment`, so every environment deploys into
-    whatever account the credentials point at — in practice the same one.
-    A shared group name means the second RegistryStack cannot create the
-    group at all, and both ServingStacks' approval rules match identical
-    events: dev auto-approves challengers, so a dev retrain would deploy
-    itself onto the prod endpoint.
-    """
+    """Require a distinct model package group for each environment."""
     environments = {env: synth_env(env, stack_prefix(env)) for env in ("dev", "prod")}
 
     group_names = {env: _registry_group_name(stacks) for env, stacks in environments.items()}
     assert len(set(group_names.values())) == len(group_names), group_names
 
-    # The approval rules key off the group name. Distinct names must leave no
-    # two environments listening to the same event.
+    # Require distinct approval-rule patterns for each environment.
     patterns = [
         json.dumps(pattern, sort_keys=True)
         for stacks in environments.values()

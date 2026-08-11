@@ -1,4 +1,4 @@
-"""Audit foundation, CIS metric detections, and alert delivery."""
+"""Define audit storage, CIS metric detections, and alert delivery."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -38,15 +38,12 @@ class SecurityDetection:
     metric_name: str
     alarm_slug: str
     filter_pattern: str
-    # One five-minute datapoint at 1 or more pages immediately. None renders
-    # no DatapointsToAlarm property at all.
+    # One five-minute datapoint at one or more starts an alarm.
+    # `None` omits the `DatapointsToAlarm` property.
     evaluation_periods: int = 1
     datapoints_to_alarm: int | None = None
-    # The filter's default_value publishes a zero only for a period the log
-    # group received events in. CloudTrail delivers nothing in some periods, so
-    # the series has gaps. Alarm evaluation skips a gap and reaches back to the
-    # datapoint before it, which lets non-consecutive periods satisfy a
-    # consecutive rule. FILL replaces each gap with a zero.
+    # The filter default publishes zero only during periods with log events.
+    # `FILL` replaces metric gaps with zero before alarm evaluation.
     fill_missing: bool = False
 
 
@@ -61,8 +58,7 @@ SECURITY_DETECTIONS = (
         "UnauthorizedApiCalls",
         "unauthorized-api-calls",
         '{($.errorCode="*UnauthorizedOperation") || ($.errorCode="AccessDenied*")}',
-        # An isolated least-privilege denial must not page. A burst across
-        # three consecutive five-minute datapoints still does.
+        # Require denials in three consecutive five-minute periods.
         evaluation_periods=3,
         datapoints_to_alarm=3,
         fill_missing=True,
@@ -93,8 +89,7 @@ SECURITY_DETECTIONS = (
         "{($.eventSource=kms.amazonaws.com) && (($.eventName=DisableKey) || "
         "($.eventName=ScheduleKeyDeletion))}",
     ),
-    # The account trail detects every prod deploy-role assumption.
-    # The filter excludes the dev role, which each CI run assumes.
+    # Detect each prod deploy-role assumption. Exclude the dev CI role.
     SecurityDetection(
         "ProdDeployRoleAssumed",
         "prod-deploy-role-assumed",
@@ -115,11 +110,7 @@ SECURITY_DETECTIONS = (
 
 
 def _default_cfn_resource(construct: IConstruct) -> CfnResource:
-    """Narrow a construct's L1 child for ``CfnResource.add_dependency``.
-
-    ``node.default_child`` is typed ``IConstruct | None``. Passing it straight
-    to ``add_dependency`` would fail at synth time instead of here.
-    """
+    """Return the L1 child for `CfnResource.add_dependency`."""
     resource = construct.node.default_child
     if not isinstance(resource, CfnResource):
         raise TypeError(f"{construct.node.path} has no CfnResource default child")
@@ -167,9 +158,8 @@ class SecurityStack(Stack):
             resource="budget",
             resource_name="*",
         )
-        # Every security rule in this account carries this name prefix. The
-        # rules live in the SecurityMonitoring stack, which depends on this
-        # stack. A rule reference here reverses that and creates a cycle.
+        # Every security event rule uses this name prefix.
+        # Do not add a cross-stack rule reference here.
         security_rule_arn = self.format_arn(
             service="events",
             resource="rule",
@@ -354,10 +344,8 @@ class SecurityStack(Stack):
         ):
             audit_bucket.add_to_resource_policy(statement)
 
-        # Config delivers snapshots into this bucket, so the grants live here
-        # with the bucket and the key. SecurityMonitoring already consumes
-        # both, and granting from there would close a dependency cycle. The
-        # recorder flag gates them, so a disabled service adds no principal.
+        # Grant Config access to the audit bucket and key in this stack.
+        # The recorder flag removes these principals when Config is disabled.
         if config["security"]["services"]["config_recorder"]:
             for statement in (
                 iam.PolicyStatement(
@@ -385,8 +373,7 @@ class SecurityStack(Stack):
             ):
                 audit_bucket.add_to_resource_policy(statement)
 
-            # Config encrypts each snapshot with this key. An ungranted
-            # delivery fails with AccessDenied on the key, not on the bucket.
+            # Config encrypts each snapshot with the audit key.
             audit_key.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AllowConfigSnapshotEncryption",

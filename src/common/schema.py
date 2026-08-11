@@ -1,8 +1,7 @@
-"""Shared input schema for the Telco churn model.
+"""Define the shared Telco churn input schema.
 
-The ingestion validation Lambda uses it for rows from raw CSVs. The serving
-proxy Lambda uses it for inference requests. One source keeps the training
-data contract and the API contract together.
+Ingestion validates raw CSV rows with this schema. Serving validates inference
+requests with the same schema.
 """
 
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
@@ -29,7 +28,7 @@ def format_validation_error(exc: ValidationError) -> str:
 
 
 class CustomerRecord(BaseModel):
-    """One customer row; label optional so the same model validates inference requests."""
+    """Represent one customer row with an optional label."""
 
     gender: str
     SeniorCitizen: int = Field(ge=0, le=1)
@@ -52,9 +51,7 @@ class CustomerRecord(BaseModel):
     TotalCharges: float = Field(ge=0)
     Churn: str | None = None
 
-    # Check every categorical column against the vocabulary the encoder uses.
-    # An unchecked column reaches `encode_features` and raises KeyError there,
-    # which returns a 502 instead of a 422 and kills the preprocessing job.
+    # Validate each categorical value against the encoder vocabulary.
     @field_validator(*FEATURE_VOCABULARY)
     @classmethod
     def _known_category(cls, v: str, info: ValidationInfo) -> str:
@@ -66,7 +63,7 @@ class CustomerRecord(BaseModel):
     @field_validator("TotalCharges", mode="before")
     @classmethod
     def _blank_total(cls, v: object) -> object:
-        # The public Telco CSV has blank TotalCharges for tenure-0 customers.
+        # The Telco CSV uses blank `TotalCharges` for tenure-zero customers.
         if isinstance(v, str) and not v.strip():
             return 0.0
         return v

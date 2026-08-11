@@ -30,7 +30,7 @@ call SageMaker; the existing `${AWS_ADMIN_USER_NAME}` break-glass profile was us
 upsert this SDK-managed pipeline.
 
 The first post-update execution,
-`arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/3sg58t1vx4uv`,
+`arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id>`,
 reached `Evaluate` but failed after writing JSON and CSV artifacts. Its
 CloudWatch log showed Python 3.9 rejected `zip(..., strict=True)` with:
 
@@ -41,11 +41,11 @@ TypeError: zip() takes no keyword arguments
 The Processing image is Python 3.9, so chart-generation loops were rewritten
 to use index-based access. The focused evaluation-artifact tests passed, the
 pipeline was upserted again, and retry execution
-`arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/53ww289tjhoz`
+`arn:aws:sagemaker:us-east-1:${AWS_ACCOUNT_ID}:pipeline/churn-training-pipeline-dev/execution/<pipeline-execution-id>`
 completed and produced the full report bundle in:
 
 ```text
-s3://mlops-dev-data-artifactsbucket2aac5544-wtqxu2n8hv4n/churn-training-pipeline-dev/53ww289tjhoz/Evaluate/output/evaluation/
+s3://${ARTIFACTS_BUCKET}/churn-training-pipeline-dev/<pipeline-execution-id>/Evaluate/output/evaluation/
 ```
 
 ## Measured held-out test results

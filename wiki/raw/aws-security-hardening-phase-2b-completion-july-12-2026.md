@@ -22,7 +22,7 @@ only as the `SecurityAlertEmail` CloudFormation parameter. The stack reached
 Outputs:
 
 - Trail: `mlops-dev-audit`
-- Audit bucket: `mlops-dev-security-auditbucketb01e0ae8-cgrennomsviq`
+- Audit bucket: `${AUDIT_BUCKET}`
 - Access-log bucket: `${ACCESS_LOG_BUCKET}`
 - CloudWatch log group: `/aws/cloudtrail/mlops-dev-audit`
 - Security topic: `arn:aws:sns:us-east-1:${AWS_ACCOUNT_ID}:mlops-dev-security-alerts`

@@ -25,8 +25,7 @@ jobs:
       - name: Install locked dependencies
         run: make install
 
-      # Call the Make targets, so CI and a local run cannot drift apart. The
-      # unit-test target carries a coverage floor that this file does not know.
+      # Use the same Make targets in CI and local validation.
       - name: Lint
         run: make lint
 
@@ -36,22 +35,22 @@ jobs:
       - name: Unit tests
         run: make test
 
-      # AGENTS.md is the single source, and CLAUDE.md is a symlink to it.
-      # Prose alone cannot stop a commit that replaces the symlink with a copy.
+      # Verify that `CLAUDE.md` remains a symlink to `AGENTS.md`.
       - name: Check the agent docs stay one file
         run: make docs-sync
 
-      # The wiki is a maintained deliverable with its own health check.
-      # Without this step, a broken source link or an orphaned page merges.
+      # Check wiki links, metadata, and page indexing.
       - name: Lint the wiki
         run: make wiki-lint
+
+      - name: Check public-release metadata
+        run: make public-check
 
       - name: Audit Python dependencies
         run: make audit
 
       - name: CDK security synthesis
-        # Both environments. A dev-only synth cannot catch an acknowledgement
-        # whose construct path or finding id embeds the environment name.
+        # Synthesize both environments through the cdk-nag gate.
         run: make synth-all
 
   secret-scan:
@@ -65,7 +64,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Scan Git history for secrets
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+      - name: Install Gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}" \
+            --output "${RUNNER_TEMP}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" gitleaks
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+
+      - name: Scan every Git commit for secrets
+        run: gitleaks git --redact --verbose --log-opts="--all -m" .

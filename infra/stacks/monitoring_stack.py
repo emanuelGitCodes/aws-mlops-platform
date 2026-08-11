@@ -1,11 +1,8 @@
-"""Monitoring and the closed loop: the drift Lambda scores a capture window,
-emits a violation event, and the retrain Lambda calls StartPipelineExecution.
-Also the operator dashboard.
+"""Define drift detection, retraining event routing, alarms, and the dashboard.
 
-The platform owns both ends of this loop. SageMaker Model Monitor supports
-neither serverless endpoints nor new customers, so the statistic lives in
-`src/common/drift.py`, the baseline comes from the preprocessing step, and the
-capture objects come from the proxy Lambda.
+The drift Lambda scores capture objects against the training baseline. It emits
+a violation event. The retrain Lambda calls `StartPipelineExecution`.
+`src/common/drift.py` owns the drift statistic.
 """
 
 from typing import Any
@@ -28,9 +25,9 @@ from infra.stacks.shared import (
     platform_lambda,
 )
 
-# These three repeat `src/common/drift.py`. Keep them literals. Importing a
-# handler here would run its module-level os.environ lookups during synth.
-# tests/unit/test_monitoring_stack.py asserts that the two sides agree.
+# Keep these literals synchronized with `src/common/drift.py`.
+# Importing the handler evaluates its environment lookups during synthesis.
+# `tests/unit/test_monitoring_stack.py` compares both definitions.
 DRIFT_EVENT_SOURCE = "mlops.monitoring"
 DRIFT_EVENT_DETAIL_TYPE = "Drift Evaluation Result"
 DRIFT_STATUS = "DriftDetected"
@@ -52,17 +49,15 @@ class MonitoringStack(Stack):
         endpoint_name = config["endpoint_name"]
         pipeline_name = config["pipeline_name"]
 
-        # Scores one capture window against the training baseline. It carries
-        # its own role rather than sharing the pipeline role, so a drift
-        # evaluation can never reach what a training run can.
+        # The drift function scores one capture window against the training baseline.
+        # Its dedicated role cannot access training resources.
         drift_fn = platform_lambda(
             self,
             "DriftEvaluationFn",
             config=config,
             least_privilege_logs=True,
             handler="src.monitoring.drift_handler.handler",
-            # Reading an hour of capture objects one at a time is the slow
-            # part, not the statistic.
+            # S3 object reads dominate the drift evaluation time.
             timeout=Duration.minutes(5),
             memory_size=512,
             environment={
@@ -71,8 +66,7 @@ class MonitoringStack(Stack):
                 "CAPTURE_PREFIX": CAPTURE_PREFIX,
             },
         )
-        # Read the baseline and the capture window. The job never writes, so a
-        # compromised drift evaluation cannot forge the record it reads.
+        # Grant read-only access to the baseline and capture window.
         drift_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],
@@ -82,8 +76,7 @@ class MonitoringStack(Stack):
                 ],
             )
         )
-        # `ListBucket` takes the bucket ARN, so the prefix condition is what
-        # keeps this off the rest of the bucket.
+        # `ListBucket` uses the bucket ARN. The prefix condition limits the listing.
         drift_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:ListBucket"],
@@ -91,9 +84,8 @@ class MonitoringStack(Stack):
                 conditions={"StringLike": {"s3:prefix": [f"{CAPTURE_PREFIX}/*"]}},
             )
         )
-        # The default bus. `events:PutEvents` takes the bus ARN, and the source
-        # is not a resource, so the rule below is what stops any other consumer
-        # acting on this event.
+        # `events:PutEvents` uses the default event bus ARN.
+        # The EventBridge rule filters the event source for consumers.
         drift_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["events:PutEvents"],
@@ -103,7 +95,7 @@ class MonitoringStack(Stack):
             )
         )
 
-        # The schedule is the same config key the Model Monitor schedule used.
+        # The monitor schedule config controls this rule.
         events.Rule(
             self,
             "DriftEvaluationSchedule",
@@ -111,9 +103,7 @@ class MonitoringStack(Stack):
             targets=[targets.LambdaFunction(drift_fn)],
         )
 
-        # A violation starts a training run. The handler is real source in
-        # src/monitoring, not an inline string, so ruff, mypy, and pytest all
-        # see it.
+        # A violation starts one training pipeline execution.
         retrain_fn = platform_lambda(
             self,
             "RetrainTriggerFn",
@@ -122,9 +112,8 @@ class MonitoringStack(Stack):
             timeout=Duration.minutes(1),
             environment={"PIPELINE_NAME": pipeline_name},
         )
-        # `ListPipelineExecutions` is what the cooldown reads. Without it the
-        # handler cannot tell whether a run is already answering this drift,
-        # and a shift that persists starts a run every hour.
+        # The cooldown reads `ListPipelineExecutions` before it starts a run.
+        # A persistent shift emits one violation for each scheduled evaluation.
         retrain_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
@@ -150,7 +139,6 @@ class MonitoringStack(Stack):
             handler=retrain_fn,
         )
 
-        # Operator dashboard.
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}
 
         def _sm_metric(metric_name: str, statistic: str, **kwargs: Any) -> cw.Metric:
@@ -191,27 +179,21 @@ class MonitoringStack(Stack):
             metric=_sm_metric("Invocation5XXErrors", "Sum", period=Duration.minutes(5)),
             threshold=5,
             evaluation_periods=1,
-            # Without this the alarm defaults to `missing`. It then reads
-            # INSUFFICIENT_DATA whenever the serverless endpoint is idle.
+            # An idle serverless endpoint publishes no datapoint.
+            # Treat the missing datapoint as non-breaching for this error alarm.
             treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
         )
-        # An alarm with no action only changes colour in the console. This one
-        # delivers to the same topic as the security alarms.
+        # Deliver endpoint errors to the security alert topic.
         endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))
 
-        # NOT_BREACHING above reads OK while the endpoint is idle and while it
-        # is silent. This alarm separates the two states.
+        # This alarm reports a sustained lack of endpoint invocations.
         endpoint_silent_alarm = cw.Alarm(
             self,
             "EndpointSilentAlarm",
             alarm_name=f"mlops-{config['env_name']}-endpoint-silent",
-            # SageMaker publishes no Invocations datapoint for an idle hour. It
-            # does not publish a zero. A plain metric therefore returns an
-            # empty series, no datapoint arrives to drive an evaluation, and
-            # the alarm holds whatever state it last reached. FILL supplies a
-            # zero for every empty period, so evaluation continues through
-            # silence. `treat_missing_data` alone does not: it decides how a
-            # gap counts inside an evaluation that already runs.
+            # SageMaker publishes no `Invocations` datapoint for an idle hour.
+            # `FILL` supplies zero and keeps alarm evaluation active.
+            # `treat_missing_data` only classifies gaps in an active evaluation.
             metric=cw.MathExpression(
                 expression="FILL(m1, 0)",
                 period=Duration.hours(1),

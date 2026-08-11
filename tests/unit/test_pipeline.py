@@ -66,8 +66,7 @@ def test_steps_are_the_four_stage_drift_loop(definition):
 def test_pipeline_parameters_are_the_champion_contract(definition):
     parameters = {p["Name"]: p for p in definition["Parameters"]}
     assert set(parameters) == {"InputDataUri", "ChampionAuc", "ChampionModelPackageArn"}
-    # The registry holds no approved package, so the default is the 0.5
-    # baseline. The first challenger still has a bar to clear.
+    # Use the 0.5 baseline when the registry has no approved package.
     assert parameters["ChampionAuc"]["DefaultValue"] == 0.5
     assert parameters["ChampionModelPackageArn"]["DefaultValue"] == "none"
     assert parameters["InputDataUri"]["DefaultValue"] == "s3://curated-bucket/telco/"
@@ -105,23 +104,14 @@ def test_evaluate_receives_the_champion_to_compare_against(definition):
 
 
 def test_preprocess_and_train_are_cached_but_evaluate_is_not(definition):
-    """Caching skips unchanged steps. Evaluation must always run.
-
-    Evaluate compares against a champion that changes independently of this
-    pipeline's inputs, so a cache hit can report a stale verdict.
-    """
+    """Cache preprocessing and training. Always run evaluation."""
     for name in ("Preprocess", "Train"):
         assert _step(definition, name)["CacheConfig"]["Enabled"] is True
     assert "CacheConfig" not in _step(definition, "Evaluate")
 
 
 def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition):
-    """Phase 5B scoped the model execution role to one prefix of the artifacts
-    bucket. `src/pipeline/` cannot import `infra` to share the constant,
-    because it runs in the SageMaker image, where `infra` is not installed. A
-    divergence appears as a broken container start on the next deploy, not as a
-    synth error.
-    """
+    """Write model artifacts under the model-role read prefix."""
     from infra.stacks.shared import MODEL_ARTIFACT_PREFIX
 
     output = _step(definition, "Train")["Arguments"]["OutputDataConfig"]["S3OutputPath"]
@@ -129,27 +119,18 @@ def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition
 
 
 def test_evaluation_reports_land_where_the_pipeline_role_is_allowed_to_write(definition):
-    """Phase 5D scoped the pipeline role to a prefix list on the artifacts
-    bucket, so `evaluations/` is IAM, not layout. A rename in `pipeline.py`
-    alone appears as an `AccessDenied` part-way through a billable run, not as
-    a synth error.
-    """
+    """Write evaluation reports under the pipeline-role output prefix."""
     from infra.stacks.shared import EVALUATION_REPORT_PREFIX
 
     destination = _step(definition, "Evaluate")["Arguments"]["ProcessingOutputConfig"]["Outputs"][
         0
     ]["S3Output"]["S3Uri"]
-    # This is a `Join` over the bucket, the prefix, and two execution
-    # variables.
+    # The destination joins the bucket, prefix, and execution variables.
     assert EVALUATION_REPORT_PREFIX in json.dumps(destination)
 
 
 def test_the_baseline_lands_where_the_drift_lambda_reads_it(definition):
-    """`src/pipeline/` cannot import `infra`, so the path is written twice.
-
-    The pipeline writes the baseline. The drift Lambda reads one fixed key. A
-    rename on either side fails only at runtime, so pin them together here.
-    """
+    """Write the baseline under the drift Lambda read key."""
     from infra.stacks.shared import BASELINE_KEY, MONITOR_OUTPUT_PREFIX
     from src.pipeline.pipeline import BASELINE_DESTINATION_PREFIX
 

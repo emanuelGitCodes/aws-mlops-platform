@@ -1,13 +1,8 @@
-"""Retrain Lambda: a drift violation starts a new training-pipeline execution.
+"""Start a training pipeline execution for a drift violation.
 
-EventBridge triggers it on the platform's own drift event, which
-``src.monitoring.drift_handler`` emits. This closes the drift loop. The drift
-job finds violations. This handler starts the pipeline. The pipeline gates a
-challenger on test AUC. An approved challenger redeploys the endpoint through
-``src.serving.deploy_handler``.
-
-Keep this handler in ``src/``, not inline in the CDK stack. Ruff, mypy, and
-pytest see a real module. They do not see a string literal.
+EventBridge sends drift events from `src.monitoring.drift_handler`. This handler
+starts the configured pipeline. The pipeline evaluates challenger AUC. An
+approved challenger invokes `src.serving.deploy_handler`.
 """
 
 import datetime
@@ -24,34 +19,21 @@ sm = boto3.client("sagemaker")
 
 PIPELINE_NAME = os.environ["PIPELINE_NAME"]
 
-# The only outcome that must retrain. The drift job also reports an evaluated
-# window with no drift, and a window too small to score. Neither is drift.
+# Start retraining only for this drift status.
 VIOLATION_STATUS = DRIFT_STATUS
 
-# Hours after a run starts during which another violation must not start a
-# second one. The drift job evaluates hourly, and a shift that persists
-# violates on each evaluation.
-#
-# Retraining cannot end that shift on its own. The pipeline trains on
-# `curated/telco/`, and captured traffic lands under the artifacts bucket's
-# capture prefix; the two never meet. A run therefore produces the same model
-# and the same baseline until new data is ingested, so the violation repeats
-# whatever the run concludes. Only newly ingested data changes the answer.
+# Suppress new executions for this many hours after the latest run starts.
+# Persistent drift can emit one violation during each hourly evaluation.
 RETRAIN_COOLDOWN_HOURS = int(os.environ.get("RETRAIN_COOLDOWN_HOURS", "6"))
 
-# Statuses that mean a run is still going. Starting a second one against the
-# same pipeline duplicates the cost and races the first to the registry.
+# These statuses identify an active pipeline execution.
 ACTIVE_STATUSES = frozenset({"Executing", "Stopping"})
 
 RETRAIN_DESCRIPTION = "drift-triggered retrain"
 
 
 def blocking_execution() -> dict[str, Any] | None:
-    """Return the most recent execution when it should suppress a new one.
-
-    A violation is still reported by the drift job and still logged here. This
-    only declines to spend a training run on it.
-    """
+    """Return the latest execution when it blocks a new run."""
     summaries = sm.list_pipeline_executions(
         PipelineName=PIPELINE_NAME,
         SortBy="CreationTime",
@@ -90,9 +72,7 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         )
         return {"suppressed": blocking["PipelineExecutionArn"]}
 
-    # StartPipelineExecution models ClientRequestToken as required. Botocore
-    # fills the token in when the caller omits it. Pass the same value it would
-    # generate.
+    # `StartPipelineExecution` requires `ClientRequestToken`.
     execution_arn = sm.start_pipeline_execution(
         PipelineName=PIPELINE_NAME,
         PipelineExecutionDescription=RETRAIN_DESCRIPTION,

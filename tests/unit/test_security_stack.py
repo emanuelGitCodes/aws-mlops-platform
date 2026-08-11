@@ -214,11 +214,9 @@ def test_security_audit_foundation(stacks):
         "AllowRegionalCloudWatchLogsEncryption",
         "AllowCloudWatchEncryptedAlerts",
         "AllowBudgetsEncryptedAlerts",
-        # Config writes snapshots into the KMS-encrypted audit bucket. An
-        # ungranted write fails on the key, not the bucket.
+        # Grant Config access to the audit key.
         "AllowConfigSnapshotEncryption",
-        # The alert topic is encrypted, so a routed finding fails on the key
-        # before it reaches a subscriber.
+        # Grant EventBridge access to the alert-topic key.
         "AllowEventBridgeEncryptedAlerts",
     }
 
@@ -246,8 +244,7 @@ def test_security_audit_foundation(stacks):
         assert "aws:SourceAccount" in statement["Condition"]["StringEquals"]
         assert "aws:SourceArn" in statement["Condition"]["ArnLike"]
 
-    # Both EventBridge grants name the rule prefix. A wildcard here lets any
-    # rule in the account publish to the alert topic.
+    # Limit both EventBridge grants to the security rule prefix.
     for document, sid in (
         (topic_policy, "AllowEventBridgePublish"),
         (key_policy, "AllowEventBridgeEncryptedAlerts"),
@@ -277,7 +274,7 @@ def test_security_audit_foundation(stacks):
         data_log_statement["Condition"]["ArnLike"]["aws:SourceArn"]
     )
 
-    # TLS only. Every bucket policy denies insecure transport.
+    # Require TLS for every bucket.
     template.all_resources_properties(
         "AWS::S3::BucketPolicy",
         {
@@ -356,9 +353,7 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
     ]
     topic_ref = {"Ref": "SecurityAlertsTopic1CE4D100"}
     assert len(alarms) == 7
-    # Only unauthorized-api-calls needs a sustained burst, which is 3 of 3
-    # five-minute datapoints. The other five page on the first event and must
-    # render no DatapointsToAlarm property.
+    # Require three consecutive datapoints only for unauthorized API calls.
     expected_evaluation = {
         "root-user-activity": (1, None),
         "unauthorized-api-calls": (3, 3),
@@ -379,8 +374,7 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         assert alarm["Threshold"] == 1
         assert alarm["TreatMissingData"] == "notBreaching"
         if slug == "unauthorized-api-calls":
-            # A filled alarm carries a Metrics array. Its MetricStat holds the
-            # three properties asserted below.
+            # The filled alarm uses a metric-math array.
             continue
         assert alarm["Namespace"] == "MLOps/Security"
         assert alarm["Period"] == 300
@@ -392,8 +386,7 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
 
 
 def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
-    """A gap lets alarm evaluation reach back past it, so three datapoints can
-    span more than three consecutive periods. FILL closes the gaps."""
+    """Fill metric gaps only for the sustained unauthorized-call alarm."""
     alarms = [
         resource["Properties"]
         for resource in stacks["security"].to_json()["Resources"].values()
@@ -419,11 +412,7 @@ def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
 
 
 def test_the_prod_deploy_role_assumption_is_detected(stacks):
-    """A prod deploy is rare and deliberate, so each assumption pages.
-
-    The dev role is assumed on every CI run. Matching it here would produce
-    routine mail and train the reader to ignore the alarm.
-    """
+    """Detect prod deploy-role assumptions and exclude the dev CI role."""
     filters = [
         resource["Properties"]
         for resource in stacks["security"].to_json()["Resources"].values()

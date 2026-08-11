@@ -2,7 +2,7 @@
 type: "source"
 title: "Evaluation report rollout — July 11, 2026"
 created: "2026-07-11"
-updated: "2026-07-11"
+updated: "2026-08-10"
 sources: ["../../raw/evaluation-report-rollout-july-11-2026.md"]
 summary: "Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution."
 ---
@@ -18,7 +18,7 @@ summary: "Evidence for the held-out evaluation-report rollout, Python 3.9 compat
   the managed Processing image uses Python 3.9, which does not support
   `zip(..., strict=True)`.
 - After replacing those loops with Python 3.9-compatible index-based access,
-  retry execution `53ww289tjhoz` produced the complete S3 report bundle.
+  retry execution `<pipeline-execution-id>` produced the complete S3 report bundle.
 - The held-out dataset contains 1,057 records and produced AUC `0.8398`,
   accuracy `0.8023`, precision `0.6332`, recall `0.5370`, F1 `0.5812`, and
   specificity `0.8933` at the shared `0.50` threshold.
@@ -28,8 +28,8 @@ summary: "Evidence for the held-out evaluation-report rollout, Python 3.9 compat
 - `src/pipeline/preprocess.py` and the `api_test` Processing output.
 - `src/pipeline/evaluate.py`, `metrics.json`, `predictions.csv`, and PNG report
   artifacts.
-- SageMaker pipeline executions `3sg58t1vx4uv` (partial failure) and
-  `53ww289tjhoz` (successful retry).
+- SageMaker pipeline executions `<pipeline-execution-id>` (partial failure) and
+  `<pipeline-execution-id>` (successful retry).
 - The shared serving/evaluation `0.50` classification threshold.
 
 See the maintained [deployment and pipeline troubleshooting checkpoint](../architecture/deployment-and-pipeline-troubleshooting.md)

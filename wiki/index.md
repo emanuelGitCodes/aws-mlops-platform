@@ -6,7 +6,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Overview
 
-- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform with gated models and reproducible evaluation reports; the drift capture leg is designed but not yet built.
+- [AWS MLOps platform overview](pages/overview.md) — A portfolio-grade AWS platform with gated models, reproducible evaluation reports, and a deployed drift-to-retrain loop.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Concepts
 
-- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — A gated challenger run produces held-out metrics and report artifacts before registry promotion; the capture leg is now designed as a repository-owned drift job.
+- [Closed drift-to-retrain loop](pages/concepts/closed-drift-loop.md) — Proxy capture, PSI drift evaluation, retraining, challenger evaluation, registry promotion, and endpoint deployment form a closed operational loop.
 - [Validation versus preprocessing contracts](pages/concepts/contracts-and-preprocessing.md) — Validation checks whether a record is acceptable; preprocessing deterministically converts an accepted record into the model's numeric feature vector.
 
 ## Decisions

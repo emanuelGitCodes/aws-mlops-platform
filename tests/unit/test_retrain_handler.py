@@ -38,12 +38,7 @@ def test_violation_starts_the_pipeline():
 
 @pytest.mark.parametrize("status", ["CompletedWithViolations", "Evaluated", None])
 def test_non_violation_statuses_do_not_retrain(status):
-    """Only a violation may retrain: every other outcome is a no-op.
-
-    Retraining on an evaluated window with no drift would put the pipeline in
-    a loop, and each run costs a training job. `CompletedWithViolations` is
-    Model Monitor's word, which nothing in this loop emits any more.
-    """
+    """Skip every event status except the platform violation status."""
     with mock.patch.object(retrain_handler, "sm") as sm:
         result = retrain_handler.handler(_event(status), None)
 
@@ -52,7 +47,7 @@ def test_non_violation_statuses_do_not_retrain(status):
 
 
 def test_missing_status_is_skipped_not_an_error():
-    """A malformed event must not raise -- EventBridge would retry it."""
+    """Skip an event with no status."""
     with mock.patch.object(retrain_handler, "sm") as sm:
         result = retrain_handler.handler({"detail": {}}, None)
 
@@ -88,8 +83,7 @@ def test_a_run_already_in_flight_suppresses_a_second_one():
 
 
 def test_a_recent_run_suppresses_the_next_violation():
-    """The storm case. Retraining cannot end a shift on its own, because the
-    pipeline trains on curated data and the shift is in captured traffic."""
+    """Suppress another violation during the retraining cooldown."""
     sm = mock.Mock()
     sm.list_pipeline_executions.return_value = _summary(
         status="Succeeded", hours_ago=retrain_handler.RETRAIN_COOLDOWN_HOURS - 1
@@ -111,7 +105,7 @@ def test_a_violation_after_the_cooldown_retrains():
 
 
 def test_the_first_ever_violation_retrains():
-    """No execution history must not read as a cooldown."""
+    """Start retraining when no earlier execution exists."""
     sm = mock.Mock()
     sm.list_pipeline_executions.return_value = {"PipelineExecutionSummaries": []}
     sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
@@ -132,7 +126,7 @@ def test_suppression_is_logged_with_its_reason():
 
 
 def test_a_non_violation_never_reaches_the_cooldown_lookup():
-    """The guard order matters: a non-violation must cost no API call."""
+    """Skip the cooldown lookup for a non-violation event."""
     sm = mock.Mock()
     with mock.patch.object(retrain_handler, "sm", sm):
         retrain_handler.handler(_event("Evaluated"), None)

@@ -176,7 +176,7 @@ than a re-upload. Churn rate 26.0%. Uploaded to `s3://${RAW_BUCKET}/`.
 `s3://${CURATED_BUCKET}/telco/telco-batch-2026-08-05.csv` within ~10 s.
 `quarantine/` stayed empty — all 1,200 rows passed `CustomerRecord`.
 
-**Pipeline** `churn-training-pipeline-dev` execution `z4y8kc4qz0kf`, started by
+**Pipeline** `churn-training-pipeline-dev` execution `<pipeline-execution-id>`, started by
 hand with the admin identity. All five steps `Succeeded`:
 
 ```
@@ -193,7 +193,7 @@ reached training:
 
 7,043 original + 1,200 new = 8,243. Validation AUC peaked ~0.8486 at round 13.
 New artifacts under
-`s3://${ARTIFACTS_BUCKET}/training/pipelines-z4y8kc4qz0kf-Train-<suffix>/`,
+`s3://${ARTIFACTS_BUCKET}/training/pipelines-<pipeline-execution-id>-Train-<suffix>/`,
 including `output/model.tar.gz` (13,258 B).
 
 **Registry.** Model package version 2 registered and auto-approved

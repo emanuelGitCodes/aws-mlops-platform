@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CDK app entrypoint. Select env with: cdk deploy -c env=dev|prod"""
+"""Build the CDK app for the selected environment."""
 
 import pathlib
 import sys
@@ -24,31 +24,18 @@ from infra.stacks.training_stack import TrainingStack
 
 
 def load_config(env_name: str) -> PlatformConfig:
-    """Load one environment's YAML config. This is the only config loader.
-
-    ``yaml.safe_load`` returns ``Any``. This is the one boundary that narrows
-    it to ``PlatformConfig``, so every downstream stack gets real key and value
-    checking.
-    """
+    """Load one YAML config and narrow it to `PlatformConfig`."""
     path = pathlib.Path(__file__).parent / "config" / f"{env_name}.yaml"
     return cast(PlatformConfig, yaml.safe_load(path.read_text()))
 
 
 def stack_prefix(env_name: str) -> str:
-    """Return the stack-name prefix for one environment.
-
-    This is the only copy of the formula. The deploy entrypoint and the tests
-    share it, so a test cannot assert against a prefix the app never builds.
-    """
+    """Return the stack-name prefix for one environment."""
     return f"Mlops-{env_name.capitalize()}"
 
 
 def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cdk.Stack]:
-    """Build and wire every stack, then apply the security checks.
-
-    This is the only copy of the stack dependency graph. The deploy entrypoint
-    and the CDK assertion tests share it.
-    """
+    """Build the stack dependency graph and apply the security checks."""
     security = SecurityStack(app, f"{prefix}-Security", config=config)
     security_monitoring = SecurityMonitoringStack(
         app,

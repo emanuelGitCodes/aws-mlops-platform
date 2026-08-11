@@ -1,10 +1,4 @@
-"""Shared unit-test setup: handler env stubs, boto3-stubbed imports, the
-canonical valid sample record, the repo root path, and the synthesized CDK app.
-
-The CDK fixtures are session-scoped, not module-scoped. Every per-stack test
-module asserts against the same dev synthesis. One synthesis per module would
-multiply the slowest step in the suite by eight.
-"""
+"""Define shared unit-test data, stubs, and synthesized CDK fixtures."""
 
 import importlib
 import json
@@ -20,15 +14,13 @@ from infra.app import build_app, load_config
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# Handler modules read these at import time; set them before any test imports.
+# Set handler environment values before module imports.
 os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
 os.environ.setdefault("EXECUTION_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
 os.environ.setdefault("CURATED_BUCKET", "test-curated")
 os.environ.setdefault("PIPELINE_NAME", "test-pipeline")
 
-# One valid CustomerRecord payload, shared by every test module that needs it.
-# Read it from sample.json. The two were identical copies, so a schema change
-# could reach the fixture while the payload operators curl with went stale.
+# Read the shared valid request from `sample.json`.
 SAMPLE_PATH = REPO_ROOT / "sample.json"
 VALID = json.loads(SAMPLE_PATH.read_text())
 
@@ -43,11 +35,7 @@ CONFIG = load_config("dev")
 
 
 def synth_env(env_name: str, prefix: str) -> dict:
-    """Build and synthesize every stack for one environment.
-
-    This is the only place that configures the test app context, so no test
-    can synthesize under different assumptions than the rest of the suite.
-    """
+    """Build and synthesize every stack with the test app context."""
     app = cdk.App(
         context={
             "aws:cdk:bundling-stacks": [],
@@ -61,7 +49,7 @@ def synth_env(env_name: str, prefix: str) -> dict:
 
 @pytest.fixture(scope="session")
 def stack_constructs() -> dict:
-    """All stacks built once; the construct tree can't change after first synth."""
+    """Build all stack constructs once for the test session."""
     return synth_env("dev", "Test")
 
 
@@ -71,12 +59,7 @@ def stacks(stack_constructs) -> dict:
 
 
 class ClientError(Exception):
-    """Stand-in for the botocore ClientError, which carries a `response` dict.
-
-    The deploy handler and the proxy handler both branch on the error code, so
-    they share this class. A second copy could drift from the shape botocore
-    raises.
-    """
+    """Represent a botocore client error with a `response` dictionary."""
 
     def __init__(self, code: str, message: str = "") -> None:
         super().__init__(f"{code}: {message}")
@@ -84,13 +67,7 @@ class ClientError(Exception):
 
 
 def varied_records(count: int, seed: int = 0, **overrides):
-    """Generate `count` diverse records drawn from the feature vocabulary.
-
-    Windows built by repeating one record are a point mass, and every drift
-    statistic reports total drift against them. Fixtures that repeat a record
-    therefore cannot tell a working detector from a broken one. Draw from the
-    real vocabulary instead, then apply `overrides` to shift chosen columns.
-    """
+    """Generate `count` vocabulary records and apply `overrides`."""
     import random
 
     from src.common.features import FEATURE_VOCABULARY

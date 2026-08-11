@@ -1,4 +1,4 @@
-"""The cdk-nag gate: acknowledgements and the IAM debt baselines."""
+"""Test the cdk-nag acknowledgements and IAM baselines."""
 
 import hashlib
 import json
@@ -13,8 +13,7 @@ from tests.unit.conftest import CONFIG, synth_env
 
 
 def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
-    """Every accepted finding binds to one real construct and names the phase
-    that removes it."""
+    """Bind each acknowledgement to one construct and removal condition."""
     acknowledgements = resolved_acknowledgements(CONFIG, "Test")
     assert acknowledgements
     for acknowledgement in acknowledgements:
@@ -33,16 +32,10 @@ def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):
 
 
 def test_acknowledgement_keys_keep_the_namespace_cdk_matches_on():
-    """Plain rule ids keep the namespace. Granular ids drop it.
-
-    aws-cdk-lib 2.262 matches only the namespaced form, and it records an
-    unmatched key without complaint. A bare id lapses every plain
-    acknowledgement and reopens 13 findings, with no error.
-    """
+    """Keep namespaces on plain ids and remove them from granular ids."""
     plain, granular = [], []
     for acknowledgement in resolved_acknowledgements(CONFIG, "Test"):
-        # Classify from the id, not from the derived key. Otherwise this test
-        # only restates acknowledgement_metadata_key back to itself.
+        # Classify each acknowledgement from its finding id.
         bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
         key = acknowledgement_metadata_key(acknowledgement.finding_id)
         (granular if "::" in bare_id else plain).append(key)
@@ -54,23 +47,13 @@ def test_acknowledgement_keys_keep_the_namespace_cdk_matches_on():
 
 @pytest.mark.parametrize("env_name", ["dev", "prod"])
 def test_every_environment_builds_under_its_real_prefix(env_name):
-    """Both environments must build under the prefix the app uses.
-
-    An acknowledgement that hardcodes one stage name makes the other
-    environment unbuildable and blocks the CI promotion path.
-
-    This test covers `construct_path`, which `_construct_at` fails on loudly.
-    It does not cover `finding_id`. cdk-nag reports unacknowledged findings
-    through the CLI validation report, and an in-process `app.synth()` returns
-    cleanly even when five of them are wrong. `make synth-all` is the gate for
-    those, and CI synthesizes both environments.
-    """
+    """Build each environment with the prefix from `stack_prefix`."""
     synth_env(env_name, stack_prefix(env_name))
 
 
 @pytest.mark.parametrize("env_name", ["dev", "prod"])
 def test_acknowledgements_leave_no_unresolved_tokens(env_name):
-    """A mistyped token would silently stop matching instead of failing loudly."""
+    """Require all acknowledgement tokens to resolve."""
     config = load_config(env_name)
     for acknowledgement in resolved_acknowledgements(config, stack_prefix(env_name)):
         assert "{" not in acknowledgement.construct_path, acknowledgement
@@ -78,11 +61,7 @@ def test_acknowledgements_leave_no_unresolved_tokens(env_name):
 
 
 def test_broad_sagemaker_managed_policy_baseline_has_not_grown(stacks):
-    """No role carries this policy, and the list must stay empty.
-
-    A role that needs one more permission takes an explicit statement, never
-    this managed policy.
-    """
+    """Keep `AmazonSageMakerFullAccess` off every role."""
     roles = []
     for stack_name, template in stacks.items():
         for logical_id, resource in template.to_json().get("Resources", {}).items():
@@ -107,9 +86,7 @@ def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
                 wildcard_policies.append((stack_name, logical_id))
 
     assert wildcard_policies == [
-        # The only literal `Resource: "*"` policy this repository writes. The
-        # account-BPA actions are account-level, and AWS accepts only "*" as
-        # their resource.
+        # AWS requires `Resource: "*"` for the account-level BPA actions.
         ("security_monitoring", "AccountPublicAccessBlockCustomResourcePolicy3665E1EC"),
     ]
 
@@ -121,8 +98,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         iam_resources = {
             logical_id: resource
             for logical_id, resource in template.to_json().get("Resources", {}).items()
-            # ServiceLinkedRole belongs here. It is an IAM principal this
-            # repository creates, so the baseline must cover it.
+            # Include every repository-managed IAM principal.
             if resource.get("Type")
             in {"AWS::IAM::Policy", "AWS::IAM::Role", "AWS::IAM::ServiceLinkedRole"}
         }
@@ -136,22 +112,13 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
         "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-        # Keep the training logical IDs unchanged. The deployed pipeline
-        # definition pins `PipelineExecutionRole`'s ARN, so a replacement
-        # strands it.
+        # Keep the pipeline role logical id unchanged.
         "training": "38c16b61765d1ad0a1f8dede12c2af664eb508af0cdcc5fd97e38780154a4574",
-        # Keep `ModelExecutionRole` unchanged. The deployed
-        # `AWS::SageMaker::Model` pins its ARN, so a replacement strands the
-        # endpoint at its next cold start.
+        # Keep the model role logical id unchanged.
         "serving": "df36151514116565e7ad6d73e8185b530945a329fa1c3454273da7d0bbc04eb3",
-        # `DriftEvaluationFnRole` is new and carries no managed policy.
-        # `RetrainTriggerFnServiceRole` keeps its logical ID.
+        # Track both monitoring Lambda roles.
         "monitoring": "3444854868fba5e089e04e4e55706b51c947cf883cc435e5a759831869a5b243",
-        # `GitHubDeployRole` is the only role in this repository a principal
-        # outside the account can assume. Review its trust conditions, not only
-        # its permissions. Four claims limit the federation: the environment in
-        # `sub`, the workflow file and ref in `job_workflow_ref`, the owner, and
-        # the runner. Dropping any one of them widens who may assume the role.
+        # Track the deploy role permissions and OIDC trust conditions.
         "cicd": "7a803ee795eea06da566236a0a25ed949c54dcd570d3cb33b8ebcea10ef4b81d",
     }
 

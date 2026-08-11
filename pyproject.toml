@@ -39,22 +39,20 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "ANN"]
-# ANN401: **kwargs: Any is the correct annotation for CDK and jsii passthrough.
+# Allow `**kwargs: Any` for CDK and jsii passthrough.
 ignore = ["ANN401"]
 
 [tool.ruff.lint.per-file-ignores]
-# tests/ is outside the mypy `files` list. Annotations there are not enforced.
+# Do not enforce function annotations under `tests/`.
 "tests/**" = ["ANN"]
 
 [tool.mypy]
 python_version = "3.12"
 files = ["src", "infra", "scripts"]
-# scripts/ has no __init__.py. Without an explicit base, mypy resolves
-# scripts/evaluate_api.py as both `evaluate_api` and `scripts.evaluate_api`.
+# Treat `scripts/` as an explicit package base for mypy module resolution.
 mypy_path = "."
 explicit_package_bases = true
-# cdk.out holds synthesized assets, including Lambda bundles with vendored
-# third-party packages. It is build output, never source.
+# Exclude synthesized CDK assets and vendored Lambda packages.
 exclude = "^infra/cdk\\.out/"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -65,10 +63,7 @@ warn_unused_ignores = true
 warn_return_any = true
 plugins = ["pydantic.mypy"]
 
-# Runtime-only dependencies of the SageMaker ProcessingStep containers. None of
-# them ships stubs. sagemaker and sklearn come from the `pipeline` extra.
-# The managed training image supplies xgboost, and evaluate.main() imports it
-# at call time rather than declaring it here.
+# Ignore missing stubs for SageMaker processing runtime dependencies.
 [[tool.mypy.overrides]]
 module = ["sagemaker.*", "sklearn.*", "xgboost.*"]
 ignore_missing_imports = true
@@ -76,48 +71,28 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
 pythonpath = ["."]
-# Deprecations are errors. The SDK is held at `sagemaker<3` while v3 ships, so
-# each new deprecation is a v3 migration blocker and must surface on the day it
-# appears.
-#
-# This filter is broad, not scoped to sagemaker. The whole 120-package tree
-# emits three warnings today, all from sagemaker, so the breadth costs no false
-# positives and also covers pydantic, boto3, and the CDK. A transitive
-# deprecation arriving with a Dependabot bump must redden that PR.
-#
-# Later entries win. pytest applies these in order, and each one prepends to
-# the warnings filter list, so every exception must sit below the `error`.
-# Keep each exception narrow, and name what removes it.
+# Treat deprecations as errors across the dependency tree.
+# Put narrow exceptions after the error rules. Name the condition that removes each exception.
 filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
-    # `TrainingStep` still takes `estimator=`, while both `ProcessingStep`s
-    # pass `step_args`. Delete this line with that call site in
-    # src/pipeline/pipeline.py. `step_args` is also the v3 shape, so the fix is
-    # a prerequisite of the SDK upgrade.
+    # `TrainingStep` uses `estimator=`. Delete this exception with that call site.
     "default:We are deprecating the instantiation of TrainingStep:DeprecationWarning",
 ]
 
-# The coverage flags live in the `test` Make target, not in `addopts`.
-# `make smoke` runs `pytest tests/integration` against a deployed API, and a
-# global --cov-fail-under fails that run for measuring almost no lines.
+# The `test` Make target applies unit-test measurement flags.
 [tool.coverage.run]
 source = ["src", "infra", "scripts"]
 omit = [
-    # Synthesized CDK assets, including Lambda bundles with vendored
-    # third-party packages. Build output, never source. mypy excludes the same
-    # path.
+    # Exclude synthesized CDK assets and vendored Lambda packages.
     "infra/cdk.out/*",
 ]
 
 [tool.coverage.report]
 show_missing = true
-# `precision` sets the digits in the reported total. At the default of 0, a
-# slide from 92.43 to 91.5 still prints 92. Two digits make the ratchet exact.
+# Report two decimal places for the measured total.
 precision = 2
-# The floor is the measured value at the time it was set, so coverage only
-# ratchets up. Raise it when a phase lands. Never lower it to make a red run
-# green. Round the new floor down from the printed total. The comparison uses
-# the unrounded value, so a printed 92.58 can be 92.5799, and a floor of 92.58
-# fails against its own measurement.
-fail_under = 94.03
+# Raise `fail_under` after an increase. Do not lower it for a failing run.
+# Round the new floor down from the printed total.
+# The check compares `fail_under` against the unrounded value.
+fail_under = 94.12

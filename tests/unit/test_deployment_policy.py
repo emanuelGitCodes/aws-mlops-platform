@@ -8,9 +8,8 @@ from tests.unit.conftest import REPO_ROOT
 
 POLICY_DIR = REPO_ROOT / "infra" / "policies"
 POLICY_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy.json"
-# The execution boundary spans two managed policies. AWS caps one managed
-# policy at 6144 characters, and the main document is full. Both attach to the
-# same CloudFormation execution role, so the grants union.
+# The execution boundary uses two managed policies on one CloudFormation role.
+# AWS limits each managed policy document to 6144 characters.
 EXTENSION_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy-extension.json"
 POLICY_SIZE_QUOTA = 6144
 
@@ -56,13 +55,7 @@ def test_phase_3_execution_policy_actions_are_recorded():
 
 
 def test_cloudformation_read_backs_are_granted():
-    """CloudFormation re-reads what it writes, and every denial pages.
-
-    The CloudTrail event name and the IAM action name differ. `s3:GetBucket*`
-    does not authorize `GetBucketEncryption`, which is
-    `s3:GetEncryptionConfiguration`. A missing read-back produces an
-    AccessDenied burst that trips the 3-of-3 unauthorized-api-calls alarm.
-    """
+    """Grant every CloudFormation read-back action used during deployment."""
     document = json.loads(POLICY_PATH.read_text())
     service_actions = set(_statement(document, "ApplicationServices")["Action"])
 
@@ -96,13 +89,7 @@ def test_access_analyzer_service_linked_role_stays_scoped():
 
 
 def test_guardduty_grants_are_absent_until_its_sub_phase_returns():
-    """GuardDuty is not enabled, and a standing grant for a service nobody can
-    create is authority for nothing.
-
-    Re-adding them costs something. The live default version filled the last of
-    the five IAM policy version slots, so the next rotation must delete an old
-    version first.
-    """
+    """Keep GuardDuty actions out of the current execution policy."""
     document = json.loads(POLICY_PATH.read_text())
 
     assert "guardduty" not in json.dumps(document).lower()
@@ -111,9 +98,7 @@ def test_guardduty_grants_are_absent_until_its_sub_phase_returns():
 
 def test_config_service_linked_role_stays_scoped():
     document = json.loads(POLICY_PATH.read_text())
-    # Use `aws-service-role`, not `aws-service-linked-role`.
-    # CreateServiceLinkedRole is denied on the second path and rolls the deploy
-    # back.
+    # Require the valid `aws-service-role` IAM path.
     slr_arn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/aws-service-role/config.amazonaws.com/*"
 
     create = _statement(document, "ConfigServiceLinkedRole")
@@ -145,9 +130,7 @@ def test_pass_role_stays_scoped_to_application_roles_and_services():
 
 
 def test_config_recorder_can_pass_only_its_own_service_linked_role():
-    """Config validates that the caller may pass the role. An ungranted
-    recorder create fails with AccessDeniedException. PassOnlyApplicationRoles
-    is scoped to Mlops-Dev-* and never covered it."""
+    """Limit the Config pass-role grant to its service-linked role."""
     document = json.loads(POLICY_PATH.read_text())
     statement = _statement(document, "PassConfigServiceLinkedRole")
 
@@ -162,19 +145,14 @@ def test_config_recorder_can_pass_only_its_own_service_linked_role():
 
 
 def _rendered_size(path):
-    """Return the size IAM measures: compact JSON with the account filled in.
-
-    IAM ignores whitespace, so an indented file is not what counts. The
-    placeholder is longer than a real account id.
-    """
+    """Return the compact policy size with a documentation account id."""
     document = path.read_text().replace("${AWS_ACCOUNT_ID}", "123456789012")
     return len(json.dumps(json.loads(document), separators=(",", ":")))
 
 
 @pytest.mark.parametrize("path", [POLICY_PATH, EXTENSION_PATH])
 def test_each_policy_document_fits_the_aws_size_quota(path):
-    """A rotation that exceeds 6144 fails with LimitExceeded, and that failure
-    arrives at the AWS API rather than in CI."""
+    """Reject a policy document above the 6144-byte AWS quota."""
     size = _rendered_size(path)
 
     assert size <= POLICY_SIZE_QUOTA, (
@@ -184,8 +162,7 @@ def test_each_policy_document_fits_the_aws_size_quota(path):
 
 
 def test_no_statement_id_is_reused_across_the_two_documents():
-    """Two documents, one boundary. A duplicated Sid makes it ambiguous which
-    file owns a grant, and a reader can then edit the wrong one."""
+    """Require unique statement ids across both policy documents."""
     main = {statement["Sid"] for statement in json.loads(POLICY_PATH.read_text())["Statement"]}
     extension = {
         statement["Sid"] for statement in json.loads(EXTENSION_PATH.read_text())["Statement"]
@@ -196,8 +173,7 @@ def test_no_statement_id_is_reused_across_the_two_documents():
 
 
 def test_the_extension_carries_the_oidc_provider_lifecycle():
-    """CicdStack creates an AWS::IAM::OIDCProvider. Without these actions the
-    stack fails at create, and the grants do not fit in the main document."""
+    """Grant the OIDC provider lifecycle in the extension policy."""
     statement = _statement(json.loads(EXTENSION_PATH.read_text()), "GitHubOidcProviderLifecycle")
 
     assert {"iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider"} <= set(

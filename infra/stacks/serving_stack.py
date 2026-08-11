@@ -1,5 +1,4 @@
-"""Serving: API Gateway -> proxy Lambda -> serverless endpoint, plus the
-registry-approval -> endpoint-update automation."""
+"""Define the inference API and model approval deployment."""
 
 from typing import Any
 
@@ -36,17 +35,16 @@ class ServingStack(Stack):
         endpoint_name = config["endpoint_name"]
         code = src_code()
 
-        # Role the model container runs as. It carries no managed policy. The
-        # container uses every permission below at start-up. Update this role
-        # in place. The deployed `AWS::SageMaker::Model` pins its ARN.
+        # The model container uses this role at start-up.
+        # The role has no managed policy. Update it in place.
+        # The deployed `AWS::SageMaker::Model` pins its ARN.
         model_exec_role = sagemaker_execution_role(
             self,
             "ModelExecutionRole",
             least_privilege=True,
         )
-        # Read the one object the container downloads: `model.tar.gz`.
-        # Serverless inference has no data capture, so the container never
-        # writes back.
+        # Read the `model.tar.gz` object under the model artifact prefix.
+        # Serverless inference does not write capture data from the container.
         model_exec_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],
@@ -61,9 +59,8 @@ class ServingStack(Stack):
                 resources=[artifacts_bucket.bucket_arn],
             )
         )
-        # Container start-up and inference logs. SageMaker owns this group, not
-        # CDK, so this role needs `CreateLogGroup`, scoped to the single
-        # group it may create. The Lambda roles do not need it.
+        # SageMaker creates this log group for start-up and inference logs.
+        # Scope `CreateLogGroup` to this group. Lambda roles do not use it.
         endpoint_log_group_arn = self.format_arn(
             service="logs",
             resource="log-group",
@@ -82,14 +79,14 @@ class ServingStack(Stack):
             )
         )
 
-        # The one endpoint this stack owns, named by both Lambdas below.
+        # Both serving Lambdas use this endpoint ARN.
         endpoint_arn = self.format_arn(
             service="sagemaker",
             resource="endpoint",
             resource_name=endpoint_name,
         )
 
-        # Registry approval -> update/create the serverless endpoint.
+        # Registry approval invokes the endpoint deployment function.
         deploy_fn = platform_lambda(
             self,
             "DeployFn",
@@ -105,13 +102,11 @@ class ServingStack(Stack):
                 "MAX_CONCURRENCY": str(config["serverless"]["max_concurrency"]),
             },
         )
-        # Each action is scoped to the resources `deploy_handler` names. The
-        # two trailing wildcards are unavoidable, because the handler suffixes
-        # each model and endpoint-config name with the epoch second.
+        # Scope each action to resources named by `deploy_handler`.
+        # Generated model and endpoint-config names end with the epoch second.
         #
-        # Omitted: `Delete*`, because the handler never removes a superseded
-        # revision. `List*`. And `kms:Decrypt`, because the `aws/lambda` key
-        # policy already authorizes the cold-start decrypt.
+        # The handler does not call `Delete*` or `List*` actions.
+        # The `aws/lambda` key policy authorizes the cold-start decrypt.
         endpoint_config_arn = self.format_arn(
             service="sagemaker",
             resource="endpoint-config",
@@ -135,8 +130,7 @@ class ServingStack(Stack):
                 resources=[endpoint_config_arn],
             )
         )
-        # Create and Update take the endpoint and the config it points at, so
-        # this statement needs both resource types.
+        # Create and update actions use the endpoint and endpoint-config resources.
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:CreateEndpoint", "sagemaker:UpdateEndpoint"],
@@ -149,9 +143,8 @@ class ServingStack(Stack):
                 resources=[endpoint_arn],
             )
         )
-        # The package ARN arrives in the EventBridge detail. Pin it to this
-        # platform's own group, so a crafted event cannot point the Lambda at a
-        # foreign model package.
+        # EventBridge supplies the package ARN in the event detail.
+        # Limit package reads to this platform model package group.
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:DescribeModelPackage"],
@@ -179,7 +172,7 @@ class ServingStack(Stack):
             handler=deploy_fn,
         )
 
-        # Public surface: API Gateway (SigV4) -> thin proxy Lambda.
+        # API Gateway sends signed prediction requests to the proxy Lambda.
         proxy_fn = platform_lambda(
             self,
             "ProxyFn",
@@ -201,10 +194,8 @@ class ServingStack(Stack):
                 resources=[endpoint_arn],
             )
         )
-        # A serverless endpoint has no data capture, so the proxy is the
-        # capture point. Write only, and only under the capture prefix: this
-        # role must not be able to read the model artifact it serves, or to
-        # replace a captured record once written.
+        # The proxy writes capture data for the serverless endpoint.
+        # Grant `PutObject` only under the capture prefix.
         proxy_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:PutObject"],
@@ -216,8 +207,7 @@ class ServingStack(Stack):
             self,
             "ChurnApi",
             rest_api_name=f"churn-api-{config['env_name']}",
-            # The stage carries the rate and burst limits. Without them the API
-            # keeps only the account-wide default.
+            # The stage applies the route rate and burst limits.
             deploy_options=apigw.StageOptions(
                 stage_name=config["env_name"],
                 throttling_rate_limit=10,
@@ -225,17 +215,16 @@ class ServingStack(Stack):
             ),
         )
         predict = api.root.add_resource("predict")
-        # The caller signs with SigV4 and needs `execute-api:Invoke` on this
-        # method. An unsigned call fails at API Gateway and never reaches the
-        # proxy Lambda.
+        # Require SigV4 and `execute-api:Invoke` for this method.
+        # API Gateway rejects unsigned calls before Lambda invocation.
         predict.add_method(
             "POST",
             apigw.LambdaIntegration(proxy_fn),
             authorization_type=apigw.AuthorizationType.IAM,
         )
 
-        # The CI deploy role grants `execute-api:Invoke` on this route. The
-        # REST API id is generated, so an ARN composed there needs a wildcard.
+        # The CI deploy role grants `execute-api:Invoke` on this route.
+        # The route ARN contains the generated REST API id.
         self.predict_execute_api_arn = api.arn_for_execute_api(
             method="POST", path="/predict", stage=config["env_name"]
         )

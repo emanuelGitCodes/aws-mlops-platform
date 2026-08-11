@@ -1,10 +1,6 @@
 env_name: prod
-# This must differ from every other environment's group. The stacks are
-# environment-agnostic, so dev and prod land in the same account. Under a
-# shared name, the second RegistryStack cannot create the group, and both
-# ServingStack approval rules match the same events, so a dev-auto-approved
-# challenger deploys itself to the prod endpoint. Dev keeps the unsuffixed
-# name, because it already holds deployed lineage.
+# Use a model package group name that is unique across environments.
+# Dev and prod deploy into the same account.
 model_package_group: churn-model-group-prod
 model_approval_status: PendingManualApproval
 endpoint_name: churn-serverless-prod
@@ -13,29 +9,21 @@ serverless:
   memory_mb: 3072
   max_concurrency: 20
 monitor:
-  # Each run is a SageMaker processing job on ml.m5.large, so an hourly
-  # schedule is about 720 jobs a month and dominates the budget below.
+  # This hourly schedule starts about 720 SageMaker processing jobs each month.
   schedule_cron: "cron(0 * ? * * *)"
-  # Hours of zero endpoint invocations before the silence alarm pages. This
-  # value assumes traffic. An environment with no traffic floor reaches the
-  # alarm state on its own.
+  # Page after this many hours with no endpoint invocations.
   silence_alarm_hours: 6
 
-# `budget_usd` is inert while `security.account_budget` is false. Keep it set,
-# so the number is ready if budget ownership moves here.
+# This value is inactive while `security.account_budget` is false.
 budget_usd: 20
 log_retention_days: 14
-# Days a captured prediction survives under the `capture/` prefix. The drift
-# job reads one hour, so this only bounds how far back a past violation can be
-# investigated. Nothing else in the artifacts bucket expires.
+# Expire captured predictions after this many days.
+# No other artifact prefix uses expiration.
 capture_retention_days: 30
 security:
   audit_log_retention_days: 90
   budget_thresholds: [50, 80, 100]
-  # This must stay false while dev is true. AWS Budgets is account-scoped, and
-  # these stacks are environment-agnostic. A second budget does not scope prod
-  # spend. It measures the whole account and alarms on the same dollars at 50,
-  # 80, and 100 percent. The dev budget already covers prod.
+  # Keep this flag false while dev owns the account-wide budget.
   account_budget: false
   services:
     access_analyzer: false
@@ -46,5 +34,5 @@ security:
     eventbridge_alerts: false
 cicd:
   github_repository: emanuelGitCodes/aws-mlops-platform
-  # This must stay false while dev is true. See the note in dev.yaml.
+  # Keep this flag false while dev owns the account-wide OIDC provider.
   owns_oidc_provider: false

@@ -49,9 +49,10 @@ trusting this summary, which is coarse by design.
 - Phase 6 (SigV4 on `/predict`) is deployed to dev on 2026-08-09, observation
   open. The account holds no API key and no usage plan, and the stage carries
   the throttle they used to. `CicdStack` is deployed the same day, so the OIDC
-  provider and `mlops-dev-github-deploy` exist. **`deploy.yml` still has not
-  run**: nothing holds the role ARN, and the `dev` and `prod` GitHub
-  environments do not exist. Phase 4 (KMS) and Phases 7–9 are not started.
+  provider and `${GITHUB_DEPLOY_ROLE_NAME}` exist. **`deploy.yml` still has not
+  run**: the `dev` and `prod` GitHub environments allow only `main`, and dev
+  holds the role ARN. Environment reviewers remain unavailable on the current
+  private-repository plan. Phase 4 (KMS) and Phases 7–9 are not started.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and
@@ -85,6 +86,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make typecheck` | mypy over `src/`, `infra/`, `scripts/` (both extras) |
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
 | `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
+| `make public-check` | Rejects tracked account metadata and private filenames |
 | `make audit` | pip-audit over the locked dependencies |
 | `make synth` | CDK synth (`ENV=dev` default; CLI version pinned in the Makefile) |
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
@@ -115,16 +117,20 @@ or `pip` for project code.
 
 `.github/workflows/ci.yml` runs on every PR and push to `main`, and calls
 the Make targets rather than restating them: `install`, `lint`, `typecheck`,
-`test`, `docs-sync`, `wiki-lint`, `audit`, `synth-all` — plus a gitleaks scan
-of full history in a separate job. All are blocking.
+`test`, `docs-sync`, `wiki-lint`, `public-check`, `audit`, `synth-all` — plus a
+Gitleaks scan of every commit in a separate job. All are blocking.
 
-`.github/workflows/deploy.yml` is `workflow_dispatch` only: dev deploy +
-smoke, then a prod job that names the GitHub `prod` environment. It assumes a
-role through OIDC federation and uses no long-lived AWS key. **It has never
-run**, and **no environment carries a protection rule**: `dev` has none and
-`prod` does not exist, so naming an environment scopes the OIDC subject claim
-and requires no review. The dev OIDC provider and deploy role are live. GitHub
-does not hold the role ARN, so every deployment so far came from a workstation.
+`.github/workflows/codeql.yml` runs only after the repository becomes public.
+The current private plan does not provide code scanning.
+
+`.github/workflows/deploy.yml` is `workflow_dispatch` only. It deploys and
+smoke-tests dev. A boolean input can opt in to prod after dev succeeds. It
+assumes a role through OIDC federation and uses no long-lived AWS key. **It has
+never run.** Both GitHub environments allow deployments only from `main`, and
+dev holds the live OIDC role ARN as an environment secret. Prod has no role ARN
+until its stack is deployed. The current plan does not support required
+environment reviewers while the repository is private. Every deployment so
+far came from a workstation.
 
 ## Code map — where things live
 
@@ -144,7 +150,7 @@ Look here **before** writing anything new:
 | `infra/policies/` | The repository-owned CloudFormation execution boundary, split across `mlops-cloudformation-execution-policy.json` and `-extension.json` because AWS caps one managed policy at 6144 characters. Version-pinned and fingerprint-tested |
 | `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py` |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
-| `tests/integration/` | `make smoke` only — skips itself unless `API_URL`/`API_KEY` are set |
+| `tests/integration/` | `make smoke` only — skips itself unless `API_URL` is set |
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |
 | `telco/` | `telco.csv`, the raw dataset |
 | `wiki/` | Knowledge base — governed by `wiki/AGENTS.md`; follow it for any wiki work |
@@ -279,10 +285,10 @@ changes from stack status has already produced two incorrect reports.
    report from its output.** It lists, per stack, the last-updated
    timestamp and the resources that actually changed — and says so
    explicitly when a stack changed nothing. Use a profile that can
-   enumerate stacks: `AWS_PROFILE=mlops-security-auditor`. The deploy
-   identity (`mlops-deployer`) lacks `cloudformation:ListStacks` and fails
-   here with AccessDenied — deploying and verifying are different
-   identities.
+   enumerate stacks: `AWS_PROFILE=${AWS_SECURITY_AUDITOR_USER_NAME}`. The
+   deploy identity (`${MLOPS_DEPLOYER_USER_NAME}`) lacks
+   `cloudformation:ListStacks` and fails here with AccessDenied. Deploying and
+   verifying use different identities.
 2. **`cdk diff` is intent, not outcome.** CloudFormation resolves
    intrinsics such as `Ref: AWS::Partition` and then skips resources whose
    resolved form is unchanged. A diff hunk does **not** mean the resource

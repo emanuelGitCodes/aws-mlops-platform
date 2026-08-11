@@ -96,7 +96,7 @@ Two orderings were deployed and both deadlocked. CloudTrail, 00:26–00:37Z:
 CloudFormation **retries** both errors instead of failing, so each attempt sat
 in `CREATE_IN_PROGRESS` — roughly ten minutes each — and had to be stopped with
 `cancel-update-stack` rather than rolling back on its own. Note that
-`mlops-deployer` lacks `cloudformation:CancelUpdateStack`; the administrator
+`${MLOPS_DEPLOYER_USER_NAME}` lacks `cloudformation:CancelUpdateStack`; the administrator
 profile issued it.
 
 With no dependency between the two resources, the retries converge.

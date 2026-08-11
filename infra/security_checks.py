@@ -1,8 +1,7 @@
-"""Repository security gate and explicit acknowledgements of existing debt.
+"""Apply the repository security gate and construct-specific acknowledgements.
 
-Each acknowledgement binds to one construct and names the phase that removes or
-re-evaluates it. A new resource or a new finding therefore fails synthesis. It
-cannot inherit a stack-wide suppression.
+Each acknowledgement binds to one construct. New constructs and findings fail
+synthesis. Stack-wide suppressions are not used.
 """
 
 from dataclasses import dataclass, replace
@@ -13,20 +12,15 @@ from constructs import IConstruct
 
 from infra.stacks.shared import PlatformConfig
 
-# Some acknowledgement strings embed the environment: a deployment stage, the
-# audit log group, a cross-stack export, or the model package group. They
-# cannot be dev literals shared by every environment. Write these tokens
-# instead. `resolved_acknowledgements` fills them in per environment. It uses
-# `str.replace`, not `str.format`, so a brace in a future reason string stays
-# inert.
+# These tokens represent environment-specific values in acknowledgement text.
+# `resolved_acknowledgements` replaces them for each environment.
+# `str.replace` preserves unrelated braces in a reason string.
 ENV_TOKEN = "{env}"
 PREFIX_TOKEN = "{prefix}"
 GROUP_TOKEN = "{group}"
 PIPELINE_TOKEN = "{pipeline}"
 
-# Enablement flag for the account-wide budget. It sits beside the service
-# flags, not inside them. `security.services` is validated as exactly six
-# flags, and the budget is not one of the services.
+# The account budget flag is separate from the six `security.services` flags.
 ACCOUNT_BUDGET_FLAG = "account_budget"
 
 
@@ -36,10 +30,8 @@ class Acknowledgement:
     construct_path: str
     finding_id: str
     reason: str
-    # A flag-gated construct exists only where its flag is enabled. Naming the
-    # flag here skips the acknowledgement everywhere else. Leaving it None keeps
-    # the strict behaviour: a path that matches no construct fails synthesis,
-    # which catches a stale acknowledgement.
+    # Set this field only for a flag-gated construct.
+    # A missing construct path fails synthesis when this field is `None`.
     requires_flag: str | None = None
 
 
@@ -47,8 +39,8 @@ LAMBDA_BASIC_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AWSLambdaBasicExecutionRole]"
 )
-# No role carries `AmazonSageMakerFullAccess`, so nothing acknowledges it.
-# `test_broad_sagemaker_managed_policy_baseline_has_not_grown` keeps it out.
+# No role carries or acknowledges `AmazonSageMakerFullAccess`.
+# `test_broad_sagemaker_managed_policy_baseline_has_not_grown` enforces this rule.
 APIGW_LOG_POLICY = (
     "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
     "service-role/AmazonAPIGatewayPushToCloudWatchLogs]"
@@ -149,10 +141,9 @@ ACKNOWLEDGEMENTS = (
         "AwsSolutions::AwsSolutions-L1",
         "Python 3.12 matches the packaged native runtime; review runtime in Phase 7.",
     ),
-    # Training role. Two wildcard classes remain: the object wildcard under
-    # each named prefix, and the two generated job names. SageMaker names every
-    # pipeline job `pipelines-<execution-id>-<Step>-<suffix>`, which no policy
-    # can enumerate before the run.
+    # The training role uses wildcards for objects under named prefixes.
+    # It also uses wildcards for generated SageMaker job names.
+    # SageMaker assigns `pipelines-<execution-id>-<Step>-<suffix>` at run time.
     *(
         Acknowledgement(
             "training",
@@ -209,8 +200,7 @@ ACKNOWLEDGEMENTS = (
             "is confined to this platform's own model package group."
         ),
     ),
-    # Serving. Only the object wildcard under one prefix remains, and no
-    # policy can address those keys without it.
+    # The model role reads generated object keys under one named prefix.
     Acknowledgement(
         "serving",
         "ModelExecutionRole/DefaultPolicy",
@@ -248,10 +238,9 @@ ACKNOWLEDGEMENTS = (
             "Phase 4 re-evaluates this grant when the bucket moves to a customer-managed key."
         ),
     ),
-    # Deploy role. Three ARNs remain, and each trailing wildcard is
-    # unavoidable. `deploy_handler` suffixes every model and endpoint-config
-    # name with the epoch second, and the model package is addressed by version
-    # under one group.
+    # The deploy role uses three ARNs with generated trailing values.
+    # `deploy_handler` adds the epoch second to model and endpoint-config names.
+    # SageMaker assigns the model package version under one group.
     *(
         Acknowledgement(
             "serving",
@@ -373,12 +362,10 @@ def _resolve(text: str, config: PlatformConfig, prefix: str) -> str:
 
 
 def resolved_acknowledgements(config: PlatformConfig, prefix: str) -> tuple[Acknowledgement, ...]:
-    """Return `ACKNOWLEDGEMENTS` with the environment tokens filled in.
+    """Return `ACKNOWLEDGEMENTS` with all environment tokens resolved.
 
-    This is the only place that resolves tokens. `apply_security_checks` and
-    the tests share it, so the two cannot disagree about what a path resolves
-    to. It takes the whole config instead of the individual values, because
-    each new token would otherwise lengthen the signature.
+    `apply_security_checks` and the tests use this function. The function
+    accepts `PlatformConfig` as the source for all token values.
     """
     return tuple(
         replace(
@@ -399,7 +386,7 @@ def acknowledgement_metadata_key(finding_id: str) -> str:
     `apply_security_checks` and the tests share it.
     """
     bare_id = finding_id.removeprefix("AwsSolutions::")
-    # Granular ids are keyed without the namespace. Plain rule ids keep it.
+    # Granular ids omit the namespace. Plain rule ids keep the namespace.
     return f"annotation::{bare_id}" if "::" in bare_id else finding_id
 
 
@@ -416,14 +403,11 @@ def _construct_at(stack: cdk.Stack, relative_path: str) -> IConstruct:
 def apply_security_checks(
     app: cdk.App, stacks: dict[str, cdk.Stack], config: PlatformConfig, prefix: str
 ) -> None:
-    """Register the existing acknowledgements, then fail on any new finding."""
-    # Collect the names, because a TypedDict cannot be indexed by a flag name
-    # known only at runtime.
+    """Register configured acknowledgements and fail on new findings."""
+    # Runtime flag names cannot index a `TypedDict` directly.
     enabled = {name for name, on in config["security"]["services"].items() if on}
-    # Index by literal, because mypy requires one for a TypedDict. The constant
-    # names the same key. A mismatch fails synthesis loudly. Otherwise the
-    # acknowledgement would be skipped while its construct still exists, and
-    # that leaves an unacknowledged cdk-nag finding.
+    # Use a literal key for `TypedDict` indexing.
+    # `ACCOUNT_BUDGET_FLAG` must match this key.
     if config["security"]["account_budget"]:
         enabled.add(ACCOUNT_BUDGET_FLAG)
     for acknowledgement in resolved_acknowledgements(config, prefix):
@@ -431,25 +415,18 @@ def apply_security_checks(
             continue
         construct = _construct_at(stacks[acknowledgement.stack], acknowledgement.construct_path)
         target = construct.node.default_child or construct
-        # A granular id carries its own `Action::`, `Resource::`, or `Policy::`
-        # delimiter. A plain rule id carries only the leading namespace. The two
-        # take different registration paths and disagree about the namespace.
+        # A granular id contains an `Action::`, `Resource::`, or `Policy::` delimiter.
+        # A plain rule id contains only the leading namespace.
         bare_id = acknowledgement.finding_id.removeprefix("AwsSolutions::")
         if "::" in bare_id:
-            # A granular cdk-nag id embeds an ARN, and `acknowledge()` rejects
-            # those, so write the metadata it would have written. The key takes
-            # the id without the namespace. A namespaced key stops matching,
-            # and it does so without any error.
+            # `acknowledge()` rejects granular cdk-nag ids that contain an ARN.
+            # Write the matching metadata key without the namespace.
             target.node.add_metadata(
                 cdk.Validations.ACKNOWLEDGED_RULES_METADATA_KEY,
                 {acknowledgement_metadata_key(acknowledgement.finding_id): acknowledgement.reason},
             )
         else:
-            # Acknowledge under the id as written, with the namespace.
-            # aws-cdk-lib 2.261 also matches the bare form. 2.262 matches only
-            # the namespaced form, and it stops suppressing without warning.
-            # A bare id there lapses every plain acknowledgement and reopens 13
-            # findings.
+            # Register a plain rule id with its namespace.
             cdk.Validations.of(target).acknowledge(
                 cdk.Acknowledgment(
                     id=acknowledgement.finding_id,

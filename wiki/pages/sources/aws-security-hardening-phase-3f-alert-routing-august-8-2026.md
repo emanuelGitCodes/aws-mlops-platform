@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3F alert routing — August 8, 2026"
 created: "2026-08-08"
-updated: "2026-08-08"
+updated: "2026-08-10"
 sources: ["../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py", "../../../tests/unit/test_security_stack.py"]
 summary: "Partial 3F routes active Access Analyzer findings and Config delivery failures to the Phase 2 alert topic, deployed to dev with both rules live and neither yet fired."
 ---
@@ -33,7 +33,7 @@ created, `AuditKeyB2DBB069` and `SecurityAlertsTopicPolicy1E6023E3` updated.
 
 **The analyzer rule is proved live.** A throwaway SQS queue carried a public
 `sqs:GetQueueAttributes` grant from 13:15:26Z. Access Analyzer created finding
-`efcd6600` at **13:17:08Z** — about two minutes, against a documented estimate
+`<finding-id>` at **13:17:08Z** — about two minutes, against a documented estimate
 of up to an hour. In the same five-minute window the rule recorded
 `MatchedEvents` 1, `Invocations` 1, and `FailedInvocations` **0**, and the
 topic recorded two publishes and two deliveries. The queue and an unused
@@ -47,7 +47,7 @@ degrading quietly.
 **The subscriber received the finding.** On aligned five-minute boundaries the
 topic shows one publish and one delivery in the 13:15 bucket, with nothing else
 happening in that window, and `NumberOfNotificationsFailed` 0 across the whole
-period. The delivered email carries finding id `efcd6600` — the same id the
+period. The delivered email carries finding id `<finding-id>` — the same id the
 analyzer created — with `"detail-type":"Access Analyzer Finding"`,
 `"status":"ACTIVE"`, `"isDeleted":false`, and `"isPublic":true`. The delivered
 event satisfies the rule's own predicate, so the pattern filtered rather than
@@ -99,15 +99,15 @@ nothing.
   external-access test needs either a real second account or a resource type
   with no such validation — SQS worked, and it has no Block Public Access
   equivalent standing in the way.
-- Finding `efcd6600` stayed `ACTIVE` immediately after the queue was deleted.
+- Finding `<finding-id>` stayed `ACTIVE` immediately after the queue was deleted.
   Access Analyzer resolves findings for deleted resources on a later pass, so
   a short-lived `ACTIVE` finding for a resource that no longer exists is
   expected, not a leak. **Closed.** The observation window recorded the finding
   `RESOLVED` at 13:19:35Z, about one minute after the delete, and the analyzer
   now reports zero active findings.
-- `mlops-security-auditor` cannot read CloudWatch metrics —
+- `${AWS_SECURITY_AUDITOR_USER_NAME}` cannot read CloudWatch metrics —
   `cloudwatch:GetMetricStatistics` is ungranted, so this evidence needed
-  `aws-admin`. It sits alongside the known `config:ListConfigurationRecorders`
+  `${AWS_ADMIN_USER_NAME}`. It sits alongside the known `config:ListConfigurationRecorders`
   gap.
 - The Phase 2E precedent held: `mlops-dev-security-s3-bucket-policy-changes`
   went to `ALARM` on the test's own bucket-policy writes. A true positive on

@@ -1,14 +1,8 @@
-"""Drift Lambda: it scores a capture window against the training baseline and
-emits a violation event.
+"""Score a capture window and emit a drift violation event.
 
-This replaces SageMaker Model Monitor, which supports neither serverless
-endpoints nor new customers. The statistic lives in ``src.common.drift``, the
-baseline comes from the preprocessing step, and the capture objects come from
-``src.serving.proxy_handler``.
-
-EventBridge invokes this on the schedule in ``monitor.schedule_cron``. A
-violation goes back to EventBridge as the platform's own event, which
-``src.monitoring.retrain_handler`` consumes.
+`src.common.drift` owns the statistic. Preprocessing writes the baseline.
+The serving proxy writes capture objects. EventBridge invokes this handler on
+the configured monitor schedule.
 """
 
 import datetime
@@ -34,34 +28,19 @@ ARTIFACTS_BUCKET = os.environ["ARTIFACTS_BUCKET"]
 BASELINE_KEY = os.environ["BASELINE_KEY"]
 CAPTURE_PREFIX = os.environ["CAPTURE_PREFIX"]
 
-# The window this job scores, in hours. It matches the schedule, so successive
-# runs read successive hours and no captured record is scored twice.
+# Score this many complete hours before the current hour.
 WINDOW_HOURS = int(os.environ.get("WINDOW_HOURS", "1"))
 
-# Below this many captured records the window is not scored at all. A
-# serverless endpoint is idle most of the time, so most windows are small or
-# empty, and PSI over a handful of rows reports drift that is sampling noise.
-# Reporting "not enough data" is a distinct outcome from "no drift".
+# Skip windows with fewer captured records than this value.
 MIN_RECORDS = int(os.environ.get("MIN_RECORDS", "100"))
 
-# Below this many *distinct* records the window is not scored either. Counting
-# records is not enough: a caller that repeats one payload produces a point
-# mass, every column's PSI explodes, and the drifted-column fraction cannot
-# help because every column moved. `make smoke` posts one fixed payload, so a
-# health check on `/predict` is the realistic source of such a window.
-#
-# Measured against the live curated data: windows of 50 to 1000 real records
-# were 100 percent distinct, and the repeated-payload case is 1. This sits
-# between them with a wide margin on both sides.
+# Skip point-mass windows with fewer distinct records than this value.
+# `make smoke` can create repeated prediction records.
 MIN_DISTINCT_RECORDS = int(os.environ.get("MIN_DISTINCT_RECORDS", "25"))
 
 
 def window_prefixes(now: datetime.datetime, hours: int) -> list[str]:
-    """Return the hour-partition prefixes covering the window before ``now``.
-
-    Listing per hour keeps the job off the whole capture prefix, which grows
-    without bound.
-    """
+    """Return the complete hour prefixes before `now`."""
     return [
         f"{CAPTURE_PREFIX}/{(now - datetime.timedelta(hours=offset)):%Y/%m/%d/%H}/"
         for offset in range(1, hours + 1)
@@ -105,15 +84,13 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     records = read_captured(window_prefixes(now, WINDOW_HOURS))
 
     if len(records) < MIN_RECORDS:
-        # Not an error, and not a clean bill of health either. Both readings
-        # need to stay distinguishable in the log.
+        # Record an unscored window as a separate outcome.
         log_event("drift_window_too_small", records=len(records), required=MIN_RECORDS)
         return {"skipped": "insufficient_records", "records": len(records)}
 
     distinct = distinct_record_count(records)
     if distinct < MIN_DISTINCT_RECORDS:
-        # A third outcome, kept separate from the other two. This window holds
-        # enough records to score and still must not be scored.
+        # Record a low-diversity window as a separate outcome.
         log_event(
             "drift_window_too_uniform",
             records=len(records),

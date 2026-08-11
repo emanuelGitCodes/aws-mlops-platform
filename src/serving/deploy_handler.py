@@ -1,10 +1,9 @@
-"""Deploy Lambda: a Model Registry approval event updates the serverless
-endpoint.
+"""Update the serverless endpoint after a Model Registry approval event.
 
 EventBridge triggers it on "SageMaker Model Package State Change" when a
 package in this group becomes Approved. The handler creates a Model and an
 EndpointConfig for the new package, then points the endpoint at it. On the
-first deploy it creates the endpoint instead.
+first deploy, it creates the endpoint.
 """
 
 import os
@@ -27,12 +26,10 @@ _NOT_FOUND_CODES = {"ValidationException", "ResourceNotFound"}
 
 
 def _is_endpoint_not_found(error: Exception) -> bool:
-    """Return True only for "this endpoint does not exist yet".
+    """Return true only when SageMaker reports a missing endpoint.
 
-    SageMaker reports a missing endpoint as a ValidationException, not as a
-    modelled not-found error, so this function must read the message too. If
-    AWS rewords the message, the caller re-raises. A loud failure on a first
-    deploy is safer than a create for the wrong reason.
+    SageMaker represents a missing endpoint as `ValidationException`.
+    Match the error message with the code.
     """
     details = (getattr(error, "response", None) or {}).get("Error", {})
     return (
@@ -56,9 +53,7 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         ExecutionRoleArn=EXECUTION_ROLE_ARN,
         Containers=[{"ModelPackageName": package_arn}],
     )
-    # SageMaker Serverless Inference does not support DataCaptureConfig. A
-    # serverless endpoint has no idle hosting cost, so it stays serverless.
-    # Model Monitor capture needs a different serving design later.
+    # SageMaker Serverless Inference does not support `DataCaptureConfig`.
     sm.create_endpoint_config(
         EndpointConfigName=config_name,
         ProductionVariants=[
@@ -73,10 +68,8 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         ],
     )
 
-    # Only a missing endpoint may fall through to create. Catching every
-    # ClientError turned an AccessDenied or a throttle into a create_endpoint,
-    # which then failed with an error describing the wrong problem. Keep
-    # `update_endpoint` outside the try for the same reason.
+    # Create only when `describe_endpoint` reports a missing endpoint.
+    # Propagate all other client errors.
     try:
         sm.describe_endpoint(EndpointName=ENDPOINT_NAME)
     except sm.exceptions.ClientError as error:

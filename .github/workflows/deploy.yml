@@ -44,6 +44,8 @@ jobs:
       # Use the CDK CLI version pinned by the Makefile.
       - name: Deploy
         run: make deploy ENV=dev
+        env:
+          SECURITY_ALERT_EMAIL: ${{ secrets.SECURITY_ALERT_EMAIL }}
       - name: Smoke test the deployed API
         run: make smoke ENV=dev
 
@@ -74,5 +76,7 @@ jobs:
           aws-region: us-east-1
       - name: Deploy
         run: make deploy ENV=prod
+        env:
+          SECURITY_ALERT_EMAIL: ${{ secrets.SECURITY_ALERT_EMAIL }}
       - name: Smoke test the deployed API
         run: make smoke ENV=prod

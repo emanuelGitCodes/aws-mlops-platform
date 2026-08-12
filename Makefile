@@ -1,7 +1,8 @@
 .PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
-	diagrams security bootstrap check-stack diff-stack deploy-stack deploy \
-	destroy verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest \
-	wiki-lint public-check graph graph-query graph-explain graph-hooks
+	diagrams security bootstrap check-stack check-alert-email diff-stack \
+	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
+	wiki-search wiki-ingest wiki-lint public-check graph graph-query \
+	graph-explain graph-hooks
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -86,23 +87,43 @@ diagrams: synth
 security: lock-check audit synth-all
 
 # Bootstrap each target account and region once with the pinned CDK CLI.
+# Uses the repository-owned execution policy from scripts/setup_account.sh
+# instead of the default AdministratorAccess bootstrap grant.
 bootstrap:
-	cd infra && $(CDK_CLI) bootstrap -c env=$(ENV)
+	@test -n "$(AWS_ACCOUNT_ID)" || \
+		(echo "AWS_ACCOUNT_ID is required, e.g. from .env: set -a && source .env && set +a" >&2; exit 2)
+	cd infra && $(CDK_CLI) bootstrap -c env=$(ENV) \
+		--cloudformation-execution-policies \
+		"arn:aws:iam::$(AWS_ACCOUNT_ID):policy/MLOpsCloudFormationExecutionPolicy,arn:aws:iam::$(AWS_ACCOUNT_ID):policy/MLOpsCloudFormationExecutionPolicyExtension"
 
 check-stack:
 	@test -n "$(STACK)" || \
 		(echo "STACK is required, for example STACK=Mlops-Dev-SecurityMonitoring" >&2; exit 2)
 
+# The Security stack declares SecurityAlertEmail with no default. CloudFormation
+# reuses a stored value on update, so only a first deploy fails without it.
+# Pass it on every deploy so a new account behaves like an existing one.
+STACK_PREFIX = $(shell uv run --locked --extra dev python -c \
+	'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))')
+SECURITY_EMAIL_PARAM = --parameters \
+	"$(STACK_PREFIX)-Security:SecurityAlertEmail=$(SECURITY_ALERT_EMAIL)"
+
+check-alert-email:
+	@test -n "$(SECURITY_ALERT_EMAIL)" || (echo \
+		"SECURITY_ALERT_EMAIL is required. Set it in .env, then: set -a && source .env && set +a" >&2; \
+		exit 2)
+
 diff-stack: check-stack
 	cd infra && $(CDK_CLI) diff "$(STACK)" -c env=$(ENV) \
 		--no-lookups --no-change-set
 
-deploy-stack: check-stack
+deploy-stack: check-stack check-alert-email
 	cd infra && $(CDK_CLI) deploy "$(STACK)" -c env=$(ENV) \
-		--no-lookups --require-approval never
+		--no-lookups --require-approval never $(SECURITY_EMAIL_PARAM)
 
-deploy:
-	cd infra && $(CDK_CLI) deploy --all -c env=$(ENV) --require-approval never
+deploy: check-alert-email
+	cd infra && $(CDK_CLI) deploy --all -c env=$(ENV) --require-approval never \
+		$(SECURITY_EMAIL_PARAM)
 
 destroy:
 	cd infra && $(CDK_CLI) destroy --all -c env=$(ENV)

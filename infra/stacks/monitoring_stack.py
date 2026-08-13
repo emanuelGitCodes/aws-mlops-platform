@@ -39,7 +39,7 @@ class MonitoringStack(Stack):
         scope: Construct,
         construct_id: str,
         *,
-        alert_topic: sns.ITopic,
+        ops_topic: sns.ITopic,
         artifacts_bucket: s3.IBucket,
         config: PlatformConfig,
         **kwargs: Any,
@@ -183,8 +183,8 @@ class MonitoringStack(Stack):
             # Treat the missing datapoint as non-breaching for this error alarm.
             treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
         )
-        # Deliver endpoint errors to the security alert topic.
-        endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))
+        # Deliver endpoint errors to the operational alert topic.
+        endpoint_5xx_alarm.add_alarm_action(cw_actions.SnsAction(ops_topic))
 
         # This alarm reports a sustained lack of endpoint invocations.
         endpoint_silent_alarm = cw.Alarm(
@@ -204,4 +204,4 @@ class MonitoringStack(Stack):
             evaluation_periods=config["monitor"]["silence_alarm_hours"],
             treat_missing_data=cw.TreatMissingData.BREACHING,
         )
-        endpoint_silent_alarm.add_alarm_action(cw_actions.SnsAction(alert_topic))
+        endpoint_silent_alarm.add_alarm_action(cw_actions.SnsAction(ops_topic))

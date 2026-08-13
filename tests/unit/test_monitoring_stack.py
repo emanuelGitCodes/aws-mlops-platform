@@ -237,3 +237,27 @@ def test_the_retrain_lambda_can_read_its_own_execution_history(stacks):
             )
         },
     )
+
+
+def test_endpoint_alarms_publish_to_the_ops_topic(stacks):
+    """Keep endpoint alarms off the security topic.
+
+    An idle dev endpoint is the expected state, so the silence alarm fires on
+    any quiet day. Routing it to the security topic would add routine noise to
+    the channel that carries CIS and detection findings.
+    """
+    alarms = [
+        resource["Properties"]
+        for resource in stacks["monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    ]
+    assert {alarm["AlarmName"] for alarm in alarms} == {
+        f"mlops-{CONFIG['env_name']}-endpoint-5xx",
+        f"mlops-{CONFIG['env_name']}-endpoint-silent",
+    }
+
+    for alarm in alarms:
+        (action,) = alarm["AlarmActions"]
+        imported = action["Fn::ImportValue"]
+        assert "OpsAlertsTopic" in imported, alarm["AlarmName"]
+        assert "SecurityAlertsTopic" not in imported, alarm["AlarmName"]

@@ -6811,3 +6811,666 @@ disagrees.
 
 `uv run --locked python scripts/wiki.py index` rebuilt the index and
 `make wiki-lint` passed with the two new pages.
+
+## [2026-08-14] update | Website stack plan recorded before implementation
+
+### Objective
+
+Record the approved plan for a tenth stack, `Mlops-Dev-Website`, before any
+code exists, so the design decisions and their cost reasoning survive the
+session.
+
+### Scope
+
+`wiki/pages/decisions/website-stack-plan.md` (new). No code path changes.
+The planned stack touches `infra/app.py`, `infra/stacks/shared.py`,
+`infra/security_checks.py`, the execution-policy extension, and a new
+`src/website/` package when implementation starts.
+
+### Commands and results
+
+Read-only exploration of `infra/` and `tests/unit/` established the
+integration points: the `requires_flag` mechanism in
+`infra/security_checks.py`, the `sign_headers`/`post_prediction` pair in
+`scripts/evaluate_api.py`, and `api.url_for_path("/predict")` in the
+Serving stack. No mutating command ran.
+
+### Interpretation
+
+The $20 monthly budget forced every major choice: CloudFront replaces an
+ALB (~$16.50/mo), DynamoDB replaces RDS (~$12–15/mo), and a 1-year
+no-upfront Reserved Instance makes `t4g.small` affordable (~$7.74/mo
+against $12.26 on-demand) with no upfront spike through the budget alarms.
+The plan reuses the Phase 6 SigV4 boundary through a server-side proxy and
+gates the stack behind a `website.enabled` config flag so prod stays free.
+
+### Decision and next checkpoint
+
+The page states plainly that nothing is implemented or deployed. The next
+checkpoint is the implementation change set (one phase per the operating
+rule), then a dev deploy, then the RI purchase by the account owner, then
+an observation window. GuardDuty enablement follows in its own change set,
+because EC2 landing is its approved trigger.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed with the
+new page.
+
+## [2026-08-14] update | Website stack written, tested, and not deployed
+
+### Objective
+
+Implement the tenth stack, `Mlops-Dev-Website`, to the plan recorded in the
+entry above, and take it through every repository gate short of a deploy.
+
+### Scope
+
+New: `infra/stacks/website_stack.py`, `src/website/` (`server.py`,
+`Dockerfile`, `requirements.txt`), `src/common/signing.py`,
+`tests/unit/test_website_stack.py`, `tests/unit/test_website_server.py`,
+`tests/unit/test_signing.py`. Changed: `infra/app.py`,
+`infra/stacks/shared.py` (`WebsiteConfig`), `infra/config/*.yaml`,
+`infra/stacks/serving_stack.py` (`predict_url` attribute),
+`infra/security_checks.py` (`WEBSITE_FLAG` and ten acknowledgements),
+`infra/policies/mlops-cloudformation-execution-policy-extension.json`,
+`scripts/evaluate_api.py`, `tests/unit/conftest.py`,
+`tests/unit/test_security_checks.py`, `tests/unit/test_deployment_policy.py`,
+`pyproject.toml`.
+
+### Commands and results
+
+- A spike measured `Stack.bundling_required`: false under the conftest
+  context `aws:cdk:bundling-stacks: []`, true without it. The stack gates
+  `DockerImageAsset` on that value.
+- `AWS_PROFILE=${AWS_SECURITY_AUDITOR_USER_NAME} aws ec2
+  describe-managed-prefix-lists` (read-only) returned `pl-3b927c52`,
+  `com.amazonaws.global.cloudfront.origin-facing`, `create-complete`.
+- The first `make synth ENV=dev` failed with `Cannot find image directory at
+  .../infra/src`: the CDK CLI runs `app.py` from `infra/`, so the asset needs
+  an absolute path.
+- cdk-nag then reported ten findings. Each one is acknowledged by its exact
+  id, and each reason names the phase that removes it.
+- `make test`: 408 passed, coverage 94.58 percent against the raised floor.
+  `make lint`, `make typecheck`, `make synth-all`, `make docs-sync`,
+  `make public-check`, `make lock-check`, `make wiki-lint`: all pass.
+- The server ran locally on port 8099. `/`, `/api/health`, and `/api/schema`
+  answered; an invalid address and an invalid record returned 400; an unknown
+  path returned 404; the eleventh prediction in one minute returned 429.
+
+### Interpretation
+
+Three design points changed during the build. The instance attribute
+`PublicDnsName` resolves before the Elastic IP attaches and would name a
+released address, so the origin name is built from the address. A Python
+comparison cannot read `self.region`, because these stacks carry no `env` and
+the value is a token; a `CfnCondition` resolves the `compute-1` special case
+at deploy time. A container user without privileges cannot bind port 80, so
+the container listens on 8080 and the host publishes it as port 80.
+
+The `ecr:GetAuthorizationToken` grant adds the second entry to the literal
+wildcard baseline. AWS accepts no narrower resource for that action.
+
+### Decision and next checkpoint
+
+Nothing is deployed, and the wiki page says so. The next checkpoints, in
+order: update the two deployed managed policies from `infra/policies/`,
+review `make diff-stack STACK=Mlops-Dev-Website` and confirm the Data and
+Serving dependency stacks diff clean, deploy, run `make verify-deploy`, smoke
+the CloudFront URL, then buy the Reserved Instance. GuardDuty enablement
+stays a separate change set, because EC2 landing is its approved trigger.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | Execution-policy extension rotated to v3
+
+### Objective
+
+Put the website grants on the deployed CloudFormation execution boundary, so
+`Mlops-Dev-Website` can create its resources.
+
+### Scope
+
+`MLOpsCloudFormationExecutionPolicyExtension` in the live account, and
+`wiki/pages/architecture/cdk-deployment-iam.md`. The repository document
+`infra/policies/mlops-cloudformation-execution-policy-extension.json` did not
+change; this entry records the rotation of the deployed copy to match it.
+
+### Identity and environment
+
+Profile `${AWS_ADMIN_USER_NAME}`, account-scoped IAM, us-east-1.
+
+### Commands and results
+
+- `git diff origin/main..HEAD -- infra/policies/` showed one changed file. The
+  main document is byte-identical, so it needs no rotation.
+- `aws iam list-policy-versions` (read) reported `v1` and `v2` with `v2` as the
+  default. Two of five slots were used, so `v3` needed no cleanup delete. The
+  wiki claim matched the account this time.
+- `aws iam get-policy-version --version-id v2` (read) returned a document
+  byte-identical to the repository copy at `origin/main`. No out-of-band drift
+  existed to overwrite.
+- `envsubst` rendered the new document from a populated local `.env`. A check
+  confirmed 3664 bytes, ten statements, and no unsubstituted placeholder.
+- `aws iam create-policy-version --set-as-default` (mutating) returned `v3`
+  with `IsDefaultVersion: true`.
+- `aws iam get-policy-version --version-id v3` (read) returned a document
+  byte-identical to the rendered file.
+- `aws iam list-entities-for-policy` (read) confirmed the policy still attaches
+  to `cdk-hnb659fds-cfn-exec-role-*`.
+
+### Interpretation
+
+The drift check before the write is the important step. A rotation overwrites
+the default version, so an unrecorded manual grant would disappear without a
+message. The comparison proved there was none.
+
+Three of the five version slots are now used. The next rotation is free; the
+one after it MUST delete a version first.
+
+### Decision and next checkpoint
+
+The boundary now permits the website resources. Nothing is deployed. The next
+checkpoints are a running Docker daemon, a reviewed
+`make diff-stack STACK=Mlops-Dev-Website ENV=dev` with the Data and Serving
+dependency stacks clean, the deploy, `make verify-deploy`, and the smoke
+checks. The Reserved Instance purchase follows a verified deploy.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | Website diagram target added and dev diagrams regenerated
+
+### Objective
+
+Give the website stack a generated view, and refresh the committed diagrams,
+which no longer matched the app after the tenth stack landed.
+
+### Scope
+
+`Makefile` (the `diagrams` target and a new `DIAGRAM_WEBSITE` path),
+`wiki/pages/architecture/generated-cdk-diagrams.md`, and the `diagrams/`
+folder.
+
+### Commands and results
+
+- The two grouped views carry hardcoded `--include` lists, so neither picked
+  up the new stack. The full view has no filter and picked it up on its own.
+- `make diagrams ENV=dev DIAGRAM_DIR=<scratch>` rendered four sets. The
+  website DOT file named `Mlops-Dev-Website` only, and held the nine website
+  constructs.
+- `make diagrams ENV=prod DIAGRAM_DIR=<scratch>` rendered three sets, wrote no
+  website file, and exited 0.
+- `make diagrams ENV=dev` against the tracked folder changed
+  `cdk-full-dev.{dot,png,svg}` and added the website set plus five icons. The
+  platform and security views rendered byte-identical, so Graphviz output is
+  reproducible for an unchanged input.
+- `make wiki-lint` passed, and `make public-check` found no literal. The new
+  DOT and SVG files carry no workstation path and no account id.
+
+### Interpretation
+
+The website takes its own view rather than a place in the ML platform view. It
+is the one stack with a VPC and an instance, and the platform view means the
+training and inference path. Mixing them would cost that view its meaning.
+
+The guard reads `website.enabled` through `load_config`, so the target follows
+the same flag that `build_app` follows. A hardcoded stack list would break
+`ENV=prod`.
+
+### Decision and next checkpoint
+
+The diagrams show synthesized desired state, not deployed state; the page
+already says so. A deploy that forces the Elastic IP fallback would remove the
+EIP node, and that MUST trigger one more regeneration.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | A local container run found three website defects
+
+### Objective
+
+Build and run the website image locally, so the site could be seen before a
+deploy.
+
+### Scope
+
+`src/website/server.py`, `infra/stacks/website_stack.py`,
+`tests/unit/test_website_server.py`, `tests/unit/test_website_stack.py`,
+`tests/unit/test_security_checks.py`.
+
+### Identity and environment
+
+Local Docker 29.6.1. The container read live dev S3 and the live `/predict`
+API through a mounted read-only AWS config. The mailing list used DynamoDB
+Local, because the real table is not deployed.
+
+### Commands and results
+
+The image built after a base-image pull, and the container answered `/`,
+`/api/health`, and `/api/schema` at once. Three defects followed.
+
+1. **A failed S3 read returned no response at all.** `/api/results` gave
+   `curl` exit 52 and HTTP 000. `BaseHTTPRequestHandler` sends nothing when
+   the handler raises, so the reader saw an empty reply rather than an error.
+2. **A repeat signup destroyed the first signup time.** `subscribe` called
+   `PutItem`, which replaces the whole item, so `created_at` moved to the
+   newest signup.
+3. **The user data set the wrong region variable.** Two container runs proved
+   that botocore raises `NoRegionError` with `AWS_REGION` set and resolves the
+   region with `AWS_DEFAULT_REGION`. On EC2 this would not fail, because
+   botocore then reads the instance metadata for every client.
+
+The fixes: `latest_results` catches `ClientError`, `OSError`, and
+`JSONDecodeError` and degrades to one unavailable section; the request handler
+answers 500 for any unexpected error; `subscribe` calls `UpdateItem` with
+`if_not_exists(created_at, :now)` and returns the stored time; the user data
+sets `AWS_DEFAULT_REGION`.
+
+DynamoDB Local proved the signup time. Two signups three seconds apart
+returned one `created_at` of `22:08:37`, and the record held
+`last_signup_at` of `22:08:40`.
+
+### Interpretation
+
+The instance role now needs `dynamodb:UpdateItem` in place of
+`dynamodb:PutItem`, so the website IAM fingerprint changed. The site still
+holds no read grant on the table; `UpdateItem` returns the new item itself.
+
+The failed read is not cached. A denied read that cached would hide a
+recovered permission for five minutes.
+
+Two of the three defects were invisible to the unit tests, because the tests
+stubbed boto3 and never exercised a real client. Running the container is what
+found them.
+
+### Decision and next checkpoint
+
+The deploy checkpoints are unchanged. The real table will confirm the signup
+time against DynamoDB rather than DynamoDB Local.
+
+### Verification
+
+414 tests pass, coverage 94.62 percent. `make lint`, `make typecheck`, and
+`make synth-all` pass. `make wiki-lint` passed after the index rebuild.
+
+## [2026-08-14] decision | Website work stops at the deploy boundary
+
+### Objective
+
+Stop the website work before any deploy, and record the state and the next
+direction well enough that a later session resumes without this conversation.
+
+### Scope
+
+`wiki/pages/decisions/website-local-first-rebuild.md` (new),
+`wiki/pages/decisions/website-stack-plan.md` (marked on hold). No code change.
+The branch `claude/aws-cdk-ml-website-cf88da` holds four commits and an open
+draft pull request.
+
+### Interpretation
+
+The order of work was wrong. The stated goal was a website with a planned
+design, deployed to AWS. The stack was designed first, and the application was
+written to fit one container. The application is the part that needed the
+design attention, so it comes first now.
+
+The rebuild is three local containers: React with TypeScript, FastAPI, and
+`amazon/dynamodb-local`. The standard-library backend does not survive that
+change. The cost decisions, the SigV4 boundary, the `src/common` contract rule,
+the mailing-list write rule, and the three defects found by running the
+container all carry forward.
+
+### Decision and next checkpoint
+
+Nothing further deploys. The next work is the local application, outside this
+change set. The deployed container topology stays undecided on purpose; it
+follows the working application rather than leading it.
+
+One account change is live and stays live: the execution-policy extension is at
+`v3` and grants EC2, CloudFront, and DynamoDB permissions for resources that do
+not exist. That is inert. A rollback to `v2` is one command if the direction
+changes, and three of five version slots are used.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed. The local
+demo containers were removed.
+
+## [2026-08-14] update | Local backing services run with volumes
+
+### Objective
+
+Give the website rebuild a local stand-in for both AWS services it reads, and
+keep the data across a restart.
+
+### Scope
+
+`local/compose.yaml` (new) and
+`wiki/pages/decisions/website-local-first-rebuild.md`. No application code
+changed. Nothing here deploys.
+
+### Commands and results
+
+MinIO replaces LocalStack for S3. It emulates the one service this application
+reads, and it is smaller.
+
+- A probe container proved that botocore reads `AWS_ENDPOINT_URL_S3`. The
+  client created a bucket, wrote an object, listed it, and read it back with no
+  code change and no addressing-style setting. boto3 chose path-style
+  addressing for a non-AWS host on its own.
+- `docker compose -f local/compose.yaml up -d` started `dynamodb` and `minio`
+  healthy, and `bootstrap` created `mlops-artifacts` and exited.
+- The website image, joined to the compose network, served
+  `/api/results` from the seeded MinIO report and wrote a signup to DynamoDB
+  Local through `/api/subscribe`.
+- `docker compose down` then `up` returned the mailing-list row
+  (`reader@example.com`, `2026-08-14T22:30:30Z`) and the S3 object unchanged.
+
+Two container settings were needed for the DynamoDB volume. `-dbPath` replaces
+the memory default, and `user: root` lets the image write a fresh named volume;
+the image otherwise runs as `dynamodblocal` and cannot.
+
+### Interpretation
+
+The endpoint variables are the whole local-to-AWS switch. The application holds
+no branch, and the deployed backend reaches the real services by setting
+neither variable. That keeps the local stand-ins out of the deployed shape.
+
+`down` keeps the volumes and `down -v` deletes them. That distinction is the
+reset path, and the file says so at the top.
+
+### Decision and next checkpoint
+
+The `frontend` and `backend` services join this file when they exist. The
+website work stays on hold; this is development tooling, not a step toward the
+deploy.
+
+### Verification
+
+`make wiki-lint` passed after the index rebuild, and `make public-check` found
+no literal. The containers were stopped and the volumes kept.
+
+## [2026-08-14] update | FastAPI backend scaffolded and joined to compose
+
+### Objective
+
+Replace the standard-library website backend with FastAPI, and run it beside
+the two local stand-ins.
+
+### Scope
+
+New: `src/website/app.py`, `services.py`, `settings.py`, `rate_limit.py`, and
+three test modules. Deleted: `src/website/server.py` and
+`tests/unit/test_website_server.py`. Changed: `src/website/Dockerfile`,
+`requirements.txt`, `local/compose.yaml`, `pyproject.toml`, `uv.lock`.
+
+### Commands and results
+
+The module split puts routing in `app.py` and every AWS call in `services.py`,
+so the route handlers hold no boto3 call and the services hold no HTTP status.
+
+`docker compose up -d --build` started `minio`, `dynamodb`, `bootstrap`, and
+`backend`. The bootstrap image moved from `minio/mc` to `amazon/aws-cli`,
+because one image creates both the bucket and the table.
+
+Live checks against the running stack: `/api/health`, `/api/schema`,
+`/api/results`, and `/api/docs` answered 200. A signup returned its
+`created_at`, and a second signup with the same address returned the same
+value. An invalid address and an invalid record each returned 400. The
+eleventh prediction in one minute returned 429. A container given the real
+`PREDICT_URL` and real credentials returned `0.29875707626342773`, which is
+the value the standard-library backend returned for the same record.
+
+Three defects surfaced during the run.
+
+1. **A test polluted thirteen unrelated tests.** `tests/unit/test_website_app.py`
+   imported `src.website.services` directly, which builds real boto3 clients at
+   collection time. `test_pipeline.py` then reached S3 through the live default
+   session and failed. The test now reads `services` through the stubbed app
+   module. `conftest.py` already warned about this failure mode.
+2. **An unset `PREDICT_URL` returned 500.** SigV4 signs the Host header, and an
+   empty URL leaves it unset, so botocore raised `AttributeError` from inside
+   the signer. `predict` now checks the setting first and names it.
+3. **Address normalization ran after validation.** The pattern rejected a
+   trailing space before the code trimmed it, so `  Reader@Example.COM  ` was
+   refused. A `field_validator` with `mode="before"` now trims and lowers.
+
+Ruff flagged `Body(...)` in an argument default as B008. The `Annotated` form
+is FastAPI's current style and needs no rule change.
+
+### Interpretation
+
+Both write routes validate inside the handler rather than in the signature, so
+a bad request returns 400 with `format_validation_error` rather than FastAPI's
+422 and its own error shape. One status code and one error shape across the
+API is worth the explicit call.
+
+`fastapi` and `httpx` join the dev extra because the tests import them.
+`uvicorn` stays in the image alone; no test starts a server.
+
+### Decision and next checkpoint
+
+The frontend is next, and `local/compose.yaml` names where it joins. The
+website deploy stays on hold, and the CDK stack still describes one container.
+
+### Verification
+
+405 tests pass, coverage 94.68 percent against the 94.57 floor. `make lint`,
+`make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
+`make public-check`, and `make wiki-lint` all pass.
+
+## [2026-08-14] update | React and TypeScript frontend scaffolded
+
+### Objective
+
+Give the website a real frontend, and run it beside the backend and the two
+local stand-ins.
+
+### Scope
+
+`frontend/` (new): Vite, React 19, TypeScript 5, and five components.
+`local/compose.yaml` gains the `frontend` service. `Makefile` gains
+`frontend-check`. `.gitignore` excludes `frontend/node_modules` and
+`frontend/dist`.
+
+### Commands and results
+
+`npm run typecheck` and `npm test` pass; five tests cover the API client and
+its error shapes. `docker compose up -d --build` started four services, and
+the site answered on port 5173.
+
+Live checks through the running stack:
+
+- The schema table rendered 19 features from `/api/schema`.
+- The evaluation section showed `Test AUC 0.8535` from a report seeded into
+  MinIO.
+- The prediction form built 19 controls from the schema, and a submit returned
+  `0.1703` with "Likely to stay". That path runs React, the Vite proxy,
+  FastAPI, SigV4, the deployed API Gateway, and SageMaker.
+- The signup form returned `Signed up at 2026-08-14T22:59:46Z`.
+
+Two notes from the run. Seeding the report through `docker run` without `-i`
+wrote a zero-byte object, and the backend answered `{"available": false}` with
+its error rather than failing, which is the earlier graceful-degradation fix
+working on real bad data. The screenshot pane stopped repainting after a
+scroll, so the page content was read through the DOM instead.
+
+### Interpretation
+
+The form reads `feature_columns` and `categorical_values` at run time, so the
+vocabulary is never restated in TypeScript. `src/common/features.py` stays the
+one source, `/api/schema` publishes it, and a new feature column changes no
+frontend file. That is the reason `/api/schema` exists.
+
+The dev server proxies `/api` to the backend, so the browser sends same-origin
+requests. The backend needs no CORS configuration, and no build carries a
+backend URL.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The open items are a CI step for
+`make frontend-check`, component tests, and the deployed topology, which is
+still undecided.
+
+### Verification
+
+405 Python tests pass at 94.68 percent coverage. `make lint`,
+`make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
+`make public-check`, `make wiki-lint`, and `make frontend-check` all pass.
+
+## [2026-08-14] update | The backend moved to a top-level folder
+
+### Objective
+
+Give the backend the same shape as the frontend: `backend/` and `frontend/`
+as siblings at the repository root.
+
+### Scope
+
+`src/website/` moved to `backend/` with `git mv`, so history follows. The test
+modules became `tests/unit/test_backend_{app,services,rate_limit}.py`. Changed:
+`pyproject.toml` (mypy `files`, coverage `source`), `local/compose.yaml`,
+`infra/stacks/website_stack.py`, and two wiki pages. New: `.dockerignore` at
+the root.
+
+### Commands and results
+
+The move needed one real design change. `backend/` imports `src.common`, and
+no single directory holds both, so the image context became the repository
+root. Two guards keep that context small:
+
+- `.dockerignore` at the root, which decides what reaches the Docker daemon.
+- `_IMAGE_CONTENT` in `infra/stacks/website_stack.py`, an allowlist passed as
+  `exclude` with `IgnoreMode.GIT`. That list decides the CDK asset hash.
+  Without it, every unrelated repository file would rebuild the image.
+
+The staged asset measured 60 KB and held `backend/`, `src/__init__.py`, and
+`src/common/` alone, which is the proof the allowlist works.
+
+A `sed` over the imports missed `from src.website import services`, because the
+pattern required a trailing dot. mypy caught it as three errors, one being an
+unresolved module and two being `no-any-return` that followed from it.
+
+After the move: 405 tests pass at 94.68 percent, `make lint`,
+`make typecheck`, `make synth-all`, and `make wiki-lint` pass, and the four
+compose services answered every route, including a live signed prediction.
+
+### Interpretation
+
+`src/` keeps the platform code and the shared contract. The website now reads
+as two folders, and the import `from src.common.features import ...` still
+names the one source of the feature contract.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. Nothing here changes the deployed topology
+question.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | The website moved under one folder
+
+### Objective
+
+Put every website file under `website/`, so the site reads as one component
+rather than three folders spread across the repository root.
+
+### Scope
+
+`git mv` moved `backend/`, `frontend/`, and `local/` under `website/`. Changed:
+`website/backend/Dockerfile`, `website/local/compose.yaml`, `.dockerignore`,
+`.gitignore`, `pyproject.toml`, `Makefile`, `infra/stacks/website_stack.py`,
+`AGENTS.md`, and two wiki pages.
+
+### Commands and results
+
+The Python package became `website.backend`, so `website/__init__.py` exists
+and every import names it. mypy and coverage read `website/backend` rather
+than a bare `backend`, which keeps them away from `website/frontend`.
+
+Three things stay outside `website/` on purpose:
+
+- `infra/stacks/website_stack.py`, which belongs with the other stacks.
+- `tests/unit/test_backend_*.py` and `test_website_stack.py`, because
+  `AGENTS.md` states that `tests/unit/` mirrors the source module, and the
+  session-scoped CDK fixtures live in one `conftest.py`.
+- `.dockerignore` at the root, because the image context is the root.
+
+The image context needs `website/backend/` and `src/common/`, and no directory
+holds both. `_IMAGE_CONTENT` now excludes `website/frontend` explicitly, so a
+frontend edit cannot change the backend asset hash. The staged asset measured
+64 KB and held the two directories alone.
+
+Every compose path was re-checked from `website/local/`: `../frontend`,
+`../backend`, `../../src/common`, and the `../..` build context all resolve.
+
+After the move: 405 tests at 94.68 percent, `make lint`, `make typecheck`,
+`make synth-all`, `make frontend-check`, and `make wiki-lint` pass, and the
+four services answered every route including a live signed prediction.
+
+### Interpretation
+
+`src/` keeps the platform code and the shared contract. The backend still
+imports `src.common`, which is the reason the image context cannot narrow to
+`website/`.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The layout is settled; the open questions
+are unchanged.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | `make deploy` refuses to create the website by surprise
+
+### Objective
+
+Close the one path that could deploy the on-hold website stack without anyone
+asking for it.
+
+### Scope
+
+`Makefile`: a new `check-website-hold` prerequisite on `deploy`. `AGENTS.md`
+records the refusal and its override.
+
+### Interpretation
+
+`deploy` runs `cdk deploy --all`, and dev sets `website.enabled: true`, so a
+full deploy would create the instance, the address, the distribution, the VPC,
+and the table. That is about $16.60 each month on demand, through a path no
+deploy has proved.
+
+The website stack is a leaf: `infra/app.py` passes nothing from it to another
+stack, so no other target pulls it in. `deploy-stack` names its target, which
+is intent enough. Only `deploy` could create it by surprise, so only `deploy`
+asks.
+
+Flipping `website.enabled` to false in dev was the other option, and it costs
+more than it saves: the unit fixture would stop building the stack, and the
+seventeen tests in `tests/unit/test_website_stack.py` would have nothing to
+assert against.
+
+### Commands and results
+
+Four paths were checked. Dev without the override exits 2 and names both ways
+forward. Prod passes, because its flag is false. Dev with
+`ALLOW_WEBSITE_DEPLOY=1` passes. `deploy-stack` carries no guard.
+
+### Decision and next checkpoint
+
+The guard stays after the hold lifts. An instance and a distribution deserve
+one explicit word before a full deploy creates them.
+
+### Verification
+
+`make docs-sync` passed, and the four guard paths behaved as recorded.

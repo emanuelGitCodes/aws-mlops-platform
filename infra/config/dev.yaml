@@ -36,3 +36,13 @@ cicd:
   github_repository: emanuelGitCodes/aws-mlops-platform
   # Dev owns the account-wide OIDC provider. Prod must keep this flag false.
   owns_oidc_provider: true
+website:
+  enabled: true
+  # A Reserved Instance covers this type. Match the reservation before a change.
+  instance_type: t4g.small
+  rate_limit_per_minute: 10
+  # Read this value for the deploy region with:
+  #   aws ec2 describe-managed-prefix-lists --region <region> \
+  #     --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing
+  # This value is for us-east-1. Another region uses another id.
+  cloudfront_prefix_list_id: pl-3b927c52

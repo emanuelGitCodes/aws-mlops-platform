@@ -3,24 +3,10 @@ import urllib.error
 from unittest import mock
 
 import pytest
-from botocore.credentials import Credentials
 
 from scripts import evaluate_api
 from tests.unit.conftest import VALID
-
-
-def _session():
-    """A stand-in for a boto3 session that signs without reaching AWS.
-
-    The credentials are real botocore objects. SigV4Auth signs offline. A real
-    session leaves sagemaker holding a live default session, and
-    tests/unit/test_pipeline.py then reaches S3 for real. Keep the literals
-    short: a longer secret reads to the gitleaks rules as a real credential.
-    """
-    session = mock.MagicMock()
-    session.region_name = "us-east-1"
-    session.get_credentials.return_value = Credentials("akid", "sk")
-    return session
+from tests.unit.conftest import signing_session as _session
 
 
 def _fixture(label: int, row_id: int) -> dict:
@@ -311,19 +297,3 @@ def test_main_refuses_to_run_without_a_complete_invocation(argv, monkeypatch):
         evaluate_api.main(argv)
 
     assert exit_info.value.code == 2
-
-
-def test_signing_without_credentials_names_the_cause():
-    """Report missing credentials before SigV4 signing."""
-    session = _session()
-    session.get_credentials.return_value = None
-    with pytest.raises(evaluate_api.ApiEvaluationError, match="credentials"):
-        evaluate_api.sign_headers("https://x/p", b"{}", session)
-
-
-def test_signing_without_a_region_names_the_cause():
-    """Require a region for the SigV4 credential scope."""
-    session = _session()
-    session.region_name = None
-    with pytest.raises(evaluate_api.ApiEvaluationError, match="region"):
-        evaluate_api.sign_headers("https://x/p", b"{}", session)

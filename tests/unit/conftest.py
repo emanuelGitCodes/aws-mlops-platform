@@ -58,6 +58,22 @@ def stacks(stack_constructs) -> dict:
     return {name: Template.from_stack(stack) for name, stack in stack_constructs.items()}
 
 
+def signing_session():
+    """A stand-in for a boto3 session that signs without reaching AWS.
+
+    The credentials are real botocore objects. SigV4Auth signs offline. A real
+    session leaves sagemaker holding a live default session, and
+    tests/unit/test_pipeline.py then reaches S3 for real. Keep the literals
+    short: a longer secret reads to the gitleaks rules as a real credential.
+    """
+    from botocore.credentials import Credentials
+
+    session = mock.MagicMock()
+    session.region_name = "us-east-1"
+    session.get_credentials.return_value = Credentials("akid", "sk")
+    return session
+
+
 class ClientError(Exception):
     """Represent a botocore client error with a `response` dictionary."""
 

@@ -229,5 +229,8 @@ class ServingStack(Stack):
             method="POST", path="/predict", stage=config["env_name"]
         )
 
-        CfnOutput(self, "ApiUrl", value=api.url_for_path("/predict"))
+        # `WebsiteStack` signs its proxied calls against this URL.
+        self.predict_url = api.url_for_path("/predict")
+
+        CfnOutput(self, "ApiUrl", value=self.predict_url)
         CfnOutput(self, "EndpointName", value=endpoint_name)

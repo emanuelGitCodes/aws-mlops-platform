@@ -24,6 +24,11 @@ dev = [
     "mypy>=2,<3",
     "boto3-stubs[cloudformation,s3,sagemaker,sagemaker-runtime]>=1.34",
     "types-PyYAML>=6",
+    # The backend runs from its own image. These two are here because
+    # `tests/unit/test_backend_app.py` imports FastAPI, and its TestClient
+    # needs httpx.
+    "fastapi>=0.115,<1",
+    "httpx>=0.27,<1",
 ]
 pipeline = [
     "sagemaker>=2.220,<3",
@@ -48,7 +53,7 @@ ignore = ["ANN401"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "infra", "scripts"]
+files = ["src", "website/backend", "infra", "scripts"]
 # Treat `scripts/` as an explicit package base for mypy module resolution.
 mypy_path = "."
 explicit_package_bases = true
@@ -82,7 +87,7 @@ filterwarnings = [
 
 # The `test` Make target applies unit-test measurement flags.
 [tool.coverage.run]
-source = ["src", "infra", "scripts"]
+source = ["src", "website/backend", "infra", "scripts"]
 omit = [
     # Exclude synthesized CDK assets and vendored Lambda packages.
     "infra/cdk.out/*",
@@ -95,4 +100,4 @@ precision = 2
 # Raise `fail_under` after an increase. Do not lower it for a failing run.
 # Round the new floor down from the printed total.
 # The check compares `fail_under` against the unrounded value.
-fail_under = 94.14
+fail_under = 94.57

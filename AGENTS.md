@@ -62,6 +62,20 @@ trusting this summary, which is coarse by design.
   fires on its own about 24 hours after the last `/predict` call. Prod keeps the
   single topic. See
   [two alert topics](wiki/pages/decisions/alert-topic-split.md).
+- **The website work is ON HOLD, and its stack MUST NOT be deployed.**
+  `make deploy` refuses whenever the environment builds it, because that target
+  deploys every stack and would create the instance, address, distribution,
+  VPC, and table. `ALLOW_WEBSITE_DEPLOY=1` overrides the refusal, and
+  `make deploy-stack STACK=…` is unguarded because it names its target. A tenth
+  stack, `Mlops-Dev-Website`, is written, tested, and open as a draft pull
+  request on `claude/aws-cdk-ml-website-cf88da`. **No AWS resource exists for
+  it.** The infrastructure was designed before the application it carries, so
+  the website restarts as a local three-container application — React with
+  TypeScript, FastAPI, and `amazon/dynamodb-local` — and deploys after that
+  works. One account change is live and inert: the CloudFormation execution
+  policy extension is at `v3` with grants for resources that do not exist. Read
+  [the local-first rebuild](wiki/pages/decisions/website-local-first-rebuild.md)
+  before any website work.
 - The repository is prepared for public release but stays **private**. `main`
   requires both CI checks, one approval, linear history, and resolved
   conversations. `make public-check` is the standing gate against tracked
@@ -99,7 +113,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make install` | `uv sync --locked --extra dev --extra pipeline` |
 | `make lock-check` | `uv lock --check` |
 | `make lint` | ruff check + format check |
-| `make typecheck` | mypy over `src/`, `infra/`, `scripts/` (both extras) |
+| `make typecheck` | mypy over `src/`, `website/backend/`, `infra/`, `scripts/` (both extras) |
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
 | `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
 | `make public-check` | Rejects tracked account metadata and private filenames |
@@ -108,9 +122,10 @@ Use the Makefile targets — do not invent your own invocations.
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
 | `make diagrams` | Synth and render PNG, editable SVG, and DOT CDK diagrams; requires Graphviz |
 | `make security` | lock-check + audit + synth-all |
+| `make frontend-check` | `npm ci`, type check, and tests for `website/frontend/` (not in CI) |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
-| `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
+| `make deploy` / `make destroy` | CDK deploy/destroy all stacks. `deploy` refuses while the website stack builds; see below |
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
@@ -166,6 +181,7 @@ Look here **before** writing anything new:
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
 | `infra/policies/` | The repository-owned CloudFormation execution boundary, split across `mlops-cloudformation-execution-policy.json` and `-extension.json` because AWS caps one managed policy at 6144 characters. Version-pinned and fingerprint-tested |
 | `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py`. Plus the two CLIs that back a Make gate: `check_public_release.py` (`make public-check`) and `prepare_cdk_diagrams.py` (`make diagrams`) |
+| `website/` | The demo website, and the one place its code lives. `backend/` is the FastAPI service (`app.py` routes, `services.py` every AWS call, `settings.py` the environment contract, `rate_limit.py`); `frontend/` is React and TypeScript built by Vite; `local/compose.yaml` runs both beside `amazon/dynamodb-local` and `minio/minio`. The backend imports the feature contract from `src/common/` and MUST NOT restate it. Its CDK stack stays in `infra/stacks/website_stack.py`, and its tests stay in `tests/unit/`. **On hold; see the wiki before any website work.** |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL` is set |
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |

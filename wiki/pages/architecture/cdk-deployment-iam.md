@@ -261,14 +261,28 @@ PolicySize: 6144`.
 
 Both attach to `cdk-hnb659fds-cfn-exec-role-*`, so CloudFormation evaluates the
 union. **Add a new grant to the extension.** The main document has 256 bytes
-free and cannot take one. The extension holds the OIDC provider lifecycle and
-the exact Access Analyzer archive-rule lifecycle. It does not grant
-`ApplyArchiveRule`; that action changes finding status and remains an operator
-step. A test measures both documents against the quota, so the next size
-failure arrives in CI rather than at the AWS API.
+free and cannot take one. The extension holds the OIDC provider lifecycle, the
+exact Access Analyzer archive-rule lifecycle, and the website grants. It does
+not grant `ApplyArchiveRule`; that action changes finding status and remains an
+operator step. A test measures both documents against the quota, so the next
+size failure arrives in CI rather than at the AWS API.
 
-The extension is live at `v2`. Version `v1` remains the rollback document. The
-rotation used two of the five policy-version slots and required no cleanup.
+The extension is live at `v3`, created 2026-08-14 for the website stack. It
+holds ten statements and 3664 of its 6144 bytes. Versions `v1` and `v2` remain
+as rollback documents, so three of the five policy-version slots are used. The
+next rotation still needs no cleanup delete; the one after it does.
+
+Version `v3` adds seven statements: `WebsiteEc2Network` and
+`WebsiteEc2Instances` (both `Resource: "*"`, because EC2 network actions take
+no resource scope), `WebsiteCloudFront`, `WebsiteDynamoDb`,
+`WebsiteInstanceProfileLifecycle`, `PassWebsiteInstanceRole`, and
+`WebsiteAmiParameterRead`. `PassWebsiteInstanceRole` is a separate statement
+rather than a change to `PassOnlyApplicationRoles`, because the main document
+has no room. It passes only to `ec2.amazonaws.com` and
+`vpc-flow-logs.amazonaws.com`.
+
+**Read the live version before a rotation.** This page has misreported the slot
+count before. `aws iam list-policy-versions` is the source.
 
 Statement ids are unique across both files, and a test asserts it. A duplicated
 `Sid` would leave a reader unsure which file owns a grant.

@@ -16,7 +16,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [Complete teardown and rebuild](pages/architecture/teardown-and-rebuild.md) — make destroy removes the nine stacks but leaves retained buckets, the audit key and log group, and every SDK-created SageMaker resource; two fixed names then block a naive redeploy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
 - [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving.
-- [Generated CDK infrastructure diagrams](pages/architecture/generated-cdk-diagrams.md) — Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph.
+- [Generated CDK infrastructure diagrams](pages/architecture/generated-cdk-diagrams.md) — Four generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph.
 - [Phase 2 audit foundation](pages/architecture/security-phase-2-audit-foundation.md) — The deployed Security stack retains validated encrypted CloudTrail evidence and provides a confirmed encrypted alert path.
 - [Phased AWS security hardening roadmap](pages/architecture/phased-security-hardening.md) — A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls.
 
@@ -33,6 +33,8 @@ This is the content map. Read it first, then follow the most relevant links.
 - [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.
 - [Platform design decisions](pages/decisions/platform-design.md) — The platform favors managed SageMaker lineage where it matters and small AWS primitives where simple event wiring is clearer.
 - [Two alert topics, operational and security](pages/decisions/alert-topic-split.md) — The endpoint alarms move to a separate operational topic, because an idle dev endpoint is the expected state and its silence alarm made routine noise on the security channel.
+- [Website rebuild, local application before deployment](pages/decisions/website-local-first-rebuild.md) — The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries.
+- [Website stack plan, CloudFront over an ALB](pages/decisions/website-stack-plan.md) — A tenth stack serves a public demo website from one EC2 container behind CloudFront, with a DynamoDB mailing list, because an ALB or RDS alone consumes most of the $20 monthly budget.
 
 ## Filed answers
 

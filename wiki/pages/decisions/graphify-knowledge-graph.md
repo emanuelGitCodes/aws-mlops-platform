@@ -93,6 +93,14 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
 
 ## Tensions or open questions
 
+- **The graph indexes no YAML file.** A search of `graph.json` on 2026-08-14
+  found zero hits for `infra/config/dev.yaml`, `.github/workflows/ci.yml`, and
+  `website/local/compose.yaml`, while `infra/app.py` had 270. The extractor
+  reads code and Markdown. Configuration is absent, and a query about a
+  service, a schedule, or a container MUST read the file or the wiki instead.
+  `GRAPH_REPORT.md` names some JSON files that produce zero nodes; the same
+  limit covers YAML without naming it.
+
 - **The upstream project suggests committing `graphify-out/` for teammates.**
   This repository declines that, because size and public-release discipline
   outrank a one-minute rebuild for a single author. Revisit the choice if a

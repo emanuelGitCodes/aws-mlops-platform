@@ -2,7 +2,7 @@
 	diagrams security bootstrap check-stack check-alert-email diff-stack \
 	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
 	wiki-search wiki-ingest wiki-lint public-check graph graph-query \
-	graph-explain graph-hooks
+	graph-explain graph-hooks frontend-check check-website-hold
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -11,6 +11,7 @@ DIAGRAM_DIR ?= $(CURDIR)/diagrams
 DIAGRAM_FULL := $(abspath $(DIAGRAM_DIR))/cdk-full-$(ENV)
 DIAGRAM_PLATFORM := $(abspath $(DIAGRAM_DIR))/cdk-platform-$(ENV)
 DIAGRAM_SECURITY_CICD := $(abspath $(DIAGRAM_DIR))/cdk-security-cicd-$(ENV)
+DIAGRAM_WEBSITE := $(abspath $(DIAGRAM_DIR))/cdk-website-$(ENV)
 
 # Install the development and pipeline dependencies from the lockfile.
 install:
@@ -60,6 +61,9 @@ synth-all:
 
 # Render the synthesized design. These diagrams do not represent live AWS state.
 # Convert local cdk-dia icon paths into portable DOT and SVG assets.
+# The website diagram renders only where `website.enabled` is true. The website
+# is the one stack with a VPC, so it gets its own view rather than a place in
+# the platform diagram.
 diagrams: synth
 	@command -v dot >/dev/null 2>&1 || { \
 		echo "Graphviz is required. Install it with: brew install graphviz" >&2; \
@@ -69,6 +73,8 @@ diagrams: synth
 	@set -eu; \
 	prefix=$$(uv run --locked --extra dev python -c \
 		'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))'); \
+	website=$$(uv run --locked --extra dev python -c \
+		'from infra.app import load_config; print(load_config("$(ENV)")["website"]["enabled"])'); \
 	cd infra; \
 	$(CDK_DIA) --tree cdk.out/tree.json \
 		--target "$(DIAGRAM_FULL).png"; \
@@ -79,10 +85,21 @@ diagrams: synth
 	$(CDK_DIA) --tree cdk.out/tree.json \
 		--target "$(DIAGRAM_SECURITY_CICD).png" \
 		--include "$$prefix-Security" "$$prefix-SecurityMonitoring" \
-			"$$prefix-Cicd"
-	uv run --locked python scripts/prepare_cdk_diagrams.py \
-		"$(DIAGRAM_FULL).dot" "$(DIAGRAM_PLATFORM).dot" \
-		"$(DIAGRAM_SECURITY_CICD).dot"
+			"$$prefix-Cicd"; \
+	dots="$(DIAGRAM_FULL).dot $(DIAGRAM_PLATFORM).dot $(DIAGRAM_SECURITY_CICD).dot"; \
+	if [ "$$website" = "True" ]; then \
+		$(CDK_DIA) --tree cdk.out/tree.json \
+			--target "$(DIAGRAM_WEBSITE).png" \
+			--include "$$prefix-Website"; \
+		dots="$$dots $(DIAGRAM_WEBSITE).dot"; \
+	fi; \
+	cd "$(CURDIR)"; \
+	uv run --locked python scripts/prepare_cdk_diagrams.py $$dots
+
+# Check the frontend. `npm ci` installs from `frontend/package-lock.json`.
+# CI does not run this target yet; the website work is on hold.
+frontend-check:
+	cd website/frontend && npm ci && npm run typecheck && npm test
 
 security: lock-check audit synth-all
 
@@ -121,7 +138,26 @@ deploy-stack: check-stack check-alert-email
 	cd infra && $(CDK_CLI) deploy "$(STACK)" -c env=$(ENV) \
 		--no-lookups --require-approval never $(SECURITY_EMAIL_PARAM)
 
-deploy: check-alert-email
+# `deploy` deploys every stack. The website stack is a leaf, so no other stack
+# pulls it in, and `deploy-stack` names its target. Only this target can create
+# the website by surprise, so only this target asks.
+#
+# The stack builds an instance, an address, a distribution, a VPC, and a table.
+# That is real monthly cost through a path no deploy has proved.
+check-website-hold:
+	@website=$$(uv run --locked --extra dev python -c \
+		'from infra.app import load_config; print(load_config("$(ENV)")["website"]["enabled"])'); \
+	if [ "$$website" = "True" ] && [ -z "$(ALLOW_WEBSITE_DEPLOY)" ]; then \
+		echo "$(ENV) builds the website stack, and no deploy has proved it." >&2; \
+		echo "Read wiki/pages/decisions/website-local-first-rebuild.md first." >&2; \
+		echo "" >&2; \
+		echo "  Deploy the rest:  make deploy-stack STACK=Mlops-$$(echo $(ENV) | \
+			awk '{print toupper(substr($$0,1,1)) substr($$0,2)}')-<Stack> ENV=$(ENV)" >&2; \
+		echo "  Deploy it too:    ALLOW_WEBSITE_DEPLOY=1 make deploy ENV=$(ENV)" >&2; \
+		exit 2; \
+	fi
+
+deploy: check-alert-email check-website-hold
 	cd infra && $(CDK_CLI) deploy --all -c env=$(ENV) --require-approval never \
 		$(SECURITY_EMAIL_PARAM)
 

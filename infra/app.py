@@ -21,6 +21,7 @@ from infra.stacks.security_stack import SecurityStack
 from infra.stacks.serving_stack import ServingStack
 from infra.stacks.shared import PlatformConfig
 from infra.stacks.training_stack import TrainingStack
+from infra.stacks.website_stack import WebsiteStack
 
 
 def load_config(env_name: str) -> PlatformConfig:
@@ -101,6 +102,16 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         "monitoring": monitoring,
         "cicd": cicd,
     }
+    # The website is optional. A disabled environment builds no instance.
+    if config["website"]["enabled"]:
+        stacks["website"] = WebsiteStack(
+            app,
+            f"{prefix}-Website",
+            artifacts_bucket=data.artifacts_bucket,
+            predict_execute_api_arn=serving.predict_execute_api_arn,
+            predict_url=serving.predict_url,
+            config=config,
+        )
     apply_security_checks(app, stacks, config, prefix)
     return stacks
 

@@ -1,0 +1,19 @@
+# The backend image builds from the repository root, so this file decides what
+# reaches the Docker daemon. Keep it tight: a large context slows every build
+# and changes the CDK asset hash.
+.git
+.venv
+node_modules
+website/frontend
+infra/cdk.out
+graphify-out
+diagrams
+telco
+wiki
+tests
+scripts
+website/local
+**/__pycache__
+**/*.pyc
+.env
+.claude

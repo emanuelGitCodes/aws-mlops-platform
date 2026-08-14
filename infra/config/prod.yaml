@@ -36,3 +36,12 @@ cicd:
   github_repository: emanuelGitCodes/aws-mlops-platform
   # Keep this flag false while dev owns the account-wide OIDC provider.
   owns_oidc_provider: false
+website:
+  # Keep this flag false. The demo website is a dev-only feature, and a second
+  # instance doubles its monthly cost.
+  enabled: false
+  instance_type: t4g.small
+  rate_limit_per_minute: 10
+  # These values are inactive while `enabled` is false. See dev.yaml for the
+  # command that reads the prefix list id for a region.
+  cloudfront_prefix_list_id: pl-3b927c52

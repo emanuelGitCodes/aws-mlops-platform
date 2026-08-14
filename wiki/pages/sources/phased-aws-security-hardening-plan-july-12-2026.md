@@ -2,7 +2,7 @@
 type: "source"
 title: "Phased AWS security hardening plan — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/phased-aws-security-hardening-plan-july-12-2026.md"]
 summary: "Evidence and implementation checkpoints for the approved phase-by-phase AWS security-hardening roadmap."
 ---
@@ -10,8 +10,8 @@ summary: "Evidence and implementation checkpoints for the approved phase-by-phas
 
 ## Key claims
 
-- Security changes must be isolated into separately implemented, tested,
-  committed, deployed, and observed phases.
+- The roadmap MUST isolate each security change in its own phase. Each phase is
+  implemented, tested, committed, deployed, and observed on its own.
 - The target is AWS Foundational Security Best Practices for the dev workload,
   not a claim of formal regulatory compliance.
 - Auditability and detection precede encryption, IAM, authentication, and WAF
@@ -32,8 +32,8 @@ summary: "Evidence and implementation checkpoints for the approved phase-by-phas
 
 ## Tensions or open questions
 
-- The security-alert email must be supplied and its SNS subscription confirmed
-  before the notification phase can pass acceptance.
+- The operator MUST supply the security-alert email and confirm its SNS
+  subscription. The notification phase passes acceptance only after both steps.
 - GuardDuty, Config, Security Hub, WAF, CloudWatch Logs, and KMS introduce
   recurring charges; dev enables them incrementally in `us-east-1` and measures
   cost before expanding coverage.

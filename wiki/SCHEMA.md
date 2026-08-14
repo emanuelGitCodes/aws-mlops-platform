@@ -5,20 +5,20 @@ This directory is a local, Git-backed knowledge base for understanding and evolv
 ## Layers
 
 - `raw/` contains immutable source material. Never edit or silently replace a file there. If a source changes, add a new dated/versioned source and explain the relationship.
-- `pages/` contains the maintained synthesis. Pages are Markdown with frontmatter and should link to both their evidence and related wiki pages.
+- `pages/` holds the maintained synthesis. Each page is Markdown with frontmatter. A page SHOULD link to its evidence and to the related wiki pages; omit a link only when no page or source applies.
 - `index.md` is the content-oriented catalog. Rebuild it with `python scripts/wiki.py index` after page changes.
 - `log.md` is append-only and chronological. Use consistent headings such as `## [2026-07-10] ingest | Source title`.
 
 ## Log detail standard
 
-For meaningful implementation or infrastructure work, a log entry should capture enough context for the next study session to reproduce the reasoning without rereading the entire conversation:
+A log entry for implementation work or infrastructure work MUST carry enough context for the next session. The next reader reproduces the reasoning from the entry alone:
 
-- **Objective:** what was being changed or verified.
+- **Objective:** the change or the verification you set out to make.
 - **Scope:** pages, code paths, stacks, or AWS resources involved.
 - **Identity and environment:** AWS profile, account or region when relevant; never record credentials or secrets.
 - **Commands and results:** the important commands, whether they were read-only or mutating, and the meaningful output or error.
-- **Interpretation:** why the result was expected, surprising, or a security boundary.
-- **Decision and next checkpoint:** what was deliberately left unchanged and what should happen next.
+- **Interpretation:** why you expected the result, why it surprised you, or why it is a security boundary.
+- **Decision and next checkpoint:** what you deliberately left unchanged, and what happens next.
 - **Verification:** lint, tests, or other checks and their result.
 
 ## Page contract
@@ -42,7 +42,7 @@ Use the body to distinguish evidence from interpretation:
 - `## Synthesis` for connections or explanations derived across sources.
 - `## Tensions or open questions` for contradictions, missing evidence, or claims that need investigation.
 
-Link page-to-page concepts aggressively, but do not create links merely for decoration. A source citation should resolve to a file, repository path, or stable external URL.
+Link page to page often. Do not add a link for decoration. A source citation MUST resolve to a file, a repository path, or a stable external URL.
 
 ## Workflows
 
@@ -67,4 +67,4 @@ Run `python scripts/wiki.py lint` periodically. Treat broken links, missing evid
 
 ## Boundaries
 
-The wiki does not replace the repository's code, tests, or AWS documentation. It is a navigable synthesis layer. Never claim that a wiki page is more authoritative than the source it cites, and never edit application code as a side effect of wiki maintenance.
+The wiki does not replace the repository's code, tests, or AWS documentation. It is a navigable synthesis layer. A wiki page is never more authoritative than the source it cites. Wiki maintenance MUST NOT change application code.

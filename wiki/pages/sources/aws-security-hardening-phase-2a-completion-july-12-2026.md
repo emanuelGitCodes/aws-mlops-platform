@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2A completion — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json"]
 summary: "The Data export drift is reconciled and execution-policy v6 is installed with an exact v1 archive and v5 rollback path."
 ---
@@ -35,5 +35,5 @@ Related pages:
 
 - Phase 2B still requires a scoped Security-stack diff, deployment, live audit
   verification, and manual confirmation of its email subscription.
-- `v5` must remain available until the Security stack has passed its rollback
-  and live-verification checkpoints.
+- `v5` MUST stay available until the Security stack passes its rollback
+  checkpoint and its live-verification checkpoint.

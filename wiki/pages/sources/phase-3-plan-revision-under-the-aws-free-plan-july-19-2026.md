@@ -2,7 +2,7 @@
 type: "source"
 title: "Phase 3 plan revision under the AWS Free plan — July 19, 2026"
 created: "2026-07-19"
-updated: "2026-07-19"
+updated: "2026-08-14"
 sources: ["../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/config/dev.yaml", "../../../infra/stacks/security_monitoring_stack.py", "../../../tests/unit/test_security_monitoring_stack.py"]
 summary: "Phase 3 is reordered for the Free plan: 3E BPA next, then gated 3C Config and partial 3F routing, with 3B GuardDuty and 3D Security Hub deferred behind an explicit paid-plan upgrade gate."
 ---
@@ -47,7 +47,7 @@ the maintained sequencing lives in the
 
 - AWS Config availability on the Free plan remains unproven until the gated
   3C deployment attempts the first recorder create.
-- Account-level BPA interaction with the CDK bootstrap asset bucket must be
-  verified during 3E preparation before its deployment.
+- The 3E preparation MUST verify how account-level BPA affects the CDK
+  bootstrap asset bucket, before the 3E deployment.
 - The paid-plan upgrade decision has no deadline; 3B/3D and full 3F remain
   open-ended deferrals until it is made.

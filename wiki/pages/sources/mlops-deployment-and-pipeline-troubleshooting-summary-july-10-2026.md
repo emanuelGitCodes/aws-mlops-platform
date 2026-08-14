@@ -2,7 +2,7 @@
 type: "source"
 title: "MLOps deployment and pipeline troubleshooting summary — July 10, 2026"
 created: "2026-07-11"
-updated: "2026-07-11"
+updated: "2026-08-14"
 sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md"]
 summary: "Evidence from the July 10 deployment, API, ingestion, and SageMaker pipeline troubleshooting session."
 ---
@@ -29,5 +29,7 @@ See the maintained [deployment and pipeline troubleshooting](../architecture/dep
 
 ## Tensions or open questions
 
-- The Processing job currently uploads `preprocess.py` without the repository package that provides `src.common.schema`. The packaging fix should preserve one shared schema rather than silently duplicating it.
+- The Processing job uploads `preprocess.py` without the repository package that
+  holds `src.common.schema`. The packaging fix MUST keep one shared schema. It
+  MUST NOT copy the schema.
 - Training logs will not exist until `Preprocess` succeeds and the `Train` step starts.

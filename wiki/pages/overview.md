@@ -10,8 +10,9 @@ summary: "A portfolio-grade AWS platform with gated models, reproducible evaluat
 
 ## Confirmed
 
-The repository is a nine-stack CDK application. The model is intentionally
-simple; the engineering story is the closed operational loop around it.
+The repository is a nine-stack CDK application. The model is deliberately
+simple. The closed operational loop around the model is the engineering work
+that matters.
 
 The SageMaker pipeline preprocesses, trains, evaluates, and conditionally
 registers a model. The serverless endpoint returns IAM-authorized API
@@ -20,9 +21,9 @@ charts. The proxy captures live inputs and scores for the PSI drift job.
 
 The runtime path is:
 
-1. Raw CSV data enters S3 and is validated into a curated bucket.
+1. Raw CSV data enters S3. The validation Lambda writes each accepted row to the curated bucket.
 2. A SageMaker Pipeline preprocesses, trains, evaluates, and conditionally registers a challenger model.
-3. An approved model is deployed to a SageMaker serverless endpoint and exposed through an API Gateway plus proxy Lambda.
+3. The deploy Lambda sends an approved model to a SageMaker serverless endpoint. API Gateway and the proxy Lambda expose that endpoint.
 4. The proxy writes an hour-partitioned capture record for each prediction.
 5. The hourly drift Lambda compares the capture window with the training
    baseline and emits a violation when enough columns move.
@@ -30,7 +31,12 @@ The runtime path is:
 
 ## Synthesis
 
-The most important boundaries are the [training and inference contracts](concepts/contracts-and-preprocessing.md), the [raw-data ingestion path](architecture/data-and-ingestion.md), and the [closed drift loop](concepts/closed-drift-loop.md). The platform's resource and permission choices are captured in [platform design decisions](decisions/platform-design.md) and [permission boundaries](architecture/permissions.md).
+Three boundaries matter most: the
+[training and inference contracts](concepts/contracts-and-preprocessing.md), the
+[raw-data ingestion path](architecture/data-and-ingestion.md), and the
+[closed drift loop](concepts/closed-drift-loop.md). Two pages hold the resource
+and permission choices: [platform design decisions](decisions/platform-design.md)
+and [permission boundaries](architecture/permissions.md).
 
 The approved improvement is the
 [phased AWS security hardening roadmap](architecture/phased-security-hardening.md).
@@ -39,12 +45,16 @@ are not started.
 
 Two navigation aids sit beside this wiki. The
 [generated CDK diagrams](architecture/generated-cdk-diagrams.md) render the
-synthesized resource graph, and the
+synthesized resource graph. The
 [graphify code graph](decisions/graphify-knowledge-graph.md) indexes the source
-tree and these pages together. Both are generated views of the repository, and
-neither replaces a page here.
+tree and these pages together. A tool builds each one from the repository.
+Neither replaces a page here.
 
 ## Tensions or open questions
 
-- The pipeline and Model Monitor are created or updated through SDK-driven scripts because they depend on live SageMaker state; this is a deliberate split from CDK-owned wiring and should be revisited if deployment requirements change.
-- Infrastructure deployment, data ingestion, pipeline execution, and API serving have separate observable failure boundaries; successful CloudWatch ingestion logs do not prove that training or endpoint deployment succeeded.
+- SDK-driven scripts create and update the pipeline and Model Monitor, because
+  both depend on live SageMaker state. This is a deliberate split from the
+  CDK-owned wiring. Reopen the split if the deployment requirements change.
+- Four parts fail independently: infrastructure deployment, data ingestion,
+  pipeline execution, and API serving. A successful CloudWatch ingestion log
+  does not prove that training or endpoint deployment succeeded.

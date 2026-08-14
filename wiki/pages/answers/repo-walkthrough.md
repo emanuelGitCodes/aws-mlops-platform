@@ -2,7 +2,7 @@
 type: answer
 title: How to explain this repo in an interview
 created: "2026-07-10"
-updated: "2026-07-11"
+updated: "2026-08-14"
 sources: ["../overview.md", "../architecture/data-and-ingestion.md", "../architecture/permissions.md", "../architecture/deployment-and-pipeline-troubleshooting.md", "../concepts/contracts-and-preprocessing.md", "../concepts/closed-drift-loop.md", "../decisions/platform-design.md", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md"]
 summary: "An interview-ready explanation organized around resources, event flow, contracts, permissions, and failure behavior."
 ---
@@ -10,21 +10,54 @@ summary: "An interview-ready explanation organized around resources, event flow,
 
 ## Confirmed
 
-Start with the outcome: this is a closed-loop AWS MLOps reference platform for telco churn. The model is intentionally ordinary; the system demonstrates ingestion, training lineage, gated promotion, secure serving, and monitoring-driven retraining.
+Start with the outcome. This is a closed-loop AWS MLOps reference platform for
+telco churn. The model is deliberately ordinary. The system shows ingestion,
+training lineage, gated promotion, secure serving, and monitoring-driven
+retraining.
 
-Then walk the runtime in order: S3 and EventBridge detect a new raw file, SQS and its DLQ make validation reliable, the shared schema protects the data contract, SageMaker trains and evaluates a challenger, the registry and approval event control release, API Gateway and the proxy Lambda protect inference, and Model Monitor closes the loop.
+Then walk the runtime in order:
 
-For deployment, explain the separate control-plane path: `${AWS_ADMIN_USER_NAME}` is the break-glass administrator, `${MLOPS_DEPLOYER_USER_NAME}` is the normal CDK identity, CDK bootstrap creates the standard roles and asset bucket, and CloudFormation applies a separate customer-managed execution policy. The deployment user can assume only the CDK lookup, deploy, and file-publishing roles; it does not receive direct application-service permissions or IAM administration rights.
+1. S3 and EventBridge detect a new raw file.
+2. SQS and its DLQ make the validation reliable.
+3. The shared schema protects the data contract.
+4. SageMaker trains and evaluates a challenger.
+5. The registry and the approval event control the release.
+6. API Gateway and the proxy Lambda protect the inference.
+7. The drift Lambda and the retrain Lambda close the loop.
+
+For the deployment, explain the separate control-plane path.
+`${AWS_ADMIN_USER_NAME}` is the break-glass administrator.
+`${MLOPS_DEPLOYER_USER_NAME}` is the normal CDK identity. CDK bootstrap creates
+the standard roles and the asset bucket. CloudFormation then applies a separate
+customer-managed execution policy. The deployment user assumes the CDK lookup,
+deploy, and file-publishing roles only. It holds no direct application-service
+permission and no IAM administration right.
 
 ## Synthesis
 
-For each component, explain four things: the resource it owns, why it exists, what permission it has, and what happens when it fails. The most important distinction is that schema validation and feature encoding are different stages, while training-data ingestion and inference requests are different flows.
+For each component, explain four things: the resource it owns, why it exists,
+what permission it holds, and what happens when it fails. Two distinctions
+matter most. Schema validation and feature encoding are different stages.
+Training-data ingestion and inference requests are different flows.
 
-Also distinguish the CDK lifecycle: `synth` creates local templates, `diff` previews changes, and `deploy` asks CloudFormation to apply them. If an IAM inspection command fails under `${MLOPS_DEPLOYER_USER_NAME}`, that is expected least-privilege behavior; use `${AWS_ADMIN_USER_NAME}` for IAM inspection and keep the deployment identity focused on the deployment path.
+Separate the three CDK commands as well. `synth` creates the local templates.
+`diff` previews the changes. `deploy` asks CloudFormation to apply them. An IAM
+inspection command fails under `${MLOPS_DEPLOYER_USER_NAME}`, and that failure
+is the expected least-privilege behavior. Use `${AWS_ADMIN_USER_NAME}` for an
+IAM inspection, and keep the deployment identity on the deployment path.
 
-The deployment session provides a concrete failure narrative for an interview: CloudFormation permissions were added from specific denied actions; Lambda packaging had to target Python 3.12 rather than the local Python 3.14; API authentication was fixed separately from the missing SageMaker endpoint; ingestion accepted 7,043 rows; and the pipeline then failed at the Processing boundary because `src.common.schema` was not packaged. The key lesson is to name the boundary where each failure occurred instead of treating “AWS deployment” as one operation.
+The deployment session gives an interview five concrete failures:
+
+1. The denied actions showed which CloudFormation permissions the execution policy needed.
+2. The Lambda packaging had to target Python 3.12, not the local Python 3.14.
+3. The API authentication fix was separate from the missing SageMaker endpoint.
+4. The ingestion accepted 7,043 rows.
+5. The pipeline then failed at the Processing boundary, because the job did not package `src.common.schema`.
+
+The lesson is to name the boundary of each failure. Do not describe "AWS
+deployment" as one operation.
 
 ## Tensions or open questions
 
-- Be explicit that CDK owns infrastructure and IAM wiring, while the pipeline and monitor use SDK-driven setup because they are versioned or live SageMaker objects.
+- Say clearly that CDK owns the infrastructure and the IAM wiring. The pipeline uses an SDK-driven setup, because it is a versioned live SageMaker object.
 - Be explicit that training logs appear only after `Preprocess` succeeds. A successful ingestion Lambda log proves that curated data exists, not that SageMaker training has started.

@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 3A first deployment rollback — July 18, 2026"
 created: "2026-07-18"
-updated: "2026-07-18"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3a-first-deployment-rollback-july-18-2026.md", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../tests/unit/test_deployment_policy.py", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-using-service-linked-roles.html", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create-service-linked-role.html"]
 summary: "The first Phase 3A deployment rolled back cleanly because the CloudFormation execution role lacked scoped permission to create the Access Analyzer service-linked role."
 ---
@@ -35,8 +35,9 @@ Related pages:
 
 ## Tensions or open questions
 
-- The corrected repository policy must pass local and hosted gates, then an
-  administrator must install and verify a new live default policy version.
+- The corrected repository policy MUST pass the local gates and the hosted
+  gates. An administrator MUST then install and verify a new live default policy
+  version.
 - A fresh named diff is required before retrying the SecurityMonitoring stack.
 - Analyzer activation, initial-analysis completion, complete finding review,
   alarm health, and application health remain unverified.

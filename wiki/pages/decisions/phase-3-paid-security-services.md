@@ -2,7 +2,7 @@
 type: decision
 title: Paid Phase 3 security services — GuardDuty cost and timing
 created: "2026-08-02"
-updated: "2026-08-02"
+updated: "2026-08-14"
 sources: ["https://aws.amazon.com/guardduty/pricing/", "https://aws.amazon.com/elasticloadbalancing/pricing/", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../sources/aws-free-plan-account-service-limits-july-18-2026.md", "../sources/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md"]
 summary: "GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply."
 ---
@@ -64,8 +64,8 @@ Three consequences follow, and each is a checkpoint rather than a footnote:
   ~$16.43/month before LCUs, plus the instance, against the existing **$20**
   budget and its 50/80/100% alerts. Raising the budget is a prerequisite
   conversation for the website and is independent of any security service.
-- **The trial burns from the moment of enablement**, so the service should not
-  be switched on early to look around.
+- **The trial starts at the moment of enablement.** Do not enable the service
+  early to look at it.
 
 The Free-plan upgrade remains the real gate. It ends the account's
 cannot-be-charged guarantee for every service at once, which is a materially

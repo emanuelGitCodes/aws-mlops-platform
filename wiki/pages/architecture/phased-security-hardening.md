@@ -10,51 +10,52 @@ summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, en
 
 ## Confirmed
 
-The project already has useful storage and application controls: its ML data
-buckets block public access, enforce TLS, use KMS encryption, retain versions,
-and are not publicly readable. The proxy Lambda validates the request schema and
-is scoped to invoke the configured SageMaker endpoint.
+The project already holds useful storage and application controls. The ML data
+buckets block public access, enforce TLS, use KMS encryption, and retain
+versions. No bucket is publicly readable. The proxy Lambda validates the request
+schema, and its role invokes the configured SageMaker endpoint only.
 
-The approved July 12 plan treats the following as hardening gaps rather than
-evidence that the existing dev platform is unsafe to study: account audit and
-threat-detection services were not enabled at assessment time, API Gateway used
-an API key as its access boundary, and the pipeline and model execution roles
-used `AmazonSageMakerFullAccess`. The target is AWS Foundational Security Best
-Practices for this workload, not formal SOC 2, HIPAA, or PCI DSS compliance.
+The approved July 12 plan names three hardening gaps. At assessment time the
+account enabled no audit service and no threat-detection service. API Gateway
+used an API key as its access boundary. The pipeline role and the model
+execution role used `AmazonSageMakerFullAccess`. A gap is not evidence that the
+dev platform is unsafe to study. The target is the AWS Foundational Security
+Best Practices for this workload, not formal SOC 2, HIPAA, or PCI DSS
+compliance.
 
-The complete implementation details and acceptance criteria are preserved in
-the [immutable planning source](../sources/phased-aws-security-hardening-plan-july-12-2026.md).
+The [immutable planning source](../sources/phased-aws-security-hardening-plan-july-12-2026.md)
+holds the complete implementation details and acceptance criteria.
 
 ## Synthesis
 
 ### Operating rule
 
-Every phase is a separate change set. Before moving forward, it must have a
-baseline, tests, CDK synthesis, reviewed `cdk diff`, its own commit, a scoped dev
-deployment, live checks, an observation window, a wiki log entry, and an explicit
-go/no-go checkpoint. Production is not changed while this roadmap is being
-validated in dev.
+Every phase is a separate change set. Each phase MUST complete ten steps before
+the next phase starts: a baseline, tests, CDK synthesis, a reviewed `cdk diff`,
+its own commit, a scoped dev deployment, live checks, an observation window, a
+wiki log entry, and an explicit go/no-go checkpoint. A phase under validation in
+dev MUST NOT touch production.
 
-Retained S3 data, KMS keys, audit logs, model packages, and model artifacts are
-never part of an automatic rollback. When a phase fails, revert only the most
-recent behavior change and use its CloudTrail or CloudWatch evidence to diagnose
-the boundary.
+An automatic rollback MUST NOT include retained S3 data, KMS keys, audit logs,
+model packages, or model artifacts. When a phase fails, revert the most recent
+behavior change only. Then diagnose the boundary from the CloudTrail evidence or
+the CloudWatch evidence of that change.
 
 ### Phase map
 
 | Phase | Isolated change | Required checkpoint |
 |---|---|---|
-| 0 | Read-only baseline and rollback preparation | Existing ingestion, pipeline, endpoint, and API behavior are recorded and unchanged. |
+| 0 | Read-only baseline and rollback preparation | The record holds the existing ingestion, pipeline, endpoint, and API behavior, and the phase changes none of it. |
 | 1 | Repository and CI security guardrails | Tests, lint, synth, dependency scan, and secret scan pass without an AWS deployment. |
-| 2 | CloudTrail, audit storage, SNS email, security alarms, and budget alerts | Trail is logging and a controlled alarm reaches the confirmed email. |
+| 2 | CloudTrail, audit storage, SNS email, security alarms, and budget alerts | The trail logs, and a controlled alarm reaches the confirmed email. |
 | 3 | Access Analyzer, AWS Config, account S3 blocking, and alert routing live in dev; GuardDuty and Security Hub remain behind the paid-plan gate | Enable one service at a time; each is healthy and credit burn remains acceptable. Revised July 19 for the AWS Free plan. |
 | 4A | Create the data KMS key and pre-grant roles | Every workload role passes controlled KMS access tests before bucket changes. |
 | 4B | Change bucket encryption defaults | Migrate artifacts, curated, then raw; verify each bucket before continuing. |
-| 4C | Re-encrypt existing objects and add lifecycle rules | Checksums, metadata, readability, key IDs, and retention are verified. |
+| 4C | Re-encrypt existing objects and add lifecycle rules | A check verifies the checksums, the metadata, the readability, the key IDs, and the retention. |
 | 5 | Replace broad IAM one role at a time — **complete** | Proxy, model, deploy, then pipeline roles pass their component checks; a billable pipeline run succeeds. All met by 2026-08-06. |
-| 6 | Replace API keys with IAM/SigV4 — **complete** | Signed authorized calls succeed; unsigned and unauthorized calls fail; response contract is unchanged. All met, and the window closed as a go on 2026-08-14. |
-| 7 | TLS 1.2, API logs, metrics, tracing, and alarms | TLS and observability work without logging credentials or customer inputs. |
-| 8 | WAF in count mode, then rule-by-rule blocking | Legitimate evaluation traffic passes and controlled malicious/rate traffic is blocked. |
+| 6 | Replace API keys with IAM/SigV4 — **complete** | A signed authorized call succeeds. An unsigned call and an unauthorized call fail. The response contract does not change. All met, and the window closed as a go on 2026-08-14. |
+| 7 | TLS 1.2, API logs, metrics, tracing, and alarms | TLS and the observability work, and no log holds a credential or a customer input. |
+| 8 | WAF in count mode, then rule-by-rule blocking | Legitimate evaluation traffic passes. The WAF blocks controlled malicious traffic and controlled rate traffic. |
 | 9 | Identity Center, long-lived-key retirement, finding review, and final docs | Temporary access works before old keys are disabled; no high finding is unexplained. |
 
 ### Current phase status
@@ -119,7 +120,7 @@ the boundary.
   that signal: `Invocations` `Sum` under 1, on an hourly period, over
   `monitor.silence_alarm_hours` periods. SageMaker publishes no `Invocations`
   datapoint for an idle hour rather than a zero. **The claim that `BREACHING`
-  is therefore sufficient was wrong, and the window proved it.**
+  is therefore enough was wrong, and the window proved it.**
 
   **The window is configuration, not a constant, because the alarm is only
   meaningful where traffic is expected.** Dev has no traffic floor, so its
@@ -197,10 +198,10 @@ the boundary.
   gate in full: a pre-flight baseline of the live alarm state, tests, a
   reviewed named diff, its own commit, a scoped dev deploy, `make verify-deploy`
   at resource level, live checks, an observation window, and an explicit
-  go/no-go. Each window must cover one idle period and one real fire, and must
-  confirm that the other alarms, `/predict`, and the `$20` budget are
-  unchanged. Neither sub-phase rotates the execution policy, so neither
-  consumes an IAM version slot.
+  go/no-go. Each window MUST cover one idle period and one real fire. Each
+  window MUST also confirm that the other alarms, `/predict`, and the `$20`
+  budget did not change. Neither sub-phase rotates the execution policy, so
+  neither one uses an IAM version slot.
 - **Phase 3-prep: complete.** Six all-false `security.services` enablement
   flags, an empty flag-gated `Mlops-Dev-SecurityMonitoring` stack
   (`CREATE_COMPLETE`, metadata only), and execution policy `v7` with the
@@ -236,7 +237,7 @@ the boundary.
   July 19 revision defers 3B and 3D behind an explicit manual upgrade
   decision; `dev.yaml` sets `guardduty: false`, the flag-gated detector code
   and its locked contract tests remain for the retry. The execution policy no
-  longer carries the GuardDuty actions, so the retry must add them to the
+  longer carries the GuardDuty actions, so the retry MUST add them to the
   extension policy recorded below. See the
   [implementation record](../sources/aws-security-hardening-phase-3b-implementation-july-18-2026.md),
   [first deployment rollback](../sources/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md),
@@ -246,14 +247,14 @@ the boundary.
 - **Phase 3E: complete; observation closed as a go 2026-07-30.** Account-level
   S3 Block Public Access
   is live in dev with all four settings true, where the pre-flight recorded
-  `NoSuchPublicAccessBlockConfiguration`. CloudFormation has no resource type for
-  the account-level setting, so it is set through the `AwsCustomResource` pattern
-  already proven by the Data stack's budget notifications, with `on_delete`
-  restoring the pre-state so a failed phase rolls back cleanly. The deploy
-  created four resources and modified nothing else; the analyzer, six alarms,
-  bucket readability, and `/predict` all verified unchanged, and a subsequent
-  diff reports none. No execution-policy rotation was needed, so the GuardDuty
-  divergence and the last IAM version slot both survive for 3C. The phase also
+  `NoSuchPublicAccessBlockConfiguration`. CloudFormation holds no resource type
+  for the account-level setting. An `AwsCustomResource` sets it instead, through
+  the pattern that the Data stack budget notifications already proved. Its
+  `on_delete` restores the earlier state, so a failed phase rolls back cleanly.
+  The deploy created four resources and modified nothing else. The analyzer, the
+  six alarms, the bucket readability, and `/predict` all verified unchanged, and
+  a later diff reports no change. The phase needed no execution-policy rotation,
+  so the GuardDuty divergence and the last IAM version slot both survive for 3C. The phase also
   cleared the stack's leftover `UPDATE_ROLLBACK_COMPLETE` marker. See the
   [implementation and deployment record](../sources/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md).
 - **Phase 3C: complete; observation closed.** AWS Config is live in dev with a
@@ -267,8 +268,8 @@ the boundary.
   two of them pre-existing: the Phase 3-prep service-linked-role grant used
   the non-existent `aws-service-linked-role` path (and its test pinned the
   same wrong value), Config needs `iam:PassRole` on that role, and the
-  recorder and delivery channel are mutually dependent so neither may depend
-  on the other. The execution policy rotated twice and is live as `v11` with
+  recorder and the delivery channel depend on each other, so neither one MAY
+  declare a CloudFormation dependency on the other. The execution policy rotated twice and is live as `v11` with
   the GuardDuty actions removed and the CloudFormation read-back grants added;
   `v5` was deleted to free a version slot and `v8` remains the
   rollback target. See the
@@ -450,12 +451,12 @@ the boundary.
   profile and Region selection and signs requests with temporary credentials.
   There is no permanent legacy API-key route. The break is merged and reaches
   callers at the Serving deploy, not at the merge.
-- Paid security services remain limited to `us-east-1` during dev. Production
-  and multi-Region expansion require a later manual decision.
-- WAF begins in count mode. Each managed rule moves to blocking independently
-  after sampled legitimate requests are reviewed.
-- The six Phase 3 service flags are a fixed configuration contract, but only
-  the implemented subset may be enabled. `SecurityMonitoringStack` raises when
+- The paid security services stay in `us-east-1` during dev. Production and a
+  multi-Region expansion each need a later manual decision.
+- WAF begins in count mode. Review the sampled legitimate requests first. Then
+  move each managed rule to blocking on its own.
+- The six Phase 3 service flags are a fixed configuration contract. Only an
+  implemented flag MAY be set true. `SecurityMonitoringStack` raises when
   a flag with no CDK behind it is set true, so a sub-phase cannot appear
   enabled in configuration while creating nothing in the account. A flag joins
   `IMPLEMENTED_SERVICE_FLAGS` in the same change that implements its
@@ -562,11 +563,11 @@ event. The first run failed on the processing job, the second on the model
 package group, and only the third had all four create statements carrying it.
 
 That generalises past this phase: **CloudTrail enumerates a role's API surface,
-not its authorization surface.** Implicit tagging, and any other permission
-checked as part of another call, is invisible to it. A least-privilege change
-set derived from trail evidence alone should expect exactly this class of
-failure, which is the argument for the component check being a real workload
-run rather than a smoke test. The corollary also held: `logs:CreateLogGroup`
+not its authorization surface.** The trail does not show implicit tagging, and
+it does not show any other permission that AWS checks inside a different call. A
+least-privilege change set built from trail evidence alone therefore meets this
+class of failure. For that reason the component check MUST be a real workload
+run, not a smoke test. The corollary also held: `logs:CreateLogGroup`
 and `sagemaker:CreateModelPackageGroup` both come back as *service* errors
 today, and that is a success path only while the permission exists.
 
@@ -722,10 +723,10 @@ Related runtime and human authority boundaries are documented in
   the identity that closes a window without administrator access, and on this
   one criterion it never was. Phase 2E is the precedent for the fix: an
   out-of-band grant of exactly the read required, in its own gated step.
-- The SNS alert destination requires an email value and manual subscription
-  confirmation; no address is stored in this plan.
-- Security-service, WAF, CloudWatch, CloudTrail data-event, and KMS usage charges
-  must be observed after each phase against the existing dev budget.
+- The SNS alert destination needs an email value and a manual subscription
+  confirmation. This plan stores no address.
+- After each phase, compare the security-service, WAF, CloudWatch, CloudTrail
+  data-event, and KMS usage charges against the existing dev budget.
 - Phase 5 required a billable pipeline run to prove that least-privilege access
   still supports the full ML workflow. **Closed on 2026-08-06.** 5C's run
   supplied the baseline under the unchanged role; 5D's third run supplied the
@@ -735,7 +736,8 @@ Related runtime and human authority boundaries are documented in
   Model Monitor is no longer part of the platform, and the drift loop that
   replaced it has its own execution role. See
   [drift capture design](../decisions/drift-capture-design.md).
-- Existing objects do not automatically adopt a new default KMS key. Phase 4C
-  must preserve and verify object versions before lifecycle expiration.
-- Disabling long-lived administrator credentials is intentionally last so the
-  roadmap cannot lock the operator out before temporary access is proven.
+- An existing object does not adopt a new default KMS key on its own. Phase 4C
+  MUST preserve and verify the object versions before lifecycle expiration.
+- The roadmap disables the long-lived administrator credentials last. The
+  operator therefore proves temporary access before the roadmap can lock them
+  out.

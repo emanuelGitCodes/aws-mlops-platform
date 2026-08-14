@@ -6160,3 +6160,70 @@ if an LLM backend is ever configured for community naming.
 
 `make graph`, `make lint`, `make test`, `make docs-sync`, `make wiki-lint`,
 and `make public-check`.
+
+## [2026-08-14] update | The pages meet the ASD-STE100 and RFC 2119 standard
+
+### Objective
+
+Bring every maintained page under `pages/` and the wiki's own contract files to
+the writing standard in the root `AGENTS.md`: ASD-STE100 for the prose, RFC 2119
+for the requirement words.
+
+### Scope
+
+- All 47 pages under `wiki/pages/`, plus `wiki/SCHEMA.md` and `wiki/AGENTS.md`.
+- `wiki/index.md`, rebuilt after the page summaries and dates changed.
+- **Out of scope by contract:** `wiki/raw/` is immutable, and preserved source
+  text keeps its own words. The earlier entries in this log are append-only
+  history. Neither was edited.
+
+### Commands and observed results
+
+1. A heuristic scanner flagged three classes of risk across the pages: a
+   sentence above the 25-word limit, a passive construction, and a word with a
+   simpler approved equivalent. The first run reported 270 candidate lines.
+2. A grep for the RFC 2119 synonyms REQUIRED, SHALL, RECOMMENDED, and OPTIONAL
+   returned no hit. The wiki never used them.
+3. A grep for lowercase `must`, `should`, and `may` in a normative sentence
+   returned 45 lines across 30 files. Each one is now an uppercase keyword, a
+   plain imperative, or a statement of fact.
+4. 18 sentences were above the length limit. The longest, in
+   `pages/answers/repo-walkthrough.md`, held 63 words. Both of the long list
+   sentences on that page are now numbered lists.
+5. `make wiki-index`, then `make wiki-lint`: `Wiki healthy: 47 page(s)`.
+6. `make public-check`: no sensitive literal.
+
+### Interpretation
+
+Three rules did most of the work. Name the actor instead of writing an agentless
+passive. Write one idea per sentence. Reserve an uppercase keyword for a rule
+that a reader breaks at a real cost. A SHOULD with no escape condition became a
+MUST or an ordinary sentence, as the root standard requires.
+
+**Four stale claims surfaced during the rewrite, and each was corrected in
+place.** A sentence cannot be repaired for style while it states something
+false.
+
+- `pages/architecture/permissions.md` said an API caller needs an API key. Phase
+  6 replaced that with SigV4, and the account holds no API key.
+- `pages/architecture/cdk-deployment-iam.md` described six application stacks.
+  `infra/app.py` defines nine per environment. The same page said the pipeline
+  role still carries `AmazonSageMakerFullAccess`; Phase 5D removed it.
+- `pages/architecture/deployment-and-pipeline-troubleshooting.md` said the Model
+  Monitor capture path waits for another capture mechanism. The
+  repository-owned drift job replaced it.
+- `pages/concepts/contracts-and-preprocessing.md` reported the `src` packaging
+  failure in the present tense. That defect is fixed.
+
+### Decision and next checkpoint
+
+The pass covers the pages and the contract files. It deliberately leaves the
+raw records and the earlier log entries alone. No AWS resource, no application
+code, and no test changed. The next writing checkpoint is the next new page:
+the standard now has to hold at the point of writing, because the wiki no longer
+carries a backlog of exceptions.
+
+### Verification
+
+`make wiki-index`, `make wiki-lint`, `make public-check`, `make docs-sync`,
+`make lint`, and `make test`.

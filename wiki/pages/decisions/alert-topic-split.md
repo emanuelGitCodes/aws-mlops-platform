@@ -73,9 +73,12 @@ summary: "The endpoint alarms move to a separate operational topic, because an i
 | `Mlops-Dev-Monitoring` | `DriftEvaluationFn`, `RetrainTriggerFn` | `UPDATE_COMPLETE` |
 | `Mlops-Dev-Data` | none | the stack changed nothing |
 
-**The two Lambda updates carry no source change.** They are the known
+**The two Lambda updates carry no source change.** They are the
 non-reproducible bundled asset hash. A deploy from a cold `cdk.out`
-republishes the function code with an identical source tree.
+republishes the function code with an identical source tree. Commit
+`326f27f` later found the cause and fixed it: `.git` joined the asset
+fingerprint, and it holds a different value in each checkout. The first
+deploy after that commit updates all four functions one time.
 
 The live routing check confirms the split. Nine alarms exist. Two name
 `mlops-dev-ops-alerts`: `mlops-dev-endpoint-5xx` and

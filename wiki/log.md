@@ -6482,3 +6482,69 @@ seven security alarms still reach the old one.
 
 `make lint`, `make typecheck`, `make test`, `make wiki-index`, `make wiki-lint`,
 and `make public-check`.
+
+## [2026-08-14] update | A fresh account can reach this platform from the README
+
+### Objective
+
+Record the change that makes a clone-and-follow deploy work on a new AWS
+account, and record the two defects that the reference account hid.
+
+### Scope
+
+- `pages/architecture/cdk-deployment-iam.md`: a new section, two tension
+  entries, and five new sources.
+- The code landed earlier the same day as pull request #67, squashed to
+  `e8b7e31`. This entry is the record, not the change.
+
+### Commands and observed results
+
+1. **`make deploy` could never succeed on a new account.**
+   `SecurityAlertEmail` is a `CfnParameter` with no default, and no target
+   supplied it. CloudFormation reuses a stored parameter value on an update, so
+   the reference account kept working from its first hand-run deploy.
+   `deploy.yml` calls the same target and carried the same defect.
+2. **`make bootstrap` granted `AdministratorAccess`** to the CDK
+   CloudFormation execution role, which is the CDK default. The reference
+   account runs on the two repository-owned execution policies.
+3. `scripts/setup_account.sh` now creates both execution policies, the
+   `MLOps-Deployers` group, `MLOpsCdkDeploymentPolicy`, and the deploy user
+   with one printed access key. It is idempotent.
+4. `scripts/setup_github_deploy.sh` reads `GitHubDeployRoleArn` from the `Cicd`
+   stack, creates the GitHub environment, and sets the deploy-role secret.
+5. `make bootstrap` names both execution policies. `make deploy` and
+   `make deploy-stack` pass `SecurityAlertEmail`, and `check-alert-email` stops
+   early when the value is absent.
+6. The rebase onto `main` produced one conflict, in the `Makefile` `.PHONY`
+   list: `main` had added the graph targets and the branch had added
+   `check-alert-email`. The resolution keeps both.
+7. Gates on the rebased branch: lint, typecheck, 345 tests at `94.15%`,
+   `synth-all` for dev and prod, `docs-sync`, `public-check`, and `wiki-lint`.
+
+### Interpretation
+
+**A working reference account hides a first-run defect.** Both problems were
+invisible here for one reason: this account already holds the state that a new
+account lacks, and CloudFormation quietly supplies a stored parameter. The
+general rule for this repository: **a path that only a populated account
+exercises is an untested path.**
+
+The second defect is a documentation boundary, not only a convenience. The
+README told a reader to bootstrap with `AdministratorAccess` on the execution
+role, while this wiki describes a two-policy boundary. The repository presented
+one boundary and shipped the instructions for a weaker one.
+
+### Decision and next checkpoint
+
+**Neither script has run against a live account.** Read-only IAM calls checked
+their policy assumptions, and their runtime behavior is unproven. The next
+checkpoint is a run of `setup_account.sh` against a scratch account. Until then
+the README path stays unverified, and the page says so.
+
+One local action is needed here: add `SECURITY_ALERT_EMAIL` to `.env`, or the
+guard stops the next deploy. The pending sub-phase from pull request #68 is that
+next deploy.
+
+### Verification
+
+`make wiki-index`, `make wiki-lint`, `make public-check`, `make docs-sync`.

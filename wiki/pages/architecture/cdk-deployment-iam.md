@@ -3,7 +3,7 @@ type: architecture
 title: CDK deployment identity and bootstrap boundary
 created: "2026-07-10"
 updated: "2026-08-14"
-sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/policies/mlops-cloudformation-execution-policy-extension.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html"]
+sources: ["../../../infra/app.py", "../../../infra/cdk.json", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/policies/mlops-cloudformation-execution-policy-extension.json", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/ingestion_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/mlops-cloudformation-execution-policy-v1-2026-07-10.json", "https://docs.aws.amazon.com/cdk/v2/guide/deploy.html", "https://docs.aws.amazon.com/cdk/v2/guide/ref-cli-cmd-bootstrap.html", "../../../scripts/setup_account.sh", "../../../scripts/setup_github_deploy.sh", "../../../Makefile", "../../../README.md", "../../../infra/stacks/security_stack.py"]
 summary: "A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy."
 ---
 # CDK deployment identity and bootstrap boundary
@@ -188,6 +188,64 @@ one message at a time. SQS gives the buffer and the retry behavior. After the
 configured receive limit, the message moves to the DLQ for inspection, and it
 does not block the rest of the queue.
 
+## Reproducing this boundary on a new account
+
+Everything above describes the reference account. That account holds state a
+new account does not, and the state hid two defects until 2026-08-14.
+
+### The two defects
+
+- **`make deploy` could never succeed on a new account.**
+  `infra/stacks/security_stack.py` declares `SecurityAlertEmail` as a
+  `CfnParameter` with no default, and no target supplied a value.
+  **CloudFormation reuses a stored parameter value on an update.** The
+  reference account received the value at its first hand-run deploy and has
+  reused it since, so no later deploy asked for it. A first deploy on a new
+  account fails. `deploy.yml` calls the same target, so the workflow carried
+  the same defect.
+- **`make bootstrap` granted `AdministratorAccess`.** That is the CDK default
+  for the CloudFormation execution role. The reference account runs on the two
+  repository-owned execution policies instead. A reader who followed the README
+  therefore built a weaker boundary than the one this repository presents as
+  its own.
+
+### The scripted path
+
+`scripts/setup_account.sh` runs once per account, under an admin-capable
+identity, before `make bootstrap`. It is idempotent and leaves an existing IAM
+object as it is. It creates:
+
+- both execution policies, from the repository JSON through `envsubst`;
+- the `MLOps-Deployers` group and `MLOpsCdkDeploymentPolicy`;
+- the deploy user, and one access key that the script prints once.
+
+`make bootstrap` now names both execution policies, so the CDK execution role
+never holds `AdministratorAccess`. `make deploy` and `make deploy-stack` pass
+`SecurityAlertEmail` from `SECURITY_ALERT_EMAIL`, and the `check-alert-email`
+guard stops early with a usable message when the value is absent. The stack
+name for the parameter comes from `stack_prefix()`, so the formula stays in one
+place.
+
+`scripts/setup_github_deploy.sh` is optional and runs after the `Cicd` stack
+deploys. It reads `GitHubDeployRoleArn` from the stack output, creates the
+GitHub environment, and sets the deploy-role secret that `deploy.yml` expects.
+
+**The `MLOpsCdkDeploymentPolicy` document lives in the script, and it MUST
+match the live policy.** Its SSM grant names the single CDK bootstrap version
+parameter. A wildcard resource there would widen the control-plane identity
+beyond the access it needs.
+
+### What no script can do
+
+Three steps stay manual, and the README lists them:
+
+- **Confirm the security-alert SNS subscription.** Without the click, the CIS
+  and detection alarms deliver nowhere.
+- **Activate the budget cost-allocation tag.** Before activation the budget
+  filter matches nothing, and the budget never alarms.
+- **Decide on GuardDuty and Security Hub.** Both wait behind the paid-plan
+  upgrade.
+
 ## Applying the execution policy
 
 **The execution boundary spans two managed policies, and the split is a size
@@ -241,6 +299,14 @@ the substituted output, not the raw parameterized file.
 - Phase 5 took the model, proxy, deploy, and pipeline roles off their broad
   managed policies. Those runtime policies are a separate task from the IAM user
   work and the CDK bootstrap work on this page.
+- **Neither setup script has run against a live account.** Read-only IAM calls
+  checked their policy assumptions. Their runtime behavior is unproven. A run
+  against a scratch account is the only real test, and it MUST happen before
+  anyone treats the README path as verified.
+- **An existing `.env` needs `SECURITY_ALERT_EMAIL`.** Without it the
+  `check-alert-email` guard stops `make deploy` and `make deploy-stack`. This is
+  the deliberate trade: the guard is what protects a first deploy on a new
+  account.
 - Diagnose a failed `cdk diff` or a failed deployment from the denied action and
   the CloudFormation event. Then amend the custom policy explicitly.
   Reattachment of `AdministratorAccess` MUST stay a break-glass recovery step.

@@ -1,0 +1,6 @@
+# The website image owns its dependencies. `uv.lock` governs the repository
+# environment and does not reach this container. Keep these versions equal to
+# the locked versions, so the container validates records the same way the
+# platform does.
+boto3==1.43.59
+pydantic==2.13.4

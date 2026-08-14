@@ -64,6 +64,21 @@ class CicdConfig(TypedDict):
     owns_oidc_provider: bool
 
 
+class WebsiteConfig(TypedDict):
+    """Define the public demo website.
+
+    `build_app` skips `WebsiteStack` when `enabled` is false, so the
+    environment pays for no instance.
+    """
+
+    enabled: bool
+    instance_type: str
+    # Limit how many predictions one caller may request each minute.
+    rate_limit_per_minute: int
+    # The CloudFront origin-facing managed prefix list for the deploy region.
+    cloudfront_prefix_list_id: str
+
+
 class PlatformConfig(TypedDict):
     """One environment's complete config, as loaded from YAML."""
 
@@ -80,6 +95,7 @@ class PlatformConfig(TypedDict):
     capture_retention_days: int
     security: SecurityConfig
     cicd: CicdConfig
+    website: WebsiteConfig
 
 
 # These S3 prefixes connect writers with IAM grants.

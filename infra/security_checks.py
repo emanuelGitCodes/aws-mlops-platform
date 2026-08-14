@@ -23,6 +23,10 @@ PIPELINE_TOKEN = "{pipeline}"
 # The account budget flag is separate from the six `security.services` flags.
 ACCOUNT_BUDGET_FLAG = "account_budget"
 
+# `build_app` skips `WebsiteStack` when `website.enabled` is false, so every
+# website acknowledgement MUST carry this flag.
+WEBSITE_FLAG = "website"
+
 
 @dataclass(frozen=True)
 class Acknowledgement:
@@ -349,6 +353,94 @@ ACKNOWLEDGEMENTS = (
         )
         for function in ("RetrainTriggerFn", "DriftEvaluationFn")
     ),
+    Acknowledgement(
+        "website",
+        "WebsiteInstanceRole",
+        "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/"
+        "AmazonSSMManagedInstanceCore]",
+        (
+            "Phase 7 replaces the SSM managed policy with a scoped session policy; "
+            "Session Manager is the only shell path, because the instance opens no "
+            "SSH port."
+        ),
+        requires_flag=WEBSITE_FLAG,
+    ),
+    Acknowledgement(
+        "website",
+        "WebsiteInstanceRole/DefaultPolicy",
+        "AwsSolutions-IAM5[Resource::*]",
+        (
+            "Phase 7 website image pull; AWS accepts only '*' as the resource for "
+            "ecr:GetAuthorizationToken."
+        ),
+        requires_flag=WEBSITE_FLAG,
+    ),
+    Acknowledgement(
+        "website",
+        "WebsiteInstanceRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAtt"
+            "ArtifactsBucket2AAC5544ArnD57FAE19/evaluations/*]"
+        ),
+        (
+            "Phase 7 website reads every evaluation report; the object names carry a "
+            "generated suffix under one prefix."
+        ),
+        requires_flag=WEBSITE_FLAG,
+    ),
+    Acknowledgement(
+        "website",
+        "WebsiteInstance",
+        "AwsSolutions::AwsSolutions-EC28",
+        (
+            "Phase 7 revisits paid detailed monitoring; the five-minute basic metrics "
+            "answer the demo site."
+        ),
+        requires_flag=WEBSITE_FLAG,
+    ),
+    Acknowledgement(
+        "website",
+        "WebsiteInstance",
+        "AwsSolutions::AwsSolutions-EC29",
+        (
+            "Phase 7 keeps the instance replaceable; a new image rolls it, and the "
+            "instance holds no state."
+        ),
+        requires_flag=WEBSITE_FLAG,
+    ),
+    *(
+        Acknowledgement(
+            "website",
+            "WebsiteDistribution",
+            f"AwsSolutions::AwsSolutions-{finding}",
+            reason,
+            requires_flag=WEBSITE_FLAG,
+        )
+        for finding, reason in (
+            (
+                "CFR1",
+                "Phase 8 revisits geo restriction; the demo site serves every reader.",
+            ),
+            (
+                "CFR2",
+                "Phase 8 starts WAF in count mode; the app rate-limits predictions today.",
+            ),
+            (
+                "CFR3",
+                "Phase 7 revisits access logs; a log bucket costs more than the site.",
+            ),
+            (
+                "CFR4",
+                "Phase 9 adds a custom domain and ACM; the default certificate pins no "
+                "minimum TLS version.",
+            ),
+            (
+                "CFR5",
+                "Phase 9 adds TLS to the origin; the security group admits the "
+                "CloudFront prefix list only.",
+            ),
+        )
+    ),
 )
 
 
@@ -410,6 +502,10 @@ def apply_security_checks(
     # `ACCOUNT_BUDGET_FLAG` must match this key.
     if config["security"]["account_budget"]:
         enabled.add(ACCOUNT_BUDGET_FLAG)
+    # The flag check below runs before the stack lookup, so a disabled website
+    # skips every acknowledgement that names the absent stack.
+    if config["website"]["enabled"]:
+        enabled.add(WEBSITE_FLAG)
     for acknowledgement in resolved_acknowledgements(config, prefix):
         if acknowledgement.requires_flag and acknowledgement.requires_flag not in enabled:
             continue

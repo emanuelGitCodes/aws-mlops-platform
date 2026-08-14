@@ -33,6 +33,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.
 - [Platform design decisions](pages/decisions/platform-design.md) — The platform favors managed SageMaker lineage where it matters and small AWS primitives where simple event wiring is clearer.
 - [Two alert topics, operational and security](pages/decisions/alert-topic-split.md) — The endpoint alarms move to a separate operational topic, because an idle dev endpoint is the expected state and its silence alarm made routine noise on the security channel.
+- [Website stack plan, CloudFront over an ALB](pages/decisions/website-stack-plan.md) — A tenth stack serves a public demo website from one EC2 container behind CloudFront, with a DynamoDB mailing list, because an ALB or RDS alone consumes most of the $20 monthly budget.
 
 ## Filed answers
 

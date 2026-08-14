@@ -144,6 +144,77 @@ def test_config_recorder_can_pass_only_its_own_service_linked_role():
     }
 
 
+def test_website_ec2_grants_cover_the_stack_resources():
+    """Grant the network and instance actions the website stack creates."""
+    document = json.loads(EXTENSION_PATH.read_text())
+    network = set(_statement(document, "WebsiteEc2Network")["Action"])
+    instances = set(_statement(document, "WebsiteEc2Instances")["Action"])
+
+    assert {
+        "ec2:CreateVpc",
+        "ec2:CreateSubnet",
+        "ec2:CreateInternetGateway",
+        "ec2:CreateRouteTable",
+        "ec2:CreateSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:CreateFlowLogs",
+        "ec2:AllocateAddress",
+        "ec2:AssociateAddress",
+    } <= network
+    assert {"ec2:RunInstances", "ec2:TerminateInstances", "ec2:Describe*"} <= instances
+
+
+def test_website_data_grants_stay_scoped():
+    """Scope the CloudFront and DynamoDB grants to the website resources."""
+    document = json.loads(EXTENSION_PATH.read_text())
+
+    distribution = _statement(document, "WebsiteCloudFront")
+    assert distribution["Resource"] == "arn:aws:cloudfront::${AWS_ACCOUNT_ID}:distribution/*"
+    assert "cloudfront:CreateDistribution" in distribution["Action"]
+
+    table = _statement(document, "WebsiteDynamoDb")
+    assert table["Resource"] == (
+        "arn:aws:dynamodb:us-east-1:${AWS_ACCOUNT_ID}:table/mlops-*-website-mailing-list"
+    )
+    # The boundary creates the table. It never reads a stored address.
+    assert not [action for action in table["Action"] if action.endswith(("GetItem", "Scan"))]
+
+
+def test_website_pass_role_is_separate_and_scoped():
+    """Keep the website pass-role grant out of the full main document."""
+    main = json.loads(POLICY_PATH.read_text())
+    document = json.loads(EXTENSION_PATH.read_text())
+
+    # `PassOnlyApplicationRoles` stays unchanged; the main document is full.
+    assert "ec2.amazonaws.com" not in json.dumps(
+        _statement(main, "PassOnlyApplicationRoles")["Condition"]
+    )
+
+    statement = _statement(document, "PassWebsiteInstanceRole")
+    assert statement["Action"] == "iam:PassRole"
+    assert statement["Resource"] == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/Mlops-*-Website-*"
+    assert set(statement["Condition"]["StringEquals"]["iam:PassedToService"]) == {
+        "ec2.amazonaws.com",
+        "vpc-flow-logs.amazonaws.com",
+    }
+
+    profile = _statement(document, "WebsiteInstanceProfileLifecycle")
+    assert profile["Resource"] == (
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:instance-profile/Mlops-*-Website-*"
+    )
+
+
+def test_website_ami_parameter_read_is_scoped_to_the_public_ami_path():
+    """Read only the public Amazon Linux AMI parameters."""
+    document = json.loads(EXTENSION_PATH.read_text())
+    statement = _statement(document, "WebsiteAmiParameterRead")
+
+    assert statement["Resource"] == (
+        "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/*"
+    )
+    assert set(statement["Action"]) == {"ssm:GetParameter", "ssm:GetParameters"}
+
+
 def _rendered_size(path):
     """Return the compact policy size with a documentation account id."""
     document = path.read_text().replace("${AWS_ACCOUNT_ID}", "123456789012")

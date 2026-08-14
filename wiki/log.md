@@ -6811,3 +6811,115 @@ disagrees.
 
 `uv run --locked python scripts/wiki.py index` rebuilt the index and
 `make wiki-lint` passed with the two new pages.
+
+## [2026-08-14] update | Website stack plan recorded before implementation
+
+### Objective
+
+Record the approved plan for a tenth stack, `Mlops-Dev-Website`, before any
+code exists, so the design decisions and their cost reasoning survive the
+session.
+
+### Scope
+
+`wiki/pages/decisions/website-stack-plan.md` (new). No code path changes.
+The planned stack touches `infra/app.py`, `infra/stacks/shared.py`,
+`infra/security_checks.py`, the execution-policy extension, and a new
+`src/website/` package when implementation starts.
+
+### Commands and results
+
+Read-only exploration of `infra/` and `tests/unit/` established the
+integration points: the `requires_flag` mechanism in
+`infra/security_checks.py`, the `sign_headers`/`post_prediction` pair in
+`scripts/evaluate_api.py`, and `api.url_for_path("/predict")` in the
+Serving stack. No mutating command ran.
+
+### Interpretation
+
+The $20 monthly budget forced every major choice: CloudFront replaces an
+ALB (~$16.50/mo), DynamoDB replaces RDS (~$12–15/mo), and a 1-year
+no-upfront Reserved Instance makes `t4g.small` affordable (~$7.74/mo
+against $12.26 on-demand) with no upfront spike through the budget alarms.
+The plan reuses the Phase 6 SigV4 boundary through a server-side proxy and
+gates the stack behind a `website.enabled` config flag so prod stays free.
+
+### Decision and next checkpoint
+
+The page states plainly that nothing is implemented or deployed. The next
+checkpoint is the implementation change set (one phase per the operating
+rule), then a dev deploy, then the RI purchase by the account owner, then
+an observation window. GuardDuty enablement follows in its own change set,
+because EC2 landing is its approved trigger.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed with the
+new page.
+
+## [2026-08-14] update | Website stack written, tested, and not deployed
+
+### Objective
+
+Implement the tenth stack, `Mlops-Dev-Website`, to the plan recorded in the
+entry above, and take it through every repository gate short of a deploy.
+
+### Scope
+
+New: `infra/stacks/website_stack.py`, `src/website/` (`server.py`,
+`Dockerfile`, `requirements.txt`), `src/common/signing.py`,
+`tests/unit/test_website_stack.py`, `tests/unit/test_website_server.py`,
+`tests/unit/test_signing.py`. Changed: `infra/app.py`,
+`infra/stacks/shared.py` (`WebsiteConfig`), `infra/config/*.yaml`,
+`infra/stacks/serving_stack.py` (`predict_url` attribute),
+`infra/security_checks.py` (`WEBSITE_FLAG` and ten acknowledgements),
+`infra/policies/mlops-cloudformation-execution-policy-extension.json`,
+`scripts/evaluate_api.py`, `tests/unit/conftest.py`,
+`tests/unit/test_security_checks.py`, `tests/unit/test_deployment_policy.py`,
+`pyproject.toml`.
+
+### Commands and results
+
+- A spike measured `Stack.bundling_required`: false under the conftest
+  context `aws:cdk:bundling-stacks: []`, true without it. The stack gates
+  `DockerImageAsset` on that value.
+- `AWS_PROFILE=${AWS_SECURITY_AUDITOR_USER_NAME} aws ec2
+  describe-managed-prefix-lists` (read-only) returned `pl-3b927c52`,
+  `com.amazonaws.global.cloudfront.origin-facing`, `create-complete`.
+- The first `make synth ENV=dev` failed with `Cannot find image directory at
+  .../infra/src`: the CDK CLI runs `app.py` from `infra/`, so the asset needs
+  an absolute path.
+- cdk-nag then reported ten findings. Each one is acknowledged by its exact
+  id, and each reason names the phase that removes it.
+- `make test`: 408 passed, coverage 94.58 percent against the raised floor.
+  `make lint`, `make typecheck`, `make synth-all`, `make docs-sync`,
+  `make public-check`, `make lock-check`, `make wiki-lint`: all pass.
+- The server ran locally on port 8099. `/`, `/api/health`, and `/api/schema`
+  answered; an invalid address and an invalid record returned 400; an unknown
+  path returned 404; the eleventh prediction in one minute returned 429.
+
+### Interpretation
+
+Three design points changed during the build. The instance attribute
+`PublicDnsName` resolves before the Elastic IP attaches and would name a
+released address, so the origin name is built from the address. A Python
+comparison cannot read `self.region`, because these stacks carry no `env` and
+the value is a token; a `CfnCondition` resolves the `compute-1` special case
+at deploy time. A container user without privileges cannot bind port 80, so
+the container listens on 8080 and the host publishes it as port 80.
+
+The `ecr:GetAuthorizationToken` grant adds the second entry to the literal
+wildcard baseline. AWS accepts no narrower resource for that action.
+
+### Decision and next checkpoint
+
+Nothing is deployed, and the wiki page says so. The next checkpoints, in
+order: update the two deployed managed policies from `infra/policies/`,
+review `make diff-stack STACK=Mlops-Dev-Website` and confirm the Data and
+Serving dependency stacks diff clean, deploy, run `make verify-deploy`, smoke
+the CloudFront URL, then buy the Reserved Instance. GuardDuty enablement
+stays a separate change set, because EC2 landing is its approved trigger.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.

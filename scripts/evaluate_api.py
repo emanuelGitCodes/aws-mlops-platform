@@ -26,14 +26,15 @@ from pathlib import Path
 from typing import Any
 
 import boto3
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
 
 # Add the repository root for direct file-path invocation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.common.features import DEFAULT_THRESHOLD
+from src.common.signing import SigningError, post_prediction, sign_headers
 from src.pipeline.evaluate import calculate_classification_metrics
+
+__all__ = ["SigningError", "post_prediction", "sign_headers"]
 
 
 class ApiEvaluationError(RuntimeError):
@@ -103,50 +104,6 @@ def select_records(
     rng = random.Random(42)
     selected = rng.sample(by_label[0], negative_count) + rng.sample(by_label[1], positive_count)
     return sorted(selected, key=lambda item: item["row_id"])
-
-
-def sign_headers(
-    api_url: str, body: bytes, session: boto3.Session, region: str | None = None
-) -> dict[str, str]:
-    """Return the SigV4 headers for one POST to the API.
-
-    The signature covers the body. A caller must sign the exact bytes it
-    sends. The service name for API Gateway is `execute-api`.
-    """
-    credentials = session.get_credentials()
-    if credentials is None:
-        raise ApiEvaluationError("no AWS credentials found for signing")
-    signing_region = region or session.region_name
-    if not signing_region:
-        raise ApiEvaluationError("no AWS region found for signing")
-    request = AWSRequest(
-        method="POST",
-        url=api_url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    SigV4Auth(credentials, "execute-api", signing_region).add_auth(request)
-    return dict(request.headers)
-
-
-def post_prediction(
-    api_url: str,
-    record: dict[str, Any],
-    session: boto3.Session,
-    region: str | None = None,
-    timeout: float = 15.0,
-) -> dict[str, Any]:
-    """POST one record to /predict and return the parsed JSON response."""
-    body = json.dumps(record).encode()
-    request = urllib.request.Request(
-        api_url,
-        data=body,
-        headers=sign_headers(api_url, body, session, region),
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        payload: dict[str, Any] = json.loads(response.read())
-    return payload
 
 
 def invoke_prediction(

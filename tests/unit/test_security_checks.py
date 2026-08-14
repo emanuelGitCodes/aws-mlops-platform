@@ -88,6 +88,8 @@ def test_literal_wildcard_resource_baseline_has_not_grown(stacks):
     assert wildcard_policies == [
         # AWS requires `Resource: "*"` for the account-level BPA actions.
         ("security_monitoring", "AccountPublicAccessBlockCustomResourcePolicy3665E1EC"),
+        # AWS requires `Resource: "*"` for `ecr:GetAuthorizationToken`.
+        ("website", "WebsiteInstanceRoleDefaultPolicy1C852E27"),
     ]
 
 
@@ -120,6 +122,8 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "monitoring": "3444854868fba5e089e04e4e55706b51c947cf883cc435e5a759831869a5b243",
         # Track the deploy role permissions and OIDC trust conditions.
         "cicd": "7a803ee795eea06da566236a0a25ed949c54dcd570d3cb33b8ebcea10ef4b81d",
+        # Track the website instance role and its scoped grants.
+        "website": "936f5e0bde0223163ef8c51afc46927b5027c7baab03f6875c21c26b3eb506c9",
     }
 
     stacks["training"].has_resource_properties(

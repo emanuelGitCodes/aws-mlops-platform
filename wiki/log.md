@@ -6732,3 +6732,82 @@ coverage floor stays at 94.14.
 
 The first dev deploy after this change updates all four functions one time.
 The hash moves to its new value, and it then stops moving on its own.
+
+## [2026-08-14] update | Dataset provenance is pinned by hash
+
+### Objective
+
+Close the first reproducibility gap from the fresh-user audit: the training
+CSV was untracked, and no document named its source or its exact bytes.
+
+### Scope
+
+`README.md` (new Dataset section, corrected Quickstart upload path),
+`wiki/pages/decisions/dataset-provenance.md` (new). No code change.
+
+### Commands and results
+
+Read-only verification on the local working copy and two public mirrors:
+
+- `shasum -a 256 telco/telco.csv` returned
+  `88be4b93fbe0cc83421af1c503794c97c342eca914c1576db7c276e61d61358a`
+  (7,043 data rows plus a header, CRLF line endings).
+- The IBM mirror
+  (`IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv`)
+  and a third-party GitHub copy both hashed to
+  `16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91`.
+- `tr -d '\r'` over the local copy reproduced the canonical hash exactly.
+
+### Interpretation
+
+The working copy is the canonical Kaggle/IBM file with converted line
+endings. `split_records` seeds `random.Random(42)` over the row order, so
+the exact file is the reproducibility contract: same hash, same splits,
+same AUC. The README now gives a login-free fetch command and both hashes.
+
+### Decision and next checkpoint
+
+The CSV stays untracked (no clear redistribution license); the hash check
+is the gate. A reference first-champion AUC remains unrecorded until the
+scratch-account rebuild test runs.
+
+### Verification
+
+`make wiki-lint` after the index rebuild; see the teardown entry below.
+
+## [2026-08-14] update | Teardown and rebuild get a page
+
+### Objective
+
+Close the second reproducibility gap: `make destroy` existed with no record
+of what it leaves behind or the order a full teardown needs.
+
+### Scope
+
+`wiki/pages/architecture/teardown-and-rebuild.md` (new), `README.md`
+(Teardown section pointing at it). Evidence is code reading only: the
+`RemovalPolicy.RETAIN` declarations in the Data and Security stacks, the
+account-BPA custom resource `on_delete`, `CfnModelPackageGroup` in the
+Registry stack, and the SDK-created serving resources in
+`src/serving/deploy_handler.py`.
+
+### Interpretation
+
+Three survivor classes emerged: CloudFormation-retained resources, resources
+the SDK created outside CloudFormation, and account objects outside the app
+stacks. Two fixed retained names — `alias/mlops-<env>-audit` and
+`/aws/cloudtrail/mlops-<env>-audit` — collide with the next deploy, so a
+naive destroy-then-deploy fails. Model packages left in the group fail the
+Registry stack delete itself.
+
+### Decision and next checkpoint
+
+The page is derived from code, not from an executed teardown, and it says
+so. The next checkpoint is the scratch-account rebuild test, which also
+proves the setup scripts; that run MUST correct the page where reality
+disagrees.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index` rebuilt the index and
+`make wiki-lint` passed with the two new pages.

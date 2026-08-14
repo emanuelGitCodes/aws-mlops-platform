@@ -1,0 +1,83 @@
+# Local backing services for the website rebuild.
+#
+# These containers stand in for two AWS services during development. They never
+# deploy. The deployed backend sets no endpoint variable and reaches the real
+# DynamoDB and S3 services.
+#
+# Start:  docker compose -f local/compose.yaml up -d
+# Reset:  docker compose -f local/compose.yaml down -v
+#
+# The `-v` flag is what deletes the data. A plain `down` keeps both volumes.
+#
+# Add the `frontend` and `backend` services here when they exist. A backend
+# container joins this network and reads the two endpoint variables that
+# `bootstrap` prints below.
+
+name: mlops-website-local
+
+services:
+  # DynamoDB Local holds the mailing list.
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    # `-sharedDb` keeps one database for every credential. Without it the
+    # emulator keys each table to the caller's access key, and a table created
+    # by one identity raises ResourceNotFoundException for another.
+    # `-dbPath` writes to the volume. The default is memory only.
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
+    # The image runs as `dynamodblocal`, which cannot write a fresh named
+    # volume. Root owns the write, and the data outlives the container.
+    user: root
+    volumes:
+      - dynamodb-data:/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # The emulator ships no shell utility for a request, so this checks that
+      # the port accepts a connection.
+      test: ["CMD-SHELL", "java -version >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO answers the S3 API and holds the evaluation reports.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: localdev
+      MINIO_ROOT_PASSWORD: localdev123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      # The browser console. Sign in with the two values above.
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Create the bucket once, then exit. Compose reruns it on every `up`, and
+  # `mb --ignore-existing` makes that safe.
+  bootstrap:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 localdev localdev123 &&
+      mc mb --ignore-existing local/mlops-artifacts &&
+      echo 'ready. backend environment:' &&
+      echo '  AWS_ENDPOINT_URL_S3=http://minio:9000' &&
+      echo '  AWS_ENDPOINT_URL_DYNAMODB=http://dynamodb:8000' &&
+      echo '  AWS_DEFAULT_REGION=us-east-1' &&
+      echo '  AWS_ACCESS_KEY_ID=localdev' &&
+      echo '  AWS_SECRET_ACCESS_KEY=localdev123' &&
+      echo '  ARTIFACTS_BUCKET=mlops-artifacts'
+      "
+
+volumes:
+  dynamodb-data:
+  minio-data:

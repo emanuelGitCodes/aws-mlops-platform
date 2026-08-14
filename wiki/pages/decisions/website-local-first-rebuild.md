@@ -18,9 +18,11 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   instead, so the application became whatever one container could hold.
 - **The new order is application first.** Build and run the website locally,
   settle its shape, then deploy a known-good application.
-- **The planned local shape is three containers**: a React and TypeScript
-  frontend, a FastAPI backend, and a database container that answers the
-  DynamoDB API.
+- **The planned local shape is a React and TypeScript frontend, a FastAPI
+  backend, and containers that answer the AWS APIs the backend calls.** The
+  backing services are `amazon/dynamodb-local` for the mailing list and
+  `minio/minio` for the evaluation reports in S3. `local/compose.yaml` runs
+  both today, with volumes, and is proved against the current backend code.
 - **The current backend does not survive.** `src/website/server.py` is a
   standard-library `http.server` application. It was written to keep the image
   small and add no repository dependency. FastAPI replaces it.
@@ -66,40 +68,48 @@ These decisions cost real analysis and stay valid:
   step. A static bundle behind CloudFront costs less than a container that
   serves it, so the frontend MAY not need a container in the deployed shape at
   all, even though it needs one locally.
-- **`t4g.small` holds 2 GiB.** One Python container fits comfortably. Three
-  containers, one of them a JVM database emulator, do not. The local database
-  container MUST NOT reach the deployed instance; the deployed backend talks to
-  the real DynamoDB service.
+- **`t4g.small` holds 2 GiB.** One Python container fits comfortably. The local
+  set does not, and it never needs to: `dynamodb` and `minio` are development
+  stand-ins. The deployed backend talks to the real DynamoDB and S3, so the
+  deployed instance runs the backend alone, or the backend beside a frontend.
 
-### The database container
+### The local backing services
 
-`amazon/dynamodb-local` is the image. It is the AWS-published DynamoDB
-emulator, and this session ran it end to end against the real backend code.
-Two facts came out of that run and both cost time to find:
+`local/compose.yaml` holds them. Two containers stand in for two AWS services,
+and both keep their data in a named volume:
 
-1. **Pass `-sharedDb`.** Without it, DynamoDB Local keys each table to the
-   caller's access key and region. A table created with one credential is
-   invisible to another, and the error is `ResourceNotFoundException` on a
-   table that the console-equivalent scan shows as `ACTIVE`.
-2. **Point boto3 at it with `AWS_ENDPOINT_URL_DYNAMODB`.** Recent botocore
-   reads this environment variable, so the application code needs no endpoint
-   argument and no local branch. The deployed backend sets nothing and reaches
-   the real service.
+- **`amazon/dynamodb-local`** answers the DynamoDB API and holds the mailing
+  list.
+- **`minio/minio`** answers the S3 API and holds the evaluation reports.
+  LocalStack was the alternative. MinIO is smaller, and it emulates the one
+  service this application reads.
 
-The container start that worked:
+A third container, `minio/mc`, creates the bucket and exits.
 
-```bash
-docker run -d --name dynamodb-local -p 8000:8000 \
-  amazon/dynamodb-local:latest \
-  -jar DynamoDBLocal.jar -inMemory -sharedDb
-```
+This session ran the whole file against the real backend code. Four facts came
+out of it, and each one costs time to find:
 
-`-inMemory` drops the data when the container stops. A compose file SHOULD use
-a volume and drop that flag when the data must survive a restart.
+1. **DynamoDB Local needs `-sharedDb`.** Without it the emulator keys each
+   table to the caller's access key and region. A table created by one identity
+   raises `ResourceNotFoundException` for another, while a scan under the first
+   identity shows the same table `ACTIVE`.
+2. **DynamoDB Local needs `-dbPath` and `user: root`.** The default is memory
+   only, so a restart loses the data. The image runs as `dynamodblocal`, which
+   cannot write a fresh named volume, so the write fails until root owns it.
+3. **boto3 needs no code change for either service.** Recent botocore reads
+   `AWS_ENDPOINT_URL_S3` and `AWS_ENDPOINT_URL_DYNAMODB`, so the application
+   holds no endpoint argument and no local branch. The deployed backend sets
+   neither variable and reaches the real services. MinIO needed no path-style
+   addressing setting; boto3 chose it for a non-AWS host on its own.
+4. **`docker compose down` keeps the data. `down -v` deletes it.** The volumes
+   survive an ordinary stop.
 
-LocalStack is the alternative. It emulates many AWS services rather than one,
-which helps when the local stack later needs S3 as well. It is heavier, and
-DynamoDB Local is enough for a mailing list.
+Proven behavior: the application read a seeded evaluation report from MinIO and
+wrote a signup to DynamoDB Local, then a full `down` and `up` cycle returned
+both the row and the object unchanged.
+
+The deployed backend talks to the real DynamoDB and S3. Neither container ever
+reaches AWS.
 
 ## Tensions or open questions
 

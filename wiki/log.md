@@ -7141,3 +7141,57 @@ changes, and three of five version slots are used.
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed. The local
 demo containers were removed.
+
+## [2026-08-14] update | Local backing services run with volumes
+
+### Objective
+
+Give the website rebuild a local stand-in for both AWS services it reads, and
+keep the data across a restart.
+
+### Scope
+
+`local/compose.yaml` (new) and
+`wiki/pages/decisions/website-local-first-rebuild.md`. No application code
+changed. Nothing here deploys.
+
+### Commands and results
+
+MinIO replaces LocalStack for S3. It emulates the one service this application
+reads, and it is smaller.
+
+- A probe container proved that botocore reads `AWS_ENDPOINT_URL_S3`. The
+  client created a bucket, wrote an object, listed it, and read it back with no
+  code change and no addressing-style setting. boto3 chose path-style
+  addressing for a non-AWS host on its own.
+- `docker compose -f local/compose.yaml up -d` started `dynamodb` and `minio`
+  healthy, and `bootstrap` created `mlops-artifacts` and exited.
+- The website image, joined to the compose network, served
+  `/api/results` from the seeded MinIO report and wrote a signup to DynamoDB
+  Local through `/api/subscribe`.
+- `docker compose down` then `up` returned the mailing-list row
+  (`reader@example.com`, `2026-08-14T22:30:30Z`) and the S3 object unchanged.
+
+Two container settings were needed for the DynamoDB volume. `-dbPath` replaces
+the memory default, and `user: root` lets the image write a fresh named volume;
+the image otherwise runs as `dynamodblocal` and cannot.
+
+### Interpretation
+
+The endpoint variables are the whole local-to-AWS switch. The application holds
+no branch, and the deployed backend reaches the real services by setting
+neither variable. That keeps the local stand-ins out of the deployed shape.
+
+`down` keeps the volumes and `down -v` deletes them. That distinction is the
+reset path, and the file says so at the top.
+
+### Decision and next checkpoint
+
+The `frontend` and `backend` services join this file when they exist. The
+website work stays on hold; this is development tooling, not a step toward the
+deploy.
+
+### Verification
+
+`make wiki-lint` passed after the index rebuild, and `make public-check` found
+no literal. The containers were stopped and the volumes kept.

@@ -6686,3 +6686,49 @@ files in place.
 `make diagrams` ran again after the move and produced no further change, so
 the relative icon paths inside each DOT file survived. `make wiki-lint`
 reports 48 healthy pages. `make public-check` and `make test` pass.
+## [2026-08-14] query | lambda asset fingerprint hash
+
+Found 25 matching page(s).
+
+
+## [2026-08-14] update | The Lambda asset hash stops drifting between checkouts
+
+### Objective
+
+Record the cause of the non-reproducible Lambda bundled asset hash, and the
+fix that landed in `326f27f`.
+
+### Scope
+
+- `infra/stacks/lambda_code.py`, `tests/unit/test_lambda_code.py`.
+- The four Lambda functions in the dev account.
+
+### Content
+
+`Code.from_asset` uses `IgnoreMode.GLOB` by default. The leading `*` in the
+allowlist matches no dotfile under that mode, so `.git` stayed in the asset
+fingerprint. `.git` is a directory in a normal clone, and it is a file in a
+git worktree. That file holds the absolute gitdir path of its own worktree,
+so each checkout produced a different Lambda code hash from an identical
+`src/`. A deploy then rewrote all four functions with the same code.
+
+`IgnoreMode.GIT` is the semantics the exclude patterns were written for.
+
+The fix came from the abandoned `claude/jolly-mestorf-78d005` branch, which
+held the change from 2026-08-05 and never merged. The other commit on that
+branch was already on `main`.
+
+### Verification
+
+Two checkouts of one commit produced the asset hash. Before the fix, two
+worktrees of `e4de7b4` gave `7f0ef901…` and `cf0805be…`. After the fix, the
+primary clone and a worktree of `326f27f` both gave `b2819ca4…`. The new unit
+test fails without the change.
+
+`make lint`, `make typecheck`, `make synth-all`, and `make test` pass. The
+coverage floor stays at 94.14.
+
+### Open
+
+The first dev deploy after this change updates all four functions one time.
+The hash moves to its new value, and it then stops moving on its own.

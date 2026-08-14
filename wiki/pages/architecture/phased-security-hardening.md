@@ -127,9 +127,12 @@ the CloudWatch evidence of that change.
   window is 24 hours and an idle endpoint reaches `ALARM` there on its own.
   Prod is 6. Two consequences follow for anyone closing a later observation
   window. **Dev now has seven alarms, not six**, and `endpoint-silent` in
-  `ALARM` there means "nobody called it", not a fault. The alarm also pages the
-  same topic as the security alarms, so it is a standing noise source in that
-  inbox.
+  `ALARM` there means "nobody called it", not a fault. The alarm also paged the
+  same topic as the security alarms, which made it a standing noise source in
+  that inbox. A later change moves both endpoint alarms to a separate
+  operational topic; see
+  [two alert topics](../decisions/alert-topic-split.md). No deployment carries
+  that change yet, so the noise is still live in the account.
 
   **The 5xx half passed.** The alarm left `INSUFFICIENT_DATA` 48 seconds after
   the deploy, with CloudWatch naming the cause — one missing datapoint `treated

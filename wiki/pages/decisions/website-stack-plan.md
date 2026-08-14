@@ -3,7 +3,7 @@ type: decision
 title: Website stack plan, CloudFront over an ALB
 created: "2026-08-14"
 updated: "2026-08-14"
-sources: ["../../../infra/app.py", "../../../infra/stacks/website_stack.py", "../../../infra/stacks/shared.py", "../../../infra/stacks/serving_stack.py", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy-extension.json", "../../../src/website/server.py", "../../../src/common/signing.py", "../../../tests/unit/test_website_stack.py", "../../../tests/unit/test_website_server.py", "../architecture/phased-security-hardening.md", "../architecture/cdk-deployment-iam.md", "./phase-3-paid-security-services.md", "./platform-design.md"]
+sources: ["../../../infra/app.py", "../../../infra/stacks/website_stack.py", "../../../infra/stacks/shared.py", "../../../infra/stacks/serving_stack.py", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy-extension.json", "../../../src/website/app.py", "../../../src/common/signing.py", "../../../tests/unit/test_website_stack.py", "../../../tests/unit/test_website_app.py", "../architecture/phased-security-hardening.md", "../architecture/cdk-deployment-iam.md", "./phase-3-paid-security-services.md", "./platform-design.md"]
 summary: "A tenth stack serves a public demo website from one EC2 container behind CloudFront, with a DynamoDB mailing list, because an ALB or RDS alone consumes most of the $20 monthly budget."
 ---
 # Website stack plan, CloudFront over an ALB

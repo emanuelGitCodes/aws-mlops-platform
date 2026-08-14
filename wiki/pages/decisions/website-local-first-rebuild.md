@@ -3,7 +3,7 @@ type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
 updated: "2026-08-14"
-sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../src/website/server.py", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../src/website/app.py", "../../../src/website/services.py", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -23,9 +23,11 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   backing services are `amazon/dynamodb-local` for the mailing list and
   `minio/minio` for the evaluation reports in S3. `local/compose.yaml` runs
   both today, with volumes, and is proved against the current backend code.
-- **The current backend does not survive.** `src/website/server.py` is a
-  standard-library `http.server` application. It was written to keep the image
-  small and add no repository dependency. FastAPI replaces it.
+- **The FastAPI backend is scaffolded and runs.** `src/website/` now holds
+  `app.py` (routes), `services.py` (every AWS call), `settings.py` (the
+  environment contract), and `rate_limit.py`. The standard-library
+  `server.py` is deleted; git history holds it at commit `1cf62ee`.
+  `local/compose.yaml` builds and runs the backend beside the two stand-ins.
 
 ## Synthesis
 
@@ -84,7 +86,8 @@ and both keep their data in a named volume:
   LocalStack was the alternative. MinIO is smaller, and it emulates the one
   service this application reads.
 
-A third container, `minio/mc`, creates the bucket and exits.
+A third container, `amazon/aws-cli`, creates the bucket and the table, then
+exits. One image covers both services, so the file needs no second init.
 
 This session ran the whole file against the real backend code. Four facts came
 out of it, and each one costs time to find:
@@ -121,13 +124,16 @@ reaches AWS.
   behind the existing CloudFront distribution removes a container and some
   cost. That choice changes the CDK stack more than it changes the local
   compose file.
-- **`src/website/server.py` has no future in its current form.** It stays on
-  the branch as a working reference for the four routes and their behavior. It
-  MUST NOT gain features.
-- **The repository dependency set grows.** FastAPI and its server are new
-  runtime dependencies. The backend image owns them, the way
-  `src/website/requirements.txt` already owns boto3 and pydantic. The
-  repository `uv.lock` SHOULD stay free of them unless a test imports them.
+- **The frontend does not exist yet.** `local/compose.yaml` says where it
+  joins. The backend serves JSON only; nothing serves HTML.
+- **`fastapi` and `httpx` are in the dev extra, not only in the image.**
+  `tests/unit/test_website_app.py` drives the routes through `TestClient`, so
+  the lockfile carries both. `uvicorn` stays in the image alone, because no
+  test starts a server.
+- **A test MUST import the backend through `import_with_stubbed_boto3`.**
+  Importing `src.website.services` directly builds real boto3 clients at
+  collection time, and `test_pipeline.py` then reaches S3 through the live
+  default session. That mistake broke thirteen unrelated tests once.
 - **Nothing about the branch is deployed, and one account change is live.**
   The policy rotation to v3 stands whether or not this work resumes. It grants
   permissions for resources that do not exist, which is inert but untidy.

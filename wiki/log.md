@@ -7195,3 +7195,72 @@ deploy.
 
 `make wiki-lint` passed after the index rebuild, and `make public-check` found
 no literal. The containers were stopped and the volumes kept.
+
+## [2026-08-14] update | FastAPI backend scaffolded and joined to compose
+
+### Objective
+
+Replace the standard-library website backend with FastAPI, and run it beside
+the two local stand-ins.
+
+### Scope
+
+New: `src/website/app.py`, `services.py`, `settings.py`, `rate_limit.py`, and
+three test modules. Deleted: `src/website/server.py` and
+`tests/unit/test_website_server.py`. Changed: `src/website/Dockerfile`,
+`requirements.txt`, `local/compose.yaml`, `pyproject.toml`, `uv.lock`.
+
+### Commands and results
+
+The module split puts routing in `app.py` and every AWS call in `services.py`,
+so the route handlers hold no boto3 call and the services hold no HTTP status.
+
+`docker compose up -d --build` started `minio`, `dynamodb`, `bootstrap`, and
+`backend`. The bootstrap image moved from `minio/mc` to `amazon/aws-cli`,
+because one image creates both the bucket and the table.
+
+Live checks against the running stack: `/api/health`, `/api/schema`,
+`/api/results`, and `/api/docs` answered 200. A signup returned its
+`created_at`, and a second signup with the same address returned the same
+value. An invalid address and an invalid record each returned 400. The
+eleventh prediction in one minute returned 429. A container given the real
+`PREDICT_URL` and real credentials returned `0.29875707626342773`, which is
+the value the standard-library backend returned for the same record.
+
+Three defects surfaced during the run.
+
+1. **A test polluted thirteen unrelated tests.** `tests/unit/test_website_app.py`
+   imported `src.website.services` directly, which builds real boto3 clients at
+   collection time. `test_pipeline.py` then reached S3 through the live default
+   session and failed. The test now reads `services` through the stubbed app
+   module. `conftest.py` already warned about this failure mode.
+2. **An unset `PREDICT_URL` returned 500.** SigV4 signs the Host header, and an
+   empty URL leaves it unset, so botocore raised `AttributeError` from inside
+   the signer. `predict` now checks the setting first and names it.
+3. **Address normalization ran after validation.** The pattern rejected a
+   trailing space before the code trimmed it, so `  Reader@Example.COM  ` was
+   refused. A `field_validator` with `mode="before"` now trims and lowers.
+
+Ruff flagged `Body(...)` in an argument default as B008. The `Annotated` form
+is FastAPI's current style and needs no rule change.
+
+### Interpretation
+
+Both write routes validate inside the handler rather than in the signature, so
+a bad request returns 400 with `format_validation_error` rather than FastAPI's
+422 and its own error shape. One status code and one error shape across the
+API is worth the explicit call.
+
+`fastapi` and `httpx` join the dev extra because the tests import them.
+`uvicorn` stays in the image alone; no test starts a server.
+
+### Decision and next checkpoint
+
+The frontend is next, and `local/compose.yaml` names where it joins. The
+website deploy stays on hold, and the CDK stack still describes one container.
+
+### Verification
+
+405 tests pass, coverage 94.68 percent against the 94.57 floor. `make lint`,
+`make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
+`make public-check`, and `make wiki-lint` all pass.

@@ -1,5 +1,5 @@
 # The build context is `src/`, so this image copies `src/common` next to
-# `src/website`. The website MUST import the feature and schema contract from
+# `src/website`. The backend MUST import the feature and schema contract from
 # `src.common`, never restate it.
 FROM python:3.12-slim
 
@@ -19,4 +19,6 @@ USER website
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["python", "-m", "src.website.server"]
+# `--proxy-headers` makes uvicorn read `X-Forwarded-For`, which the rate
+# limiter uses to tell one viewer from another behind CloudFront.
+CMD ["sh", "-c", "uvicorn src.website.app:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips '*'"]

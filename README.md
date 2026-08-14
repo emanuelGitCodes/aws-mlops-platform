@@ -128,26 +128,78 @@ that the model got worse. See the
 | `wiki/` | LLM-maintained, interlinked knowledge base for the platform |
 | `.github/workflows/` | CI, full-history secret scanning, and manual OIDC-federated deployment |
 
+## Prerequisites
+
+Install these before starting. Everything below is what a fresh checkout
+actually needs — the Quickstart does not restate it.
+
+- An AWS account and an admin-capable credential (the account root user, or
+  an existing IAM administrator). `scripts/setup_account.sh` uses this once
+  to create the narrower deployment identity; nothing after that needs
+  admin access.
+- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html),
+  configured with a profile (`aws configure`).
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for Python
+  dependency management.
+- Python 3.12 (`uv` will provision it if it is not already on your machine).
+- `envsubst` (part of `gettext`; `brew install gettext` on macOS) — used by
+  `scripts/setup_account.sh`.
+- [Graphviz](https://graphviz.org/download/) — only needed for
+  `make diagrams` (`brew install graphviz`).
+- [`gh` CLI](https://cli.github.com/), authenticated — only needed for
+  `scripts/setup_github_deploy.sh`, which is optional.
+
 ## Quickstart
 
+Fork or clone the repository first. Before the first deploy, set the values
+that identify *your* account and repository, not this one:
+
+| Value | File | Why it must change |
+|---|---|---|
+| `cicd.github_repository` | `infra/config/<env>.yaml` | The OIDC role trusts this exact string. CI cannot authenticate until it names your repository. |
+| `model_package_group` | `infra/config/<env>.yaml` | Account-scoped. `dev.yaml` and `prod.yaml` must not share it. |
+| `account_budget` | `infra/config/<env>.yaml` | AWS Budgets is account-level. Exactly one environment may set it `true`. |
+| `owns_oidc_provider` | `infra/config/<env>.yaml` | One OIDC provider per account. Exactly one environment may set it `true`. |
+
+Deploying outside `us-east-1` also needs the two Access Analyzer ARNs in
+`infra/policies/mlops-cloudformation-execution-policy-extension.json` retargeted.
+That file is the only place a region is hardcoded.
+
 ```bash
-cp .env.example .env         # fill in stack outputs after deploy; source with: set -a && source .env && set +a
+cp .env.example .env         # fill in AWS_ACCOUNT_ID, AWS_REGION,
+                             # MLOPS_DEPLOYER_USER_NAME, SECURITY_ALERT_EMAIL
+set -a && source .env && set +a
 make install                 # deps
-make lint test               # local checks
-make bootstrap ENV=dev       # once per account/region
-make deploy ENV=dev          # all nine stacks
-make diagrams ENV=dev        # PNG, SVG, and DOT desired-state diagrams
+
+# 0. One-time per fresh AWS account, run with an admin-capable AWS_PROFILE:
+#    creates the scoped CloudFormation execution policy, the
+#    MLOps-Deployers group, and the MLOPS_DEPLOYER_USER_NAME deploy user.
+#    See wiki/pages/architecture/cdk-deployment-iam.md for what this builds.
+./scripts/setup_account.sh
+
+# From here on, switch AWS_PROFILE to the deploy user this script created.
+make lint test                        # local checks
+make bootstrap ENV=dev                # once per account/region; uses the scoped policy above
+make deploy ENV=dev                   # all nine stacks
+make diagrams ENV=dev                 # PNG, SVG, and DOT desired-state diagrams
+
+# Fill the remaining .env values (RAW_BUCKET, CURATED_BUCKET, ARTIFACTS_BUCKET,
+# ACCESS_LOG_BUCKET, AUDIT_BUCKET, AUDIT_KEY_ID, PIPELINE_ROLE_ARN, API_URL,
+# API_GATEWAY_ID) from the CloudFormation stack outputs of the stacks just
+# deployed, then re-source .env.
 
 # 1. Ingest: drop the Telco CSV into the raw bucket -> validated rows land curated
-aws s3 cp telco.csv s3://<raw-bucket>/telco.csv
+aws s3 cp telco.csv s3://${RAW_BUCKET}/telco.csv
 
 # 2. Train: upsert + run the pipeline (registers the first champion).
 # Module form (-m), not a file path: pipeline.py imports src.common.features,
 # which is only importable with the repository root on sys.path.
+# --model-package-group must match infra/config/<env>.yaml's
+# model_package_group and be globally unique per environment.
 uv run --locked --extra pipeline python -m src.pipeline.pipeline \
-  --pipeline-name churn-training-pipeline-dev \
-  --role-arn <PipelineRoleArn output> --curated-bucket <curated> \
-  --artifacts-bucket <artifacts> --model-package-group churn-model-group --start
+  --pipeline-name ${PIPELINE_NAME} \
+  --role-arn ${PIPELINE_ROLE_ARN} --curated-bucket ${CURATED_BUCKET} \
+  --artifacts-bucket ${ARTIFACTS_BUCKET} --model-package-group ${MODEL_PACKAGE_GROUP} --start
 
 # 3. Serve: approval auto-deploys the endpoint. The smoke test uses SigV4.
 AWS_PROFILE=<profile> make smoke ENV=dev
@@ -161,6 +213,33 @@ a baseline, so run the pipeline at least once before expecting a drift
 evaluation to score anything. `scripts/send_drift_traffic.py` sends
 distribution-shifted traffic through the API when you want to see the loop
 close on demand.
+
+## Manual one-time AWS console steps
+
+CDK does not — and in some cases cannot — automate these. Do them once per
+account, at the point noted:
+
+- **Confirm the security-alert SNS subscription.** `make deploy` passes
+  `SECURITY_ALERT_EMAIL` to the Security stack, and AWS then emails that
+  address. Click the confirmation link, or CIS and detection alarms have
+  nowhere to deliver. CloudFormation stores the value, so later deploys
+  reuse it and AWS does not re-send the confirmation.
+- **Activate the budget's cost allocation tag.** The per-environment budget
+  filters on a tag (`security.account_budget`, true in exactly one
+  environment). In Billing → Cost allocation tags, activate that tag.
+  Before it is activated the filter matches nothing and the budget never
+  alarms.
+- **Decide on GuardDuty / Security Hub.** Both sit behind a deliberate
+  paid-plan upgrade — enabling GuardDuty starts a 30-day trial, then bills
+  monthly. After you opt in, flip `security.services.guardduty` and
+  `security_hub` to `true` in `infra/config/<env>.yaml` yourself and
+  redeploy the Security stack.
+- **Wire up `deploy.yml` (optional).** `.github/workflows/deploy.yml` is
+  `workflow_dispatch`-only and needs GitHub `dev`/`prod` environments each
+  holding the matching `AWS_<ENV>_DEPLOY_ROLE_ARN` secret. After the `Cicd`
+  stack deploys, run `ENV=dev ./scripts/setup_github_deploy.sh` (and again
+  with `ENV=prod`) to create the environment and set the secret from the
+  stack's `GitHubDeployRoleArn` output.
 
 ## Model evaluation reports
 

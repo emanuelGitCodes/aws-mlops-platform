@@ -106,6 +106,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
+| `make graph` / `graph-query Q=…` / `graph-explain NODE=…` | graphify code graph; see "Knowledge graph" below |
 
 `ENV=dev|prod` selects the environment for every CDK target.
 
@@ -162,6 +163,39 @@ Look here **before** writing anything new:
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |
 | `telco/` | `telco.csv`, the raw dataset |
 | `wiki/` | Knowledge base — governed by `wiki/AGENTS.md`; follow it for any wiki work |
+| `.claude/skills/graphify/` | The graphify skill and its references, installed project-scoped |
+| `.graphifyignore` | Paths graphify MUST NOT extract; it merges with `.gitignore` and wins on a conflict |
+| `graphify-out/` | The generated graph — build output, untracked. See "Knowledge graph" below |
+
+## Knowledge graph (graphify)
+
+`graphify` builds a queryable graph of the repository with local AST parsing.
+It reads code, Markdown, and config, and it writes `graph.json`, `graph.html`,
+and `GRAPH_REPORT.md` into `graphify-out/`. The extraction needs no LLM and no
+network call.
+
+The wiki and the graph answer different questions. Keep the split:
+
+- **The wiki is the source of record.** It holds history, decisions, phase
+  status, dates, and the reasoning behind them. A human wrote or approved
+  every page. Cite the wiki when the question is "why", "when", or "what is
+  the state".
+- **The graph is a derived index.** It holds structure — which symbol calls
+  which, which file defines what, which files cluster together. Every node
+  comes from a parse of the current tree. Use it when the question is "where"
+  or "what connects to what".
+
+Rules:
+
+1. **`graphify-out/` is build output, never source.** It is untracked, the
+   same as `infra/cdk.out/`. Rebuild it with `make graph`; do not commit it,
+   and do not cite a generated file as evidence on a wiki page.
+2. **A stale graph is silent.** `GRAPH_REPORT.md` records the commit it was
+   built from. Run `make graph` after you change code, and check that line
+   before you trust an answer.
+3. **The graph MUST NOT become a second knowledge base.** When a query
+   produces durable knowledge, file it on a wiki page under the SCHEMA.md
+   contract. Do not hand-edit a file in `graphify-out/`.
 
 ## Anti-duplication rules (mandatory)
 

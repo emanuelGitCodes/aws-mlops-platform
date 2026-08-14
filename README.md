@@ -207,6 +207,24 @@ make wiki-lint
 
 The helper is intentionally deterministic and does not call an LLM. It handles source registration, page scaffolding, index rebuilding, full-text search, operation logging, and health checks so an LLM can focus on reading, synthesis, and cross-referencing.
 
+## Code graph
+
+[graphify](https://github.com/Graphify-Labs/graphify) indexes the source tree
+and the wiki into a queryable graph. The extraction is local AST parsing, so it
+calls no model and no network service.
+
+```bash
+make graph                                  # rebuild graphify-out/
+make graph-query Q="what writes the capture record?"
+make graph-explain NODE=proxy_handler
+```
+
+`graphify-out/` holds `graph.json`, an interactive `graph.html`, and
+`GRAPH_REPORT.md`. It is build output and stays untracked, like `infra/cdk.out/`.
+`.graphifyignore` narrows the corpus. The graph answers "where" and "what
+connects to what"; the wiki remains the record of why, when, and what state.
+See [the decision page](wiki/pages/decisions/graphify-knowledge-graph.md).
+
 ## Decisions log
 
 | Decision | Choice | Rationale |

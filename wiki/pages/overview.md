@@ -37,6 +37,13 @@ The approved improvement is the
 Phases 0-2, 5, and 6 are complete. Phase 3 is partial. Phase 4 and Phases 7-9
 are not started.
 
+Two navigation aids sit beside this wiki. The
+[generated CDK diagrams](architecture/generated-cdk-diagrams.md) render the
+synthesized resource graph, and the
+[graphify code graph](decisions/graphify-knowledge-graph.md) indexes the source
+tree and these pages together. Both are generated views of the repository, and
+neither replaces a page here.
+
 ## Tensions or open questions
 
 - The pipeline and Model Monitor are created or updated through SDK-driven scripts because they depend on live SageMaker state; this is a deliberate split from CDK-owned wiring and should be revisited if deployment requirements change.

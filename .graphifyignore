@@ -1,0 +1,14 @@
+# Paths graphify must not extract. `.gitignore` also applies; the patterns
+# here win on a conflict.
+
+# Build output of graphify itself.
+graphify-out/
+
+# Synthesized CDK templates and vendored Lambda bundles.
+infra/cdk.out/
+
+# Third-party AWS architecture icons rendered into the wiki diagrams.
+wiki/assets/architecture/cdk-dia-icons/
+
+# Lockfile and generated dependency metadata.
+uv.lock

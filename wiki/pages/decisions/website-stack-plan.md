@@ -58,7 +58,11 @@ boundary, and the execution-policy grants all carry forward.
 
 ## Synthesis
 
-Planned architecture, in dependency order:
+Planned architecture, in dependency order. **This section records the plan as
+written on 2026-08-14 and does not describe the tree today.** The backend is
+now FastAPI under `website/backend/`, and the paths below name files that
+moved. See [the local-first rebuild](website-local-first-rebuild.md) for the
+current layout.
 
 - **VPC**: public subnets only across two AZs, no NAT gateway, no
   endpoints. A REJECT-only flow log goes to CloudWatch Logs at the platform

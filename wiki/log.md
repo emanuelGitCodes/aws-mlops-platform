@@ -6360,3 +6360,60 @@ down and `make graph` covers it.
 
 `make wiki-index`, `make wiki-lint`, `make public-check`, `make docs-sync`, and
 the two hook runs above.
+
+## [2026-08-14] implement | A post-merge hook closes the pull gap
+
+### Objective
+
+Rebuild the code graph after a pull and after a merge. graphify covers neither.
+
+### Scope
+
+- New tracked script `scripts/git-hooks/post-merge`.
+- New Make target `graph-hooks`, which installs all three hooks and removes the
+  merge-driver registration.
+- `AGENTS.md` and `pages/decisions/graphify-knowledge-graph.md`.
+- No AWS resource and no application code.
+
+### Commands and observed results
+
+1. The hook delegates to the graphify `post-commit` hook, which owns the
+   interpreter probe, the worktree guard, and the detached launch. One graphify
+   upgrade then reaches both paths.
+2. **The first version of the wrapper did nothing on a true merge.** A
+   diagnostic hook in a throwaway repository printed the cause:
+   `MERGE_HEAD exists: yes`. Git keeps `MERGE_HEAD` in place while it runs
+   `post-merge`, and `post-commit` exits when that file is present.
+3. The wrapper now removes the `MERGE_HEAD` lines from the delegate and runs the
+   filtered copy. It keeps every other guard.
+4. Three tests in throwaway repositories, each with `graphify-out/` ignored:
+   - A fast-forward `git pull` rebuilt the graph to the pulled commit.
+   - A `git merge --no-ff` rebuilt the graph to the merge commit. The same
+     merge produced no rebuild before the guard was dropped.
+   - A commit inside a `git worktree` wrote no graph and launched nothing.
+5. `make graph-hooks` reported all four steps, and it left no `.gitattributes`
+   and no `merge.graphify.*` config.
+
+### Interpretation
+
+**A hook that silently does nothing is worse than an absent hook**, because the
+reader believes the graph is fresh. Both defects found today had that shape: the
+missing `post-merge` hook, and then the wrapper that exited on `MERGE_HEAD`.
+Neither printed anything. The rule that follows: test a hook by observing the
+rebuild, not by reading the script.
+
+Two limits stay, and both are deliberate. The hooks do nothing in a linked
+worktree, which is graphify's own guard against a delta-only graph and against a
+`git clean` race. Git does not track a hook, so a clone runs `make graph-hooks`
+once.
+
+### Decision and next checkpoint
+
+The three hooks are installed in the primary checkout. The next real pull into
+that checkout is the checkpoint: `GRAPH_REPORT.md` MUST follow it with no
+hand-run `make graph`.
+
+### Verification
+
+`make graph-hooks`, the three throwaway-repository tests above, `make lint`,
+`make wiki-index`, `make wiki-lint`, `make public-check`, and `make docs-sync`.

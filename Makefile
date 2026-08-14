@@ -1,7 +1,7 @@
 .PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
 	diagrams security bootstrap check-stack diff-stack deploy-stack deploy \
 	destroy verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest \
-	wiki-lint public-check graph graph-query graph-explain
+	wiki-lint public-check graph graph-query graph-explain graph-hooks
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -171,3 +171,24 @@ graph-explain:
 	@test -n "$(NODE)" || \
 		(echo "NODE is required, for example NODE=proxy_handler" >&2; exit 2)
 	graphify explain "$(NODE)"
+
+# Install the three git hooks that rebuild the graph.
+# `graphify hook install` writes post-commit and post-checkout. Neither runs
+# for a pull, so `scripts/git-hooks/post-merge` covers that case.
+#
+# The installer also registers a union merge driver for
+# `graphify-out/graph.json`. This repository never tracks that file, so the
+# registration is removed again here.
+graph-hooks:
+	@set -eu; \
+	graphify hook install; \
+	hooks=$$(git rev-parse --git-common-dir)/hooks; \
+	install -m 755 scripts/git-hooks/post-merge "$$hooks/post-merge"; \
+	echo "post-merge: installed at $$hooks/post-merge"; \
+	git config --unset merge.graphify.name 2>/dev/null || true; \
+	git config --unset merge.graphify.driver 2>/dev/null || true; \
+	if [ -f .gitattributes ] && \
+		[ "$$(cat .gitattributes)" = "graphify-out/graph.json merge=graphify" ]; then \
+		rm .gitattributes; \
+		echo "merge driver: registration removed"; \
+	fi

@@ -372,7 +372,7 @@ behaviour that no longer exists is a defect — fix it when you see it.
   must not use PEP 604 unions in runtime-evaluated positions.
 - Tests go in `tests/unit/` and mirror the source module they cover; run
   with `make test`. Coverage is measured on every run and enforced against
-  `fail_under` in `pyproject.toml` (currently **94.12**). That floor is a
+  `fail_under` in `pyproject.toml` (currently **94.14**). That floor is a
   ratchet: raise it when a phase lands, never lower it to make a red run
   green. Take a new floor from the printed total rounded down — the
   comparison uses the unrounded value.

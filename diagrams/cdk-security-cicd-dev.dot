@@ -134,6 +134,19 @@ digraph "Diagram" {
           width = 2;
           height = 2.266;
         ];
+        "Mlops-Dev-Security/OpsAlertsTopic" [
+          label = " OpsAlertsTopic";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_AWS-Simple-Notification-Service_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.266;
+        ];
         "Mlops-Dev-Security/RootUserActivityFilter" [
           label = "\nRootUserActivityFilte";
           fontsize = 12;
@@ -488,6 +501,9 @@ digraph "Diagram" {
     dir = "both";
   ];
   "Mlops-Dev-Security/SecurityAlertsTopic" -> "Mlops-Dev-Security/AuditKey" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Security/OpsAlertsTopic" -> "Mlops-Dev-Security/AuditKey" [
     dir = "both";
   ];
   "Mlops-Dev-Security/RootUserActivityFilter" -> "Mlops-Dev-Security/AuditLogGroup" [

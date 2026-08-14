@@ -102,9 +102,9 @@
     </g>
     <g id="node1" class="node">
       <title>Mlops-Dev-Security/AuditKey</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M1675,-1464.4C1675,-1464.4 1555,-1464.4 1555,-1464.4 1549,-1464.4 1543,-1458.4 1543,-1452.4 1543,-1452.4 1543,-1313.25 1543,-1313.25 1543,-1307.25 1549,-1301.25 1555,-1301.25 1555,-1301.25 1675,-1301.25 1675,-1301.25 1681,-1301.25 1687,-1307.25 1687,-1313.25 1687,-1313.25 1687,-1452.4 1687,-1452.4 1687,-1458.4 1681,-1464.4 1675,-1464.4" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1543" y="-1464.4" xlink:href="#cdk-dia-icon-9531359a823e41ef" />
-      <text xml:space="preserve" text-anchor="middle" x="1615" y="-1302.6" font-family="Sans-Serif" font-size="12.00"> AuditKey</text>
+      <path fill="none" stroke="black" stroke-width="0" d="M1928,-1464.4C1928,-1464.4 1808,-1464.4 1808,-1464.4 1802,-1464.4 1796,-1458.4 1796,-1452.4 1796,-1452.4 1796,-1313.25 1796,-1313.25 1796,-1307.25 1802,-1301.25 1808,-1301.25 1808,-1301.25 1928,-1301.25 1928,-1301.25 1934,-1301.25 1940,-1307.25 1940,-1313.25 1940,-1313.25 1940,-1452.4 1940,-1452.4 1940,-1458.4 1934,-1464.4 1928,-1464.4" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1796" y="-1464.4" xlink:href="#cdk-dia-icon-9531359a823e41ef" />
+      <text xml:space="preserve" text-anchor="middle" x="1868" y="-1302.6" font-family="Sans-Serif" font-size="12.00"> AuditKey</text>
     </g>
     <g id="node2" class="node">
       <title>Mlops-Dev-Security/AccessLogBucket</title>
@@ -114,45 +114,45 @@
     </g>
     <g id="node3" class="node">
       <title>Mlops-Dev-Security/AuditBucket</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M1498,-1231.7C1498,-1231.7 1378,-1231.7 1378,-1231.7 1372,-1231.7 1366,-1225.7 1366,-1219.7 1366,-1219.7 1366,-1080.54 1366,-1080.54 1366,-1074.54 1372,-1068.54 1378,-1068.54 1378,-1068.54 1498,-1068.54 1498,-1068.54 1504,-1068.54 1510,-1074.54 1510,-1080.54 1510,-1080.54 1510,-1219.7 1510,-1219.7 1510,-1225.7 1504,-1231.7 1498,-1231.7" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1366" y="-1231.7" xlink:href="#cdk-dia-icon-167cdf05870dca73" />
-      <text xml:space="preserve" text-anchor="middle" x="1438" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> AuditBucket</text>
+      <path fill="none" stroke="black" stroke-width="0" d="M1536,-1231.7C1536,-1231.7 1416,-1231.7 1416,-1231.7 1410,-1231.7 1404,-1225.7 1404,-1219.7 1404,-1219.7 1404,-1080.54 1404,-1080.54 1404,-1074.54 1410,-1068.54 1416,-1068.54 1416,-1068.54 1536,-1068.54 1536,-1068.54 1542,-1068.54 1548,-1074.54 1548,-1080.54 1548,-1080.54 1548,-1219.7 1548,-1219.7 1548,-1225.7 1542,-1231.7 1536,-1231.7" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1404" y="-1231.7" xlink:href="#cdk-dia-icon-167cdf05870dca73" />
+      <text xml:space="preserve" text-anchor="middle" x="1476" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> AuditBucket</text>
     </g>
     <g id="edge1" class="edge">
       <title>Mlops-Dev-Security/AccessLogBucket-&gt;Mlops-Dev-Security/AuditBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3265.07,-1297.59C3265.07,-1297.59 3265.07,-1297.18 3265.07,-1297.18 3265.07,-1297.18 1462,-1297.18 1462,-1297.18 1462,-1297.18 1462,-1241.39 1462,-1241.39" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3265.07,-1297.59C3265.07,-1297.59 3265.07,-1297.18 3265.07,-1297.18 3265.07,-1297.18 1512,-1297.18 1512,-1297.18 1512,-1297.18 1512,-1241.39 1512,-1241.39" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3265.07" cy="-1296.31" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1462" cy="-1236.39" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1512" cy="-1236.39" rx="4" ry="4" />
     </g>
     <g id="edge2" class="edge">
       <title>Mlops-Dev-Security/AuditBucket-&gt;Mlops-Dev-Security/AuditKey</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1519.77,-1212.18C1519.77,-1212.18 1547.9,-1212.18 1547.9,-1212.18 1547.9,-1212.18 1547.9,-1291.5 1547.9,-1291.5" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1514.77" cy="-1212.18" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1547.9" cy="-1296.5" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1476,-1241.46C1476,-1241.46 1476,-1355.18 1476,-1355.18 1476,-1355.18 1786.1,-1355.18 1786.1,-1355.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1476" cy="-1236.46" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1791.1" cy="-1355.18" rx="4" ry="4" />
     </g>
     <g id="edge3" class="edge">
       <title>Mlops-Dev-Security/AuditBucket-&gt;Mlops-Dev-Security/AccessLogBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1414,-1234.81C1414,-1234.81 1414,-1235.18 1414,-1235.18 1414,-1235.18 3270.13,-1235.18 3270.13,-1235.18 3270.13,-1235.18 3270.13,-1291.66 3270.13,-1291.66" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1414" cy="-1236.52" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1440,-1234.81C1440,-1234.81 1440,-1235.18 1440,-1235.18 1440,-1235.18 3270.13,-1235.18 3270.13,-1235.18 3270.13,-1235.18 3270.13,-1291.66 3270.13,-1291.66" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1440" cy="-1236.52" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3270.13" cy="-1296.66" rx="4" ry="4" />
     </g>
     <g id="node4" class="node">
       <title>Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M1852,-1231.7C1852,-1231.7 1732,-1231.7 1732,-1231.7 1726,-1231.7 1720,-1225.7 1720,-1219.7 1720,-1219.7 1720,-1080.54 1720,-1080.54 1720,-1074.54 1726,-1068.54 1732,-1068.54 1732,-1068.54 1852,-1068.54 1852,-1068.54 1858,-1068.54 1864,-1074.54 1864,-1080.54 1864,-1080.54 1864,-1219.7 1864,-1219.7 1864,-1225.7 1858,-1231.7 1852,-1231.7" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1720" y="-1231.7" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
-      <text xml:space="preserve" text-anchor="middle" x="1792" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> AuditLogGroup</text>
+      <path fill="none" stroke="black" stroke-width="0" d="M1928,-1231.7C1928,-1231.7 1808,-1231.7 1808,-1231.7 1802,-1231.7 1796,-1225.7 1796,-1219.7 1796,-1219.7 1796,-1080.54 1796,-1080.54 1796,-1074.54 1802,-1068.54 1808,-1068.54 1808,-1068.54 1928,-1068.54 1928,-1068.54 1934,-1068.54 1940,-1074.54 1940,-1080.54 1940,-1080.54 1940,-1219.7 1940,-1219.7 1940,-1225.7 1934,-1231.7 1928,-1231.7" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1796" y="-1231.7" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
+      <text xml:space="preserve" text-anchor="middle" x="1868" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> AuditLogGroup</text>
     </g>
     <g id="edge4" class="edge">
       <title>Mlops-Dev-Security/AuditLogGroup-&gt;Mlops-Dev-Security/AuditKey</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1710.01,-1222.18C1710.01,-1222.18 1663.1,-1222.18 1663.1,-1222.18 1663.1,-1222.18 1663.1,-1291.56 1663.1,-1291.56" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1715.01" cy="-1222.18" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1663.1" cy="-1296.56" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1868,-1241.51C1868,-1241.51 1868,-1291.48 1868,-1291.48" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1868" cy="-1236.51" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1868" cy="-1296.48" rx="4" ry="4" />
     </g>
     <g id="node5" class="node">
       <title>Mlops-Dev-Security/CloudTrailLogsRole</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M1627.2,-1202.9C1627.2,-1202.9 1564.8,-1202.9 1564.8,-1202.9 1558.8,-1202.9 1552.8,-1196.9 1552.8,-1190.9 1552.8,-1190.9 1552.8,-1109.34 1552.8,-1109.34 1552.8,-1103.34 1558.8,-1097.34 1564.8,-1097.34 1564.8,-1097.34 1627.2,-1097.34 1627.2,-1097.34 1633.2,-1097.34 1639.2,-1103.34 1639.2,-1109.34 1639.2,-1109.34 1639.2,-1190.9 1639.2,-1190.9 1639.2,-1196.9 1633.2,-1202.9 1627.2,-1202.9" />
-      <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="1552.8" y="-1202.9" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
-      <text xml:space="preserve" text-anchor="middle" x="1596" y="-1098.69" font-family="Sans-Serif" font-size="12.00"> CloudTrailLogsRole</text>
+      <path fill="none" stroke="black" stroke-width="0" d="M1665.2,-1202.9C1665.2,-1202.9 1602.8,-1202.9 1602.8,-1202.9 1596.8,-1202.9 1590.8,-1196.9 1590.8,-1190.9 1590.8,-1190.9 1590.8,-1109.34 1590.8,-1109.34 1590.8,-1103.34 1596.8,-1097.34 1602.8,-1097.34 1602.8,-1097.34 1665.2,-1097.34 1665.2,-1097.34 1671.2,-1097.34 1677.2,-1103.34 1677.2,-1109.34 1677.2,-1109.34 1677.2,-1190.9 1677.2,-1190.9 1677.2,-1196.9 1671.2,-1202.9 1665.2,-1202.9" />
+      <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="1590.8" y="-1202.9" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
+      <text xml:space="preserve" text-anchor="middle" x="1634" y="-1098.69" font-family="Sans-Serif" font-size="12.00"> CloudTrailLogsRole</text>
     </g>
     <g id="node6" class="node">
       <title>Mlops-Dev-Security/AuditTrail</title>
@@ -162,234 +162,246 @@
     </g>
     <g id="edge5" class="edge">
       <title>Mlops-Dev-Security/AuditTrail-&gt;Mlops-Dev-Security/AuditKey</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1100.4,-981.06C1100.4,-981.06 1100.4,-1383.18 1100.4,-1383.18 1100.4,-1383.18 1533.18,-1383.18 1533.18,-1383.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1100.4" cy="-976.06" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1538.18" cy="-1383.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1100.4,-981.27C1100.4,-981.27 1100.4,-1410.18 1100.4,-1410.18 1100.4,-1410.18 1786.13,-1410.18 1786.13,-1410.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1100.4" cy="-976.27" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1791.13" cy="-1410.18" rx="4" ry="4" />
     </g>
     <g id="edge6" class="edge">
       <title>Mlops-Dev-Security/AuditTrail-&gt;Mlops-Dev-Security/AuditBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1131,-981.12C1131,-981.12 1131,-1123.18 1131,-1123.18 1131,-1123.18 1356.02,-1123.18 1356.02,-1123.18" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1131,-981.12C1131,-981.12 1131,-1123.18 1131,-1123.18 1131,-1123.18 1394.1,-1123.18 1394.1,-1123.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1131" cy="-976.12" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1361.02" cy="-1123.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1399.1" cy="-1123.18" rx="4" ry="4" />
     </g>
     <g id="edge7" class="edge">
       <title>Mlops-Dev-Security/AuditTrail-&gt;Mlops-Dev-Security/CloudTrailLogsRole</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1161.6,-981.17C1161.6,-981.17 1161.6,-1037.18 1161.6,-1037.18 1161.6,-1037.18 1557.2,-1037.18 1557.2,-1037.18 1557.2,-1037.18 1557.2,-1087.62 1557.2,-1087.62" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1161.6" cy="-976.17" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1557.2" cy="-1092.62" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1161.6,-981.11C1161.6,-981.11 1161.6,-1004.18 1161.6,-1004.18 1161.6,-1004.18 1599.9,-1004.18 1599.9,-1004.18 1599.9,-1004.18 1599.9,-1087.43 1599.9,-1087.43" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1161.6" cy="-976.11" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1599.9" cy="-1092.43" rx="4" ry="4" />
     </g>
     <g id="node7" class="node">
       <title>Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M2840,-1231.7C2840,-1231.7 2720,-1231.7 2720,-1231.7 2714,-1231.7 2708,-1225.7 2708,-1219.7 2708,-1219.7 2708,-1080.54 2708,-1080.54 2708,-1074.54 2714,-1068.54 2720,-1068.54 2720,-1068.54 2840,-1068.54 2840,-1068.54 2846,-1068.54 2852,-1074.54 2852,-1080.54 2852,-1080.54 2852,-1219.7 2852,-1219.7 2852,-1225.7 2846,-1231.7 2840,-1231.7" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="2708" y="-1231.7" xlink:href="#cdk-dia-icon-8d305fdb099ce673" />
-      <text xml:space="preserve" text-anchor="middle" x="2780" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> SecurityAlertsTopic</text>
+      <path fill="none" stroke="black" stroke-width="0" d="M2776,-1231.7C2776,-1231.7 2656,-1231.7 2656,-1231.7 2650,-1231.7 2644,-1225.7 2644,-1219.7 2644,-1219.7 2644,-1080.54 2644,-1080.54 2644,-1074.54 2650,-1068.54 2656,-1068.54 2656,-1068.54 2776,-1068.54 2776,-1068.54 2782,-1068.54 2788,-1074.54 2788,-1080.54 2788,-1080.54 2788,-1219.7 2788,-1219.7 2788,-1225.7 2782,-1231.7 2776,-1231.7" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="2644" y="-1231.7" xlink:href="#cdk-dia-icon-8d305fdb099ce673" />
+      <text xml:space="preserve" text-anchor="middle" x="2716" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> SecurityAlertsTopic</text>
     </g>
     <g id="edge8" class="edge">
       <title>Mlops-Dev-Security/SecurityAlertsTopic-&gt;Mlops-Dev-Security/AuditKey</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2780,-1241.63C2780,-1241.63 2780,-1383.18 2780,-1383.18 2780,-1383.18 1697,-1383.18 1697,-1383.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2780" cy="-1236.63" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1692" cy="-1383.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2716,-1241.46C2716,-1241.46 2716,-1355.18 2716,-1355.18 2716,-1355.18 1949.93,-1355.18 1949.93,-1355.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2716" cy="-1236.46" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1944.93" cy="-1355.18" rx="4" ry="4" />
     </g>
     <g id="node8" class="node">
+      <title>Mlops-Dev-Security/OpsAlertsTopic</title>
+      <path fill="none" stroke="black" stroke-width="0" d="M2963,-1231.7C2963,-1231.7 2843,-1231.7 2843,-1231.7 2837,-1231.7 2831,-1225.7 2831,-1219.7 2831,-1219.7 2831,-1080.54 2831,-1080.54 2831,-1074.54 2837,-1068.54 2843,-1068.54 2843,-1068.54 2963,-1068.54 2963,-1068.54 2969,-1068.54 2975,-1074.54 2975,-1080.54 2975,-1080.54 2975,-1219.7 2975,-1219.7 2975,-1225.7 2969,-1231.7 2963,-1231.7" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="2831" y="-1231.7" xlink:href="#cdk-dia-icon-8d305fdb099ce673" />
+      <text xml:space="preserve" text-anchor="middle" x="2903" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> OpsAlertsTopic</text>
+    </g>
+    <g id="edge9" class="edge">
+      <title>Mlops-Dev-Security/OpsAlertsTopic-&gt;Mlops-Dev-Security/AuditKey</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2903,-1241.69C2903,-1241.69 2903,-1410.18 2903,-1410.18 2903,-1410.18 1949.96,-1410.18 1949.96,-1410.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2903" cy="-1236.69" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1944.96" cy="-1410.18" rx="4" ry="4" />
+    </g>
+    <g id="node9" class="node">
       <title>Mlops-Dev-Security/RootUserActivityFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M1367,-998.99C1367,-998.99 1247,-998.99 1247,-998.99 1241,-998.99 1235,-992.99 1235,-986.99 1235,-986.99 1235,-832.29 1235,-832.29 1235,-826.29 1241,-820.29 1247,-820.29 1247,-820.29 1367,-820.29 1367,-820.29 1373,-820.29 1379,-826.29 1379,-832.29 1379,-832.29 1379,-986.99 1379,-986.99 1379,-992.99 1373,-998.99 1367,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1235" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="1307" y="-821.64" font-family="Sans-Serif" font-size="12.00">RootUserActivityFilte</text>
     </g>
-    <g id="edge9" class="edge">
+    <g id="edge10" class="edge">
       <title>Mlops-Dev-Security/RootUserActivityFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1372.5,-1008.82C1372.5,-1008.82 1372.5,-1030.18 1372.5,-1030.18 1372.5,-1030.18 1731,-1030.18 1731,-1030.18 1731,-1030.18 1731,-1058.79 1731,-1058.79" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1372.5" cy="-1003.82" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1731" cy="-1063.79" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1307,-1000.95C1307,-1000.95 1307,-1001.18 1307,-1001.18 1307,-1001.18 1844,-1001.18 1844,-1001.18 1844,-1001.18 1844,-1058.68 1844,-1058.68" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1307" cy="-1003.91" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1844" cy="-1063.68" rx="4" ry="4" />
     </g>
-    <g id="node9" class="node">
+    <g id="node10" class="node">
       <title>Mlops-Dev-Security/RootUserActivityAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2618.2,-970.19C2618.2,-970.19 2555.8,-970.19 2555.8,-970.19 2549.8,-970.19 2543.8,-964.19 2543.8,-958.19 2543.8,-958.19 2543.8,-861.09 2543.8,-861.09 2543.8,-855.09 2549.8,-849.09 2555.8,-849.09 2555.8,-849.09 2618.2,-849.09 2618.2,-849.09 2624.2,-849.09 2630.2,-855.09 2630.2,-861.09 2630.2,-861.09 2630.2,-958.19 2630.2,-958.19 2630.2,-964.19 2624.2,-970.19 2618.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="2543.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="2587" y="-850.44" font-family="Sans-Serif" font-size="12.00">RootUserActivityAlarm</text>
     </g>
-    <g id="edge10" class="edge">
+    <g id="edge11" class="edge">
       <title>Mlops-Dev-Security/RootUserActivityAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2587,-979.98C2587,-979.98 2587,-1199.18 2587,-1199.18 2587,-1199.18 2698.13,-1199.18 2698.13,-1199.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2587" cy="-974.98" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2703.13" cy="-1199.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2639.98,-909.18C2639.98,-909.18 2665.6,-909.18 2665.6,-909.18 2665.6,-909.18 2665.6,-1058.55 2665.6,-1058.55" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2634.98" cy="-909.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2665.6" cy="-1063.55" rx="4" ry="4" />
     </g>
-    <g id="node10" class="node">
+    <g id="node11" class="node">
       <title>Mlops-Dev-Security/UnauthorizedApiCallsFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M1554,-998.99C1554,-998.99 1434,-998.99 1434,-998.99 1428,-998.99 1422,-992.99 1422,-986.99 1422,-986.99 1422,-832.29 1422,-832.29 1422,-826.29 1428,-820.29 1434,-820.29 1434,-820.29 1554,-820.29 1554,-820.29 1560,-820.29 1566,-826.29 1566,-832.29 1566,-832.29 1566,-986.99 1566,-986.99 1566,-992.99 1560,-998.99 1554,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1422" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="1494" y="-821.64" font-family="Sans-Serif" font-size="12.00">UnauthorizedApiCallsF</text>
     </g>
-    <g id="edge11" class="edge">
+    <g id="edge12" class="edge">
       <title>Mlops-Dev-Security/UnauthorizedApiCallsFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1561.6,-1008.95C1561.6,-1008.95 1561.6,-1083.18 1561.6,-1083.18 1561.6,-1083.18 1710.05,-1083.18 1710.05,-1083.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1561.6" cy="-1003.95" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1715.05" cy="-1083.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1557,-1008.91C1557,-1008.91 1557,-1088.18 1557,-1088.18 1557,-1088.18 1786.26,-1088.18 1786.26,-1088.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1557" cy="-1003.91" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1791.26" cy="-1088.18" rx="4" ry="4" />
     </g>
-    <g id="node11" class="node">
+    <g id="node12" class="node">
       <title>Mlops-Dev-Security/UnauthorizedApiCallsAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2747.2,-970.19C2747.2,-970.19 2684.8,-970.19 2684.8,-970.19 2678.8,-970.19 2672.8,-964.19 2672.8,-958.19 2672.8,-958.19 2672.8,-861.09 2672.8,-861.09 2672.8,-855.09 2678.8,-849.09 2684.8,-849.09 2684.8,-849.09 2747.2,-849.09 2747.2,-849.09 2753.2,-849.09 2759.2,-855.09 2759.2,-861.09 2759.2,-861.09 2759.2,-958.19 2759.2,-958.19 2759.2,-964.19 2753.2,-970.19 2747.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="2672.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="2716" y="-850.44" font-family="Sans-Serif" font-size="12.00">UnauthorizedApiCallsA</text>
     </g>
-    <g id="edge12" class="edge">
+    <g id="edge13" class="edge">
       <title>Mlops-Dev-Security/UnauthorizedApiCallsAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2746.4,-980.01C2746.4,-980.01 2746.4,-1058.81 2746.4,-1058.81" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2746.4" cy="-975.01" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2746.4" cy="-1063.81" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2716,-980.01C2716,-980.01 2716,-1058.81 2716,-1058.81" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2716" cy="-975.01" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2716" cy="-1063.81" rx="4" ry="4" />
     </g>
-    <g id="node12" class="node">
+    <g id="node13" class="node">
       <title>Mlops-Dev-Security/IamPolicyChangesFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M1741,-998.99C1741,-998.99 1621,-998.99 1621,-998.99 1615,-998.99 1609,-992.99 1609,-986.99 1609,-986.99 1609,-832.29 1609,-832.29 1609,-826.29 1615,-820.29 1621,-820.29 1621,-820.29 1741,-820.29 1741,-820.29 1747,-820.29 1753,-826.29 1753,-832.29 1753,-832.29 1753,-986.99 1753,-986.99 1753,-992.99 1747,-998.99 1741,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1609" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="1681" y="-821.64" font-family="Sans-Serif" font-size="12.00">IamPolicyChangesFilte</text>
     </g>
-    <g id="edge13" class="edge">
+    <g id="edge14" class="edge">
       <title>Mlops-Dev-Security/IamPolicyChangesFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1742,-1008.84C1742,-1008.84 1742,-1058.61 1742,-1058.61" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1742" cy="-1003.84" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1742" cy="-1063.61" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1715.1,-1008.84C1715.1,-1008.84 1715.1,-1078.18 1715.1,-1078.18 1715.1,-1078.18 1786.03,-1078.18 1786.03,-1078.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1715.1" cy="-1003.84" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1791.03" cy="-1078.18" rx="4" ry="4" />
     </g>
-    <g id="node13" class="node">
+    <g id="node14" class="node">
       <title>Mlops-Dev-Security/IamPolicyChangesAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2876.2,-970.19C2876.2,-970.19 2813.8,-970.19 2813.8,-970.19 2807.8,-970.19 2801.8,-964.19 2801.8,-958.19 2801.8,-958.19 2801.8,-861.09 2801.8,-861.09 2801.8,-855.09 2807.8,-849.09 2813.8,-849.09 2813.8,-849.09 2876.2,-849.09 2876.2,-849.09 2882.2,-849.09 2888.2,-855.09 2888.2,-861.09 2888.2,-861.09 2888.2,-958.19 2888.2,-958.19 2888.2,-964.19 2882.2,-970.19 2876.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="2801.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="2845" y="-850.44" font-family="Sans-Serif" font-size="12.00">IamPolicyChangesAlarm</text>
     </g>
-    <g id="edge14" class="edge">
+    <g id="edge15" class="edge">
       <title>Mlops-Dev-Security/IamPolicyChangesAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2826.9,-980.01C2826.9,-980.01 2826.9,-1058.81 2826.9,-1058.81" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2826.9" cy="-975.01" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2826.9" cy="-1063.81" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2792.13,-909.18C2792.13,-909.18 2764,-909.18 2764,-909.18 2764,-909.18 2764,-1058.55 2764,-1058.55" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2797.13" cy="-909.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2764" cy="-1063.55" rx="4" ry="4" />
     </g>
-    <g id="node14" class="node">
+    <g id="node15" class="node">
       <title>Mlops-Dev-Security/CloudTrailConfigurationChangesFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M1928,-998.99C1928,-998.99 1808,-998.99 1808,-998.99 1802,-998.99 1796,-992.99 1796,-986.99 1796,-986.99 1796,-832.29 1796,-832.29 1796,-826.29 1802,-820.29 1808,-820.29 1808,-820.29 1928,-820.29 1928,-820.29 1934,-820.29 1940,-826.29 1940,-832.29 1940,-832.29 1940,-986.99 1940,-986.99 1940,-992.99 1934,-998.99 1928,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1796" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="1868" y="-821.64" font-family="Sans-Serif" font-size="12.00">CloudTrailConfigurati</text>
     </g>
-    <g id="edge15" class="edge">
+    <g id="edge16" class="edge">
       <title>Mlops-Dev-Security/CloudTrailConfigurationChangesFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1830,-1008.84C1830,-1008.84 1830,-1058.61 1830,-1058.61" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1830" cy="-1003.84" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1830" cy="-1063.61" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M1892,-1008.84C1892,-1008.84 1892,-1058.61 1892,-1058.61" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1892" cy="-1003.84" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1892" cy="-1063.61" rx="4" ry="4" />
     </g>
-    <g id="node15" class="node">
+    <g id="node16" class="node">
       <title>Mlops-Dev-Security/CloudTrailConfigurationChangesAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3005.2,-970.19C3005.2,-970.19 2942.8,-970.19 2942.8,-970.19 2936.8,-970.19 2930.8,-964.19 2930.8,-958.19 2930.8,-958.19 2930.8,-861.09 2930.8,-861.09 2930.8,-855.09 2936.8,-849.09 2942.8,-849.09 2942.8,-849.09 3005.2,-849.09 3005.2,-849.09 3011.2,-849.09 3017.2,-855.09 3017.2,-861.09 3017.2,-861.09 3017.2,-958.19 3017.2,-958.19 3017.2,-964.19 3011.2,-970.19 3005.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="2930.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="2974" y="-850.44" font-family="Sans-Serif" font-size="12.00">CloudTrailConfigurati</text>
     </g>
-    <g id="edge16" class="edge">
+    <g id="edge17" class="edge">
       <title>Mlops-Dev-Security/CloudTrailConfigurationChangesAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2974,-979.95C2974,-979.95 2974,-1096.18 2974,-1096.18 2974,-1096.18 2861.96,-1096.18 2861.96,-1096.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2974" cy="-974.95" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2856.96" cy="-1096.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2952.9,-973.75C2952.9,-973.75 2952.9,-974.18 2952.9,-974.18 2952.9,-974.18 2768.8,-974.18 2768.8,-974.18 2768.8,-974.18 2768.8,-1058.59 2768.8,-1058.59" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2952.9" cy="-974.94" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2768.8" cy="-1063.59" rx="4" ry="4" />
     </g>
-    <g id="node16" class="node">
+    <g id="node17" class="node">
       <title>Mlops-Dev-Security/KmsKeyDisableOrDeletionFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2115,-998.99C2115,-998.99 1995,-998.99 1995,-998.99 1989,-998.99 1983,-992.99 1983,-986.99 1983,-986.99 1983,-832.29 1983,-832.29 1983,-826.29 1989,-820.29 1995,-820.29 1995,-820.29 2115,-820.29 2115,-820.29 2121,-820.29 2127,-826.29 2127,-832.29 2127,-832.29 2127,-986.99 2127,-986.99 2127,-992.99 2121,-998.99 2115,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="1983" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="2055" y="-821.64" font-family="Sans-Serif" font-size="12.00">KmsKeyDisableOrDeleti</text>
     </g>
-    <g id="edge17" class="edge">
+    <g id="edge18" class="edge">
       <title>Mlops-Dev-Security/KmsKeyDisableOrDeletionFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2055,-1008.96C2055,-1008.96 2055,-1101.18 2055,-1101.18 2055,-1101.18 1873.87,-1101.18 1873.87,-1101.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2055" cy="-1003.96" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1868.87" cy="-1101.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2055,-1008.9C2055,-1008.9 2055,-1109.18 2055,-1109.18 2055,-1109.18 1949.76,-1109.18 1949.76,-1109.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2055" cy="-1003.9" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1944.76" cy="-1109.18" rx="4" ry="4" />
     </g>
-    <g id="node17" class="node">
+    <g id="node18" class="node">
       <title>Mlops-Dev-Security/KmsKeyDisableOrDeletionAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3134.2,-970.19C3134.2,-970.19 3071.8,-970.19 3071.8,-970.19 3065.8,-970.19 3059.8,-964.19 3059.8,-958.19 3059.8,-958.19 3059.8,-861.09 3059.8,-861.09 3059.8,-855.09 3065.8,-849.09 3071.8,-849.09 3071.8,-849.09 3134.2,-849.09 3134.2,-849.09 3140.2,-849.09 3146.2,-855.09 3146.2,-861.09 3146.2,-861.09 3146.2,-958.19 3146.2,-958.19 3146.2,-964.19 3140.2,-970.19 3134.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3059.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3103" y="-850.44" font-family="Sans-Serif" font-size="12.00">KmsKeyDisableOrDeleti</text>
     </g>
-    <g id="edge18" class="edge">
+    <g id="edge19" class="edge">
       <title>Mlops-Dev-Security/KmsKeyDisableOrDeletionAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3103,-979.97C3103,-979.97 3103,-1123.18 3103,-1123.18 3103,-1123.18 2861.68,-1123.18 2861.68,-1123.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3103" cy="-974.97" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2856.68" cy="-1123.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3103,-977.36C3103,-977.36 3103,-978.18 3103,-978.18 3103,-978.18 2773.6,-978.18 2773.6,-978.18 2773.6,-978.18 2773.6,-1058.68 2773.6,-1058.68" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3103" cy="-975.04" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2773.6" cy="-1063.68" rx="4" ry="4" />
     </g>
-    <g id="node18" class="node">
+    <g id="node19" class="node">
       <title>Mlops-Dev-Security/ProdDeployRoleAssumedFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2302,-998.99C2302,-998.99 2182,-998.99 2182,-998.99 2176,-998.99 2170,-992.99 2170,-986.99 2170,-986.99 2170,-832.29 2170,-832.29 2170,-826.29 2176,-820.29 2182,-820.29 2182,-820.29 2302,-820.29 2302,-820.29 2308,-820.29 2314,-826.29 2314,-832.29 2314,-832.29 2314,-986.99 2314,-986.99 2314,-992.99 2308,-998.99 2302,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="2170" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="2242" y="-821.64" font-family="Sans-Serif" font-size="12.00">ProdDeployRoleAssumed</text>
     </g>
-    <g id="edge19" class="edge">
+    <g id="edge20" class="edge">
       <title>Mlops-Dev-Security/ProdDeployRoleAssumedFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2242,-1008.71C2242,-1008.71 2242,-1134.18 2242,-1134.18 2242,-1134.18 1873.8,-1134.18 1873.8,-1134.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2242" cy="-1003.71" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1868.8" cy="-1134.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2242,-1008.86C2242,-1008.86 2242,-1150.18 2242,-1150.18 2242,-1150.18 1949.67,-1150.18 1949.67,-1150.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2242" cy="-1003.86" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1944.67" cy="-1150.18" rx="4" ry="4" />
     </g>
-    <g id="node19" class="node">
+    <g id="node20" class="node">
       <title>Mlops-Dev-Security/ProdDeployRoleAssumedAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3263.2,-970.19C3263.2,-970.19 3200.8,-970.19 3200.8,-970.19 3194.8,-970.19 3188.8,-964.19 3188.8,-958.19 3188.8,-958.19 3188.8,-861.09 3188.8,-861.09 3188.8,-855.09 3194.8,-849.09 3200.8,-849.09 3200.8,-849.09 3263.2,-849.09 3263.2,-849.09 3269.2,-849.09 3275.2,-855.09 3275.2,-861.09 3275.2,-861.09 3275.2,-958.19 3275.2,-958.19 3275.2,-964.19 3269.2,-970.19 3263.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3188.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3232" y="-850.44" font-family="Sans-Serif" font-size="12.00">ProdDeployRoleAssumed</text>
     </g>
-    <g id="edge20" class="edge">
+    <g id="edge21" class="edge">
       <title>Mlops-Dev-Security/ProdDeployRoleAssumedAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3224.4,-980.03C3224.4,-980.03 3224.4,-1150.18 3224.4,-1150.18 3224.4,-1150.18 2861.89,-1150.18 2861.89,-1150.18" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3224.4,-980.03C3224.4,-980.03 3224.4,-983.18 3224.4,-983.18 3224.4,-983.18 2778.4,-983.18 2778.4,-983.18 2778.4,-983.18 2778.4,-1058.6 2778.4,-1058.6" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3224.4" cy="-975.03" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2856.89" cy="-1150.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2778.4" cy="-1063.6" rx="4" ry="4" />
     </g>
-    <g id="node20" class="node">
+    <g id="node21" class="node">
       <title>Mlops-Dev-Security/S3BucketPolicyChangesFilter</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2489,-998.99C2489,-998.99 2369,-998.99 2369,-998.99 2363,-998.99 2357,-992.99 2357,-986.99 2357,-986.99 2357,-832.29 2357,-832.29 2357,-826.29 2363,-820.29 2369,-820.29 2369,-820.29 2489,-820.29 2489,-820.29 2495,-820.29 2501,-826.29 2501,-832.29 2501,-832.29 2501,-986.99 2501,-986.99 2501,-992.99 2495,-998.99 2489,-998.99" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="2357" y="-998.992" xlink:href="#cdk-dia-icon-9344b38c1d7a591e" />
       <text xml:space="preserve" text-anchor="middle" x="2429" y="-821.64" font-family="Sans-Serif" font-size="12.00">S3BucketPolicyChanges</text>
     </g>
-    <g id="edge21" class="edge">
+    <g id="edge22" class="edge">
       <title>Mlops-Dev-Security/S3BucketPolicyChangesFilter-&gt;Mlops-Dev-Security/AuditLogGroup</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2429,-1008.64C2429,-1008.64 2429,-1166.18 2429,-1166.18 2429,-1166.18 1873.83,-1166.18 1873.83,-1166.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2429" cy="-1003.64" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1868.83" cy="-1166.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M2429,-1008.72C2429,-1008.72 2429,-1191.18 2429,-1191.18 2429,-1191.18 1949.91,-1191.18 1949.91,-1191.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2429" cy="-1003.72" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1944.91" cy="-1191.18" rx="4" ry="4" />
     </g>
-    <g id="node21" class="node">
+    <g id="node22" class="node">
       <title>Mlops-Dev-Security/S3BucketPolicyChangesAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3392.2,-970.19C3392.2,-970.19 3329.8,-970.19 3329.8,-970.19 3323.8,-970.19 3317.8,-964.19 3317.8,-958.19 3317.8,-958.19 3317.8,-861.09 3317.8,-861.09 3317.8,-855.09 3323.8,-849.09 3329.8,-849.09 3329.8,-849.09 3392.2,-849.09 3392.2,-849.09 3398.2,-849.09 3404.2,-855.09 3404.2,-861.09 3404.2,-861.09 3404.2,-958.19 3404.2,-958.19 3404.2,-964.19 3398.2,-970.19 3392.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3317.8" y="-970.192" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3361" y="-850.44" font-family="Sans-Serif" font-size="12.00">S3BucketPolicyChanges</text>
     </g>
-    <g id="edge22" class="edge">
+    <g id="edge23" class="edge">
       <title>Mlops-Dev-Security/S3BucketPolicyChangesAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3360.9,-980.01C3360.9,-980.01 3360.9,-1177.18 3360.9,-1177.18 3360.9,-1177.18 2861.81,-1177.18 2861.81,-1177.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3360.9" cy="-975.01" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2856.81" cy="-1177.18" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3360.9,-979.97C3360.9,-979.97 3360.9,-987.18 3360.9,-987.18 3360.9,-987.18 2783.2,-987.18 2783.2,-987.18 2783.2,-987.18 2783.2,-1058.65 2783.2,-1058.65" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3360.9" cy="-974.97" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2783.2" cy="-1063.65" rx="4" ry="4" />
     </g>
-    <g id="node22" class="node">
+    <g id="node23" class="node">
       <title>Mlops-Dev-SecurityMonitoring/ExternalAccessAnalyzer</title>
       <path fill="none" stroke="black" d="M138.2,-970.84C138.2,-970.84 39.8,-970.84 39.8,-970.84 33.8,-970.84 27.8,-964.84 27.8,-958.84 27.8,-958.84 27.8,-860.44 27.8,-860.44 27.8,-854.44 33.8,-848.44 39.8,-848.44 39.8,-848.44 138.2,-848.44 138.2,-848.44 144.2,-848.44 150.2,-854.44 150.2,-860.44 150.2,-860.44 150.2,-958.84 150.2,-958.84 150.2,-964.84 144.2,-970.84 138.2,-970.84" />
       <text xml:space="preserve" text-anchor="middle" x="89" y="-910.99" font-family="Sans-Serif" font-size="12.00"> ACCESSANALYZER</text>
       <text xml:space="preserve" text-anchor="middle" x="89" y="-898.24" font-family="Sans-Serif" font-size="12.00">ANALYZER</text>
     </g>
-    <g id="node23" class="node">
+    <g id="node24" class="node">
       <title>Mlops-Dev-SecurityMonitoring/AccountPublicAccessBlock</title>
       <path fill="none" stroke="black" stroke-width="0" d="M267.2,-970.19C267.2,-970.19 204.8,-970.19 204.8,-970.19 198.8,-970.19 192.8,-964.19 192.8,-958.19 192.8,-958.19 192.8,-861.09 192.8,-861.09 192.8,-855.09 198.8,-849.09 204.8,-849.09 204.8,-849.09 267.2,-849.09 267.2,-849.09 273.2,-849.09 279.2,-855.09 279.2,-861.09 279.2,-861.09 279.2,-958.19 279.2,-958.19 279.2,-964.19 273.2,-970.19 267.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="192.8" y="-970.192" xlink:href="#cdk-dia-icon-9ff9d95b9472a3bb" />
       <text xml:space="preserve" text-anchor="middle" x="236" y="-850.44" font-family="Sans-Serif" font-size="12.00">AccountPublicAccessBl</text>
     </g>
-    <g id="node24" class="node">
+    <g id="node25" class="node">
       <title>Mlops-Dev-SecurityMonitoring/AWS679f53fac002430cb0da5b7982bd2287</title>
       <path fill="none" stroke="black" stroke-width="0" d="M296,-1239.47C296,-1239.47 176,-1239.47 176,-1239.47 170,-1239.47 164,-1233.47 164,-1227.47 164,-1227.47 164,-1072.77 164,-1072.77 164,-1066.77 170,-1060.77 176,-1060.77 176,-1060.77 296,-1060.77 296,-1060.77 302,-1060.77 308,-1066.77 308,-1072.77 308,-1072.77 308,-1227.47 308,-1227.47 308,-1233.47 302,-1239.47 296,-1239.47" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="164" y="-1239.47" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="236" y="-1062.12" font-family="Sans-Serif" font-size="12.00">AWS679f53fac002430cb0</text>
     </g>
-    <g id="edge23" class="edge">
+    <g id="edge24" class="edge">
       <title>Mlops-Dev-SecurityMonitoring/AccountPublicAccessBlock-&gt;Mlops-Dev-SecurityMonitoring/AWS679f53fac002430cb0da5b7982bd2287</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M236,-980.01C236,-980.01 236,-1051.07 236,-1051.07" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="236" cy="-975.01" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="236" cy="-1056.07" rx="4" ry="4" />
     </g>
-    <g id="node25" class="node">
+    <g id="node26" class="node">
       <title>Mlops-Dev-SecurityMonitoring/ConfigServiceLinkedRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M396.2,-970.19C396.2,-970.19 333.8,-970.19 333.8,-970.19 327.8,-970.19 321.8,-964.19 321.8,-958.19 321.8,-958.19 321.8,-861.09 321.8,-861.09 321.8,-855.09 327.8,-849.09 333.8,-849.09 333.8,-849.09 396.2,-849.09 396.2,-849.09 402.2,-849.09 408.2,-855.09 408.2,-861.09 408.2,-861.09 408.2,-958.19 408.2,-958.19 408.2,-964.19 402.2,-970.19 396.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="321.8" y="-970.192" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="365" y="-863.19" font-family="Sans-Serif" font-size="12.00"> IAM</text>
       <text xml:space="preserve" text-anchor="middle" x="365" y="-850.44" font-family="Sans-Serif" font-size="12.00">ServiceLinkedRole</text>
     </g>
-    <g id="node26" class="node">
+    <g id="node27" class="node">
       <title>Mlops-Dev-SecurityMonitoring/ConfigurationRecorder</title>
       <path fill="none" stroke="black" stroke-width="0" d="M583,-1006.77C583,-1006.77 463,-1006.77 463,-1006.77 457,-1006.77 451,-1000.77 451,-994.77 451,-994.77 451,-824.51 451,-824.51 451,-818.51 457,-812.51 463,-812.51 463,-812.51 583,-812.51 583,-812.51 589,-812.51 595,-818.51 595,-824.51 595,-824.51 595,-994.77 595,-994.77 595,-1000.77 589,-1006.77 583,-1006.77" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="451" y="-1006.77" xlink:href="#cdk-dia-icon-6349acbfe37cc549" />
@@ -397,7 +409,7 @@
       <text xml:space="preserve" text-anchor="middle" x="523" y="-826.61" font-family="Sans-Serif" font-size="12.00">ConfigurationRecorder</text>
       <text xml:space="preserve" text-anchor="middle" x="523" y="-813.86" font-family="Sans-Serif" font-size="12.00">ConfigurationRecorder</text>
     </g>
-    <g id="node27" class="node">
+    <g id="node28" class="node">
       <title>Mlops-Dev-SecurityMonitoring/ConfigDeliveryChannel</title>
       <path fill="none" stroke="black" stroke-width="0" d="M712.2,-977.97C712.2,-977.97 649.8,-977.97 649.8,-977.97 643.8,-977.97 637.8,-971.97 637.8,-965.97 637.8,-965.97 637.8,-853.31 637.8,-853.31 637.8,-847.31 643.8,-841.31 649.8,-841.31 649.8,-841.31 712.2,-841.31 712.2,-841.31 718.2,-841.31 724.2,-847.31 724.2,-853.31 724.2,-853.31 724.2,-965.97 724.2,-965.97 724.2,-971.97 718.2,-977.97 712.2,-977.97" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="637.8" y="-977.968" xlink:href="#cdk-dia-icon-6349acbfe37cc549" />
@@ -405,230 +417,230 @@
       <text xml:space="preserve" text-anchor="middle" x="681" y="-855.41" font-family="Sans-Serif" font-size="12.00">DeliveryChannel</text>
       <text xml:space="preserve" text-anchor="middle" x="681" y="-842.66" font-family="Sans-Serif" font-size="12.00">ConfigDeliveryChannel</text>
     </g>
-    <g id="edge24" class="edge">
+    <g id="edge25" class="edge">
       <title>Mlops-Dev-SecurityMonitoring/ConfigDeliveryChannel-&gt;Mlops-Dev-Security/AuditBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M681,-987.84C681,-987.84 681,-1177.18 681,-1177.18 681,-1177.18 1356.1,-1177.18 1356.1,-1177.18" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M681,-987.84C681,-987.84 681,-1177.18 681,-1177.18 681,-1177.18 1394.05,-1177.18 1394.05,-1177.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="681" cy="-982.84" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1361.1" cy="-1177.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="1399.05" cy="-1177.18" rx="4" ry="4" />
     </g>
-    <g id="node28" class="node">
+    <g id="node29" class="node">
       <title>Mlops-Dev-SecurityMonitoring/AccessAnalyzerFindingRule</title>
       <path fill="none" stroke="black" stroke-width="0" d="M841.2,-962.42C841.2,-962.42 778.8,-962.42 778.8,-962.42 772.8,-962.42 766.8,-956.42 766.8,-950.42 766.8,-950.42 766.8,-868.86 766.8,-868.86 766.8,-862.86 772.8,-856.86 778.8,-856.86 778.8,-856.86 841.2,-856.86 841.2,-856.86 847.2,-856.86 853.2,-862.86 853.2,-868.86 853.2,-868.86 853.2,-950.42 853.2,-950.42 853.2,-956.42 847.2,-962.42 841.2,-962.42" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="766.8" y="-962.416" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="810" y="-858.21" font-family="Sans-Serif" font-size="12.00"> Events Rule</text>
     </g>
-    <g id="edge25" class="edge">
+    <g id="edge26" class="edge">
       <title>Mlops-Dev-SecurityMonitoring/AccessAnalyzerFindingRule-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M810,-972.28C810,-972.28 810,-1022.18 810,-1022.18 810,-1022.18 2720.8,-1022.18 2720.8,-1022.18 2720.8,-1022.18 2720.8,-1058.73 2720.8,-1058.73" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="810" cy="-967.28" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2720.8" cy="-1063.73" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M810,-972.32C810,-972.32 810,-1028.18 810,-1028.18 810,-1028.18 2651.2,-1028.18 2651.2,-1028.18 2651.2,-1028.18 2651.2,-1058.78 2651.2,-1058.78" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="810" cy="-967.32" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2651.2" cy="-1063.78" rx="4" ry="4" />
     </g>
-    <g id="node29" class="node">
+    <g id="node30" class="node">
       <title>Mlops-Dev-SecurityMonitoring/ConfigDeliveryFailureRule</title>
       <path fill="none" stroke="black" stroke-width="0" d="M970.2,-962.42C970.2,-962.42 907.8,-962.42 907.8,-962.42 901.8,-962.42 895.8,-956.42 895.8,-950.42 895.8,-950.42 895.8,-868.86 895.8,-868.86 895.8,-862.86 901.8,-856.86 907.8,-856.86 907.8,-856.86 970.2,-856.86 970.2,-856.86 976.2,-856.86 982.2,-862.86 982.2,-868.86 982.2,-868.86 982.2,-950.42 982.2,-950.42 982.2,-956.42 976.2,-962.42 970.2,-962.42" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="895.8" y="-962.416" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="939" y="-858.21" font-family="Sans-Serif" font-size="12.00"> Events Rule</text>
     </g>
-    <g id="edge26" class="edge">
+    <g id="edge27" class="edge">
       <title>Mlops-Dev-SecurityMonitoring/ConfigDeliveryFailureRule-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M939,-972.21C939,-972.21 939,-1014.18 939,-1014.18 939,-1014.18 2733.6,-1014.18 2733.6,-1014.18 2733.6,-1014.18 2733.6,-1058.69 2733.6,-1058.69" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="939" cy="-967.21" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2733.6" cy="-1063.69" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M939,-972.15C939,-972.15 939,-1017.18 939,-1017.18 939,-1017.18 2658.4,-1017.18 2658.4,-1017.18 2658.4,-1017.18 2658.4,-1058.58 2658.4,-1058.58" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="939" cy="-967.15" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2658.4" cy="-1063.58" rx="4" ry="4" />
     </g>
-    <g id="node30" class="node">
+    <g id="node31" class="node">
       <title>Mlops-Dev-Data/RawBucket</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4581,-1231.7C4581,-1231.7 4461,-1231.7 4461,-1231.7 4455,-1231.7 4449,-1225.7 4449,-1219.7 4449,-1219.7 4449,-1080.54 4449,-1080.54 4449,-1074.54 4455,-1068.54 4461,-1068.54 4461,-1068.54 4581,-1068.54 4581,-1068.54 4587,-1068.54 4593,-1074.54 4593,-1080.54 4593,-1080.54 4593,-1219.7 4593,-1219.7 4593,-1225.7 4587,-1231.7 4581,-1231.7" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4449" y="-1231.7" xlink:href="#cdk-dia-icon-167cdf05870dca73" />
       <text xml:space="preserve" text-anchor="middle" x="4521" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> RawBucket</text>
     </g>
-    <g id="edge27" class="edge">
+    <g id="edge28" class="edge">
       <title>Mlops-Dev-Data/RawBucket-&gt;Mlops-Dev-Security/AccessLogBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4463.4,-1241.58C4463.4,-1241.58 4463.4,-1323.18 4463.4,-1323.18 4463.4,-1323.18 3413.63,-1323.18 3413.63,-1323.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4463.4" cy="-1236.58" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3408.63" cy="-1323.18" rx="4" ry="4" />
     </g>
-    <g id="node38" class="node">
+    <g id="node39" class="node">
       <title>Mlops-Dev-Data/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4552.2,-1435.6C4552.2,-1435.6 4489.8,-1435.6 4489.8,-1435.6 4483.8,-1435.6 4477.8,-1429.6 4477.8,-1423.6 4477.8,-1423.6 4477.8,-1342.05 4477.8,-1342.05 4477.8,-1336.05 4483.8,-1330.05 4489.8,-1330.05 4489.8,-1330.05 4552.2,-1330.05 4552.2,-1330.05 4558.2,-1330.05 4564.2,-1336.05 4564.2,-1342.05 4564.2,-1342.05 4564.2,-1423.6 4564.2,-1423.6 4564.2,-1429.6 4558.2,-1435.6 4552.2,-1435.6" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4477.8" y="-1435.6" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4521" y="-1331.4" font-family="Sans-Serif" font-size="12.00"> Role</text>
     </g>
-    <g id="edge28" class="edge">
+    <g id="edge29" class="edge">
       <title>Mlops-Dev-Data/RawBucket-&gt;Mlops-Dev-Data/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4521,-1241.51C4521,-1241.51 4521,-1320.25 4521,-1320.25" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4521" cy="-1236.51" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4521" cy="-1325.25" rx="4" ry="4" />
     </g>
-    <g id="node31" class="node">
+    <g id="node32" class="node">
       <title>Mlops-Dev-Data/CuratedBucket</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4394,-1231.7C4394,-1231.7 4274,-1231.7 4274,-1231.7 4268,-1231.7 4262,-1225.7 4262,-1219.7 4262,-1219.7 4262,-1080.54 4262,-1080.54 4262,-1074.54 4268,-1068.54 4274,-1068.54 4274,-1068.54 4394,-1068.54 4394,-1068.54 4400,-1068.54 4406,-1074.54 4406,-1080.54 4406,-1080.54 4406,-1219.7 4406,-1219.7 4406,-1225.7 4400,-1231.7 4394,-1231.7" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4262" y="-1231.7" xlink:href="#cdk-dia-icon-167cdf05870dca73" />
       <text xml:space="preserve" text-anchor="middle" x="4334" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> CuratedBucket</text>
     </g>
-    <g id="edge29" class="edge">
+    <g id="edge30" class="edge">
       <title>Mlops-Dev-Data/CuratedBucket-&gt;Mlops-Dev-Security/AccessLogBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4334,-1241.68C4334,-1241.68 4334,-1315.18 4334,-1315.18 4334,-1315.18 3413.66,-1315.18 3413.66,-1315.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4334" cy="-1236.68" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3408.66" cy="-1315.18" rx="4" ry="4" />
     </g>
-    <g id="node32" class="node">
+    <g id="node33" class="node">
       <title>Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4207,-1231.7C4207,-1231.7 4087,-1231.7 4087,-1231.7 4081,-1231.7 4075,-1225.7 4075,-1219.7 4075,-1219.7 4075,-1080.54 4075,-1080.54 4075,-1074.54 4081,-1068.54 4087,-1068.54 4087,-1068.54 4207,-1068.54 4207,-1068.54 4213,-1068.54 4219,-1074.54 4219,-1080.54 4219,-1080.54 4219,-1219.7 4219,-1219.7 4219,-1225.7 4213,-1231.7 4207,-1231.7" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4075" y="-1231.7" xlink:href="#cdk-dia-icon-167cdf05870dca73" />
       <text xml:space="preserve" text-anchor="middle" x="4147" y="-1069.89" font-family="Sans-Serif" font-size="12.00"> ArtifactsBucket</text>
     </g>
-    <g id="edge30" class="edge">
+    <g id="edge31" class="edge">
       <title>Mlops-Dev-Data/ArtifactsBucket-&gt;Mlops-Dev-Security/AccessLogBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4147,-1241.46C4147,-1241.46 4147,-1308.18 4147,-1308.18 4147,-1308.18 3413.97,-1308.18 3413.97,-1308.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4147" cy="-1236.46" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3408.97" cy="-1308.18" rx="4" ry="4" />
     </g>
-    <g id="node33" class="node">
-      <title>Mlops-Dev-Data/MonthlyBudget</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M4760,-1472.18C4760,-1472.18 4640,-1472.18 4640,-1472.18 4634,-1472.18 4628,-1466.18 4628,-1460.18 4628,-1460.18 4628,-1305.47 4628,-1305.47 4628,-1299.47 4634,-1293.47 4640,-1293.47 4640,-1293.47 4760,-1293.47 4760,-1293.47 4766,-1293.47 4772,-1299.47 4772,-1305.47 4772,-1305.47 4772,-1460.18 4772,-1460.18 4772,-1466.18 4766,-1472.18 4760,-1472.18" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4628" y="-1472.18" xlink:href="#cdk-dia-icon-d9f9498ff0b0a74c" />
-      <text xml:space="preserve" text-anchor="middle" x="4700" y="-1307.57" font-family="Sans-Serif" font-size="12.00"> Budgets Budget</text>
-      <text xml:space="preserve" text-anchor="middle" x="4700" y="-1294.82" font-family="Sans-Serif" font-size="12.00">MonthlyBudget</text>
-    </g>
     <g id="node34" class="node">
+      <title>Mlops-Dev-Data/MonthlyBudget</title>
+      <path fill="none" stroke="black" stroke-width="0" d="M4947,-1472.18C4947,-1472.18 4827,-1472.18 4827,-1472.18 4821,-1472.18 4815,-1466.18 4815,-1460.18 4815,-1460.18 4815,-1305.47 4815,-1305.47 4815,-1299.47 4821,-1293.47 4827,-1293.47 4827,-1293.47 4947,-1293.47 4947,-1293.47 4953,-1293.47 4959,-1299.47 4959,-1305.47 4959,-1305.47 4959,-1460.18 4959,-1460.18 4959,-1466.18 4953,-1472.18 4947,-1472.18" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4815" y="-1472.18" xlink:href="#cdk-dia-icon-d9f9498ff0b0a74c" />
+      <text xml:space="preserve" text-anchor="middle" x="4887" y="-1307.57" font-family="Sans-Serif" font-size="12.00"> Budgets Budget</text>
+      <text xml:space="preserve" text-anchor="middle" x="4887" y="-1294.82" font-family="Sans-Serif" font-size="12.00">MonthlyBudget</text>
+    </g>
+    <g id="node35" class="node">
       <title>Mlops-Dev-Data/BudgetAlert50Percent</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4710.2,-1202.9C4710.2,-1202.9 4647.8,-1202.9 4647.8,-1202.9 4641.8,-1202.9 4635.8,-1196.9 4635.8,-1190.9 4635.8,-1190.9 4635.8,-1109.34 4635.8,-1109.34 4635.8,-1103.34 4641.8,-1097.34 4647.8,-1097.34 4647.8,-1097.34 4710.2,-1097.34 4710.2,-1097.34 4716.2,-1097.34 4722.2,-1103.34 4722.2,-1109.34 4722.2,-1109.34 4722.2,-1190.9 4722.2,-1190.9 4722.2,-1196.9 4716.2,-1202.9 4710.2,-1202.9" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4635.8" y="-1202.9" xlink:href="#cdk-dia-icon-9ff9d95b9472a3bb" />
       <text xml:space="preserve" text-anchor="middle" x="4679" y="-1098.69" font-family="Sans-Serif" font-size="12.00"> BudgetAlert50Percent</text>
     </g>
-    <g id="edge31" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert50Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4664.6,-1212.63C4664.6,-1212.63 4664.6,-1283.5 4664.6,-1283.5" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4664.6" cy="-1207.63" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4664.6" cy="-1288.5" rx="4" ry="4" />
-    </g>
-    <g id="node35" class="node">
-      <title>Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
-      <path fill="none" stroke="black" stroke-width="0" d="M4947,-1472.18C4947,-1472.18 4827,-1472.18 4827,-1472.18 4821,-1472.18 4815,-1466.18 4815,-1460.18 4815,-1460.18 4815,-1305.47 4815,-1305.47 4815,-1299.47 4821,-1293.47 4827,-1293.47 4827,-1293.47 4947,-1293.47 4947,-1293.47 4953,-1293.47 4959,-1299.47 4959,-1305.47 4959,-1305.47 4959,-1460.18 4959,-1460.18 4959,-1466.18 4953,-1472.18 4947,-1472.18" />
-      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4815" y="-1472.18" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
-      <text xml:space="preserve" text-anchor="middle" x="4887" y="-1294.82" font-family="Sans-Serif" font-size="12.00">AWS679f53fac002430cb0</text>
-    </g>
     <g id="edge32" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert50Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <title>Mlops-Dev-Data/BudgetAlert50Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4693.4,-1212.88C4693.4,-1212.88 4693.4,-1221.18 4693.4,-1221.18 4693.4,-1221.18 4827.07,-1221.18 4827.07,-1221.18 4827.07,-1221.18 4827.07,-1283.49 4827.07,-1283.49" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4693.4" cy="-1207.88" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4827.07" cy="-1288.49" rx="4" ry="4" />
     </g>
     <g id="node36" class="node">
+      <title>Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <path fill="none" stroke="black" stroke-width="0" d="M4760,-1472.18C4760,-1472.18 4640,-1472.18 4640,-1472.18 4634,-1472.18 4628,-1466.18 4628,-1460.18 4628,-1460.18 4628,-1305.47 4628,-1305.47 4628,-1299.47 4634,-1293.47 4640,-1293.47 4640,-1293.47 4760,-1293.47 4760,-1293.47 4766,-1293.47 4772,-1299.47 4772,-1305.47 4772,-1305.47 4772,-1460.18 4772,-1460.18 4772,-1466.18 4766,-1472.18 4760,-1472.18" />
+      <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4628" y="-1472.18" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
+      <text xml:space="preserve" text-anchor="middle" x="4700" y="-1294.82" font-family="Sans-Serif" font-size="12.00">AWS679f53fac002430cb0</text>
+    </g>
+    <g id="edge33" class="edge">
+      <title>Mlops-Dev-Data/BudgetAlert50Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4664.6,-1212.63C4664.6,-1212.63 4664.6,-1283.5 4664.6,-1283.5" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4664.6" cy="-1207.63" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4664.6" cy="-1288.5" rx="4" ry="4" />
+    </g>
+    <g id="node37" class="node">
       <title>Mlops-Dev-Data/BudgetAlert80Percent</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4839.2,-1202.9C4839.2,-1202.9 4776.8,-1202.9 4776.8,-1202.9 4770.8,-1202.9 4764.8,-1196.9 4764.8,-1190.9 4764.8,-1190.9 4764.8,-1109.34 4764.8,-1109.34 4764.8,-1103.34 4770.8,-1097.34 4776.8,-1097.34 4776.8,-1097.34 4839.2,-1097.34 4839.2,-1097.34 4845.2,-1097.34 4851.2,-1103.34 4851.2,-1109.34 4851.2,-1109.34 4851.2,-1190.9 4851.2,-1190.9 4851.2,-1196.9 4845.2,-1202.9 4839.2,-1202.9" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4764.8" y="-1202.9" xlink:href="#cdk-dia-icon-9ff9d95b9472a3bb" />
       <text xml:space="preserve" text-anchor="middle" x="4808" y="-1098.69" font-family="Sans-Serif" font-size="12.00"> BudgetAlert80Percent</text>
     </g>
-    <g id="edge33" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert80Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4767.2,-1212.63C4767.2,-1212.63 4767.2,-1283.5 4767.2,-1283.5" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4767.2" cy="-1207.63" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4767.2" cy="-1288.5" rx="4" ry="4" />
-    </g>
     <g id="edge34" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert80Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <title>Mlops-Dev-Data/BudgetAlert80Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4839.13,-1212.63C4839.13,-1212.63 4839.13,-1283.5 4839.13,-1283.5" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4839.13" cy="-1207.63" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4839.13" cy="-1288.5" rx="4" ry="4" />
     </g>
-    <g id="node37" class="node">
+    <g id="edge35" class="edge">
+      <title>Mlops-Dev-Data/BudgetAlert80Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4767.2,-1212.63C4767.2,-1212.63 4767.2,-1283.5 4767.2,-1283.5" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4767.2" cy="-1207.63" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4767.2" cy="-1288.5" rx="4" ry="4" />
+    </g>
+    <g id="node38" class="node">
       <title>Mlops-Dev-Data/BudgetAlert100Percent</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4968.2,-1210.67C4968.2,-1210.67 4905.8,-1210.67 4905.8,-1210.67 4899.8,-1210.67 4893.8,-1204.67 4893.8,-1198.67 4893.8,-1198.67 4893.8,-1101.57 4893.8,-1101.57 4893.8,-1095.57 4899.8,-1089.57 4905.8,-1089.57 4905.8,-1089.57 4968.2,-1089.57 4968.2,-1089.57 4974.2,-1089.57 4980.2,-1095.57 4980.2,-1101.57 4980.2,-1101.57 4980.2,-1198.67 4980.2,-1198.67 4980.2,-1204.67 4974.2,-1210.67 4968.2,-1210.67" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4893.8" y="-1210.67" xlink:href="#cdk-dia-icon-9ff9d95b9472a3bb" />
       <text xml:space="preserve" text-anchor="middle" x="4937" y="-1090.92" font-family="Sans-Serif" font-size="12.00">BudgetAlert100Percent</text>
     </g>
-    <g id="edge35" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert100Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4883.89,-1207.18C4883.89,-1207.18 4769.6,-1207.18 4769.6,-1207.18 4769.6,-1207.18 4769.6,-1283.71 4769.6,-1283.71" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4888.89" cy="-1207.18" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4769.6" cy="-1288.71" rx="4" ry="4" />
-    </g>
     <g id="edge36" class="edge">
-      <title>Mlops-Dev-Data/BudgetAlert100Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <title>Mlops-Dev-Data/BudgetAlert100Percent-&gt;Mlops-Dev-Data/MonthlyBudget</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4926.4,-1220.65C4926.4,-1220.65 4926.4,-1283.66 4926.4,-1283.66" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4926.4" cy="-1215.65" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4926.4" cy="-1288.66" rx="4" ry="4" />
     </g>
-    <g id="node39" class="node">
+    <g id="edge37" class="edge">
+      <title>Mlops-Dev-Data/BudgetAlert100Percent-&gt;Mlops-Dev-Data/AWS679f53fac002430cb0da5b7982bd2287</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4883.89,-1207.18C4883.89,-1207.18 4769.6,-1207.18 4769.6,-1207.18 4769.6,-1207.18 4769.6,-1283.71 4769.6,-1283.71" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4888.89" cy="-1207.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4769.6" cy="-1288.71" rx="4" ry="4" />
+    </g>
+    <g id="node40" class="node">
       <title>Mlops-Dev-Ingestion/IngestDlq</title>
       <path fill="none" stroke="black" stroke-width="0" d="M5048,-991.22C5048,-991.22 4928,-991.22 4928,-991.22 4922,-991.22 4916,-985.22 4916,-979.22 4916,-979.22 4916,-840.06 4916,-840.06 4916,-834.06 4922,-828.06 4928,-828.06 4928,-828.06 5048,-828.06 5048,-828.06 5054,-828.06 5060,-834.06 5060,-840.06 5060,-840.06 5060,-979.22 5060,-979.22 5060,-985.22 5054,-991.22 5048,-991.22" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4916" y="-991.216" xlink:href="#cdk-dia-icon-acabe0fda1ed5223" />
       <text xml:space="preserve" text-anchor="middle" x="4988" y="-829.41" font-family="Sans-Serif" font-size="12.00"> IngestDlq</text>
     </g>
-    <g id="node40" class="node">
+    <g id="node41" class="node">
       <title>Mlops-Dev-Ingestion/IngestQueue</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4990,-758.51C4990,-758.51 4870,-758.51 4870,-758.51 4864,-758.51 4858,-752.51 4858,-746.51 4858,-746.51 4858,-607.36 4858,-607.36 4858,-601.36 4864,-595.36 4870,-595.36 4870,-595.36 4990,-595.36 4990,-595.36 4996,-595.36 5002,-601.36 5002,-607.36 5002,-607.36 5002,-746.51 5002,-746.51 5002,-752.51 4996,-758.51 4990,-758.51" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4858" y="-758.512" xlink:href="#cdk-dia-icon-acabe0fda1ed5223" />
       <text xml:space="preserve" text-anchor="middle" x="4930" y="-596.71" font-family="Sans-Serif" font-size="12.00"> IngestQueue</text>
     </g>
-    <g id="edge37" class="edge">
+    <g id="edge38" class="edge">
       <title>Mlops-Dev-Ingestion/IngestQueue-&gt;Mlops-Dev-Ingestion/IngestDlq</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4937.5,-768.32C4937.5,-768.32 4937.5,-818.3 4937.5,-818.3" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4937.5" cy="-763.32" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4937.5" cy="-823.3" rx="4" ry="4" />
     </g>
-    <g id="node41" class="node">
+    <g id="node42" class="node">
       <title>Mlops-Dev-Ingestion/RawObjectCreated</title>
       <path fill="none" stroke="black" stroke-width="0" d="M5177.2,-962.42C5177.2,-962.42 5114.8,-962.42 5114.8,-962.42 5108.8,-962.42 5102.8,-956.42 5102.8,-950.42 5102.8,-950.42 5102.8,-868.86 5102.8,-868.86 5102.8,-862.86 5108.8,-856.86 5114.8,-856.86 5114.8,-856.86 5177.2,-856.86 5177.2,-856.86 5183.2,-856.86 5189.2,-862.86 5189.2,-868.86 5189.2,-868.86 5189.2,-950.42 5189.2,-950.42 5189.2,-956.42 5183.2,-962.42 5177.2,-962.42" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="5102.8" y="-962.416" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="5146" y="-858.21" font-family="Sans-Serif" font-size="12.00"> RawObjectCreated</text>
     </g>
-    <g id="edge38" class="edge">
+    <g id="edge39" class="edge">
       <title>Mlops-Dev-Ingestion/IngestQueue-&gt;Mlops-Dev-Ingestion/RawObjectCreated</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4980.5,-768.34C4980.5,-768.34 4980.5,-816.18 4980.5,-816.18 4980.5,-816.18 5160.27,-816.18 5160.27,-816.18 5160.27,-816.18 5160.27,-846.9 5160.27,-846.9" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4980.5" cy="-763.34" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="5160.27" cy="-851.9" rx="4" ry="4" />
     </g>
-    <g id="edge39" class="edge">
+    <g id="edge40" class="edge">
       <title>Mlops-Dev-Ingestion/RawObjectCreated-&gt;Mlops-Dev-Data/RawBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M5146,-972.34C5146,-972.34 5146,-1082.18 5146,-1082.18 5146,-1082.18 4602.7,-1082.18 4602.7,-1082.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="5146" cy="-967.34" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4597.7" cy="-1082.18" rx="4" ry="4" />
     </g>
-    <g id="edge40" class="edge">
+    <g id="edge41" class="edge">
       <title>Mlops-Dev-Ingestion/RawObjectCreated-&gt;Mlops-Dev-Ingestion/IngestQueue</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M5131.53,-846.97C5131.53,-846.97 5131.53,-824.18 5131.53,-824.18 5131.53,-824.18 4959,-824.18 4959,-824.18 4959,-824.18 4959,-768.31 4959,-768.31" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="5131.53" cy="-851.97" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4959" cy="-763.31" rx="4" ry="4" />
     </g>
-    <g id="node42" class="node">
+    <g id="node43" class="node">
       <title>Mlops-Dev-Ingestion/ValidateFnLogs</title>
       <path fill="none" stroke="black" stroke-width="0" d="M5177,-758.51C5177,-758.51 5057,-758.51 5057,-758.51 5051,-758.51 5045,-752.51 5045,-746.51 5045,-746.51 5045,-607.36 5045,-607.36 5045,-601.36 5051,-595.36 5057,-595.36 5057,-595.36 5177,-595.36 5177,-595.36 5183,-595.36 5189,-601.36 5189,-607.36 5189,-607.36 5189,-746.51 5189,-746.51 5189,-752.51 5183,-758.51 5177,-758.51" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="5045" y="-758.512" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
       <text xml:space="preserve" text-anchor="middle" x="5117" y="-596.71" font-family="Sans-Serif" font-size="12.00"> ValidateFnLogs</text>
     </g>
-    <g id="node43" class="node">
+    <g id="node44" class="node">
       <title>Mlops-Dev-Ingestion/ValidateFn</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4990,-541.36C4990,-541.36 4870,-541.36 4870,-541.36 4864,-541.36 4858,-535.36 4858,-529.36 4858,-529.36 4858,-390.21 4858,-390.21 4858,-384.21 4864,-378.21 4870,-378.21 4870,-378.21 4990,-378.21 4990,-378.21 4996,-378.21 5002,-384.21 5002,-390.21 5002,-390.21 5002,-529.36 5002,-529.36 5002,-535.36 4996,-541.36 4990,-541.36" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4858" y="-541.36" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="4930" y="-379.56" font-family="Sans-Serif" font-size="12.00"> ValidateFn</text>
     </g>
-    <g id="edge41" class="edge">
+    <g id="edge42" class="edge">
       <title>Mlops-Dev-Ingestion/ValidateFn-&gt;Mlops-Dev-Data/RawBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4848.23,-487.18C4848.23,-487.18 4822.4,-487.18 4822.4,-487.18 4822.4,-487.18 4822.4,-1075.18 4822.4,-1075.18 4822.4,-1075.18 4602.81,-1075.18 4602.81,-1075.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4853.23" cy="-487.18" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4597.81" cy="-1075.18" rx="4" ry="4" />
     </g>
-    <g id="edge42" class="edge">
+    <g id="edge43" class="edge">
       <title>Mlops-Dev-Ingestion/ValidateFn-&gt;Mlops-Dev-Data/CuratedBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4848.2,-432.18C4848.2,-432.18 4793.6,-432.18 4793.6,-432.18 4793.6,-432.18 4793.6,-751.18 4793.6,-751.18 4793.6,-751.18 4391.5,-751.18 4391.5,-751.18 4391.5,-751.18 4391.5,-1058.91 4391.5,-1058.91" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4853.2" cy="-432.18" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4391.5" cy="-1063.91" rx="4" ry="4" />
     </g>
-    <g id="edge43" class="edge">
+    <g id="edge44" class="edge">
       <title>Mlops-Dev-Ingestion/ValidateFn-&gt;Mlops-Dev-Ingestion/IngestQueue</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4930,-551.26C4930,-551.26 4930,-585.36 4930,-585.36" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4930" cy="-546.26" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4930" cy="-590.36" rx="4" ry="4" />
     </g>
-    <g id="edge44" class="edge">
+    <g id="edge45" class="edge">
       <title>Mlops-Dev-Ingestion/ValidateFn-&gt;Mlops-Dev-Ingestion/ValidateFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M5011.76,-460.18C5011.76,-460.18 5117,-460.18 5117,-460.18 5117,-460.18 5117,-585.61 5117,-585.61" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="5006.76" cy="-460.18" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="5117" cy="-590.61" rx="4" ry="4" />
     </g>
-    <g id="node44" class="node">
+    <g id="node45" class="node">
       <title>Mlops-Dev-Registry/ChurnModelGroup</title>
       <path fill="none" stroke="black" stroke-width="0" d="M2255.2,-164.66C2255.2,-164.66 2192.8,-164.66 2192.8,-164.66 2186.8,-164.66 2180.8,-158.66 2180.8,-152.66 2180.8,-152.66 2180.8,-40 2180.8,-40 2180.8,-34 2186.8,-28 2192.8,-28 2192.8,-28 2255.2,-28 2255.2,-28 2261.2,-28 2267.2,-34 2267.2,-40 2267.2,-40 2267.2,-152.66 2267.2,-152.66 2267.2,-158.66 2261.2,-164.66 2255.2,-164.66" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="2180.8" y="-164.656" xlink:href="#cdk-dia-icon-8f8054aac8468023" />
@@ -636,294 +648,294 @@
       <text xml:space="preserve" text-anchor="middle" x="2224" y="-42.1" font-family="Sans-Serif" font-size="12.00">ModelPackageGroup</text>
       <text xml:space="preserve" text-anchor="middle" x="2224" y="-29.35" font-family="Sans-Serif" font-size="12.00">ChurnModelGroup</text>
     </g>
-    <g id="node45" class="node">
+    <g id="node46" class="node">
       <title>Mlops-Dev-Training/PipelineExecutionRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4178.2,-970.19C4178.2,-970.19 4115.8,-970.19 4115.8,-970.19 4109.8,-970.19 4103.8,-964.19 4103.8,-958.19 4103.8,-958.19 4103.8,-861.09 4103.8,-861.09 4103.8,-855.09 4109.8,-849.09 4115.8,-849.09 4115.8,-849.09 4178.2,-849.09 4178.2,-849.09 4184.2,-849.09 4190.2,-855.09 4190.2,-861.09 4190.2,-861.09 4190.2,-958.19 4190.2,-958.19 4190.2,-964.19 4184.2,-970.19 4178.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4103.8" y="-970.192" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4147" y="-850.44" font-family="Sans-Serif" font-size="12.00">PipelineExecutionRole</text>
     </g>
-    <g id="edge45" class="edge">
-      <title>Mlops-Dev-Training/PipelineExecutionRole-&gt;Mlops-Dev-Data/CuratedBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4161.4,-980.1C4161.4,-980.1 4161.4,-1053.18 4161.4,-1053.18 4161.4,-1053.18 4319.5,-1053.18 4319.5,-1053.18 4319.5,-1053.18 4319.5,-1058.75 4319.5,-1058.75" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4161.4" cy="-975.1" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4319.5" cy="-1063.75" rx="4" ry="4" />
-    </g>
     <g id="edge46" class="edge">
+      <title>Mlops-Dev-Training/PipelineExecutionRole-&gt;Mlops-Dev-Data/CuratedBucket</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4161.4,-980.06C4161.4,-980.06 4161.4,-1050.18 4161.4,-1050.18 4161.4,-1050.18 4319.5,-1050.18 4319.5,-1050.18 4319.5,-1050.18 4319.5,-1058.97 4319.5,-1058.97" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4161.4" cy="-975.06" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4319.5" cy="-1063.97" rx="4" ry="4" />
+    </g>
+    <g id="edge47" class="edge">
       <title>Mlops-Dev-Training/PipelineExecutionRole-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4132.6,-980.01C4132.6,-980.01 4132.6,-1058.81 4132.6,-1058.81" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4132.6" cy="-975.01" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4132.6" cy="-1063.81" rx="4" ry="4" />
     </g>
-    <g id="node46" class="node">
+    <g id="node47" class="node">
       <title>Mlops-Dev-Serving/ModelExecutionRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4494.2,-962.42C4494.2,-962.42 4431.8,-962.42 4431.8,-962.42 4425.8,-962.42 4419.8,-956.42 4419.8,-950.42 4419.8,-950.42 4419.8,-868.86 4419.8,-868.86 4419.8,-862.86 4425.8,-856.86 4431.8,-856.86 4431.8,-856.86 4494.2,-856.86 4494.2,-856.86 4500.2,-856.86 4506.2,-862.86 4506.2,-868.86 4506.2,-868.86 4506.2,-950.42 4506.2,-950.42 4506.2,-956.42 4500.2,-962.42 4494.2,-962.42" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4419.8" y="-962.416" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4463" y="-858.21" font-family="Sans-Serif" font-size="12.00"> ModelExecutionRole</text>
     </g>
-    <g id="edge47" class="edge">
+    <g id="edge48" class="edge">
       <title>Mlops-Dev-Serving/ModelExecutionRole-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4434.4,-972.04C4434.4,-972.04 4434.4,-1045.18 4434.4,-1045.18 4434.4,-1045.18 4211.8,-1045.18 4211.8,-1045.18 4211.8,-1045.18 4211.8,-1058.73 4211.8,-1058.73" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4434.4" cy="-967.04" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4211.8" cy="-1063.73" rx="4" ry="4" />
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4434.4,-972.33C4434.4,-972.33 4434.4,-1039.18 4434.4,-1039.18 4434.4,-1039.18 4211.8,-1039.18 4211.8,-1039.18 4211.8,-1039.18 4211.8,-1058.62 4211.8,-1058.62" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4434.4" cy="-967.33" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4211.8" cy="-1063.62" rx="4" ry="4" />
     </g>
-    <g id="node47" class="node">
+    <g id="node48" class="node">
       <title>Mlops-Dev-Serving/DeployFnLogs</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4365,-991.22C4365,-991.22 4245,-991.22 4245,-991.22 4239,-991.22 4233,-985.22 4233,-979.22 4233,-979.22 4233,-840.06 4233,-840.06 4233,-834.06 4239,-828.06 4245,-828.06 4245,-828.06 4365,-828.06 4365,-828.06 4371,-828.06 4377,-834.06 4377,-840.06 4377,-840.06 4377,-979.22 4377,-979.22 4377,-985.22 4371,-991.22 4365,-991.22" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4233" y="-991.216" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
       <text xml:space="preserve" text-anchor="middle" x="4305" y="-829.41" font-family="Sans-Serif" font-size="12.00"> DeployFnLogs</text>
     </g>
-    <g id="node48" class="node">
+    <g id="node49" class="node">
       <title>Mlops-Dev-Serving/DeployFnRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4415.2,-729.71C4415.2,-729.71 4352.8,-729.71 4352.8,-729.71 4346.8,-729.71 4340.8,-723.71 4340.8,-717.71 4340.8,-717.71 4340.8,-636.16 4340.8,-636.16 4340.8,-630.16 4346.8,-624.16 4352.8,-624.16 4352.8,-624.16 4415.2,-624.16 4415.2,-624.16 4421.2,-624.16 4427.2,-630.16 4427.2,-636.16 4427.2,-636.16 4427.2,-717.71 4427.2,-717.71 4427.2,-723.71 4421.2,-729.71 4415.2,-729.71" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4340.8" y="-729.712" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4384" y="-625.51" font-family="Sans-Serif" font-size="12.00"> DeployFnRole</text>
     </g>
-    <g id="edge48" class="edge">
+    <g id="edge49" class="edge">
       <title>Mlops-Dev-Serving/DeployFnRole-&gt;Mlops-Dev-Serving/ModelExecutionRole</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4423.5,-739.45C4423.5,-739.45 4423.5,-846.92 4423.5,-846.92" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4423.5" cy="-734.45" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4423.5" cy="-851.92" rx="4" ry="4" />
     </g>
-    <g id="edge49" class="edge">
+    <g id="edge50" class="edge">
       <title>Mlops-Dev-Serving/DeployFnRole-&gt;Mlops-Dev-Serving/DeployFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4358.9,-739.45C4358.9,-739.45 4358.9,-818.09 4358.9,-818.09" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4358.9" cy="-734.45" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4358.9" cy="-823.09" rx="4" ry="4" />
     </g>
-    <g id="node49" class="node">
+    <g id="node50" class="node">
       <title>Mlops-Dev-Serving/DeployFn</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4444,-541.36C4444,-541.36 4324,-541.36 4324,-541.36 4318,-541.36 4312,-535.36 4312,-529.36 4312,-529.36 4312,-390.21 4312,-390.21 4312,-384.21 4318,-378.21 4324,-378.21 4324,-378.21 4444,-378.21 4444,-378.21 4450,-378.21 4456,-384.21 4456,-390.21 4456,-390.21 4456,-529.36 4456,-529.36 4456,-535.36 4450,-541.36 4444,-541.36" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4312" y="-541.36" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="4384" y="-379.56" font-family="Sans-Serif" font-size="12.00"> DeployFn</text>
     </g>
-    <g id="edge50" class="edge">
+    <g id="edge51" class="edge">
       <title>Mlops-Dev-Serving/DeployFn-&gt;Mlops-Dev-Serving/ModelExecutionRole</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4441.6,-551.25C4441.6,-551.25 4441.6,-846.91 4441.6,-846.91" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4441.6" cy="-546.25" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4441.6" cy="-851.91" rx="4" ry="4" />
     </g>
-    <g id="edge51" class="edge">
+    <g id="edge52" class="edge">
       <title>Mlops-Dev-Serving/DeployFn-&gt;Mlops-Dev-Serving/DeployFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4326.4,-551.25C4326.4,-551.25 4326.4,-818.4 4326.4,-818.4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4326.4" cy="-546.25" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4326.4" cy="-823.4" rx="4" ry="4" />
     </g>
-    <g id="edge52" class="edge">
+    <g id="edge53" class="edge">
       <title>Mlops-Dev-Serving/DeployFn-&gt;Mlops-Dev-Serving/DeployFnRole</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4384,-551.26C4384,-551.26 4384,-614.31 4384,-614.31" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4384" cy="-546.26" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4384" cy="-619.31" rx="4" ry="4" />
     </g>
-    <g id="node50" class="node">
+    <g id="node51" class="node">
       <title>Mlops-Dev-Serving/ModelApprovedRule</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4415.2,-324.21C4415.2,-324.21 4352.8,-324.21 4352.8,-324.21 4346.8,-324.21 4340.8,-318.21 4340.8,-312.21 4340.8,-312.21 4340.8,-230.66 4340.8,-230.66 4340.8,-224.66 4346.8,-218.66 4352.8,-218.66 4352.8,-218.66 4415.2,-218.66 4415.2,-218.66 4421.2,-218.66 4427.2,-224.66 4427.2,-230.66 4427.2,-230.66 4427.2,-312.21 4427.2,-312.21 4427.2,-318.21 4421.2,-324.21 4415.2,-324.21" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4340.8" y="-324.208" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="4384" y="-220.01" font-family="Sans-Serif" font-size="12.00"> ModelApprovedRule</text>
     </g>
-    <g id="edge53" class="edge">
+    <g id="edge54" class="edge">
       <title>Mlops-Dev-Serving/ModelApprovedRule-&gt;Mlops-Dev-Serving/DeployFn</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4384,-334.15C4384,-334.15 4384,-368.52 4384,-368.52" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4384" cy="-329.15" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4384" cy="-373.52" rx="4" ry="4" />
     </g>
-    <g id="node51" class="node">
+    <g id="node52" class="node">
       <title>Mlops-Dev-Serving/ProxyFnLogs</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4681,-991.22C4681,-991.22 4561,-991.22 4561,-991.22 4555,-991.22 4549,-985.22 4549,-979.22 4549,-979.22 4549,-840.06 4549,-840.06 4549,-834.06 4555,-828.06 4561,-828.06 4561,-828.06 4681,-828.06 4681,-828.06 4687,-828.06 4693,-834.06 4693,-840.06 4693,-840.06 4693,-979.22 4693,-979.22 4693,-985.22 4687,-991.22 4681,-991.22" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4549" y="-991.216" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
       <text xml:space="preserve" text-anchor="middle" x="4621" y="-829.41" font-family="Sans-Serif" font-size="12.00"> ProxyFnLogs</text>
     </g>
-    <g id="node52" class="node">
+    <g id="node53" class="node">
       <title>Mlops-Dev-Serving/ProxyFnRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4668.2,-729.71C4668.2,-729.71 4605.8,-729.71 4605.8,-729.71 4599.8,-729.71 4593.8,-723.71 4593.8,-717.71 4593.8,-717.71 4593.8,-636.16 4593.8,-636.16 4593.8,-630.16 4599.8,-624.16 4605.8,-624.16 4605.8,-624.16 4668.2,-624.16 4668.2,-624.16 4674.2,-624.16 4680.2,-630.16 4680.2,-636.16 4680.2,-636.16 4680.2,-717.71 4680.2,-717.71 4680.2,-723.71 4674.2,-729.71 4668.2,-729.71" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4593.8" y="-729.712" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4637" y="-625.51" font-family="Sans-Serif" font-size="12.00"> ProxyFnRole</text>
     </g>
-    <g id="edge54" class="edge">
+    <g id="edge55" class="edge">
       <title>Mlops-Dev-Serving/ProxyFnRole-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4622.6,-739.59C4622.6,-739.59 4622.6,-744.18 4622.6,-744.18 4622.6,-744.18 4204.6,-744.18 4204.6,-744.18 4204.6,-744.18 4204.6,-1058.95 4204.6,-1058.95" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4622.6" cy="-734.59" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4204.6" cy="-1063.95" rx="4" ry="4" />
     </g>
-    <g id="edge55" class="edge">
+    <g id="edge56" class="edge">
       <title>Mlops-Dev-Serving/ProxyFnRole-&gt;Mlops-Dev-Serving/ProxyFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4651.4,-739.45C4651.4,-739.45 4651.4,-818.09 4651.4,-818.09" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4651.4" cy="-734.45" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4651.4" cy="-823.09" rx="4" ry="4" />
     </g>
-    <g id="node53" class="node">
+    <g id="node54" class="node">
       <title>Mlops-Dev-Serving/ProxyFn</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4681,-541.36C4681,-541.36 4561,-541.36 4561,-541.36 4555,-541.36 4549,-535.36 4549,-529.36 4549,-529.36 4549,-390.21 4549,-390.21 4549,-384.21 4555,-378.21 4561,-378.21 4561,-378.21 4681,-378.21 4681,-378.21 4687,-378.21 4693,-384.21 4693,-390.21 4693,-390.21 4693,-529.36 4693,-529.36 4693,-535.36 4687,-541.36 4681,-541.36" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="4549" y="-541.36" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="4621" y="-379.56" font-family="Sans-Serif" font-size="12.00"> ProxyFn</text>
     </g>
-    <g id="edge56" class="edge">
+    <g id="edge57" class="edge">
       <title>Mlops-Dev-Serving/ProxyFn-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4563.93,-551.14C4563.93,-551.14 4563.93,-737.18 4563.93,-737.18 4563.93,-737.18 4197.4,-737.18 4197.4,-737.18 4197.4,-737.18 4197.4,-1059.03 4197.4,-1059.03" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4563.93" cy="-546.14" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4197.4" cy="-1064.03" rx="4" ry="4" />
     </g>
-    <g id="edge57" class="edge">
+    <g id="edge58" class="edge">
       <title>Mlops-Dev-Serving/ProxyFn-&gt;Mlops-Dev-Serving/ProxyFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4578.87,-551.25C4578.87,-551.25 4578.87,-818.4 4578.87,-818.4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4578.87" cy="-546.25" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4578.87" cy="-823.4" rx="4" ry="4" />
     </g>
-    <g id="edge58" class="edge">
+    <g id="edge59" class="edge">
       <title>Mlops-Dev-Serving/ProxyFn-&gt;Mlops-Dev-Serving/ProxyFnRole</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4637,-551.26C4637,-551.26 4637,-614.31 4637,-614.31" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4637" cy="-546.26" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4637" cy="-619.31" rx="4" ry="4" />
     </g>
-    <g id="node54" class="node">
+    <g id="node55" class="node">
       <title>Mlops-Dev-Serving/ChurnApi</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4652.2,-324.21C4652.2,-324.21 4589.8,-324.21 4589.8,-324.21 4583.8,-324.21 4577.8,-318.21 4577.8,-312.21 4577.8,-312.21 4577.8,-230.66 4577.8,-230.66 4577.8,-224.66 4583.8,-218.66 4589.8,-218.66 4589.8,-218.66 4652.2,-218.66 4652.2,-218.66 4658.2,-218.66 4664.2,-224.66 4664.2,-230.66 4664.2,-230.66 4664.2,-312.21 4664.2,-312.21 4664.2,-318.21 4658.2,-324.21 4652.2,-324.21" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4577.8" y="-324.208" xlink:href="#cdk-dia-icon-7ef85e6817682b6b" />
       <text xml:space="preserve" text-anchor="middle" x="4621" y="-220.01" font-family="Sans-Serif" font-size="12.00"> ChurnApi</text>
     </g>
-    <g id="edge59" class="edge">
+    <g id="edge60" class="edge">
       <title>Mlops-Dev-Serving/ChurnApi-&gt;Mlops-Dev-Serving/ProxyFn</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4621,-334.15C4621,-334.15 4621,-368.52 4621,-368.52" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4621" cy="-329.15" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4621" cy="-373.52" rx="4" ry="4" />
     </g>
-    <g id="node55" class="node">
+    <g id="node56" class="node">
       <title>Mlops-Dev-Cicd/GitHubOidcProvider</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4523.2,-156.88C4523.2,-156.88 4460.8,-156.88 4460.8,-156.88 4454.8,-156.88 4448.8,-150.88 4448.8,-144.88 4448.8,-144.88 4448.8,-47.78 4448.8,-47.78 4448.8,-41.78 4454.8,-35.78 4460.8,-35.78 4460.8,-35.78 4523.2,-35.78 4523.2,-35.78 4529.2,-35.78 4535.2,-41.78 4535.2,-47.78 4535.2,-47.78 4535.2,-144.88 4535.2,-144.88 4535.2,-150.88 4529.2,-156.88 4523.2,-156.88" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4448.8" y="-156.88" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4492" y="-49.88" font-family="Sans-Serif" font-size="12.00"> IAM OIDCProvider</text>
       <text xml:space="preserve" text-anchor="middle" x="4492" y="-37.13" font-family="Sans-Serif" font-size="12.00">GitHubOidcProvider</text>
     </g>
-    <g id="node56" class="node">
+    <g id="node57" class="node">
       <title>Mlops-Dev-Cicd/GitHubDeployRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4652.2,-149.1C4652.2,-149.1 4589.8,-149.1 4589.8,-149.1 4583.8,-149.1 4577.8,-143.1 4577.8,-137.1 4577.8,-137.1 4577.8,-55.55 4577.8,-55.55 4577.8,-49.55 4583.8,-43.55 4589.8,-43.55 4589.8,-43.55 4652.2,-43.55 4652.2,-43.55 4658.2,-43.55 4664.2,-49.55 4664.2,-55.55 4664.2,-55.55 4664.2,-137.1 4664.2,-137.1 4664.2,-143.1 4658.2,-149.1 4652.2,-149.1" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="4577.8" y="-149.104" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="4621" y="-44.9" font-family="Sans-Serif" font-size="12.00"> GitHubDeployRole</text>
     </g>
-    <g id="edge60" class="edge">
+    <g id="edge61" class="edge">
       <title>Mlops-Dev-Cicd/GitHubDeployRole-&gt;Mlops-Dev-Serving/ChurnApi</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M4621,-158.86C4621,-158.86 4621,-208.93 4621,-208.93" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4621" cy="-153.86" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4621" cy="-213.93" rx="4" ry="4" />
     </g>
-    <g id="node57" class="node">
+    <g id="node58" class="node">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFnLogs</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3787,-1239.47C3787,-1239.47 3667,-1239.47 3667,-1239.47 3661,-1239.47 3655,-1233.47 3655,-1227.47 3655,-1227.47 3655,-1072.77 3655,-1072.77 3655,-1066.77 3661,-1060.77 3667,-1060.77 3667,-1060.77 3787,-1060.77 3787,-1060.77 3793,-1060.77 3799,-1066.77 3799,-1072.77 3799,-1072.77 3799,-1227.47 3799,-1227.47 3799,-1233.47 3793,-1239.47 3787,-1239.47" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="3655" y="-1239.47" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
       <text xml:space="preserve" text-anchor="middle" x="3727" y="-1062.12" font-family="Sans-Serif" font-size="12.00">DriftEvaluationFnLogs</text>
     </g>
-    <g id="node58" class="node">
+    <g id="node59" class="node">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFnRole</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3802.2,-970.19C3802.2,-970.19 3739.8,-970.19 3739.8,-970.19 3733.8,-970.19 3727.8,-964.19 3727.8,-958.19 3727.8,-958.19 3727.8,-861.09 3727.8,-861.09 3727.8,-855.09 3733.8,-849.09 3739.8,-849.09 3739.8,-849.09 3802.2,-849.09 3802.2,-849.09 3808.2,-849.09 3814.2,-855.09 3814.2,-861.09 3814.2,-861.09 3814.2,-958.19 3814.2,-958.19 3814.2,-964.19 3808.2,-970.19 3802.2,-970.19" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3727.8" y="-970.192" xlink:href="#cdk-dia-icon-0e06c208c8365d0f" />
       <text xml:space="preserve" text-anchor="middle" x="3771" y="-850.44" font-family="Sans-Serif" font-size="12.00">DriftEvaluationFnRole</text>
     </g>
-    <g id="edge61" class="edge">
+    <g id="edge62" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFnRole-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3806.6,-980.01C3806.6,-980.01 3806.6,-1177.18 3806.6,-1177.18 3806.6,-1177.18 4065.23,-1177.18 4065.23,-1177.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3806.6" cy="-975.01" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4070.23" cy="-1177.18" rx="4" ry="4" />
     </g>
-    <g id="edge62" class="edge">
+    <g id="edge63" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFnRole-&gt;Mlops-Dev-Monitoring/DriftEvaluationFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3763.4,-980.01C3763.4,-980.01 3763.4,-1051.07 3763.4,-1051.07" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3763.4" cy="-975.01" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3763.4" cy="-1056.07" rx="4" ry="4" />
     </g>
-    <g id="node59" class="node">
+    <g id="node60" class="node">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFn</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3832,-758.51C3832,-758.51 3712,-758.51 3712,-758.51 3706,-758.51 3700,-752.51 3700,-746.51 3700,-746.51 3700,-607.36 3700,-607.36 3700,-601.36 3706,-595.36 3712,-595.36 3712,-595.36 3832,-595.36 3832,-595.36 3838,-595.36 3844,-601.36 3844,-607.36 3844,-607.36 3844,-746.51 3844,-746.51 3844,-752.51 3838,-758.51 3832,-758.51" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="3700" y="-758.512" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="3772" y="-596.71" font-family="Sans-Serif" font-size="12.00"> DriftEvaluationFn</text>
     </g>
-    <g id="edge63" class="edge">
+    <g id="edge64" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFn-&gt;Mlops-Dev-Data/ArtifactsBucket</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3829.1,-768.26C3829.1,-768.26 3829.1,-1123.18 3829.1,-1123.18 3829.1,-1123.18 4065.26,-1123.18 4065.26,-1123.18" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3829.1" cy="-763.26" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="4070.26" cy="-1123.18" rx="4" ry="4" />
     </g>
-    <g id="edge64" class="edge">
+    <g id="edge65" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFn-&gt;Mlops-Dev-Monitoring/DriftEvaluationFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3713.9,-768.28C3713.9,-768.28 3713.9,-1050.99 3713.9,-1050.99" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3713.9" cy="-763.28" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3713.9" cy="-1055.99" rx="4" ry="4" />
     </g>
-    <g id="edge65" class="edge">
+    <g id="edge66" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationFn-&gt;Mlops-Dev-Monitoring/DriftEvaluationFnRole</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3771,-768.32C3771,-768.32 3771,-839.2 3771,-839.2" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3771" cy="-763.32" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3771" cy="-844.2" rx="4" ry="4" />
     </g>
-    <g id="node60" class="node">
+    <g id="node61" class="node">
       <title>Mlops-Dev-Monitoring/DriftEvaluationSchedule</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3895.2,-520.34C3895.2,-520.34 3832.8,-520.34 3832.8,-520.34 3826.8,-520.34 3820.8,-514.34 3820.8,-508.34 3820.8,-508.34 3820.8,-411.23 3820.8,-411.23 3820.8,-405.23 3826.8,-399.23 3832.8,-399.23 3832.8,-399.23 3895.2,-399.23 3895.2,-399.23 3901.2,-399.23 3907.2,-405.23 3907.2,-411.23 3907.2,-411.23 3907.2,-508.34 3907.2,-508.34 3907.2,-514.34 3901.2,-520.34 3895.2,-520.34" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3820.8" y="-520.336" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="3864" y="-400.58" font-family="Sans-Serif" font-size="12.00">DriftEvaluationSchedu</text>
     </g>
-    <g id="edge66" class="edge">
+    <g id="edge67" class="edge">
       <title>Mlops-Dev-Monitoring/DriftEvaluationSchedule-&gt;Mlops-Dev-Monitoring/DriftEvaluationFn</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3832.4,-530.27C3832.4,-530.27 3832.4,-585.67 3832.4,-585.67" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3832.4" cy="-525.27" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3832.4" cy="-590.67" rx="4" ry="4" />
     </g>
-    <g id="node61" class="node">
+    <g id="node62" class="node">
       <title>Mlops-Dev-Monitoring/RetrainTriggerFnLogs</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3989,-991.22C3989,-991.22 3869,-991.22 3869,-991.22 3863,-991.22 3857,-985.22 3857,-979.22 3857,-979.22 3857,-840.06 3857,-840.06 3857,-834.06 3863,-828.06 3869,-828.06 3869,-828.06 3989,-828.06 3989,-828.06 3995,-828.06 4001,-834.06 4001,-840.06 4001,-840.06 4001,-979.22 4001,-979.22 4001,-985.22 3995,-991.22 3989,-991.22" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="3857" y="-991.216" xlink:href="#cdk-dia-icon-3e2e1b5f1bc1cab9" />
       <text xml:space="preserve" text-anchor="middle" x="3929" y="-829.41" font-family="Sans-Serif" font-size="12.00"> RetrainTriggerFnLogs</text>
     </g>
-    <g id="node62" class="node">
+    <g id="node63" class="node">
       <title>Mlops-Dev-Monitoring/RetrainTriggerFn</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4022,-758.51C4022,-758.51 3902,-758.51 3902,-758.51 3896,-758.51 3890,-752.51 3890,-746.51 3890,-746.51 3890,-607.36 3890,-607.36 3890,-601.36 3896,-595.36 3902,-595.36 3902,-595.36 4022,-595.36 4022,-595.36 4028,-595.36 4034,-601.36 4034,-607.36 4034,-607.36 4034,-746.51 4034,-746.51 4034,-752.51 4028,-758.51 4022,-758.51" />
       <use width="144px" height="144px" preserveAspectRatio="xMinYMin meet" x="3890" y="-758.512" xlink:href="#cdk-dia-icon-bc9198cbb2b37d08" />
       <text xml:space="preserve" text-anchor="middle" x="3962" y="-596.71" font-family="Sans-Serif" font-size="12.00"> RetrainTriggerFn</text>
     </g>
-    <g id="edge67" class="edge">
+    <g id="edge68" class="edge">
       <title>Mlops-Dev-Monitoring/RetrainTriggerFn-&gt;Mlops-Dev-Monitoring/RetrainTriggerFnLogs</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3945.5,-768.32C3945.5,-768.32 3945.5,-818.3 3945.5,-818.3" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3945.5" cy="-763.32" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3945.5" cy="-823.3" rx="4" ry="4" />
     </g>
-    <g id="node63" class="node">
+    <g id="node64" class="node">
       <title>Mlops-Dev-Monitoring/DriftViolationRule</title>
       <path fill="none" stroke="black" stroke-width="0" d="M4024.2,-512.56C4024.2,-512.56 3961.8,-512.56 3961.8,-512.56 3955.8,-512.56 3949.8,-506.56 3949.8,-500.56 3949.8,-500.56 3949.8,-419.01 3949.8,-419.01 3949.8,-413.01 3955.8,-407.01 3961.8,-407.01 3961.8,-407.01 4024.2,-407.01 4024.2,-407.01 4030.2,-407.01 4036.2,-413.01 4036.2,-419.01 4036.2,-419.01 4036.2,-500.56 4036.2,-500.56 4036.2,-506.56 4030.2,-512.56 4024.2,-512.56" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3949.8" y="-512.56" xlink:href="#cdk-dia-icon-9f70cf3e53ffe7dc" />
       <text xml:space="preserve" text-anchor="middle" x="3993" y="-408.36" font-family="Sans-Serif" font-size="12.00"> DriftViolationRule</text>
     </g>
-    <g id="edge68" class="edge">
+    <g id="edge69" class="edge">
       <title>Mlops-Dev-Monitoring/DriftViolationRule-&gt;Mlops-Dev-Monitoring/RetrainTriggerFn</title>
       <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3991.9,-522.35C3991.9,-522.35 3991.9,-585.62 3991.9,-585.62" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3991.9" cy="-517.35" rx="4" ry="4" />
       <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3991.9" cy="-590.62" rx="4" ry="4" />
     </g>
-    <g id="node64" class="node">
+    <g id="node65" class="node">
       <title>Mlops-Dev-Monitoring/OpsDashboard</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3766.2,-512.56C3766.2,-512.56 3703.8,-512.56 3703.8,-512.56 3697.8,-512.56 3691.8,-506.56 3691.8,-500.56 3691.8,-500.56 3691.8,-419.01 3691.8,-419.01 3691.8,-413.01 3697.8,-407.01 3703.8,-407.01 3703.8,-407.01 3766.2,-407.01 3766.2,-407.01 3772.2,-407.01 3778.2,-413.01 3778.2,-419.01 3778.2,-419.01 3778.2,-500.56 3778.2,-500.56 3778.2,-506.56 3772.2,-512.56 3766.2,-512.56" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3691.8" y="-512.56" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3735" y="-408.36" font-family="Sans-Serif" font-size="12.00"> OpsDashboard</text>
     </g>
-    <g id="node65" class="node">
+    <g id="node66" class="node">
       <title>Mlops-Dev-Monitoring/Endpoint5xxAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3508.2,-512.56C3508.2,-512.56 3445.8,-512.56 3445.8,-512.56 3439.8,-512.56 3433.8,-506.56 3433.8,-500.56 3433.8,-500.56 3433.8,-419.01 3433.8,-419.01 3433.8,-413.01 3439.8,-407.01 3445.8,-407.01 3445.8,-407.01 3508.2,-407.01 3508.2,-407.01 3514.2,-407.01 3520.2,-413.01 3520.2,-419.01 3520.2,-419.01 3520.2,-500.56 3520.2,-500.56 3520.2,-506.56 3514.2,-512.56 3508.2,-512.56" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3433.8" y="-512.56" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3477" y="-408.36" font-family="Sans-Serif" font-size="12.00"> Endpoint5xxAlarm</text>
     </g>
-    <g id="edge69" class="edge">
-      <title>Mlops-Dev-Monitoring/Endpoint5xxAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3423.96,-460.18C3423.96,-460.18 2780.5,-460.18 2780.5,-460.18 2780.5,-460.18 2780.5,-1058.61 2780.5,-1058.61" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3428.96" cy="-460.18" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2780.5" cy="-1063.61" rx="4" ry="4" />
+    <g id="edge70" class="edge">
+      <title>Mlops-Dev-Monitoring/Endpoint5xxAlarm-&gt;Mlops-Dev-Security/OpsAlertsTopic</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3423.88,-460.18C3423.88,-460.18 2909.5,-460.18 2909.5,-460.18 2909.5,-460.18 2909.5,-1058.61 2909.5,-1058.61" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3428.88" cy="-460.18" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2909.5" cy="-1063.61" rx="4" ry="4" />
     </g>
-    <g id="node66" class="node">
+    <g id="node67" class="node">
       <title>Mlops-Dev-Monitoring/EndpointSilentAlarm</title>
       <path fill="none" stroke="black" stroke-width="0" d="M3637.2,-512.56C3637.2,-512.56 3574.8,-512.56 3574.8,-512.56 3568.8,-512.56 3562.8,-506.56 3562.8,-500.56 3562.8,-500.56 3562.8,-419.01 3562.8,-419.01 3562.8,-413.01 3568.8,-407.01 3574.8,-407.01 3574.8,-407.01 3637.2,-407.01 3637.2,-407.01 3643.2,-407.01 3649.2,-413.01 3649.2,-419.01 3649.2,-419.01 3649.2,-500.56 3649.2,-500.56 3649.2,-506.56 3643.2,-512.56 3637.2,-512.56" />
       <use width="86.4px" height="86.4px" preserveAspectRatio="xMinYMin meet" x="3562.8" y="-512.56" xlink:href="#cdk-dia-icon-8d29fb5eb3082527" />
       <text xml:space="preserve" text-anchor="middle" x="3606" y="-408.36" font-family="Sans-Serif" font-size="12.00"> EndpointSilentAlarm</text>
     </g>
-    <g id="edge70" class="edge">
-      <title>Mlops-Dev-Monitoring/EndpointSilentAlarm-&gt;Mlops-Dev-Security/SecurityAlertsTopic</title>
-      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3606,-522.42C3606,-522.42 3606,-1204.18 3606,-1204.18 3606,-1204.18 2861.86,-1204.18 2861.86,-1204.18" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3606" cy="-517.42" rx="4" ry="4" />
-      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2856.86" cy="-1204.18" rx="4" ry="4" />
+    <g id="edge71" class="edge">
+      <title>Mlops-Dev-Monitoring/EndpointSilentAlarm-&gt;Mlops-Dev-Security/OpsAlertsTopic</title>
+      <path fill="none" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" d="M3606,-522.53C3606,-522.53 3606,-1150.18 3606,-1150.18 3606,-1150.18 2984.93,-1150.18 2984.93,-1150.18" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="3606" cy="-517.53" rx="4" ry="4" />
+      <ellipse fill="#d58714" fill-opacity="0.533333" stroke="#d58714" stroke-width="2" stroke-opacity="0.533333" cx="2979.93" cy="-1150.18" rx="4" ry="4" />
     </g>
   </g>
 </svg>

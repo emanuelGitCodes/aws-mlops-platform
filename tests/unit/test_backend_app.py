@@ -3,10 +3,10 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.rate_limit import RateLimiter
 from tests.unit.conftest import VALID, import_with_stubbed_boto3
+from website.backend.rate_limit import RateLimiter
 
-app_module = import_with_stubbed_boto3("backend.app")
+app_module = import_with_stubbed_boto3("website.backend.app")
 # Read `services` through the app module. Importing it directly here builds
 # real boto3 clients at collection time, and `test_pipeline.py` then reaches
 # S3 through the live default session.

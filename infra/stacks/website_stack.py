@@ -47,15 +47,21 @@ _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 # Only these paths reach the image build and its asset hash. The list is an
 # allowlist: exclude everything, then admit the backend and the shared
-# contract. `backend/Dockerfile` copies the same two directories.
+# contract. `website/backend/Dockerfile` copies the same two directories.
+# The frontend is a separate build and MUST NOT change this asset hash.
 _IMAGE_CONTENT = [
     "*",
-    "!backend",
-    "!backend/**",
+    "!website",
+    "!website/__init__.py",
+    "!website/backend",
+    "!website/backend/**",
     "!src",
     "!src/__init__.py",
     "!src/common",
     "!src/common/**",
+    "website/frontend",
+    "website/frontend/**",
+    "website/local",
     "**/__pycache__",
     "**/__pycache__/**",
 ]
@@ -190,7 +196,7 @@ class WebsiteStack(Stack):
                 self,
                 "WebsiteImage",
                 directory=str(_REPO_ROOT),
-                file="backend/Dockerfile",
+                file="website/backend/Dockerfile",
                 platform=ecr_assets.Platform.LINUX_ARM64,
                 # The context is the repository root, so this allowlist decides
                 # the asset hash. Without it every unrelated file rebuilds the

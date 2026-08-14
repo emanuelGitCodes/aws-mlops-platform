@@ -99,7 +99,7 @@ diagrams: synth
 # Check the frontend. `npm ci` installs from `frontend/package-lock.json`.
 # CI does not run this target yet; the website work is on hold.
 frontend-check:
-	cd frontend && npm ci && npm run typecheck && npm test
+	cd website/frontend && npm ci && npm run typecheck && npm test
 
 security: lock-check audit synth-all
 

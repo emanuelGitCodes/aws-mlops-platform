@@ -7375,3 +7375,58 @@ question.
 ### Verification
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | The website moved under one folder
+
+### Objective
+
+Put every website file under `website/`, so the site reads as one component
+rather than three folders spread across the repository root.
+
+### Scope
+
+`git mv` moved `backend/`, `frontend/`, and `local/` under `website/`. Changed:
+`website/backend/Dockerfile`, `website/local/compose.yaml`, `.dockerignore`,
+`.gitignore`, `pyproject.toml`, `Makefile`, `infra/stacks/website_stack.py`,
+`AGENTS.md`, and two wiki pages.
+
+### Commands and results
+
+The Python package became `website.backend`, so `website/__init__.py` exists
+and every import names it. mypy and coverage read `website/backend` rather
+than a bare `backend`, which keeps them away from `website/frontend`.
+
+Three things stay outside `website/` on purpose:
+
+- `infra/stacks/website_stack.py`, which belongs with the other stacks.
+- `tests/unit/test_backend_*.py` and `test_website_stack.py`, because
+  `AGENTS.md` states that `tests/unit/` mirrors the source module, and the
+  session-scoped CDK fixtures live in one `conftest.py`.
+- `.dockerignore` at the root, because the image context is the root.
+
+The image context needs `website/backend/` and `src/common/`, and no directory
+holds both. `_IMAGE_CONTENT` now excludes `website/frontend` explicitly, so a
+frontend edit cannot change the backend asset hash. The staged asset measured
+64 KB and held the two directories alone.
+
+Every compose path was re-checked from `website/local/`: `../frontend`,
+`../backend`, `../../src/common`, and the `../..` build context all resolve.
+
+After the move: 405 tests at 94.68 percent, `make lint`, `make typecheck`,
+`make synth-all`, `make frontend-check`, and `make wiki-lint` pass, and the
+four services answered every route including a live signed prediction.
+
+### Interpretation
+
+`src/` keeps the platform code and the shared contract. The backend still
+imports `src.common`, which is the reason the image context cannot narrow to
+`website/`.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The layout is settled; the open questions
+are unchanged.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.

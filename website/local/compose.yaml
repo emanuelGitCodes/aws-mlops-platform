@@ -43,9 +43,10 @@ services:
   backend:
     build:
       # The context is the repository root, because the image needs both
-      # `backend/` and `src/common/`. The root `.dockerignore` keeps it small.
-      context: ..
-      dockerfile: backend/Dockerfile
+      # `website/backend/` and `src/common/`, and no one directory holds both.
+      # The root `.dockerignore` keeps that context small.
+      context: ../..
+      dockerfile: website/backend/Dockerfile
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -73,7 +74,7 @@ services:
         - action: rebuild
           path: ../backend
         - action: rebuild
-          path: ../src/common
+          path: ../../src/common
 
   # DynamoDB Local holds the mailing list.
   dynamodb:

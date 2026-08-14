@@ -109,7 +109,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make install` | `uv sync --locked --extra dev --extra pipeline` |
 | `make lock-check` | `uv lock --check` |
 | `make lint` | ruff check + format check |
-| `make typecheck` | mypy over `src/`, `infra/`, `scripts/` (both extras) |
+| `make typecheck` | mypy over `src/`, `website/backend/`, `infra/`, `scripts/` (both extras) |
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
 | `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
 | `make public-check` | Rejects tracked account metadata and private filenames |
@@ -118,6 +118,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make synth-all` | CDK synth for **both** `dev` and `prod` — the cdk-nag gate |
 | `make diagrams` | Synth and render PNG, editable SVG, and DOT CDK diagrams; requires Graphviz |
 | `make security` | lock-check + audit + synth-all |
+| `make frontend-check` | `npm ci`, type check, and tests for `website/frontend/` (not in CI) |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
 | `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
@@ -176,6 +177,7 @@ Look here **before** writing anything new:
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
 | `infra/policies/` | The repository-owned CloudFormation execution boundary, split across `mlops-cloudformation-execution-policy.json` and `-extension.json` because AWS caps one managed policy at 6144 characters. Version-pinned and fingerprint-tested |
 | `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py`. Plus the two CLIs that back a Make gate: `check_public_release.py` (`make public-check`) and `prepare_cdk_diagrams.py` (`make diagrams`) |
+| `website/` | The demo website, and the one place its code lives. `backend/` is the FastAPI service (`app.py` routes, `services.py` every AWS call, `settings.py` the environment contract, `rate_limit.py`); `frontend/` is React and TypeScript built by Vite; `local/compose.yaml` runs both beside `amazon/dynamodb-local` and `minio/minio`. The backend imports the feature contract from `src/common/` and MUST NOT restate it. Its CDK stack stays in `infra/stacks/website_stack.py`, and its tests stay in `tests/unit/`. **On hold; see the wiki before any website work.** |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL` is set |
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |

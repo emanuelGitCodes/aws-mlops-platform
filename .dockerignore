@@ -4,7 +4,7 @@
 .git
 .venv
 node_modules
-frontend
+website/frontend
 infra/cdk.out
 graphify-out
 diagrams
@@ -12,7 +12,7 @@ telco
 wiki
 tests
 scripts
-local
+website/local
 **/__pycache__
 **/*.pyc
 .env

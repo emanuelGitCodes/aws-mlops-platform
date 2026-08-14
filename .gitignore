@@ -16,5 +16,5 @@ graphify-out/
 .claude/settings.local.json
 
 # Frontend build output and installed packages.
-frontend/node_modules/
-frontend/dist/
+website/frontend/node_modules/
+website/frontend/dist/

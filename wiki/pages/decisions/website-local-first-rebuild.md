@@ -3,7 +3,7 @@ type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
 updated: "2026-08-14"
-sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../backend/app.py", "../../../backend/services.py", "../../../frontend/src/App.tsx", "../../../frontend/src/api.ts", "../../../frontend/vite.config.ts", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/api.ts", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -41,15 +41,20 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   contract), and `rate_limit.py`. The standard-library `server.py` is deleted;
   git history holds it at commit `1cf62ee`. `local/compose.yaml` builds and
   runs the backend beside the two stand-ins.
-- **`backend/` and `frontend/` are siblings at the repository root.** The
-  backend moved out of `src/` so the two halves of the website read the same
-  way. `src/` keeps the platform code and the shared contract.
-- **The backend image builds from the repository root.** It needs `backend/`
-  and `src/common/`, which no single subdirectory holds. Two guards keep that
+- **`website/` holds the whole site.** `website/backend/` is the FastAPI
+  service, `website/frontend/` is the React application, and
+  `website/local/compose.yaml` runs both beside the two stand-ins. Two website
+  things stay outside it on purpose: the CDK stack, which belongs with the
+  other stacks in `infra/`, and the tests, which follow the repository rule
+  that `tests/unit/` mirrors the source module. The root `.dockerignore` also
+  stays at the root, because the image context is the root.
+- **The backend image builds from the repository root.** It needs
+  `website/backend/` and `src/common/`, which no single subdirectory holds. Two guards keep that
   context small: `.dockerignore` at the root, and `_IMAGE_CONTENT` in
   `infra/stacks/website_stack.py`, an allowlist that decides the CDK asset
-  hash. The staged context measures 60 KB and holds those two directories
-  alone. Without the allowlist every unrelated file would rebuild the image.
+  hash. The staged context measures 64 KB and holds those two directories
+  alone. Without the allowlist every unrelated file would rebuild the image,
+  and a frontend edit would rebuild the backend.
 
 ## Synthesis
 

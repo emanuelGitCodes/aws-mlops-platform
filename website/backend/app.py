@@ -14,11 +14,11 @@ from fastapi import Body, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from backend import services
-from backend.rate_limit import RateLimiter, caller_address
-from backend.settings import Settings, load_settings
 from src.common.events import log_event
 from src.common.schema import CustomerRecord, format_validation_error
+from website.backend import services
+from website.backend.rate_limit import RateLimiter, caller_address
+from website.backend.settings import Settings, load_settings
 
 settings: Settings = load_settings()
 limiter = RateLimiter(settings.rate_limit_per_minute)

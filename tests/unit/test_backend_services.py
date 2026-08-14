@@ -7,11 +7,11 @@ from unittest import mock
 import pytest
 from botocore.exceptions import ClientError
 
-from backend.settings import Settings
 from src.common.features import FEATURE_VOCABULARY
 from tests.unit.conftest import VALID, import_with_stubbed_boto3
+from website.backend.settings import Settings
 
-services = import_with_stubbed_boto3("backend.services")
+services = import_with_stubbed_boto3("website.backend.services")
 
 SETTINGS = Settings(
     table_name="test-table",

@@ -53,7 +53,7 @@ ignore = ["ANN401"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "backend", "infra", "scripts"]
+files = ["src", "website/backend", "infra", "scripts"]
 # Treat `scripts/` as an explicit package base for mypy module resolution.
 mypy_path = "."
 explicit_package_bases = true
@@ -87,7 +87,7 @@ filterwarnings = [
 
 # The `test` Make target applies unit-test measurement flags.
 [tool.coverage.run]
-source = ["src", "backend", "infra", "scripts"]
+source = ["src", "website/backend", "infra", "scripts"]
 omit = [
     # Exclude synthesized CDK assets and vendored Lambda packages.
     "infra/cdk.out/*",

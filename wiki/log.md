@@ -7430,3 +7430,47 @@ are unchanged.
 ### Verification
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | `make deploy` refuses to create the website by surprise
+
+### Objective
+
+Close the one path that could deploy the on-hold website stack without anyone
+asking for it.
+
+### Scope
+
+`Makefile`: a new `check-website-hold` prerequisite on `deploy`. `AGENTS.md`
+records the refusal and its override.
+
+### Interpretation
+
+`deploy` runs `cdk deploy --all`, and dev sets `website.enabled: true`, so a
+full deploy would create the instance, the address, the distribution, the VPC,
+and the table. That is about $16.60 each month on demand, through a path no
+deploy has proved.
+
+The website stack is a leaf: `infra/app.py` passes nothing from it to another
+stack, so no other target pulls it in. `deploy-stack` names its target, which
+is intent enough. Only `deploy` could create it by surprise, so only `deploy`
+asks.
+
+Flipping `website.enabled` to false in dev was the other option, and it costs
+more than it saves: the unit fixture would stop building the stack, and the
+seventeen tests in `tests/unit/test_website_stack.py` would have nothing to
+assert against.
+
+### Commands and results
+
+Four paths were checked. Dev without the override exits 2 and names both ways
+forward. Prod passes, because its flag is false. Dev with
+`ALLOW_WEBSITE_DEPLOY=1` passes. `deploy-stack` carries no guard.
+
+### Decision and next checkpoint
+
+The guard stays after the hold lifts. An instance and a distribution deserve
+one explicit word before a full deploy creates them.
+
+### Verification
+
+`make docs-sync` passed, and the four guard paths behaved as recorded.

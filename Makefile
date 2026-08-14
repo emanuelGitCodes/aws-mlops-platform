@@ -2,7 +2,7 @@
 	diagrams security bootstrap check-stack check-alert-email diff-stack \
 	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
 	wiki-search wiki-ingest wiki-lint public-check graph graph-query \
-	graph-explain graph-hooks frontend-check
+	graph-explain graph-hooks frontend-check check-website-hold
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -138,7 +138,26 @@ deploy-stack: check-stack check-alert-email
 	cd infra && $(CDK_CLI) deploy "$(STACK)" -c env=$(ENV) \
 		--no-lookups --require-approval never $(SECURITY_EMAIL_PARAM)
 
-deploy: check-alert-email
+# `deploy` deploys every stack. The website stack is a leaf, so no other stack
+# pulls it in, and `deploy-stack` names its target. Only this target can create
+# the website by surprise, so only this target asks.
+#
+# The stack builds an instance, an address, a distribution, a VPC, and a table.
+# That is real monthly cost through a path no deploy has proved.
+check-website-hold:
+	@website=$$(uv run --locked --extra dev python -c \
+		'from infra.app import load_config; print(load_config("$(ENV)")["website"]["enabled"])'); \
+	if [ "$$website" = "True" ] && [ -z "$(ALLOW_WEBSITE_DEPLOY)" ]; then \
+		echo "$(ENV) builds the website stack, and no deploy has proved it." >&2; \
+		echo "Read wiki/pages/decisions/website-local-first-rebuild.md first." >&2; \
+		echo "" >&2; \
+		echo "  Deploy the rest:  make deploy-stack STACK=Mlops-$$(echo $(ENV) | \
+			awk '{print toupper(substr($$0,1,1)) substr($$0,2)}')-<Stack> ENV=$(ENV)" >&2; \
+		echo "  Deploy it too:    ALLOW_WEBSITE_DEPLOY=1 make deploy ENV=$(ENV)" >&2; \
+		exit 2; \
+	fi
+
+deploy: check-alert-email check-website-hold
 	cd infra && $(CDK_CLI) deploy --all -c env=$(ENV) --require-approval never \
 		$(SECURITY_EMAIL_PARAM)
 

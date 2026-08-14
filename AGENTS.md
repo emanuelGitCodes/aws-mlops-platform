@@ -62,7 +62,11 @@ trusting this summary, which is coarse by design.
   fires on its own about 24 hours after the last `/predict` call. Prod keeps the
   single topic. See
   [two alert topics](wiki/pages/decisions/alert-topic-split.md).
-- **The website work is ON HOLD, and its stack MUST NOT be deployed.** A tenth
+- **The website work is ON HOLD, and its stack MUST NOT be deployed.**
+  `make deploy` refuses whenever the environment builds it, because that target
+  deploys every stack and would create the instance, address, distribution,
+  VPC, and table. `ALLOW_WEBSITE_DEPLOY=1` overrides the refusal, and
+  `make deploy-stack STACK=…` is unguarded because it names its target. A tenth
   stack, `Mlops-Dev-Website`, is written, tested, and open as a draft pull
   request on `claude/aws-cdk-ml-website-cf88da`. **No AWS resource exists for
   it.** The infrastructure was designed before the application it carries, so
@@ -121,7 +125,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make frontend-check` | `npm ci`, type check, and tests for `website/frontend/` (not in CI) |
 | `make bootstrap` | `cdk bootstrap`, once per account/region before the first deploy |
 | `make diff-stack STACK=…` / `make deploy-stack STACK=…` | Diff/deploy one stack **and its dependencies** — see the warning below |
-| `make deploy` / `make destroy` | CDK deploy/destroy all stacks |
+| `make deploy` / `make destroy` | CDK deploy/destroy all stacks. `deploy` refuses while the website stack builds; see below |
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |

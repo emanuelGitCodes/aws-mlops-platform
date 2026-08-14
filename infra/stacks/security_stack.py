@@ -134,6 +134,10 @@ class SecurityStack(Stack):
         log_group_name = f"/aws/cloudtrail/{trail_name}"
         key_alias = f"alias/{trail_name}"
         topic_name = f"mlops-{env_name}-security-alerts"
+        # Operational alarms use a separate topic. An idle dev endpoint is the
+        # expected state, so endpoint alarms would otherwise add routine noise
+        # to the channel that carries CIS and detection findings.
+        ops_topic_name = f"mlops-{env_name}-ops-alerts"
 
         trail_arn = self.format_arn(
             service="cloudtrail",
@@ -432,6 +436,27 @@ class SecurityStack(Stack):
         self.alert_topic = alert_topic
         alert_topic.add_subscription(subscriptions.EmailSubscription(alert_email.value_as_string))
 
+        ops_topic = sns.Topic(
+            self,
+            "OpsAlertsTopic",
+            enforce_ssl=True,
+            master_key=audit_key,
+            topic_name=ops_topic_name,
+        )
+        self.ops_topic = ops_topic
+        ops_topic.add_subscription(subscriptions.EmailSubscription(alert_email.value_as_string))
+        # Only CloudWatch alarms publish here. Budgets and EventBridge findings
+        # stay on the security topic.
+        ops_topic.add_to_resource_policy(
+            _alert_service_statement(
+                "AllowCloudWatchAlarmPublish",
+                "cloudwatch.amazonaws.com",
+                alarm_arn,
+                actions=["sns:Publish"],
+                resources=[ops_topic.topic_arn],
+            )
+        )
+
         alert_publishers = [
             ("AllowCloudWatchAlarmPublish", "cloudwatch.amazonaws.com", alarm_arn),
             ("AllowBudgetsPublish", "budgets.amazonaws.com", budget_arn),
@@ -496,4 +521,5 @@ class SecurityStack(Stack):
         CfnOutput(self, "AccessLogBucketName", value=access_log_bucket.bucket_name)
         CfnOutput(self, "AuditLogGroupName", value=log_group_name)
         CfnOutput(self, "SecurityAlertsTopicArn", value=alert_topic.topic_arn)
+        CfnOutput(self, "OpsAlertsTopicArn", value=ops_topic.topic_arn)
         CfnOutput(self, "AuditKeyAlias", value=key_alias)

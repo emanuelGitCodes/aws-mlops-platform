@@ -6417,3 +6417,68 @@ hand-run `make graph`.
 
 `make graph-hooks`, the three throwaway-repository tests above, `make lint`,
 `make wiki-index`, `make wiki-lint`, `make public-check`, and `make docs-sync`.
+## [2026-08-14] implement | The endpoint alarms move to their own SNS topic
+
+### Objective
+
+Separate the operational alarm channel from the security alarm channel, so a
+quiet dev day stops paging the inbox that carries the CIS detections.
+
+### Scope
+
+- `infra/stacks/security_stack.py`, `infra/stacks/monitoring_stack.py`,
+  `infra/app.py`, `pyproject.toml`, and two unit tests.
+- New page `pages/decisions/alert-topic-split.md`, plus a pointer from the 2F
+  section of the roadmap and a row on the Phase 2 audit-foundation page.
+- No AWS resource. This entry records an implementation, not a deployment.
+
+### Commands and observed results
+
+1. `mlops-dev-endpoint-silent` entered `ALARM` on 2026-08-12T22:07Z after 24
+   hours with no invocations, and the Phase 6 window recorded the same cycle
+   twice. The alarm is correct: dev has no traffic floor, and `dev.yaml`
+   already records that idle time starts it.
+2. `SecurityStack` gained `mlops-<env>-ops-alerts` on the audit key, with
+   `enforce_ssl=True`, the same email subscription, a resource policy that
+   admits `cloudwatch.amazonaws.com` only, and an `OpsAlertsTopicArn` output.
+3. `MonitoringStack` takes `ops_topic` in place of `alert_topic`. Both endpoint
+   alarms publish there. Budgets and the Phase 3F EventBridge rules stay on the
+   security topic.
+4. The branch was rebased onto `main` at `c1d4fe6`, after the graphify and wiki
+   work merged. The rebase produced no conflict.
+5. `make lint`, `make typecheck`, and `make test` pass on the rebased branch:
+   345 tests, coverage `94.15%` against the floor of `94.14`.
+
+### Interpretation
+
+**The alarm was never the defect. The destination was.** The signal is
+correct in both environments, and the two environments disagree about what it
+means: prod waits 6 hours and dev waits 24. A channel that carries a daily
+heartbeat next to root-activity and unauthorized-call detections teaches the
+reader to skim it, and that habit is the real loss.
+
+**The old test could not have caught this in either direction.** It asserted
+`"AlarmActions": [{"Fn::ImportValue": Match.any_value()}]`, which accepts any
+topic. The replacement names the ops topic and denies the security topic.
+
+The general rule this sets: **a new alarm chooses its topic by audience.** An
+operational alarm reports the platform. A security alarm reports the account.
+
+### Decision and next checkpoint
+
+The change is implemented on the branch of pull request #68 and is not deployed.
+Two conditions bind the deploy. The new topic sends a fresh subscription request, and the endpoint
+alarms deliver nowhere until a human accepts it. A `Mlops-Dev-Monitoring` deploy
+also ships `Mlops-Dev-Security`, so read the `Including dependency stacks:` line
+and run `make verify-deploy` after.
+
+This is an alarm-behavior change, so it takes the Phase 2E gate that 2F and 2G
+took: pre-flight baseline, reviewed named diff, scoped dev deploy, resource-level
+verification, an observation window, and an explicit go/no-go. The window MUST
+show one endpoint alarm arriving on the new topic, and MUST confirm that the
+seven security alarms still reach the old one.
+
+### Verification
+
+`make lint`, `make typecheck`, `make test`, `make wiki-index`, `make wiki-lint`,
+and `make public-check`.

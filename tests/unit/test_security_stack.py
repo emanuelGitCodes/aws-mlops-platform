@@ -427,3 +427,41 @@ def test_the_prod_deploy_role_assumption_is_detected(stacks):
     assert '$.eventName="AssumeRoleWithWebIdentity"' in pattern
     assert github_deploy_role_name("prod") in pattern
     assert github_deploy_role_name("dev") not in pattern
+
+
+def test_the_ops_topic_is_encrypted_and_accepts_only_cloudwatch(stacks):
+    """Separate the operational channel from the security channel."""
+    template = stacks["security"]
+
+    template.has_resource_properties(
+        "AWS::SNS::Topic",
+        {
+            "KmsMasterKeyId": Match.any_value(),
+            "TopicName": "mlops-dev-ops-alerts",
+        },
+    )
+
+    policies = [
+        resource["Properties"]
+        for resource in stacks["security"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::SNS::TopicPolicy"
+    ]
+    ops_policy = next(
+        policy
+        for policy in policies
+        if any("OpsAlertsTopic" in str(topic) for topic in policy["Topics"])
+    )
+    statements = ops_policy["PolicyDocument"]["Statement"]
+    # `enforce_ssl` adds a deny whose principal is the string `*`.
+    services = {
+        statement["Principal"]["Service"]
+        for statement in statements
+        if statement["Effect"] == "Allow"
+    }
+    # Budgets and EventBridge findings stay on the security topic.
+    assert services == {"cloudwatch.amazonaws.com"}
+    assert any(
+        statement["Effect"] == "Deny"
+        and statement["Condition"]["Bool"]["aws:SecureTransport"] == "false"
+        for statement in statements
+    )

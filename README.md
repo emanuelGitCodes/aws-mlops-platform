@@ -264,7 +264,10 @@ Current dev baseline:
   unauthorized API calls, IAM policy changes, trail changes, KMS key
   disable/delete, and bucket policy changes. A seventh security detection
   alarms on each production deploy-role assumption. All seven alarms publish
-  to the security SNS topic. IAM Access Analyzer, AWS Config, account-level S3
+  to the security SNS topic. The endpoint 5xx and endpoint silence alarms use a
+  separate operational topic, because an idle dev endpoint is the expected state
+  and its silence alarm would otherwise add routine noise to the security
+  channel. IAM Access Analyzer, AWS Config, account-level S3
   Block Public Access, and security event routing are enabled in dev through
   the `security.services` flags. GuardDuty and Security Hub remain behind the
   paid-plan gate. WAF is not enabled.

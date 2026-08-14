@@ -42,10 +42,10 @@ services:
   # The FastAPI backend. Its OpenAPI page is at http://localhost:8080/api/docs.
   backend:
     build:
-      # The build context is `src/`, so the image copies `src/common` beside
-      # `src/website` and imports the one feature contract.
-      context: ../src
-      dockerfile: website/Dockerfile
+      # The context is the repository root, because the image needs both
+      # `backend/` and `src/common/`. The root `.dockerignore` keeps it small.
+      context: ..
+      dockerfile: backend/Dockerfile
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -71,7 +71,7 @@ services:
       watch:
         # `docker compose up --watch` reloads the image on a source change.
         - action: rebuild
-          path: ../src/website
+          path: ../backend
         - action: rebuild
           path: ../src/common
 

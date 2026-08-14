@@ -3,7 +3,7 @@ type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
 updated: "2026-08-14"
-sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../src/website/app.py", "../../../src/website/services.py", "../../../frontend/src/App.tsx", "../../../frontend/src/api.ts", "../../../frontend/vite.config.ts", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../backend/app.py", "../../../backend/services.py", "../../../frontend/src/App.tsx", "../../../frontend/src/api.ts", "../../../frontend/vite.config.ts", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -36,11 +36,20 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   `BACKEND_ORIGIN`, so the browser sends same-origin requests and the backend
   needs no CORS configuration. The deployed shape routes `/api/*` through
   CloudFront to the same origin, so no build carries a backend URL.
-- **The FastAPI backend is scaffolded and runs.** `src/website/` now holds
-  `app.py` (routes), `services.py` (every AWS call), `settings.py` (the
-  environment contract), and `rate_limit.py`. The standard-library
-  `server.py` is deleted; git history holds it at commit `1cf62ee`.
-  `local/compose.yaml` builds and runs the backend beside the two stand-ins.
+- **The FastAPI backend is scaffolded and runs.** `backend/` holds `app.py`
+  (routes), `services.py` (every AWS call), `settings.py` (the environment
+  contract), and `rate_limit.py`. The standard-library `server.py` is deleted;
+  git history holds it at commit `1cf62ee`. `local/compose.yaml` builds and
+  runs the backend beside the two stand-ins.
+- **`backend/` and `frontend/` are siblings at the repository root.** The
+  backend moved out of `src/` so the two halves of the website read the same
+  way. `src/` keeps the platform code and the shared contract.
+- **The backend image builds from the repository root.** It needs `backend/`
+  and `src/common/`, which no single subdirectory holds. Two guards keep that
+  context small: `.dockerignore` at the root, and `_IMAGE_CONTENT` in
+  `infra/stacks/website_stack.py`, an allowlist that decides the CDK asset
+  hash. The staged context measures 60 KB and holds those two directories
+  alone. Without the allowlist every unrelated file would rebuild the image.
 
 ## Synthesis
 

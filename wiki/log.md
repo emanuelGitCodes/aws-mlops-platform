@@ -7323,3 +7323,55 @@ still undecided.
 405 Python tests pass at 94.68 percent coverage. `make lint`,
 `make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
 `make public-check`, `make wiki-lint`, and `make frontend-check` all pass.
+
+## [2026-08-14] update | The backend moved to a top-level folder
+
+### Objective
+
+Give the backend the same shape as the frontend: `backend/` and `frontend/`
+as siblings at the repository root.
+
+### Scope
+
+`src/website/` moved to `backend/` with `git mv`, so history follows. The test
+modules became `tests/unit/test_backend_{app,services,rate_limit}.py`. Changed:
+`pyproject.toml` (mypy `files`, coverage `source`), `local/compose.yaml`,
+`infra/stacks/website_stack.py`, and two wiki pages. New: `.dockerignore` at
+the root.
+
+### Commands and results
+
+The move needed one real design change. `backend/` imports `src.common`, and
+no single directory holds both, so the image context became the repository
+root. Two guards keep that context small:
+
+- `.dockerignore` at the root, which decides what reaches the Docker daemon.
+- `_IMAGE_CONTENT` in `infra/stacks/website_stack.py`, an allowlist passed as
+  `exclude` with `IgnoreMode.GIT`. That list decides the CDK asset hash.
+  Without it, every unrelated repository file would rebuild the image.
+
+The staged asset measured 60 KB and held `backend/`, `src/__init__.py`, and
+`src/common/` alone, which is the proof the allowlist works.
+
+A `sed` over the imports missed `from src.website import services`, because the
+pattern required a trailing dot. mypy caught it as three errors, one being an
+unresolved module and two being `no-any-return` that followed from it.
+
+After the move: 405 tests pass at 94.68 percent, `make lint`,
+`make typecheck`, `make synth-all`, and `make wiki-lint` pass, and the four
+compose services answered every route, including a live signed prediction.
+
+### Interpretation
+
+`src/` keeps the platform code and the shared contract. The website now reads
+as two folders, and the import `from src.common.features import ...` still
+names the one source of the feature contract.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. Nothing here changes the deployed topology
+question.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.

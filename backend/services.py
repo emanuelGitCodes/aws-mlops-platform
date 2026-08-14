@@ -16,6 +16,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
+from backend.settings import Settings
 from src.common.events import log_event
 from src.common.features import (
     DEFAULT_THRESHOLD,
@@ -25,7 +26,6 @@ from src.common.features import (
 )
 from src.common.schema import FEATURE_COLUMNS
 from src.common.signing import SigningError, post_prediction
-from src.website.settings import Settings
 
 
 class ServiceError(RuntimeError):

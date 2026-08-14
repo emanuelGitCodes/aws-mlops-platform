@@ -1,6 +1,6 @@
 import pytest
 
-from src.website.rate_limit import RateLimiter, caller_address
+from backend.rate_limit import RateLimiter, caller_address
 
 
 def test_the_limiter_counts_inside_the_window():

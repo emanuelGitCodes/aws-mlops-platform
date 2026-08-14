@@ -14,7 +14,7 @@ site returns errors for one to two minutes during that replacement.
 import pathlib
 from typing import Any
 
-from aws_cdk import Aws, CfnCondition, CfnOutput, Fn, RemovalPolicy, Stack
+from aws_cdk import Aws, CfnCondition, CfnOutput, Fn, IgnoreMode, RemovalPolicy, Stack
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_dynamodb as dynamodb
@@ -44,6 +44,21 @@ CONTAINER_PORT = 8080
 
 # The CDK CLI runs `app.py` from `infra/`, so the asset needs an absolute path.
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+# Only these paths reach the image build and its asset hash. The list is an
+# allowlist: exclude everything, then admit the backend and the shared
+# contract. `backend/Dockerfile` copies the same two directories.
+_IMAGE_CONTENT = [
+    "*",
+    "!backend",
+    "!backend/**",
+    "!src",
+    "!src/__init__.py",
+    "!src/common",
+    "!src/common/**",
+    "**/__pycache__",
+    "**/__pycache__/**",
+]
 
 
 class WebsiteStack(Stack):
@@ -174,10 +189,15 @@ class WebsiteStack(Stack):
             image = ecr_assets.DockerImageAsset(
                 self,
                 "WebsiteImage",
-                directory=str(_REPO_ROOT / "src"),
-                file="website/Dockerfile",
+                directory=str(_REPO_ROOT),
+                file="backend/Dockerfile",
                 platform=ecr_assets.Platform.LINUX_ARM64,
-                exclude=["ingestion", "monitoring", "pipeline", "serving", "**/__pycache__"],
+                # The context is the repository root, so this allowlist decides
+                # the asset hash. Without it every unrelated file rebuilds the
+                # image. `IgnoreMode.GIT` keeps `.git` out; a worktree stores it
+                # as a file holding an absolute path.
+                exclude=_IMAGE_CONTENT,
+                ignore_mode=IgnoreMode.GIT,
             )
             image_uri = image.image_uri
 

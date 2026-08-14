@@ -7264,3 +7264,62 @@ website deploy stays on hold, and the CDK stack still describes one container.
 405 tests pass, coverage 94.68 percent against the 94.57 floor. `make lint`,
 `make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
 `make public-check`, and `make wiki-lint` all pass.
+
+## [2026-08-14] update | React and TypeScript frontend scaffolded
+
+### Objective
+
+Give the website a real frontend, and run it beside the backend and the two
+local stand-ins.
+
+### Scope
+
+`frontend/` (new): Vite, React 19, TypeScript 5, and five components.
+`local/compose.yaml` gains the `frontend` service. `Makefile` gains
+`frontend-check`. `.gitignore` excludes `frontend/node_modules` and
+`frontend/dist`.
+
+### Commands and results
+
+`npm run typecheck` and `npm test` pass; five tests cover the API client and
+its error shapes. `docker compose up -d --build` started four services, and
+the site answered on port 5173.
+
+Live checks through the running stack:
+
+- The schema table rendered 19 features from `/api/schema`.
+- The evaluation section showed `Test AUC 0.8535` from a report seeded into
+  MinIO.
+- The prediction form built 19 controls from the schema, and a submit returned
+  `0.1703` with "Likely to stay". That path runs React, the Vite proxy,
+  FastAPI, SigV4, the deployed API Gateway, and SageMaker.
+- The signup form returned `Signed up at 2026-08-14T22:59:46Z`.
+
+Two notes from the run. Seeding the report through `docker run` without `-i`
+wrote a zero-byte object, and the backend answered `{"available": false}` with
+its error rather than failing, which is the earlier graceful-degradation fix
+working on real bad data. The screenshot pane stopped repainting after a
+scroll, so the page content was read through the DOM instead.
+
+### Interpretation
+
+The form reads `feature_columns` and `categorical_values` at run time, so the
+vocabulary is never restated in TypeScript. `src/common/features.py` stays the
+one source, `/api/schema` publishes it, and a new feature column changes no
+frontend file. That is the reason `/api/schema` exists.
+
+The dev server proxies `/api` to the backend, so the browser sends same-origin
+requests. The backend needs no CORS configuration, and no build carries a
+backend URL.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The open items are a CI step for
+`make frontend-check`, component tests, and the deployed topology, which is
+still undecided.
+
+### Verification
+
+405 Python tests pass at 94.68 percent coverage. `make lint`,
+`make typecheck`, `make synth-all`, `make lock-check`, `make docs-sync`,
+`make public-check`, `make wiki-lint`, and `make frontend-check` all pass.

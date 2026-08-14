@@ -3,7 +3,7 @@ type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
 updated: "2026-08-14"
-sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../src/website/app.py", "../../../src/website/services.py", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../src/website/app.py", "../../../src/website/services.py", "../../../frontend/src/App.tsx", "../../../frontend/src/api.ts", "../../../frontend/vite.config.ts", "../../../local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -23,6 +23,19 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   backing services are `amazon/dynamodb-local` for the mailing list and
   `minio/minio` for the evaluation reports in S3. `local/compose.yaml` runs
   both today, with volumes, and is proved against the current backend code.
+- **The frontend is scaffolded and runs.** `frontend/` holds a React 19 and
+  TypeScript application built by Vite. `App.tsx` composes four components,
+  `api.ts` is the one place that calls the backend, and `types.ts` states the
+  response shapes. `npm run typecheck` and `npm test` pass, and
+  `make frontend-check` runs both.
+- **The form builds itself from `/api/schema`.** `PredictForm` reads
+  `feature_columns` and `categorical_values` at run time and renders a control
+  for each. A new feature column needs no frontend change, and the vocabulary
+  is never restated in TypeScript.
+- **The dev server proxies `/api` to the backend.** `vite.config.ts` reads
+  `BACKEND_ORIGIN`, so the browser sends same-origin requests and the backend
+  needs no CORS configuration. The deployed shape routes `/api/*` through
+  CloudFront to the same origin, so no build carries a backend URL.
 - **The FastAPI backend is scaffolded and runs.** `src/website/` now holds
   `app.py` (routes), `services.py` (every AWS call), `settings.py` (the
   environment contract), and `rate_limit.py`. The standard-library
@@ -66,10 +79,11 @@ These decisions cost real analysis and stay valid:
 - **The image count changes the asset story.** `DockerImageAsset` builds one
   image. Three images mean three assets, or one compose file that the instance
   pulls.
-- **The frontend becomes a build artifact.** React and TypeScript need a build
-  step. A static bundle behind CloudFront costs less than a container that
-  serves it, so the frontend MAY not need a container in the deployed shape at
-  all, even though it needs one locally.
+- **The frontend becomes a build artifact.** `frontend/Dockerfile` carries two
+  targets. `dev` runs the Vite server with hot reload, and compose uses it.
+  `runtime` serves the built bundle from nginx. The deployed shape MAY skip
+  `runtime`: a static bundle in S3 behind the existing CloudFront distribution
+  costs less than a container that serves it.
 - **`t4g.small` holds 2 GiB.** One Python container fits comfortably. The local
   set does not, and it never needs to: `dynamodb` and `minio` are development
   stand-ins. The deployed backend talks to the real DynamoDB and S3, so the
@@ -124,8 +138,14 @@ reaches AWS.
   behind the existing CloudFront distribution removes a container and some
   cost. That choice changes the CDK stack more than it changes the local
   compose file.
-- **The frontend does not exist yet.** `local/compose.yaml` says where it
-  joins. The backend serves JSON only; nothing serves HTML.
+- **CI does not run the frontend checks.** `make frontend-check` exists and
+  passes, and `.github/workflows/ci.yml` does not call it. CI would need a Node
+  setup step. The website work is on hold, so that stays open.
+- **The frontend has no component test.** `frontend/src/api.test.ts` covers the
+  client and its error shapes. Rendering tests need a DOM environment and a
+  testing library, which this scaffold does not install.
+- **TypeScript is pinned to 5.x.** Version 7 is released and is the native
+  port. The ecosystem around Vite and React types has not settled on it.
 - **`fastapi` and `httpx` are in the dev extra, not only in the image.**
   `tests/unit/test_website_app.py` drives the routes through `TestClient`, so
   the lockfile carries both. `uvicorn` stays in the image alone, because no

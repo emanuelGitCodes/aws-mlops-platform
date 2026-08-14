@@ -14,3 +14,7 @@ telco/
 .DS_Store
 graphify-out/
 .claude/settings.local.json
+
+# Frontend build output and installed packages.
+frontend/node_modules/
+frontend/dist/

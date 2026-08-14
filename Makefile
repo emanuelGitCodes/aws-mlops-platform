@@ -2,7 +2,7 @@
 	diagrams security bootstrap check-stack check-alert-email diff-stack \
 	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
 	wiki-search wiki-ingest wiki-lint public-check graph graph-query \
-	graph-explain graph-hooks
+	graph-explain graph-hooks frontend-check
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -95,6 +95,11 @@ diagrams: synth
 	fi; \
 	cd "$(CURDIR)"; \
 	uv run --locked python scripts/prepare_cdk_diagrams.py $$dots
+
+# Check the frontend. `npm ci` installs from `frontend/package-lock.json`.
+# CI does not run this target yet; the website work is on hold.
+frontend-check:
+	cd frontend && npm ci && npm run typecheck && npm test
 
 security: lock-check audit synth-all
 

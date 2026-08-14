@@ -9,9 +9,9 @@
 #
 # The `-v` flag is what deletes the data. A plain `down` keeps both volumes.
 #
-# Add the `frontend` service here when it exists. It calls the backend at
-# http://localhost:8080 from the browser, so it needs no compose network entry
-# of its own for that call.
+# Open http://localhost:5173 for the site. The Vite dev server proxies `/api`
+# to the backend container, so the browser sends same-origin requests and the
+# backend needs no CORS configuration.
 #
 # `PREDICT_URL` is empty by default, so `/api/predict` answers 502. Point it at
 # the deployed API and give the backend real credentials to try a prediction:
@@ -21,6 +21,24 @@
 name: mlops-website-local
 
 services:
+  # The React and TypeScript frontend, with hot reload.
+  frontend:
+    build:
+      context: ../frontend
+      # `runtime` builds the static bundle for a deployed server instead.
+      target: dev
+    depends_on:
+      - backend
+    environment:
+      # Vite reads this and proxies `/api` there. The browser never sees it.
+      BACKEND_ORIGIN: http://backend:8080
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount the source for hot reload, and keep the image's `node_modules`.
+      - ../frontend:/app
+      - /app/node_modules
+
   # The FastAPI backend. Its OpenAPI page is at http://localhost:8080/api/docs.
   backend:
     build:

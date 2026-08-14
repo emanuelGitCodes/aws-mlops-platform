@@ -43,6 +43,12 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
 - **Three Make targets front the tool.** `make graph` rebuilds the graph,
   `make graph-query Q=…` runs a traversal for a question, and
   `make graph-explain NODE=…` describes one node and its neighbours.
+- **Two git hooks rebuild the graph automatically.** `graphify hook install`
+  wrote a `post-commit` hook and a `post-checkout` hook into `.git/hooks/` on
+  2026-08-14. Each one starts a detached rebuild, so neither holds the shell.
+  The installer also offered a union merge driver for `graphify-out/graph.json`.
+  This repository removed that registration, because it never tracks the file
+  the driver would merge.
 
 ## Synthesis
 
@@ -63,8 +69,15 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   to instead.
 - **The graph goes stale without warning.** `GRAPH_REPORT.md` names the commit
   it was built from. A query against an old graph answers about old code and
-  looks correct. Run `make graph` after a change, and read that line before
-  you trust an answer.
+  looks correct. Read that line before you trust an answer.
+- **The hooks narrow the staleness window. They do not close it.** Three cases
+  produce no rebuild. Git does not track a hook, so a fresh clone starts without
+  one. The hook exits at once inside a linked worktree, and this repository
+  works in `.claude/worktrees/`, so a commit there changes nothing. The hook
+  also skips a rebase, a merge, and a cherry-pick, which keeps `git rebase
+  --continue` from meeting an unstaged change. `make graph` stays the reliable
+  rebuild in each case, and `GRAPHIFY_SKIP_HOOK=1` disables the hook for one
+  command.
 - **The corpus includes the wiki, which makes the two layers navigable
   together.** Wiki pages appear as nodes and cluster with the code they
   describe. This helps a search start from a page and reach a module. It does
@@ -84,6 +97,7 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   that the graph matches the tree. A stale or broken graph is a local problem
   today. A CI target is possible later, and it MUST stay non-blocking if it
   arrives, because the tool is a convenience and not a boundary.
-- **The repository installs no `PreToolUse` hook.** graphify can register hooks
-  that send a search or a read through the graph first. Without them, every
-  graph query stays explicit.
+- **The repository installs no `PreToolUse` hook.** That agent hook is separate
+  from the two git hooks above. It would send a search or a read through the
+  graph before the agent reads a file. Without it, every graph query stays
+  explicit.

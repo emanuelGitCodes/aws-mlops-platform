@@ -191,9 +191,18 @@ Rules:
    same as `infra/cdk.out/`. Rebuild it with `make graph`; do not commit it,
    and do not cite a generated file as evidence on a wiki page.
 2. **A stale graph is silent.** `GRAPH_REPORT.md` records the commit it was
-   built from. Run `make graph` after you change code, and check that line
-   before you trust an answer.
-3. **The graph MUST NOT become a second knowledge base.** When a query
+   built from. Check that line before you trust an answer, and run `make graph`
+   when it does not match `git rev-parse HEAD`.
+3. **The git hooks rebuild the graph, and they do not cover every case.**
+   `graphify hook install` writes a `post-commit` hook and a `post-checkout`
+   hook into `.git/hooks/`. The rebuild runs detached, so it does not hold the
+   shell. Three limits matter. Git does not track a hook, so a fresh clone has
+   none until someone runs the installer. **The hook exits immediately in a
+   linked worktree**, and this repository uses worktrees, so a commit under
+   `.claude/worktrees/` never rebuilds the graph. The hook also skips a rebase,
+   a merge, and a cherry-pick. Run `make graph` by hand in each of those cases.
+   `GRAPHIFY_SKIP_HOOK=1` turns the hook off for one command.
+4. **The graph MUST NOT become a second knowledge base.** When a query
    produces durable knowledge, file it on a wiki page under the SCHEMA.md
    contract. Do not hand-edit a file in `graphify-out/`.
 

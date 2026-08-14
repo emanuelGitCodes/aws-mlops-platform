@@ -106,7 +106,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make verify-deploy` | What a deploy actually changed, per resource |
 | `make smoke` | `tests/integration` against the deployed API (resolves the URL from stack outputs; Phase 6 signs each request with SigV4) |
 | `make wiki-init` / `wiki-index` / `wiki-search Q=…` / `wiki-ingest SOURCE=…` / `wiki-lint` | Wiki toolkit; see `wiki/AGENTS.md` |
-| `make graph` / `graph-query Q=…` / `graph-explain NODE=…` | graphify code graph; see "Knowledge graph" below |
+| `make graph` / `graph-query Q=…` / `graph-explain NODE=…` / `graph-hooks` | graphify code graph; see "Knowledge graph" below |
 
 `ENV=dev|prod` selects the environment for every CDK target.
 
@@ -191,9 +191,24 @@ Rules:
    same as `infra/cdk.out/`. Rebuild it with `make graph`; do not commit it,
    and do not cite a generated file as evidence on a wiki page.
 2. **A stale graph is silent.** `GRAPH_REPORT.md` records the commit it was
-   built from. Run `make graph` after you change code, and check that line
-   before you trust an answer.
-3. **The graph MUST NOT become a second knowledge base.** When a query
+   built from. Check that line before you trust an answer, and run `make graph`
+   when it does not match `git rev-parse HEAD`.
+3. **`make graph-hooks` installs three hooks, and they still miss two cases.**
+   `graphify hook install` writes `post-commit` and `post-checkout`. Neither
+   one runs for a `git pull`, so the target also installs
+   `scripts/git-hooks/post-merge`, which covers a pull and a merge. Every
+   rebuild runs detached, so no hook holds the shell. Two limits remain:
+   - **The hooks exit immediately in a linked worktree.** This repository uses
+     worktrees, so a commit under `.claude/worktrees/` rebuilds nothing. The
+     graph belongs to the primary checkout.
+   - **Git does not track a hook.** A fresh clone has none until someone runs
+     `make graph-hooks`.
+
+   Run `make graph` by hand in both cases. `GRAPHIFY_SKIP_HOOK=1` turns every
+   hook off for one command. The target also removes the union merge driver
+   that `graphify hook install` registers for `graphify-out/graph.json`,
+   because this repository never tracks that file.
+4. **The graph MUST NOT become a second knowledge base.** When a query
    produces durable knowledge, file it on a wiki page under the SCHEMA.md
    contract. Do not hand-edit a file in `graphify-out/`.
 

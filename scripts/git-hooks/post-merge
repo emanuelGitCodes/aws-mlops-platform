@@ -1,0 +1,41 @@
+#!/bin/sh
+# Rebuild the graphify code graph after a merge or a pull.
+#
+# graphify installs `post-commit` and `post-checkout` only. Neither one runs
+# for a `git pull`. Without this file the graph keeps the commit it was built
+# from while the tree moves on, and a query then answers about the older tree.
+#
+# The graphify `post-commit` hook owns the interpreter probe, the worktree
+# guard, and the detached launch. This file reuses that hook and changes one
+# thing, so a graphify upgrade still reaches both paths.
+#
+# **The one change is the in-progress-merge guard.** `post-commit` exits when
+# `MERGE_HEAD` is present, which stops it from firing in the middle of a merge
+# that a later commit will finish. Git keeps `MERGE_HEAD` in place while it
+# runs `post-merge`, so that guard would skip every true merge. This wrapper
+# drops the guard lines and keeps every other guard, including the worktree
+# exit and `GRAPHIFY_SKIP_HOOK`.
+#
+# Install it with `make graph-hooks`.
+
+set -u
+
+hooks_dir=$(dirname "$0")
+delegate="$hooks_dir/post-commit"
+
+[ "${GRAPHIFY_SKIP_HOOK:-0}" = "1" ] && exit 0
+
+# Do nothing when the graphify hooks are absent. A clone without them MUST
+# still merge and pull normally.
+[ -x "$delegate" ] || exit 0
+grep -q "graphify-hook-start" "$delegate" 2>/dev/null || exit 0
+
+filtered=$(mktemp -t graphify-post-merge) || exit 0
+trap 'rm -f "$filtered"' EXIT INT TERM
+
+# Remove only the two in-progress-merge guards. A `grep -c` check keeps a
+# future graphify layout from silently producing an empty or unfiltered hook.
+sed '/MERGE_HEAD/d' "$delegate" > "$filtered" || exit 0
+[ -s "$filtered" ] || exit 0
+
+sh "$filtered"

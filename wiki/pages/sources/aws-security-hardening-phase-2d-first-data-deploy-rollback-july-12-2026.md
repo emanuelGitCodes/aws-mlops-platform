@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2D first Data deployment rollback — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2d-first-data-deploy-rollback-july-12-2026.md", "../../../infra/stacks/data_stack.py", "../../../tests/unit/test_data_stack.py"]
 summary: "The first Data deployment rolled back cleanly after AWS revealed that notification API calls require budgets:ModifyBudget authorization."
 ---
@@ -21,8 +21,8 @@ on the exact budget ARN.
 
 ## Retry gate
 
-Before retrying Data, the repository must pass local gates, a scoped diff, a new
-commit, and hosted CI. The already-deployed Security sink statement remains the
+Before a Data retry, the repository MUST pass the local gates, a scoped diff, a
+new commit, and hosted CI. The already-deployed Security sink statement remains the
 verified prerequisite.
 
 Related pages:

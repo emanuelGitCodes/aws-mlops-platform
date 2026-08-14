@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2C completion — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "Six exact detections are deployed, and a controlled IAM denial proved the metric, alarm, and received-email path."
 ---
@@ -32,7 +32,8 @@ Related pages:
 
 ## Tensions or open questions
 
-- The unauthorized-call alarm should naturally return to OK after the triggering
-  five-minute datapoint ages out.
-- Phase 2D must preserve the physical Data buckets and single existing budget.
+- The unauthorized-call alarm returns to `OK` on its own, after the five-minute
+  datapoint that fired it ages out.
+- Phase 2D MUST preserve the physical Data buckets and the single existing
+  budget.
 - The full Phase 2 cost observation begins after Phase 2D completes.

@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2D implementation — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_data_stack.py"]
 summary: "Data logging and budget alerts pass synthesis with a required Security-policy prerequisite deployment and preserved rollback order."
 ---
@@ -10,11 +10,12 @@ summary: "Data logging and budget alerts pass synthesis with a required Security
 
 ## Confirmed
 
-The immutable implementation record captures the green Phase 2C gate, Data
-constructor changes, three logging prefixes, removed S1 acknowledgements,
-unsafe generated-policy finding, and corrected two-deployment order. A later
-pre-deployment diff caught and corrected CloudFormation budget replacement; see
-the budget-preservation record below.
+The immutable implementation record holds six items: the green Phase 2C gate,
+the Data constructor changes, the three logging prefixes, the removed S1
+acknowledgements, the unsafe generated-policy finding, and the corrected
+two-deployment order. A later pre-deployment diff caught a CloudFormation budget
+replacement, and the correction followed. See the budget-preservation record
+below.
 
 ## Synthesis
 

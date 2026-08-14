@@ -2,7 +2,7 @@
 type: architecture
 title: AWS security hardening Phase 0 baseline
 created: "2026-07-12"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../../src/pipeline/pipeline.py"]
 summary: "The pre-hardening dev baseline is captured: runtime paths work, security gaps are measured, and the Data-stack export rollback blocks an all-stack deploy."
 ---
@@ -79,7 +79,7 @@ success means that the baseline is trustworthy and later regressions have a
 comparison point; it does not mean the recorded gaps are fixed.
 
 Phase 1 repository and CI guardrails are now complete. Audit and detection
-remain Phase 2 and require a separate go/no-go decision. Before any future
+remain Phase 2 and need their own go/no-go decision. Before any future
 Data-stack or all-stack deployment, preserve the artifacts-bucket export or
 update its consumer relationship in a separately reviewed change.
 
@@ -98,7 +98,8 @@ The rollback hierarchy is:
 
 ## Tensions or open questions
 
-- The Data export relationship must be resolved before a future `deploy --all`.
+- A future `deploy --all` MUST NOT run before the Data export relationship is
+  reconciled.
 - Pipeline version 9 still requires a later billable run to prove its timestamped
   report destination; that is not part of Phase 0 or Phase 1.
 - Detailed cost remains subject to AWS billing delay.

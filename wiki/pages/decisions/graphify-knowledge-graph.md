@@ -10,16 +10,20 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
 
 ## Confirmed
 
-- **graphify is installed and the first graph is built.** The `graphifyy`
-  package (version 0.9.42) is installed as a `uv` tool, so it stays out of
-  `uv.lock` and out of the project environment. The skill bundle is installed
-  project-scoped at `.claude/skills/graphify/`, as `SKILL.md` plus a
-  `references/` directory.
+- **The repository holds graphify, and the first graph exists.** `uv` installs
+  the `graphifyy` package (version 0.9.42) as a tool, so the package stays out
+  of `uv.lock` and out of the project environment. The skill bundle sits in the
+  project at `.claude/skills/graphify/`, as `SKILL.md` and a `references/`
+  directory.
 - **The first build covers the code and the wiki together.** The build of
   2026-08-14, from commit `90dc79d`, read 176 files and about 368,850 words.
   It produced 2141 nodes, 2953 edges, and 209 communities. The extraction
   reports 100% EXTRACTED edges and 12 INFERRED edges, at an average confidence
   of 0.53. It cost 0 input and 0 output tokens.
+- **Those counts describe one build, not a fixed size.** Every rebuild moves
+  them with the tree. The wiki rewrite of the same day took the graph to 2169
+  nodes and 220 communities at commit `21f1129`. Read the current number from
+  `GRAPH_REPORT.md`. Do not treat a number on this page as the live size.
 - **The extraction is local and deterministic.** `graphify update .` parses
   each file with tree-sitter. It calls no model and no network service. An
   LLM backend is optional, and this repository does not configure one.
@@ -27,11 +31,10 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   (the queryable graph), `graph.html` (an interactive view), and
   `GRAPH_REPORT.md` (communities, hubs, and suggested questions). A
   `cache/` directory and a `manifest.json` hold the per-file extraction state.
-- **`graphify-out/` is untracked.** `.gitignore` excludes it, for the same
-  reason `infra/cdk.out/` is excluded: it is build output that any clone can
-  regenerate in about one minute. The 2 MB `graph.json` and the 1.8 MB
-  `graph.html` therefore never enter the history of a repository that is
-  being prepared for public release.
+- **`graphify-out/` is untracked.** `.gitignore` excludes it, for the reason it
+  excludes `infra/cdk.out/`: any clone can rebuild this output in about one
+  minute. The 2 MB `graph.json` and the 1.8 MB `graph.html` therefore never
+  enter the history of a repository that the team prepares for public release.
 - **`.graphifyignore` narrows the corpus.** It excludes `graphify-out/`,
   `infra/cdk.out/`, the third-party `wiki/assets/architecture/cdk-dia-icons/`
   icon set, and `uv.lock`. graphify merges this file with `.gitignore`, and
@@ -54,7 +57,7 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   policy version in the account. This is the same limit that
   [generated CDK diagrams](../architecture/generated-cdk-diagrams.md) carry:
   a synthesized view is not live state.
-- **A generated file MUST NOT be cited as wiki evidence.** `graphify-out/` is
+- **A wiki page MUST NOT cite a generated file as evidence.** `graphify-out/` is
   disposable and untracked, so a `sources:` entry that points into it cannot
   resolve for the next reader. Cite the repository path that the graph led you
   to instead.
@@ -73,13 +76,14 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   This repository declines that, because size and public-release discipline
   outrank a one-minute rebuild for a single author. Revisit the choice if a
   second contributor joins.
-- **Community names come from a heuristic, not from a model.** No LLM backend
-  is configured, so `graphify label` has never run. The names are readable but
-  they are not curated. Do not quote a community name as a project term.
+- **Community names come from a heuristic, not from a model.** The repository
+  configures no LLM backend, so `graphify label` has never run. The names are
+  readable, and no human curated them. Do not quote a community name as a
+  project term.
 - **The graph is not in CI.** No gate proves that a build still succeeds or
   that the graph matches the tree. A stale or broken graph is a local problem
   today. A CI target is possible later, and it MUST stay non-blocking if it
   arrives, because the tool is a convenience and not a boundary.
-- **The `PreToolUse` hooks are not installed.** graphify can register hooks
-  that route a search or a read through the graph first. This repository does
-  not install them, so every graph query stays explicit.
+- **The repository installs no `PreToolUse` hook.** graphify can register hooks
+  that send a search or a read through the graph first. Without them, every
+  graph query stays explicit.

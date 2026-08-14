@@ -81,7 +81,7 @@ make diagrams ENV=dev
 prod design without deploying it.
 
 Edit an SVG in a vector editor such as Figma or Inkscape. Edit a DOT file when
-the change must preserve graph structure. After a DOT edit, rebuild its
+the change MUST keep the graph structure. After a DOT edit, rebuild its
 self-contained SVG from the repository root:
 
 ```bash

@@ -2,7 +2,7 @@
 type: architecture
 title: Deployment and pipeline troubleshooting checkpoint
 created: "2026-07-11"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../../infra/stacks/lambda_code.py", "../../../pyproject.toml", "../../../src/common/features.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluation_runtime/requirements.txt", "../../../scripts/evaluate_api.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py"]
 summary: "The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving."
 ---
@@ -62,9 +62,16 @@ The serving API is:
 https://${API_GATEWAY_ID}.execute-api.us-east-1.amazonaws.com/dev/predict
 ```
 
-The API key is active and associated with the `dev` usage-plan stage. Early test failures were local request problems: the payload file was missing, the shell variable was empty, the Bash `read -rsp` syntax was incompatible with zsh, and one hostname was mistyped. After loading the correct key and using `sample.json`, API Gateway forwarded the request to the proxy Lambda. The resulting `502` was caused by the absent SageMaker endpoint, which was the expected downstream state before a model had been deployed.
+At that time the API key was active on the `dev` usage-plan stage. The early
+test failures were local request problems. The payload file was missing. The
+shell variable was empty. The Bash `read -rsp` syntax does not work in zsh. One
+hostname held a typing error. After the correct key and `sample.json`, API
+Gateway forwarded the request to the proxy Lambda. The absent SageMaker endpoint
+then returned `502`. That was the expected downstream state before a model
+deployment.
 
-The Telco CSV was uploaded to the raw bucket and appeared under the curated prefix after ingestion:
+The upload put the Telco CSV in the raw bucket. The object then appeared under
+the curated prefix:
 
 ```text
 s3://${RAW_BUCKET}/telco.csv
@@ -161,8 +168,8 @@ precision `0.6332`, recall `0.5370`, F1 `0.5812`, and specificity `0.8933`.
 The confusion matrix was 703 true negatives, 84 false positives, 125 false
 negatives, and 145 true positives. The model ranks examples well, but the
 current neutral threshold deliberately misses about half of actual churners;
-changing it is a separate retention-cost decision and must be applied to both
-reports and the API.
+a change to it is a separate retention-cost decision. Any change MUST reach the
+reports and the API together.
 
 ### Low-cost serving and API verification
 
@@ -214,11 +221,12 @@ partial S3 output before a later chart-rendering error, so pipeline status and
 ProcessingJob logs remain authoritative until `Evaluate` reaches `Succeeded`.
 The components are independently observable and fail at different boundaries.
 
-The remaining boundary is monitoring, not model training or serving. The
-low-cost serverless endpoint can make predictions, but it cannot use SageMaker
-`DataCaptureConfig`; the Model Monitor capture-and-retrain path must stay
-disabled until the platform adopts another capture mechanism or a provisioned
-endpoint.
+The remaining boundary is monitoring, not model training and not serving. The
+low-cost serverless endpoint returns predictions. It cannot use SageMaker
+`DataCaptureConfig`. The platform therefore MUST NOT enable the Model Monitor
+capture path on this endpoint. The repository-owned drift job supplies the
+capture instead; see
+[drift capture design](../decisions/drift-capture-design.md).
 
 ## Tensions or open questions
 

@@ -2,7 +2,7 @@
 type: decision
 title: Drift capture design for a serverless endpoint
 created: "2026-08-07"
-updated: "2026-08-07"
+updated: "2026-08-14"
 sources: ["https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html", "https://github.com/aws-samples/sample-aiops-on-amazon-sagemakerai/tree/main/monitoring", "../../../infra/stacks/monitoring_stack.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/serving/deploy_handler.py", "../../../src/common/drift.py", "../../../src/monitoring/drift_handler.py", "../../../infra/config/prod.yaml", "../concepts/closed-drift-loop.md", "../architecture/phased-security-hardening.md"]
 summary: "Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay."
 ---
@@ -45,13 +45,13 @@ summary: "Model Monitor is closed to new customers, so the deferred capture leg 
   `MonitoringExecutionStatus: CompletedWithViolations` and a schedule name
   prefixed with the endpoint name. It invokes `RetrainTriggerFn`, which holds
   `sagemaker:StartPipelineExecution` on exactly one pipeline ARN.
-  `retrain_handler.VIOLATION_STATUS` must equal the literal in the stack, and
+  `retrain_handler.VIOLATION_STATUS` MUST equal the literal in the stack.
   `tests/unit/test_monitoring_stack.py` pins that agreement.
 - **The original schedule was the budget event, not the endpoint.** The comment
   on `monitor.schedule_cron` in `infra/config/prod.yaml` already records it: an
   hourly Model Monitor schedule is a SageMaker processing job on `ml.m5.large`,
   roughly 720 jobs a month, and it dominates the `$20` budget. The serverless
-  endpoint it would have monitored costs approximately nothing while idle.
+  endpoint it would have monitored costs about nothing while idle.
 
 ## Synthesis
 
@@ -68,7 +68,7 @@ a Model Monitor schedule against it, and the deployed EventBridge rule firing
 unchanged.
 
 Rejected, on three independent grounds. It surrenders the property the serving
-decision was built on — scale to zero, no standing instance, approximately zero
+decision was built on — scale to zero, no standing instance, about zero
 idle cost — for a platform whose entire cost story is that property. It is a
 one-way conversion on the deployed endpoint. And it still lands on Model
 Monitor, so the onboarding gate below applies to it as much as to Option B.
@@ -102,7 +102,7 @@ constraints rather than adopted on authority. It keeps the serverless endpoint
 and its zero idle cost. It has no dependency on a closed service. It removes the
 processing-job cost line entirely: the Telco dataset is small enough that a
 window comparison fits inside a Lambda, so the schedule that was going to
-dominate the `$20` budget as 720 `ml.m5.large` jobs a month costs approximately
+dominate the `$20` budget as 720 `ml.m5.large` jobs a month costs about
 nothing instead.
 
 The cost is that drift statistics become repository-owned code with tests
@@ -116,8 +116,7 @@ set did, and the parenthetical notes record where the design met something it
 had not anticipated.
 
 - `src/serving/proxy_handler.py` writes the validated record and the returned
-  score to the capture prefix. **The write must not be able to fail a
-  prediction.** The handler's current failure semantics are deliberate — every
+  score to the capture prefix. **The write MUST NOT fail a prediction.** The handler's current failure semantics are deliberate — every
   SageMaker error is mapped to a 503 or 502 with no operator detail leaked — and
   a capture failure is not a prediction failure.
 - **Capture goes to S3 directly, not through the log group.** Routing it through
@@ -132,13 +131,12 @@ had not anticipated.
   plus its own log group, so it belongs in a change set that re-verifies that
   scoping rather than a drive-by grant.
 - A new drift job under `src/monitoring/`, with **its own execution role**. This
-  resolves the Phase 5D follow-up — that Model Monitor should not have reused
-  the pipeline role — by never creating the shared-role condition in the first
-  place.
+  answers the Phase 5D follow-up about Model Monitor and the shared pipeline
+  role. The new design never creates the shared-role condition.
 - `infra/stacks/monitoring_stack.py` changes `DriftViolationRule` from the
   SageMaker detail type to the job's own event, and `retrain_handler` changes
   the status literal it matches. `tests/unit/test_monitoring_stack.py` pins the
-  agreement between them and must move in the same change set.
+  agreement between them, and it MUST move in the same change set.
 - `scripts/setup_monitor.py` retires. `scripts/send_drift_traffic.py` survives
   unchanged: it drives the public API, and the API is still the capture source.
 - The statistic is **PSI computed directly**, not Evidently. The open question
@@ -152,10 +150,10 @@ had not anticipated.
   rule.
 - The baseline comes from the **train split alone**, not the whole curated
   dataset. Validation and test rows are data the model never learned.
-- The baseline statistics must be derived from the pipeline's existing
-  preprocess output. `src/common/features.py` stays the single source of the
-  raw-value contract; the drift job must not re-implement encoding or column
-  order to compute a distribution.
+- The drift job MUST derive the baseline statistics from the existing
+  preprocess output of the pipeline. `src/common/features.py` stays the single
+  source of the raw-value contract. The drift job MUST NOT re-implement the
+  encoding or the column order to compute a distribution.
 
 ## Tensions or open questions
 
@@ -168,8 +166,8 @@ had not anticipated.
   prediction in this platform, so model-quality monitoring — accuracy, F1, AUC
   against reality — is unreachable by any of the three options. Only input data
   drift is achievable. The loop this closes detects that the traffic changed,
-  never that the model got worse. That limit should be stated wherever the
-  closed loop is described, including the README.
+  never that the model got worse. Every description of the closed loop MUST
+  state that limit, including the README.
 - **An hourly schedule over near-zero traffic reports noise.** `schedule_cron`
   is hourly in both environments, which suited a job reading live production
   traffic. This platform's endpoint is idle most of the time, so most windows

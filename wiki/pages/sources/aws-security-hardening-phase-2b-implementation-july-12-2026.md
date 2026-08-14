@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2B implementation — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../infra/security_checks.py", "../../../infra/cdk.json", "../../../tests/unit/test_security_stack.py"]
 summary: "The isolated Security audit-foundation stack passes local tests and synthesis and awaits hosted CI and deployment."
 ---
@@ -32,8 +32,8 @@ Related pages:
 
 ## Tensions or open questions
 
-- Hosted CI and a scoped CloudFormation diff must pass before deployment.
-- After deployment, the email subscription must be manually confirmed before
-  Phase 2C can begin.
+- Hosted CI and a scoped CloudFormation diff MUST pass before the deployment.
+- After the deployment, a human MUST confirm the email subscription. Phase 2C
+  starts only after that confirmation.
 - CloudTrail delivery evidence can take several minutes to appear in S3 and
   CloudWatch Logs.

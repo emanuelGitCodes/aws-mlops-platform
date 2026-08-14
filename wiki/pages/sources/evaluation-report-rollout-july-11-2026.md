@@ -2,7 +2,7 @@
 type: "source"
 title: "Evaluation report rollout — July 11, 2026"
 created: "2026-07-11"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/evaluation-report-rollout-july-11-2026.md"]
 summary: "Evidence for the held-out evaluation-report rollout, Python 3.9 compatibility recovery, and successful visual-artifact execution."
 ---
@@ -40,5 +40,5 @@ current operational synthesis.
 
 - The `0.50` threshold is deliberately consistent with the API, but it misses
   125 of the 270 churners in this held-out test split. A later business-cost
-  decision may choose a lower threshold and must update serving and reporting
-  together.
+  decision MAY choose a lower threshold. That decision MUST change serving and
+  reporting in the same change set.

@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 3-prep implementation — July 14, 2026"
 created: "2026-07-14"
-updated: "2026-07-14"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3-prep-implementation-july-14-2026.md", "../../../infra/app.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../tests/unit/test_security_monitoring_stack.py", "../../../tests/unit/test_deployment_policy.py"]
 summary: "Phase 2 observation closes as a documented go; Phase 3 gains six enablement flags, an empty SecurityMonitoring stack, and pre-granted deployer permissions with no service enabled."
 ---
@@ -40,7 +40,7 @@ Related pages:
 ## Tensions or open questions
 
 - The read-only change-set `cdk diff` itself generates `AccessDenied` noise
-  from the scoped execution role; later sub-phases must diff with
-  `--no-change-set` to keep the unauthorized-call alarm meaningful.
+  from the scoped execution role. A later sub-phase MUST diff with
+  `--no-change-set`, which keeps the unauthorized-call alarm meaningful.
 - Deployment of the shell stack and rotation of the execution policy to `v7`
   are pending the hosted CI gate for this commit.

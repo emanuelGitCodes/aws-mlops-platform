@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 1 completion — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../../infra/cdk.json"]
 summary: "All Phase 1 repository-security gates pass locally without an AWS deployment; the uncommitted diff is ready for final human review."
 ---
@@ -35,5 +35,5 @@ Related pages:
 
 - The first GitHub run will revalidate the locally passing gates on a hosted
   runner after the reviewed changes are committed.
-- CDK's `logRetention` deprecation should be scheduled without expanding Phase
-  1 into an AWS change.
+- Schedule the CDK `logRetention` deprecation separately. It MUST NOT expand
+  Phase 1 into an AWS change.

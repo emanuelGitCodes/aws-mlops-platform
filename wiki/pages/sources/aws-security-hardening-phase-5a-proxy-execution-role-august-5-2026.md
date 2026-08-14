@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 5A proxy execution role — August 5, 2026"
 created: "2026-08-05"
-updated: "2026-08-05"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-5a-proxy-execution-role-august-5-2026.md", "../../../infra/stacks/shared.py", "../../../infra/stacks/serving_stack.py", "../../../infra/security_checks.py", "../../../tests/unit/test_serving_stack.py"]
 summary: "The proxy is the first of four roles off AWSLambdaBasicExecutionRole, trading account-wide log permissions for writes to its own group, verified by the log event a wrong scope would have silently lost."
 ---
@@ -72,8 +72,8 @@ unnoticed against a construct that no longer exists.
   CloudFormation `Arn` attribute resolves with a `:*` stream suffix at deploy
   time**, which is precisely why `PutLogEvents` works. The wildcard is real and
   necessary; the linter cannot see it. The gain is one log group instead of
-  every log group — not the elimination of a wildcard, and the count should not
-  be read as if it were.
+  every log group. It is not the removal of a wildcard. Do not read the count as
+  a wildcard removal.
 - **Three managed-log-policy acknowledgements can never be resolved by Phase 5.**
   They sit on CDK-generated provider Lambdas — the S3 notification handler, the
   budget custom-resource provider, the account-BPA provider — whose roles this

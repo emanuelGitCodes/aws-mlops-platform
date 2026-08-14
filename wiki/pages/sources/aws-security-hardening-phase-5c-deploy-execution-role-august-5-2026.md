@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 5C deploy execution role — August 5-6, 2026"
 created: "2026-08-05"
-updated: "2026-08-06"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../../infra/stacks/serving_stack.py", "../../../infra/security_checks.py", "../../../src/serving/deploy_handler.py", "../../../tests/unit/test_serving_stack.py", "../../../tests/unit/test_security_checks.py"]
 summary: "The deploy role loses both the managed log policy and the repository's last real Resource '*', proven by a full data-to-endpoint run rather than a warm smoke test."
 ---
@@ -90,7 +90,7 @@ whole `PlatformConfig` instead means the next token costs no signature change.
   both the endpoint and the endpoint-config, chosen as the safe direction because
   omitting a required resource breaks the deploy path. This run does not
   determine whether the endpoint-config entry is required; if it is not, it is an
-  inert over-grant that a later pass should trim.
+  inert over-grant, and a later pass MUST remove it.
 - **The bundled Lambda asset hash is not reproducible**, so a deploy from a cold
   `cdk.out` republishes all four functions' code with no source change. Traced to
   vendored `__pycache__/*.pyc` whose headers embed mtimes that `pip install -t`
@@ -98,8 +98,8 @@ whole `PlatformConfig` instead means the next token costs no signature change.
   resource-level deploy reporting and needs its own change set.
 - **Seven orphaned log groups survive in dev**, and every platform Lambda has a
   superseded `/aws/lambda/<function>` twin alongside its Phase K `*Logs*` group.
-  Verified non-CloudFormation-managed; deletion was handed to the operator rather
-  than performed. An eighth candidate is noted but unconfirmed.
+  A check proved that CloudFormation manages none of them. The operator owns the
+  deletion, and this phase did not do it. An eighth candidate stays unconfirmed.
 - **The drift → retrain edge has never fired.** Both `RetrainTriggerFn` log
   groups report no events ever, and this run started the pipeline by hand rather
   than through `retrain_handler`. The closing edge of the drift loop is

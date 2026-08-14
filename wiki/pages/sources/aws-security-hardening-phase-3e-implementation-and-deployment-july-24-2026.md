@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3E implementation and deployment — July 24, 2026"
 created: "2026-07-24"
-updated: "2026-07-24"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/security_checks.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py"]
 summary: "Account-level S3 Block Public Access is live in dev via a flag-gated custom resource, with a clean pre-flight, a four-resource deploy, and resource-level verification."
 ---
@@ -29,7 +29,7 @@ reuses the `AwsCustomResource` pattern already proven by the budget notification
 in the Data stack. The deployment created four resources in 48.6 seconds and
 modified nothing else. Live checks confirmed all four settings true, the Phase 3A
 analyzer still `ACTIVE`, the six security alarms still `OK`, every bucket still
-listable, `/predict` unchanged, and a subsequent `cdk diff` reporting no
+listable, `/predict` unchanged, and a later `cdk diff` reporting no
 differences.
 
 No execution-policy rotation was required. The provider Lambda holds the
@@ -43,7 +43,7 @@ version slot stays free.
 
 Three findings are worth carrying forward beyond this sub-phase.
 
-**A flag-gated acknowledgement must be scoped to its flag.** The first
+**A flag-gated acknowledgement MUST carry the same gate as its flag.** The first
 implementation registered its two cdk-nag acknowledgements unconditionally, but
 their constructs exist only where `account_bpa` is true, and `_construct_at`
 deliberately raises when a path matches no construct. The consequence was not

@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 5D pipeline execution role — August 6, 2026"
 created: "2026-08-06"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/shared.py", "../../../infra/security_checks.py", "../../../src/pipeline/pipeline.py", "../../../tests/unit/test_training_stack.py", "../../../tests/unit/test_security_checks.py"]
 summary: "The last role off AmazonSageMakerFullAccess, and the phase that showed CloudTrail enumerates a role's API surface but not its authorization surface."
 ---
@@ -45,8 +45,8 @@ genuine: Pipelines tags each resource it creates *as part of the create call*,
 so the authorization check happens inside `CreateProcessingJob` and never
 becomes an event of its own.
 
-A least-privilege policy derived from trail evidence alone should expect this
-class of failure. It is the concrete argument for the operating rule's
+A least-privilege policy built from trail evidence alone meets this class of
+failure. It is the concrete argument for the operating rule's
 insistence that each phase's component check be a real workload run rather than
 a smoke test: static analysis had the API surface right and the authorization
 surface wrong, and only a live `CreateProcessingJob` could tell the difference.

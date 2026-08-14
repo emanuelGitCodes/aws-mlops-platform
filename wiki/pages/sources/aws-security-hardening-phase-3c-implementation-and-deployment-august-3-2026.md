@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3C implementation and deployment — August 3, 2026"
 created: "2026-08-03"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3c-implementation-and-deployment-august-3-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/config/dev.yaml", "../../../tests/unit/test_deployment_policy.py"]
 summary: "AWS Config is live in dev with a ten-type recorder delivering into the audit bucket, after a pre-flight proved Free-plan availability and three defects — two of them pre-existing — blocked the first attempts."
 ---
@@ -41,7 +41,7 @@ summary: "AWS Config is live in dev with a ten-type recorder delivering into the
   the Security stack.
 - **Recording honours the inclusion list after an initial full-inventory
   baseline.** On 2026-08-03 the recorder delivered 10 in-scope `ConfigHistory`
-  objects and **40 out-of-scope ones** covering types it was never configured
+  objects and **40 out-of-scope ones**, which cover types the recorder never held
   for — API Gateway, Athena, CloudWatch alarms, CodeDeploy, Access Analyzer and
   others. On 2026-08-04 it delivered **zero** `ConfigHistory` objects of either
   kind. The recorder itself was unchanged throughout: still

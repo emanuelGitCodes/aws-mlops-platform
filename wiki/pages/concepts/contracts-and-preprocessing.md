@@ -2,7 +2,7 @@
 type: concept
 title: Validation versus preprocessing contracts
 created: "2026-07-10"
-updated: "2026-07-11"
+updated: "2026-08-14"
 sources: ["../../../src/common/schema.py", "../../../src/pipeline/preprocess.py", "../../../src/serving/proxy_handler.py", "../../../src/ingestion/validate_handler.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md"]
 summary: "Validation checks whether a record is acceptable; preprocessing deterministically converts an accepted record into the model's numeric feature vector."
 ---
@@ -10,25 +10,46 @@ summary: "Validation checks whether a record is acceptable; preprocessing determ
 
 ## Confirmed
 
-`src/common/schema.py` defines the accepted customer-record shape, value constraints, optional label behavior, and the canonical `FEATURE_COLUMNS` order. Both ingestion validation and the inference proxy use it.
+`src/common/schema.py` defines the accepted customer-record shape, the value
+constraints, the optional label behavior, and the canonical `FEATURE_COLUMNS`
+order. The ingestion validation and the inference proxy both use it.
 
-`src/pipeline/preprocess.py` performs a separate transformation. `encode_features` maps categorical values to deterministic numbers and emits one float per feature in the canonical order. `encode_labeled_row` adds the label first for XGBoost training files.
+`src/pipeline/preprocess.py` does a separate transformation. `encode_features`
+maps each categorical value to a deterministic number. It writes one float per
+feature, in the canonical order. `encode_labeled_row` writes the label first,
+for the XGBoost training files.
 
-The serving proxy validates the JSON request first, extracts only `FEATURE_COLUMNS`, encodes the values, and sends a CSV line to SageMaker. It does not contain model inference logic.
+The serving proxy validates the JSON request first. It then extracts only
+`FEATURE_COLUMNS`, encodes the values, and sends one CSV line to SageMaker. The
+proxy holds no model inference logic.
 
-The deployed pipeline exposed an operational packaging requirement: the Processing container must receive both `preprocess.py` and the shared package containing `src.common.schema`. The current execution failed with `ModuleNotFoundError: No module named 'src'` before it could transform data. The schema contract is correct locally; it is not yet present at the SageMaker Processing runtime boundary.
+The deployed pipeline showed one packaging rule: the Processing container MUST
+receive `preprocess.py` and the shared package that holds `src.common.schema`.
+The first live execution failed with `ModuleNotFoundError: No module named
+'src'` before it transformed any data. A correct schema contract in the
+repository does not put that contract at the SageMaker Processing runtime
+boundary. The repository fixed the packaging defect; see the
+[closed drift loop](closed-drift-loop.md) for the execution that then
+succeeded.
 
 ## Synthesis
 
-The safe mental model is:
+Read the two stages in this order:
 
 ```text
 schema validation -> accepted raw record -> deterministic encoding -> model payload
 ```
 
-Validation answers “is this record allowed?”; preprocessing answers “how does the model consume it?” Keeping the two stages separate makes the schema reusable without confusing a data contract with a learned model transform.
+Validation answers one question: is this record allowed? Preprocessing answers a
+different one: how does the model read it? The two stages MUST stay separate.
+The separation keeps the schema reusable, and it keeps a data contract distinct
+from a model transform.
 
 ## Tensions or open questions
 
-- The ordinal maps are fixed in source code, which is easy to reproduce but means a new category requires a code and model compatibility change rather than being learned from data.
-- The next pipeline fix should package the shared schema rather than duplicate it in `preprocess.py`, so validation and preprocessing cannot silently drift apart.
+- The source code holds the ordinal maps as fixed values. This is easy to
+  reproduce. It also means that a new category needs a code change and a model
+  compatibility change, because the platform does not learn the map from data.
+- The pipeline MUST package the shared schema. It MUST NOT copy the schema into
+  `preprocess.py`, because two copies let validation and preprocessing separate
+  without a signal.

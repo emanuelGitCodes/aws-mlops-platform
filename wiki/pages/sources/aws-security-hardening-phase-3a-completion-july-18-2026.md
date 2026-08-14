@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 3A completion — July 18, 2026"
 created: "2026-07-18"
-updated: "2026-07-18"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3a-completion-july-18-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../tests/unit/test_security_monitoring_stack.py", "../../../tests/unit/test_deployment_policy.py", "https://aws.amazon.com/iam/access-analyzer/pricing/", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-using-service-linked-roles.html", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-findings-view.html"]
 summary: "Phase 3A is complete: the account external-access analyzer is active after a scoped policy correction, its initial analysis has zero active findings, and application, alarm, budget, and later-service boundaries are healthy."
 ---
@@ -49,6 +49,6 @@ Related pages:
 ## Tensions or open questions
 
 - The draft pull request remains intentionally unmerged.
-- Analyzer rollback must remain CloudFormation-owned; do not delete the live
-  analyzer manually.
+- CloudFormation MUST own the analyzer rollback. Do not delete the live
+  analyzer by hand.
 - Phase 3B GuardDuty requires a separate implementation and review.

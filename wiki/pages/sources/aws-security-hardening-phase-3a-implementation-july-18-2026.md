@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 3A implementation — July 18, 2026"
 created: "2026-07-18"
-updated: "2026-07-18"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py", "https://aws.amazon.com/iam/access-analyzer/pricing/", "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-accessanalyzer-analyzer.html"]
 summary: "Phase 3A is implemented and locally validated as one dev account external-access analyzer; live diff, deployment, and finding review remain pending credentials and hosted CI."
 ---
@@ -39,6 +39,7 @@ Related pages:
 
 - Live pre-state, no-change-set diff, hosted CI, named-stack deployment,
   initial analysis completion, and finding review remain required.
-- If a live account analyzer exists, deployment must stop for an ownership
-  decision; this implementation does not delete or silently adopt it.
-- A separate completion source must record live evidence before Phase 3B.
+- The deployment MUST stop for an ownership decision when a live account
+  analyzer exists. This implementation neither deletes such an analyzer nor
+  adopts it without a record.
+- A separate completion source MUST record the live evidence before Phase 3B.

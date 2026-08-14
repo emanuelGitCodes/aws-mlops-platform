@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2C implementation — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py", "../../../tests/unit/test_security_stack.py", "https://docs.aws.amazon.com/securityhub/latest/userguide/cloudwatch-controls.html"]
 summary: "Six exact Security Hub/CIS metric filters and five-minute SNS alarms pass local gates and await hosted CI and deployment."
 ---
@@ -29,7 +29,8 @@ Related pages:
 
 ## Tensions or open questions
 
-- Hosted CI and a Security-only diff must pass before deployment.
-- The controlled unauthorized-call test must prove the metric, alarm, and email
-  path without granting the deployment identity additional IAM access.
+- Hosted CI and a Security-only diff MUST pass before the deployment.
+- The controlled unauthorized-call test MUST prove the metric path, the alarm
+  path, and the email path. It MUST NOT grant the deployment identity more IAM
+  access.
 - Phase 2D remains responsible for source-bucket logging and budget alerts.

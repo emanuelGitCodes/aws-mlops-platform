@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS Free-plan account service limits — July 18, 2026"
 created: "2026-07-18"
-updated: "2026-07-18"
+updated: "2026-08-14"
 sources: ["../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "https://aws.amazon.com/free/"]
 summary: "The dev account is confirmed on the AWS Free account plan, which blocks GuardDuty and Security Hub at the billing level and resolves the Phase 3B SubscriptionRequiredException rollback."
 ---
@@ -38,8 +38,8 @@ inside the allowed set.
 Roadmap consequences for the
 [phased hardening roadmap](../architecture/phased-security-hardening.md):
 Phase 3B and the later Security Hub sub-phase are hard-blocked pending a
-deliberate paid-plan upgrade decision; the Config sub-phase may proceed and
-its gated CloudFormation deployment doubles as the availability test. An
+deliberate paid-plan upgrade decision. The Config sub-phase MAY proceed, and
+its gated CloudFormation deployment is also the availability test. An
 upgrade keeps remaining credits but ends the cannot-be-charged guarantee; the
 Phase 2 budget alerts and CIS alarms are the guardrails if it proceeds.
 

@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 2B completion — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../../infra/stacks/security_stack.py"]
 summary: "The Security audit foundation is deployed and verified through encrypted CloudTrail, digest validation, and confirmed SNS email delivery."
 ---
@@ -30,9 +30,9 @@ Related pages:
 
 ## Tensions or open questions
 
-- Phase 2C must add exactly six detections without altering the verified audit
-  foundation.
-- Phase 2D must preserve the existing Data buckets and single `$20` budget when
-  it introduces cross-stack references.
+- Phase 2C MUST add exactly six detections. It MUST NOT change the verified
+  audit foundation.
+- Phase 2D adds the cross-stack references. It MUST preserve the existing Data
+  buckets and the single `$20` budget.
 - Costs require the planned 24-hour observation period after Phase 2 is
   complete.

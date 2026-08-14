@@ -20,6 +20,10 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   It produced 2141 nodes, 2953 edges, and 209 communities. The extraction
   reports 100% EXTRACTED edges and 12 INFERRED edges, at an average confidence
   of 0.53. It cost 0 input and 0 output tokens.
+- **Those counts describe one build, not a fixed size.** Every rebuild moves
+  them with the tree. The wiki rewrite of the same day took the graph to 2169
+  nodes and 220 communities at commit `21f1129`. Read the current number from
+  `GRAPH_REPORT.md`. Do not treat a number on this page as the live size.
 - **The extraction is local and deterministic.** `graphify update .` parses
   each file with tree-sitter. It calls no model and no network service. An
   LLM backend is optional, and this repository does not configure one.

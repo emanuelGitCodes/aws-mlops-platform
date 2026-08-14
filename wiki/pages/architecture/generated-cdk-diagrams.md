@@ -2,8 +2,8 @@
 type: architecture
 title: Generated CDK infrastructure diagrams
 created: 2026-08-08
-updated: 2026-08-09
-sources: ["../../../infra/app.py", "../../../Makefile", "../../../scripts/prepare_cdk_diagrams.py", "../../../README.md", "https://github.com/pistazie/cdk-dia"]
+updated: 2026-08-14
+sources: ["../../../infra/app.py", "../../../Makefile", "../../../scripts/prepare_cdk_diagrams.py", "../../../README.md", "../../../diagrams/", "https://github.com/pistazie/cdk-dia"]
 summary: "Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph."
 ---
 
@@ -18,29 +18,29 @@ The files show constructs and references from `infra/cdk.out/tree.json`.
 
 ### Complete CDK app
 
-[![Complete synthesized dev CDK app](../../assets/architecture/cdk-full-dev.png)](../../assets/architecture/cdk-full-dev.png)
+[![Complete synthesized dev CDK app](../../../diagrams/cdk-full-dev.png)](../../../diagrams/cdk-full-dev.png)
 
-[Editable SVG](../../assets/architecture/cdk-full-dev.svg) ·
-[Graphviz DOT source](../../assets/architecture/cdk-full-dev.dot)
+[Editable SVG](../../../diagrams/cdk-full-dev.svg) ·
+[Graphviz DOT source](../../../diagrams/cdk-full-dev.dot)
 
 ### ML platform stacks
 
 This view contains `Data`, `Ingestion`, `Registry`, `Training`, `Serving`, and
 `Monitoring`.
 
-[![Synthesized dev ML platform stacks](../../assets/architecture/cdk-platform-dev.png)](../../assets/architecture/cdk-platform-dev.png)
+[![Synthesized dev ML platform stacks](../../../diagrams/cdk-platform-dev.png)](../../../diagrams/cdk-platform-dev.png)
 
-[Editable SVG](../../assets/architecture/cdk-platform-dev.svg) ·
-[Graphviz DOT source](../../assets/architecture/cdk-platform-dev.dot)
+[Editable SVG](../../../diagrams/cdk-platform-dev.svg) ·
+[Graphviz DOT source](../../../diagrams/cdk-platform-dev.dot)
 
 ### Security and CI/CD stacks
 
 This view contains `Security`, `SecurityMonitoring`, and `Cicd`.
 
-[![Synthesized dev security and CI/CD stacks](../../assets/architecture/cdk-security-cicd-dev.png)](../../assets/architecture/cdk-security-cicd-dev.png)
+[![Synthesized dev security and CI/CD stacks](../../../diagrams/cdk-security-cicd-dev.png)](../../../diagrams/cdk-security-cicd-dev.png)
 
-[Editable SVG](../../assets/architecture/cdk-security-cicd-dev.svg) ·
-[Graphviz DOT source](../../assets/architecture/cdk-security-cicd-dev.dot)
+[Editable SVG](../../../diagrams/cdk-security-cicd-dev.svg) ·
+[Graphviz DOT source](../../../diagrams/cdk-security-cicd-dev.dot)
 
 ## Synthesis
 
@@ -76,9 +76,10 @@ make install
 make diagrams ENV=dev
 ```
 
-`DIAGRAM_DIR=/path/to/output` overrides the default
-`wiki/assets/architecture` destination. `ENV=prod` produces the equivalent
-prod design without deploying it.
+Every run writes the current diagram set to `diagrams/` at the repository
+root. That folder holds the latest generated version, and a run replaces the
+files in place. `DIAGRAM_DIR=/path/to/output` overrides the destination.
+`ENV=prod` produces the equivalent prod design without deploying it.
 
 Edit an SVG in a vector editor such as Figma or Inkscape. Edit a DOT file when
 the change MUST keep the graph structure. After a DOT edit, rebuild its
@@ -86,7 +87,7 @@ self-contained SVG from the repository root:
 
 ```bash
 uv run --locked python scripts/prepare_cdk_diagrams.py \
-  wiki/assets/architecture/cdk-platform-dev.dot
+  diagrams/cdk-platform-dev.dot
 ```
 
 The helper copies the required `cdk-dia` icons into `cdk-dia-icons`. It replaces

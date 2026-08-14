@@ -6647,3 +6647,42 @@ call would prove the path at once, as the Phase 2C controlled denial did, at
 the cost of a synthetic fire rather than a real one.
 
 The window stays open.
+
+## [2026-08-14] update | Diagrams move to a root folder and match the ops topic
+
+### Objective
+
+Regenerate the `cdk-dia` diagram set against the current tree, and give the
+generated output one home at `diagrams/` in the repository root.
+
+### Scope
+
+- `Makefile`, `.graphifyignore`.
+- `wiki/pages/architecture/generated-cdk-diagrams.md`,
+  `wiki/pages/decisions/graphify-knowledge-graph.md`.
+- The nine diagram files and the `cdk-dia-icons/` set.
+
+### Content
+
+The assets last rendered on 2026-08-09. Two commits changed infrastructure
+after that date: #63 and #68. Only #68 changed the resource graph. The new
+render adds `Mlops-Dev-Security/OpsAlertsTopic` with its edge to `AuditKey`,
+and moves `Endpoint5xxAlarm` and `EndpointSilentAlarm` onto that topic. The
+seven security alarms keep `SecurityAlertsTopic`. The `cdk-platform-dev` view
+does not change.
+
+The refactor in #63 left no trace, and Phase 6 left none either, because the
+2026-08-09 render already held the state after the SigV4 change. A diagram
+tracks a resource, not a code change.
+
+`DIAGRAM_DIR` in the `Makefile` names the destination once, so one edit moved
+every view. `git mv` carried the files and the icons out of
+`wiki/assets/architecture/`, which left `wiki/assets/` empty. The wiki keeps
+no second copy: `diagrams/` holds the latest version, and a run replaces the
+files in place.
+
+### Verification
+
+`make diagrams` ran again after the move and produced no further change, so
+the relative icon paths inside each DOT file survived. `make wiki-lint`
+reports 48 healthy pages. `make public-check` and `make test` pass.

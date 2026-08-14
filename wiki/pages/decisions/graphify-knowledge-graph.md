@@ -36,7 +36,7 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
   minute. The 2 MB `graph.json` and the 1.8 MB `graph.html` therefore never
   enter the history of a repository that the team prepares for public release.
 - **`.graphifyignore` narrows the corpus.** It excludes `graphify-out/`,
-  `infra/cdk.out/`, the third-party `wiki/assets/architecture/cdk-dia-icons/`
+  `infra/cdk.out/`, the third-party `diagrams/cdk-dia-icons/`
   icon set, and `uv.lock`. graphify merges this file with `.gitignore`, and
   the patterns here win on a conflict. `.env` and `telco/` are already
   excluded through `.gitignore`.

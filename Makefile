@@ -7,7 +7,7 @@
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
 CDK_DIA := npx --yes cdk-dia@0.12.3
-DIAGRAM_DIR ?= $(CURDIR)/wiki/assets/architecture
+DIAGRAM_DIR ?= $(CURDIR)/diagrams
 DIAGRAM_FULL := $(abspath $(DIAGRAM_DIR))/cdk-full-$(ENV)
 DIAGRAM_PLATFORM := $(abspath $(DIAGRAM_DIR))/cdk-platform-$(ENV)
 DIAGRAM_SECURITY_CICD := $(abspath $(DIAGRAM_DIR))/cdk-security-cicd-$(ENV)

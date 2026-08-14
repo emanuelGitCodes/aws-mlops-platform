@@ -4,17 +4,20 @@ title: Generated CDK infrastructure diagrams
 created: 2026-08-08
 updated: 2026-08-14
 sources: ["../../../infra/app.py", "../../../Makefile", "../../../scripts/prepare_cdk_diagrams.py", "../../../README.md", "../../../diagrams/", "https://github.com/pistazie/cdk-dia"]
-summary: "Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph."
+summary: "Four generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph."
 ---
 
 # Generated CDK infrastructure diagrams
 
 ## Confirmed
 
-`make diagrams ENV=dev` synthesizes the current CDK app and renders three
+`make diagrams ENV=dev` synthesizes the current CDK app and renders four
 diagram sets with `cdk-dia` 0.12.3. Each set contains a PNG preview, an editable
-SVG file, and a Graphviz DOT source. The dev assembly contains nine stacks.
+SVG file, and a Graphviz DOT source. The dev assembly contains ten stacks.
 The files show constructs and references from `infra/cdk.out/tree.json`.
+
+The website view renders only where `website.enabled` is true, so
+`make diagrams ENV=prod` writes three sets and no website file.
 
 ### Complete CDK app
 
@@ -41,6 +44,17 @@ This view contains `Security`, `SecurityMonitoring`, and `Cicd`.
 
 [Editable SVG](../../../diagrams/cdk-security-cicd-dev.svg) ·
 [Graphviz DOT source](../../../diagrams/cdk-security-cicd-dev.dot)
+
+### Website stack
+
+This view contains `Website`. The website is the one stack with a VPC and an
+instance, so it takes its own view. Adding it to the ML platform view would
+mix the demo site with the training and inference path.
+
+[![Synthesized dev website stack](../../../diagrams/cdk-website-dev.png)](../../../diagrams/cdk-website-dev.png)
+
+[Editable SVG](../../../diagrams/cdk-website-dev.svg) ·
+[Graphviz DOT source](../../../diagrams/cdk-website-dev.dot)
 
 ## Synthesis
 

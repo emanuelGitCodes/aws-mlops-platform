@@ -6981,3 +6981,52 @@ checks. The Reserved Instance purchase follows a verified deploy.
 ### Verification
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | Website diagram target added and dev diagrams regenerated
+
+### Objective
+
+Give the website stack a generated view, and refresh the committed diagrams,
+which no longer matched the app after the tenth stack landed.
+
+### Scope
+
+`Makefile` (the `diagrams` target and a new `DIAGRAM_WEBSITE` path),
+`wiki/pages/architecture/generated-cdk-diagrams.md`, and the `diagrams/`
+folder.
+
+### Commands and results
+
+- The two grouped views carry hardcoded `--include` lists, so neither picked
+  up the new stack. The full view has no filter and picked it up on its own.
+- `make diagrams ENV=dev DIAGRAM_DIR=<scratch>` rendered four sets. The
+  website DOT file named `Mlops-Dev-Website` only, and held the nine website
+  constructs.
+- `make diagrams ENV=prod DIAGRAM_DIR=<scratch>` rendered three sets, wrote no
+  website file, and exited 0.
+- `make diagrams ENV=dev` against the tracked folder changed
+  `cdk-full-dev.{dot,png,svg}` and added the website set plus five icons. The
+  platform and security views rendered byte-identical, so Graphviz output is
+  reproducible for an unchanged input.
+- `make wiki-lint` passed, and `make public-check` found no literal. The new
+  DOT and SVG files carry no workstation path and no account id.
+
+### Interpretation
+
+The website takes its own view rather than a place in the ML platform view. It
+is the one stack with a VPC and an instance, and the platform view means the
+training and inference path. Mixing them would cost that view its meaning.
+
+The guard reads `website.enabled` through `load_config`, so the target follows
+the same flag that `build_app` follows. A hardcoded stack list would break
+`ENV=prod`.
+
+### Decision and next checkpoint
+
+The diagrams show synthesized desired state, not deployed state; the page
+already says so. A deploy that forces the Elastic IP fallback would remove the
+EIP node, and that MUST trigger one more regeneration.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.

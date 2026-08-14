@@ -160,8 +160,10 @@ class WebsiteStack(Stack):
                 conditions={"StringLike": {"s3:prefix": [f"{EVALUATION_REPORT_PREFIX}/*"]}},
             )
         )
+        # `UpdateItem` keeps the first signup time. The site never reads an
+        # address back, so the role carries no `GetItem` or `Scan`.
         self.instance_role.add_to_policy(
-            iam.PolicyStatement(actions=["dynamodb:PutItem"], resources=[self.table.table_arn])
+            iam.PolicyStatement(actions=["dynamodb:UpdateItem"], resources=[self.table.table_arn])
         )
         self.instance_role.add_to_policy(
             iam.PolicyStatement(actions=["execute-api:Invoke"], resources=[predict_execute_api_arn])
@@ -191,7 +193,9 @@ class WebsiteStack(Stack):
             "docker run -d --restart=always"
             f" -p 80:{CONTAINER_PORT}"
             f" -e PORT={CONTAINER_PORT}"
-            f" -e AWS_REGION={self.region}"
+            # botocore reads `AWS_DEFAULT_REGION`. It ignores `AWS_REGION`, and
+            # then reads the region from the instance metadata on every client.
+            f" -e AWS_DEFAULT_REGION={self.region}"
             f" -e TABLE_NAME={self.table.table_name}"
             f" -e ARTIFACTS_BUCKET={artifacts_bucket.bucket_name}"
             f" -e EVALUATION_PREFIX={EVALUATION_REPORT_PREFIX}"

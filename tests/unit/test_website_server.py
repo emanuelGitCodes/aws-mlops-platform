@@ -5,6 +5,7 @@ import urllib.error
 from unittest import mock
 
 import pytest
+from botocore.exceptions import ClientError
 
 from src.common.features import FEATURE_VOCABULARY
 from tests.unit.conftest import VALID, import_with_stubbed_boto3
@@ -88,6 +89,40 @@ def test_latest_results_serves_the_cache_inside_the_window():
         assert s3.list_objects_v2.call_count == 2
 
 
+def test_latest_results_survives_a_denied_read():
+    """Lose one page section rather than the whole response."""
+    denied = ClientError({"Error": {"Code": "AccessDenied"}}, "GetObject")
+    with mock.patch.object(server, "s3") as s3:
+        s3.list_objects_v2.return_value = _listing("evaluations/a.json")
+        s3.get_object.side_effect = denied
+        payload = server.latest_results()
+
+    assert payload == {
+        "available": False,
+        "error": "the evaluation report is unavailable",
+    }
+
+
+def test_latest_results_survives_an_unreadable_report():
+    """Report an object that does not hold JSON."""
+    with mock.patch.object(server, "s3") as s3:
+        s3.list_objects_v2.return_value = _listing("evaluations/a.json")
+        s3.get_object.return_value = {"Body": io.BytesIO(b"not json")}
+        assert server.latest_results()["available"] is False
+
+
+def test_a_failed_read_is_not_cached():
+    """Retry the next request rather than serving the failure for 300 seconds."""
+    with mock.patch.object(server, "s3") as s3:
+        s3.list_objects_v2.side_effect = ClientError({"Error": {}}, "ListObjectsV2")
+        server.latest_results(now=1000.0)
+
+        s3.list_objects_v2.side_effect = None
+        s3.list_objects_v2.return_value = _listing("evaluations/a.json")
+        s3.get_object.return_value = _body({"auc": 0.86})
+        assert server.latest_results(now=1001.0)["available"] is True
+
+
 def test_predict_forwards_a_valid_record():
     """Sign and forward a record that matches the schema."""
     with mock.patch.object(server, "post_prediction") as post:
@@ -127,15 +162,44 @@ def test_predict_reports_an_unreachable_api():
     assert payload == {"error": "the prediction API is unavailable"}
 
 
-def test_subscribe_stores_a_normalized_address():
-    """Store the address in lower case without surrounding space."""
+def test_subscribe_stores_a_normalized_address_and_the_signup_time():
+    """Store the address in lower case and answer with the signup time."""
     with mock.patch.object(server, "dynamodb") as table:
+        table.update_item.return_value = {
+            "Attributes": {"created_at": {"S": "2026-08-14T12:00:00Z"}}
+        }
         status, payload = server.subscribe("  Reader@Example.COM ")
 
-    assert (status, payload) == (200, {"subscribed": True})
-    item = table.put_item.call_args.kwargs["Item"]
-    assert item["email"] == {"S": "reader@example.com"}
-    assert item["created_at"]["S"].endswith("Z")
+    assert status == 200
+    assert payload == {"subscribed": True, "created_at": "2026-08-14T12:00:00Z"}
+    call = table.update_item.call_args.kwargs
+    assert call["Key"] == {"email": {"S": "reader@example.com"}}
+    assert call["ExpressionAttributeValues"][":now"]["S"].endswith("Z")
+
+
+def test_subscribe_keeps_the_first_signup_time():
+    """Never overwrite `created_at`. A second signup keeps the original."""
+    with mock.patch.object(server, "dynamodb") as table:
+        table.update_item.return_value = {
+            "Attributes": {"created_at": {"S": "2026-01-01T00:00:00Z"}}
+        }
+        _, payload = server.subscribe("reader@example.com")
+
+    expression = table.update_item.call_args.kwargs["UpdateExpression"]
+    assert "if_not_exists(created_at, :now)" in expression
+    assert "last_signup_at = :now" in expression
+    # The stored time wins over the time of this request.
+    assert payload["created_at"] == "2026-01-01T00:00:00Z"
+
+
+def test_subscribe_reports_a_failed_write():
+    """Return an error rather than raising when the table refuses the write."""
+    with mock.patch.object(server, "dynamodb") as table:
+        table.update_item.side_effect = ClientError({"Error": {}}, "UpdateItem")
+        status, payload = server.subscribe("reader@example.com")
+
+    assert status == 502
+    assert payload == {"error": "the mailing list is unavailable"}
 
 
 @pytest.mark.parametrize("address", ["", "reader", "reader@example", "a b@example.com", 42])
@@ -146,7 +210,7 @@ def test_subscribe_rejects_an_invalid_address(address):
 
     assert status == 400
     assert "error" in payload
-    table.put_item.assert_not_called()
+    table.update_item.assert_not_called()
 
 
 def test_the_rate_limiter_counts_inside_the_window():
@@ -305,6 +369,15 @@ def test_the_handler_reads_a_post_body_and_the_forwarded_address():
         _handler("POST", "/api/subscribe", body, headers)
 
     route.assert_called_once_with("POST", "/api/subscribe", body, "9.9.9.9")
+
+
+def test_the_handler_answers_500_when_a_route_raises():
+    """Answer every request. A raising handler would send no status at all."""
+    with mock.patch.object(server, "route", side_effect=RuntimeError("boom")):
+        handler = _handler("GET", "/api/results")
+
+    handler.send_response.assert_called_once_with(500)
+    assert json.loads(handler.wfile.getvalue()) == {"error": "the website failed to answer"}
 
 
 def test_the_handler_logs_one_structured_line(capsys):

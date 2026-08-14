@@ -7030,3 +7030,71 @@ EIP node, and that MUST trigger one more regeneration.
 ### Verification
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | A local container run found three website defects
+
+### Objective
+
+Build and run the website image locally, so the site could be seen before a
+deploy.
+
+### Scope
+
+`src/website/server.py`, `infra/stacks/website_stack.py`,
+`tests/unit/test_website_server.py`, `tests/unit/test_website_stack.py`,
+`tests/unit/test_security_checks.py`.
+
+### Identity and environment
+
+Local Docker 29.6.1. The container read live dev S3 and the live `/predict`
+API through a mounted read-only AWS config. The mailing list used DynamoDB
+Local, because the real table is not deployed.
+
+### Commands and results
+
+The image built after a base-image pull, and the container answered `/`,
+`/api/health`, and `/api/schema` at once. Three defects followed.
+
+1. **A failed S3 read returned no response at all.** `/api/results` gave
+   `curl` exit 52 and HTTP 000. `BaseHTTPRequestHandler` sends nothing when
+   the handler raises, so the reader saw an empty reply rather than an error.
+2. **A repeat signup destroyed the first signup time.** `subscribe` called
+   `PutItem`, which replaces the whole item, so `created_at` moved to the
+   newest signup.
+3. **The user data set the wrong region variable.** Two container runs proved
+   that botocore raises `NoRegionError` with `AWS_REGION` set and resolves the
+   region with `AWS_DEFAULT_REGION`. On EC2 this would not fail, because
+   botocore then reads the instance metadata for every client.
+
+The fixes: `latest_results` catches `ClientError`, `OSError`, and
+`JSONDecodeError` and degrades to one unavailable section; the request handler
+answers 500 for any unexpected error; `subscribe` calls `UpdateItem` with
+`if_not_exists(created_at, :now)` and returns the stored time; the user data
+sets `AWS_DEFAULT_REGION`.
+
+DynamoDB Local proved the signup time. Two signups three seconds apart
+returned one `created_at` of `22:08:37`, and the record held
+`last_signup_at` of `22:08:40`.
+
+### Interpretation
+
+The instance role now needs `dynamodb:UpdateItem` in place of
+`dynamodb:PutItem`, so the website IAM fingerprint changed. The site still
+holds no read grant on the table; `UpdateItem` returns the new item itself.
+
+The failed read is not cached. A denied read that cached would hide a
+recovered permission for five minutes.
+
+Two of the three defects were invisible to the unit tests, because the tests
+stubbed boto3 and never exercised a real client. Running the container is what
+found them.
+
+### Decision and next checkpoint
+
+The deploy checkpoints are unchanged. The real table will confirm the signup
+time against DynamoDB rather than DynamoDB Local.
+
+### Verification
+
+414 tests pass, coverage 94.62 percent. `make lint`, `make typecheck`, and
+`make synth-all` pass. `make wiki-lint` passed after the index rebuild.

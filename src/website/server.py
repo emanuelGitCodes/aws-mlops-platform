@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
 from src.common.events import log_event
@@ -84,8 +85,16 @@ function predict() {
   catch (e) { document.getElementById('prediction').textContent = 'invalid JSON'; return; }
   send('/api/predict', record, 'prediction');
 }
-function subscribe() {
-  send('/api/subscribe', {email: document.getElementById('email').value}, 'subscribed');
+async function subscribe() {
+  const r = await fetch('/api/subscribe', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email: document.getElementById('email').value})
+  });
+  const d = await r.json();
+  document.getElementById('subscribed').textContent = d.subscribed
+    ? 'Signed up at ' + d.created_at
+    : d.error;
 }
 show('/api/schema', 'schema');
 show('/api/results', 'results');
@@ -146,19 +155,26 @@ def latest_results(now: float | None = None) -> dict[str, Any]:
     if cached is not None and moment - _results_cache["read_at"] < RESULTS_CACHE_SECONDS:
         return dict(cached)
 
-    listing = s3.list_objects_v2(Bucket=ARTIFACTS_BUCKET, Prefix=f"{EVALUATION_PREFIX}/")
-    objects = [item for item in listing.get("Contents", []) if item["Key"].endswith(".json")]
-    if not objects:
-        return {"available": False}
+    try:
+        listing = s3.list_objects_v2(Bucket=ARTIFACTS_BUCKET, Prefix=f"{EVALUATION_PREFIX}/")
+        objects = [item for item in listing.get("Contents", []) if item["Key"].endswith(".json")]
+        if not objects:
+            return {"available": False}
 
-    newest = max(objects, key=lambda item: item["LastModified"])
-    body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=newest["Key"])["Body"].read()
-    payload = {
-        "available": True,
-        "key": newest["Key"],
-        "generated_at": newest["LastModified"].isoformat(),
-        "report": json.loads(body),
-    }
+        newest = max(objects, key=lambda item: item["LastModified"])
+        body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=newest["Key"])["Body"].read()
+        payload = {
+            "available": True,
+            "key": newest["Key"],
+            "generated_at": newest["LastModified"].isoformat(),
+            "report": json.loads(body),
+        }
+    except (ClientError, OSError, json.JSONDecodeError) as error:
+        # A denied read, a throttle, or an unreadable report reaches here. The
+        # page loses one section rather than the whole response.
+        log_event("website_results_failed", reason=type(error).__name__)
+        return {"available": False, "error": "the evaluation report is unavailable"}
+
     _results_cache["payload"] = payload
     _results_cache["read_at"] = moment
     return dict(payload)
@@ -183,19 +199,33 @@ def predict(record: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
 
 def subscribe(email: str) -> tuple[int, dict[str, Any]]:
-    """Store one mailing-list address."""
+    """Store one mailing-list address with the time it first arrived.
+
+    `if_not_exists` keeps the first signup time. A second signup from the same
+    address moves `last_signup_at` and leaves `created_at` alone, so the record
+    still answers when the reader joined.
+    """
     if not isinstance(email, str) or not EMAIL_PATTERN.match(email.strip()):
         return 400, {"error": "a valid email address is required"}
     address = email.strip().lower()
-    dynamodb.put_item(
-        TableName=TABLE_NAME,
-        Item={
-            "email": {"S": address},
-            "created_at": {"S": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
-        },
-    )
-    log_event("website_subscribed")
-    return 200, {"subscribed": True}
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    try:
+        item = dynamodb.update_item(
+            TableName=TABLE_NAME,
+            Key={"email": {"S": address}},
+            UpdateExpression=(
+                "SET created_at = if_not_exists(created_at, :now), last_signup_at = :now"
+            ),
+            ExpressionAttributeValues={":now": {"S": now}},
+            ReturnValues="ALL_NEW",
+        )["Attributes"]
+    except (ClientError, OSError) as error:
+        log_event("website_subscribe_failed", reason=type(error).__name__)
+        return 502, {"error": "the mailing list is unavailable"}
+
+    created_at = item["created_at"]["S"]
+    log_event("website_subscribed", returning=created_at != now)
+    return 200, {"subscribed": True, "created_at": created_at}
 
 
 def route(method: str, path: str, body: bytes, caller: str) -> tuple[int, str, str | bytes]:
@@ -255,7 +285,14 @@ class WebsiteHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(min(length, MAX_BODY_BYTES + 1)) if length else b""
         caller = caller_address(self.headers.get("X-Forwarded-For"), self.client_address[0])
-        status, content_type, payload = route(method, self.path.split("?")[0], body, caller)
+        try:
+            status, content_type, payload = route(method, self.path.split("?")[0], body, caller)
+        except Exception as error:
+            # `BaseHTTPRequestHandler` answers nothing when the handler raises,
+            # so the caller reads an empty reply and no status code.
+            log_event("website_request_failed", reason=type(error).__name__)
+            status, content_type = 500, "application/json"
+            payload = json.dumps({"error": "the website failed to answer"})
         encoded = payload.encode() if isinstance(payload, str) else payload
         self.send_response(status)
         self.send_header("Content-Type", content_type)

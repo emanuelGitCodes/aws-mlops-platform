@@ -155,7 +155,8 @@ def test_the_instance_writes_only_the_mailing_list(website):
     writes = [s for s in _statements(website) if "dynamodb" in json.dumps(s["Action"])]
 
     assert len(writes) == 1
-    assert writes[0]["Action"] == "dynamodb:PutItem"
+    # `UpdateItem` keeps the first signup time; `PutItem` would replace it.
+    assert writes[0]["Action"] == "dynamodb:UpdateItem"
 
 
 def test_the_instance_calls_the_predict_route(website):
@@ -213,5 +214,7 @@ def test_the_user_data_runs_the_image_on_the_published_port(website):
     assert f"RATE_LIMIT_PER_MINUTE={CONFIG['website']['rate_limit_per_minute']}" in user_data
     assert "TABLE_NAME=" in user_data
     assert "PREDICT_URL=" in user_data
+    # botocore ignores `AWS_REGION`. The wrong name costs an IMDS lookup per client.
+    assert "AWS_DEFAULT_REGION=" in user_data
     # The test app disables bundling, so no image is built.
     assert UNBUILT_IMAGE_URI in user_data

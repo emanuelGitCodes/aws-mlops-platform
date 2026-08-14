@@ -123,7 +123,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # Track the deploy role permissions and OIDC trust conditions.
         "cicd": "7a803ee795eea06da566236a0a25ed949c54dcd570d3cb33b8ebcea10ef4b81d",
         # Track the website instance role and its scoped grants.
-        "website": "936f5e0bde0223163ef8c51afc46927b5027c7baab03f6875c21c26b3eb506c9",
+        "website": "1db80084caba5194ff5d989cb90f29e3882c105565ffc23dd23c802c03b72914",
     }
 
     stacks["training"].has_resource_properties(

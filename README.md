@@ -149,6 +149,37 @@ actually needs — the Quickstart does not restate it.
 - [`gh` CLI](https://cli.github.com/), authenticated — only needed for
   `scripts/setup_github_deploy.sh`, which is optional.
 
+## Dataset
+
+The training data is the public IBM Telco Customer Churn dataset, published
+on Kaggle as
+[`blastchar/telco-customer-churn`](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)
+(`WA_Fn-UseC_-Telco-Customer-Churn.csv`, 7,043 rows). The repository does not
+track the CSV — `telco/` is gitignored — so fetch it once before the first
+pipeline run. IBM hosts a byte-identical mirror that needs no login:
+
+```bash
+mkdir -p telco && curl -sL -o telco/telco.csv \
+  https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv
+```
+
+Verify the file before you upload it:
+
+```bash
+shasum -a 256 telco/telco.csv
+```
+
+The expected SHA-256 is
+`16320c9c1ec72448db59aa0a26a0b95401046bef5d02fd3aeb906448e3055e91`. A copy
+saved with CRLF line endings instead hashes to
+`88be4b93fbe0cc83421af1c503794c97c342eca914c1576db7c276e61d61358a`; the two
+normalize to the same rows in the same order, and either reproduces the same
+splits. Any other hash means a different file. **The exact file matters**:
+`src/pipeline/preprocess.py` shuffles the rows with a fixed seed, so the
+train, validation, and held-out test splits — and therefore the reported
+AUC — are deterministic only for this exact row order. See the
+[dataset provenance decision](wiki/pages/decisions/dataset-provenance.md).
+
 ## Quickstart
 
 Fork or clone the repository first. Before the first deploy, set the values
@@ -188,8 +219,9 @@ make diagrams ENV=dev                 # PNG, SVG, and DOT desired-state diagrams
 # API_GATEWAY_ID) from the CloudFormation stack outputs of the stacks just
 # deployed, then re-source .env.
 
-# 1. Ingest: drop the Telco CSV into the raw bucket -> validated rows land curated
-aws s3 cp telco.csv s3://${RAW_BUCKET}/telco.csv
+# 1. Ingest: drop the Telco CSV (see "Dataset" above) into the raw bucket
+#    -> validated rows land curated
+aws s3 cp telco/telco.csv s3://${RAW_BUCKET}/telco.csv
 
 # 2. Train: upsert + run the pipeline (registers the first champion).
 # Module form (-m), not a file path: pipeline.py imports src.common.features,
@@ -240,6 +272,14 @@ account, at the point noted:
   stack deploys, run `ENV=dev ./scripts/setup_github_deploy.sh` (and again
   with `ENV=prod`) to create the environment and set the secret from the
   stack's `GitHubDeployRoleArn` output.
+
+## Teardown
+
+`make destroy ENV=dev` deletes the nine stacks, but retained buckets, the
+audit KMS key and log group, and every SDK-created SageMaker resource survive
+it — and two of the retained names block the next deploy. Follow the
+[complete teardown and rebuild](wiki/pages/architecture/teardown-and-rebuild.md)
+page for the order that works.
 
 ## Model evaluation reports
 

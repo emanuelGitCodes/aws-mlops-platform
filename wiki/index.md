@@ -13,6 +13,7 @@ This is the content map. Read it first, then follow the most relevant links.
 - [AWS resource and permission boundaries](pages/architecture/permissions.md) — Runtime roles are separated by component, while the phased hardening roadmap removes the remaining broad SageMaker policies one role at a time.
 - [AWS security hardening Phase 0 baseline](pages/architecture/security-phase-0-baseline.md) — The pre-hardening dev baseline is captured: runtime paths work, security gaps are measured, and the Data-stack export rollback blocks an all-stack deploy.
 - [CDK deployment identity and bootstrap boundary](pages/architecture/cdk-deployment-iam.md) — A break-glass administrator bootstraps CDK, while ${MLOPS_DEPLOYER_USER_NAME} assumes narrowly scoped CDK roles and CloudFormation applies the application execution policy.
+- [Complete teardown and rebuild](pages/architecture/teardown-and-rebuild.md) — make destroy removes the nine stacks but leaves retained buckets, the audit key and log group, and every SDK-created SageMaker resource; two fixed names then block a naive redeploy.
 - [Data and ingestion path](pages/architecture/data-and-ingestion.md) — Raw S3 events flow through EventBridge and SQS to schema validation, then valid rows land in curated S3 storage.
 - [Deployment and pipeline troubleshooting checkpoint](pages/architecture/deployment-and-pipeline-troubleshooting.md) — The runtime pipeline and API work, but the Data stack is UPDATE_ROLLBACK_COMPLETE because its synthesized export removal conflicts with Serving.
 - [Generated CDK infrastructure diagrams](pages/architecture/generated-cdk-diagrams.md) — Three generated views provide PNG previews, editable SVG files, and DOT sources for the synthesized dev resource graph.
@@ -26,6 +27,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Decisions
 
+- [Dataset provenance and the untracked CSV](pages/decisions/dataset-provenance.md) — The Telco churn CSV stays untracked and is pinned by SHA-256 to the public IBM/Kaggle file, because the seeded split makes every downstream metric depend on the exact row order.
 - [Drift capture design for a serverless endpoint](pages/decisions/drift-capture-design.md) — Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay.
 - [graphify code graph beside the wiki](pages/decisions/graphify-knowledge-graph.md) — graphify indexes the tree into a disposable, untracked code graph, and the wiki keeps its role as the source of record for history, decisions, and status.
 - [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.

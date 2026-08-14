@@ -6227,3 +6227,48 @@ carries a backlog of exceptions.
 
 `make wiki-index`, `make wiki-lint`, `make public-check`, `make docs-sync`,
 `make lint`, and `make test`.
+
+## [2026-08-14] update | The nine pages the first style pass missed
+
+### Objective
+
+Close a coverage gap in the entry above. That pass reported all 47 pages. It
+changed 38.
+
+### Scope
+
+The nine pages under `pages/sources/` that the first pass never opened: the
+Phase 0 baseline, Phase 1 implementation, Phase 2D completion and
+implementation, Phase 2E, Phase 3-prep completion, the Phase 3B first-deployment
+rollback, Phase 3C, and Phase 3F.
+
+### Commands and observed results
+
+1. A comparison of the changed-file list against the page list named the nine
+   files.
+2. The scanner reported 25 flags across them. Phase 3C and Phase 3F held 11
+   each. Both are recent, detailed records, and neither had been read.
+3. Each flag was resolved by hand: an agentless passive gained its actor, a
+   list-shaped sentence became a list, and `require` became `need` where `need`
+   is the exact word.
+4. `make wiki-index`, `make wiki-lint`: `Wiki healthy: 47 page(s)`.
+   `make public-check`: no sensitive literal.
+
+### Interpretation
+
+**The gap came from the shape of the search, not from the pages.** The first
+pass drove off a grep for a lowercase requirement word. A page with no `must`,
+`should`, or `may` produced no hit and therefore never reached a human read,
+even when the scanner had already flagged eleven passive constructions on it. A
+mechanical pass measures only what its pattern matches. Coverage MUST be
+measured against the file list, not against the hit list.
+
+### Decision and next checkpoint
+
+All 47 pages are now read and corrected. The remaining scanner output is ten
+lines, all of them `attempt` as a noun or `require` used exactly, which the
+standard permits.
+
+### Verification
+
+`make wiki-index`, `make wiki-lint`, `make public-check`.

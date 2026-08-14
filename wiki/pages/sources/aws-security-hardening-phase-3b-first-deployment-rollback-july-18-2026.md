@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 3B first deployment rollback — July 18, 2026"
 created: "2026-07-18"
-updated: "2026-07-18"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-guardduty-detector.html", "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateDetector.html"]
 summary: "The first Phase 3B deployment rolled back cleanly because the GuardDuty resource provider returned SubscriptionRequiredException before a detector or service-linked role was created."
 ---
@@ -10,24 +10,25 @@ summary: "The first Phase 3B deployment rolled back cleanly because the GuardDut
 
 ## Confirmed
 
-Hosted validation and secret scanning passed, verified execution-policy `v9`
-was installed with `v8` retained, and the named diff showed exactly one
-GuardDuty detector addition. The named CloudFormation deployment then failed
+Hosted validation and secret scanning passed. The install put the verified
+execution policy `v9` in place and retained `v8`. The named diff showed exactly
+one addition: the GuardDuty detector. The named CloudFormation deployment then failed
 with GuardDuty `SubscriptionRequiredException` and automatically reached
 `UPDATE_ROLLBACK_COMPLETE`.
 
 CloudTrail later confirmed that CloudFormation sent the exact expected
 `CreateDetector` request and GuardDuty rejected it before any service-linked-
-role call. No detector or GuardDuty role remains. The stack again contains only
-the accepted Phase 3A analyzer and metadata. Execution policy `v8` is verified
-default, `v9` is deleted, and attachment scope remains one role and zero users
-or groups. Access Analyzer, later-service absence, all six alarms, budget, and
-`/predict` passed post-rollback verification.
+role call. No detector and no GuardDuty role remains. The stack again holds only
+the accepted Phase 3A analyzer and the metadata. A check verified `v8` as the
+default execution policy. `v9` no longer exists. The attachment scope stays one
+role, zero users, and zero groups. The post-rollback verification passed for
+Access Analyzer, the absence of the later services, all six alarms, the budget,
+and `/predict`.
 
 ## Synthesis
 
 The reported failure is a GuardDuty service-subscription boundary, not an IAM
-`AccessDenied`. The cause was confirmed later the same day: the account is on
+`AccessDenied`. A check later the same day confirmed the cause: the account is on
 the AWS Free account plan, which blocks paid-only services such as GuardDuty
 entirely, so the provider could never bootstrap the subscription. See
 [AWS Free-plan account service limits](aws-free-plan-account-service-limits-july-18-2026.md).

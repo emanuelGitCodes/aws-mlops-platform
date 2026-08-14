@@ -2,7 +2,7 @@
 type: source
 title: "AWS security hardening Phase 1 implementation — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md"]
 summary: "Phase 1 repository and CI guardrails are implemented locally and await human review plus network-backed CI validation."
 ---
@@ -29,6 +29,6 @@ Related pages:
 ## Tensions or open questions
 
 - The dependency audit, full-history secret scan, and normal asset-bundling CDK
-  synth still require successful GitHub CI evidence.
+  synth still need successful GitHub CI evidence.
 - The Data-stack export conflict still prevents treating a manual all-stack
   deploy as safe.

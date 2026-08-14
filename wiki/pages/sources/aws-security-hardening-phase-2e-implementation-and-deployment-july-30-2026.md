@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 2E implementation and deployment — July 30, 2026"
 created: "2026-07-30"
-updated: "2026-07-30"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md"]
 summary: "Phase 2E moved unauthorized-api-calls to 3-of-3 evaluation and granted the auditor scoped read access to the audit log, both verified live."
 ---
@@ -48,7 +48,7 @@ summary: "Phase 2E moved unauthorized-api-calls to 3-of-3 evaluation and granted
 
 ## Tensions or open questions
 
-- The Phase 2E observation window is open: closure requires demonstrated
+- The Phase 2E observation window is open. Its closure needs demonstrated
   silence on routine auditor activity with no missed sustained-burst
   detection, plus healthy alarms, auditor read access, and budget.
 - `budgets:ViewBudget` remains outside the auditor scope; budget checks

@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 0 baseline — July 12, 2026"
 created: "2026-07-12"
-updated: "2026-07-12"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md"]
 summary: "Read-only evidence for the pre-hardening AWS state, live application checkpoints, rollback surfaces, and the Data-stack export blocker."
 ---
@@ -34,5 +34,5 @@ summary: "Read-only evidence for the pre-hardening AWS state, live application c
   has an explicit remediation and reviewed diff.
 - The uncommitted README architecture update predates Phase 0 and is not part of
   the Phase 0 commit boundary.
-- Cost Explorer values are estimated and can lag actual security-service or
+- Cost Explorer reports an estimate, and it can lag the actual security-service or
   SageMaker usage.

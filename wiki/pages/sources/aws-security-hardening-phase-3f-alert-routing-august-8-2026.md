@@ -2,7 +2,7 @@
 type: "source"
 title: "AWS security hardening Phase 3F alert routing — August 8, 2026"
 created: "2026-08-08"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../infra/config/dev.yaml", "../../../tests/unit/test_security_monitoring_stack.py", "../../../tests/unit/test_security_stack.py"]
 summary: "Partial 3F routes active Access Analyzer findings and Config delivery failures to the Phase 2 alert topic, deployed to dev with both rules live and neither yet fired."
 ---
@@ -10,9 +10,8 @@ summary: "Partial 3F routes active Access Analyzer findings and Config delivery 
 
 ## Confirmed
 
-Two EventBridge rules are deployed in `Mlops-Dev-SecurityMonitoring`, both
-`ENABLED`, both targeting the Phase 2 topic
-`mlops-dev-security-alerts` as their single target:
+`Mlops-Dev-SecurityMonitoring` holds two EventBridge rules. Both are `ENABLED`.
+Each one carries a single target, the Phase 2 topic `mlops-dev-security-alerts`:
 
 | Rule | Pattern |
 |---|---|
@@ -65,7 +64,8 @@ The execution policy needed no rotation. `ApplicationServices` already grants
 `events:PutRule`, `events:PutTargets`, `sns:SetTopicAttributes`, and the rest
 of the set these rules use, because the platform's own EventBridge and SNS
 resources needed them first. The version-slot cleanup that preceded this
-phase was owed for its own reasons and stays banked for the next grant.
+phase happened for its own reasons, and the freed slot stays available for the
+next grant.
 
 The grants name the rule prefix rather than a rule reference. The rules live
 in `SecurityMonitoring`, which already depends on `Security` for the topic;
@@ -77,13 +77,12 @@ for that reason.
 Two sources are deliberately not routed. Configuration item changes would
 emit one event per change across about 100 recorded resources into an email
 topic. Compliance events have no producer, because this account deploys no
-Config rules. Both exclusions are asserted in tests, so removing one is a
-visible decision rather than a quiet edit.
+Config rules. Tests assert both exclusions, so a later change to one of them is
+a visible decision, not a quiet edit.
 
 A source routes only while its own service is on. This keeps the deployed
-rule set an honest picture of what is being watched: a rule for a switched-off
-service matches nothing and reads exactly like a working rule that has found
-nothing.
+rule set an honest picture of the coverage. A rule for a disabled service
+matches nothing, and it reads exactly like a working rule that found nothing.
 
 ## Tensions or open questions
 

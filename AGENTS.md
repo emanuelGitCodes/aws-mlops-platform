@@ -62,6 +62,16 @@ trusting this summary, which is coarse by design.
   fires on its own about 24 hours after the last `/predict` call. Prod keeps the
   single topic. See
   [two alert topics](wiki/pages/decisions/alert-topic-split.md).
+- **The website work is ON HOLD, and its stack MUST NOT be deployed.** A tenth
+  stack, `Mlops-Dev-Website`, is written, tested, and open as a draft pull
+  request on `claude/aws-cdk-ml-website-cf88da`. **No AWS resource exists for
+  it.** The infrastructure was designed before the application it carries, so
+  the website restarts as a local three-container application — React with
+  TypeScript, FastAPI, and `amazon/dynamodb-local` — and deploys after that
+  works. One account change is live and inert: the CloudFormation execution
+  policy extension is at `v3` with grants for resources that do not exist. Read
+  [the local-first rebuild](wiki/pages/decisions/website-local-first-rebuild.md)
+  before any website work.
 - The repository is prepared for public release but stays **private**. `main`
   requires both CI checks, one approval, linear history, and resolved
   conversations. `make public-check` is the standing gate against tracked

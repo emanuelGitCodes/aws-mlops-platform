@@ -7098,3 +7098,46 @@ time against DynamoDB rather than DynamoDB Local.
 
 414 tests pass, coverage 94.62 percent. `make lint`, `make typecheck`, and
 `make synth-all` pass. `make wiki-lint` passed after the index rebuild.
+
+## [2026-08-14] decision | Website work stops at the deploy boundary
+
+### Objective
+
+Stop the website work before any deploy, and record the state and the next
+direction well enough that a later session resumes without this conversation.
+
+### Scope
+
+`wiki/pages/decisions/website-local-first-rebuild.md` (new),
+`wiki/pages/decisions/website-stack-plan.md` (marked on hold). No code change.
+The branch `claude/aws-cdk-ml-website-cf88da` holds four commits and an open
+draft pull request.
+
+### Interpretation
+
+The order of work was wrong. The stated goal was a website with a planned
+design, deployed to AWS. The stack was designed first, and the application was
+written to fit one container. The application is the part that needed the
+design attention, so it comes first now.
+
+The rebuild is three local containers: React with TypeScript, FastAPI, and
+`amazon/dynamodb-local`. The standard-library backend does not survive that
+change. The cost decisions, the SigV4 boundary, the `src/common` contract rule,
+the mailing-list write rule, and the three defects found by running the
+container all carry forward.
+
+### Decision and next checkpoint
+
+Nothing further deploys. The next work is the local application, outside this
+change set. The deployed container topology stays undecided on purpose; it
+follows the working application rather than leading it.
+
+One account change is live and stays live: the execution-policy extension is at
+`v3` and grants EC2, CloudFront, and DynamoDB permissions for resources that do
+not exist. That is inert. A rollback to `v2` is one command if the direction
+changes, and three of five version slots are used.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed. The local
+demo containers were removed.

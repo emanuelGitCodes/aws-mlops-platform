@@ -8,9 +8,16 @@ summary: "A tenth stack serves a public demo website from one EC2 container behi
 ---
 # Website stack plan, CloudFront over an ALB
 
-`Mlops-Dev-Website` is **written and tested, and not deployed**. Both
-environments synthesize, every gate passes, and no AWS resource exists yet.
-The deploy MUST correct this page where reality disagrees.
+**This stack is ON HOLD as of 2026-08-14, and it MUST NOT be deployed in its
+current shape.** The website moves to a local-first rebuild with three
+containers. Read [the local-first rebuild](website-local-first-rebuild.md)
+first; it holds the current direction and says which decisions on this page
+survive.
+
+`Mlops-Dev-Website` is written and tested, and not deployed. Both environments
+synthesize, every gate passes, and no AWS resource exists. The single-container
+design below is what the rebuild replaces. The cost decisions, the SigV4 proxy
+boundary, and the execution-policy grants all carry forward.
 
 ## Confirmed
 

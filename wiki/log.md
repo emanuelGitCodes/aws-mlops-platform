@@ -6548,3 +6548,85 @@ next deploy.
 ### Verification
 
 `make wiki-index`, `make wiki-lint`, `make public-check`, `make docs-sync`.
+
+## [2026-08-14] deploy | The operational alert topic is live in dev
+
+### Objective
+
+Deploy the alert-topic split to dev, so a quiet day stops paging the security
+channel. Open its observation window.
+
+### Scope
+
+- `Mlops-Dev-Security` and `Mlops-Dev-Monitoring` in dev. Prod untouched.
+- Pages `decisions/alert-topic-split.md`,
+  `architecture/security-phase-2-audit-foundation.md`, and
+  `architecture/phased-security-hardening.md`.
+
+### Identity and environment
+
+Deploy as `${MLOPS_DEPLOYER_USER_NAME}`. Read-only checks and
+`make verify-deploy` as `${AWS_SECURITY_AUDITOR_USER_NAME}`. Smoke tests as
+`${AWS_ADMIN_USER_NAME}`. Region `us-east-1`.
+
+### Commands and observed results
+
+1. **Pre-flight baseline.** Nine alarms existed, all `OK`, and all nine named
+   `mlops-dev-security-alerts`. One SNS topic existed, with one confirmed email
+   subscription.
+2. **The guard stopped the first attempt.** `.env` held no
+   `SECURITY_ALERT_EMAIL`, which pull request #67 made mandatory the same day.
+   The deployed Security stack still stored the parameter value, and a read of
+   the stack parameters recovered it.
+3. **The diff.** `Including dependency stacks: Mlops-Dev-Data,
+   Mlops-Dev-Security`. Security gained a topic, a topic policy, a
+   subscription, and two outputs. Monitoring re-pointed two alarms and showed
+   two Lambda asset-hash changes. Data showed no difference.
+4. **The deploy took 77 seconds.** Security updated at 14:52:12Z, Monitoring at
+   14:52:44Z.
+5. **`make verify-deploy SINCE=2026-08-14`** lists three created resources in
+   Security and four updated resources in Monitoring. It lists no change for
+   Data.
+6. **Live routing check.** Nine alarms: two now name `mlops-dev-ops-alerts`,
+   seven still name `mlops-dev-security-alerts`. Both topics use the same audit
+   KMS key.
+7. **Subscriptions.** The security topic subscription is still `CONFIRMED`. The
+   new ops topic subscription reads `PendingConfirmation`.
+8. **Smoke.** Six integration tests pass under `${AWS_ADMIN_USER_NAME}`.
+
+### Interpretation
+
+**The parameter that blocked the deploy is the same one that hid the
+first-run defect.** `.env` never needed `SECURITY_ALERT_EMAIL` because
+CloudFormation kept supplying the stored value. The guard is what makes that
+dependency visible. Recovering the value from the deployed stack kept it
+identical, so AWS sent no second confirmation request for the security topic.
+
+**`make smoke` needs three different identities to be useful, and only one of
+them works.** The auditor receives `403` on `/predict`, because a read-only
+identity holds no `execute-api:Invoke`. The deploy identity cannot resolve the
+API URL, because it holds no `cloudformation:DescribeStacks`. Only
+`${AWS_ADMIN_USER_NAME}` completes the target. This repeats the pattern the
+Phase 6 window recorded for the API boundary: **one check, two identities.**
+
+**Two Lambda functions show as updated and their source did not change.** The
+bundled asset hash is not reproducible, so any deploy from a cold `cdk.out`
+republishes the code. Read that line in a diff as noise, not as a change.
+
+### Decision and next checkpoint
+
+**The observation window is open. This is not a go.** Two conditions close it.
+A human MUST confirm the new subscription, because the two endpoint alarms
+deliver nowhere until then. The window MUST then show one endpoint alarm
+arriving on the new topic, and MUST confirm that the seven security alarms
+still reach the old one. Dev has no traffic floor, so the silence alarm
+supplies the first signal on its own within 24 hours of the last call.
+
+Prod keeps the single topic until a deliberate rollout.
+
+### Verification
+
+`make diff-stack`, `make deploy-stack`, `make verify-deploy SINCE=2026-08-14`,
+`describe-alarms`, `list-subscriptions-by-topic`, `get-topic-attributes`, the
+six integration tests, `make wiki-index`, `make wiki-lint`, and
+`make public-check`.

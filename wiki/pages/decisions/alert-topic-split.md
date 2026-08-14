@@ -58,20 +58,52 @@ summary: "The endpoint alarms move to a separate operational topic, because an i
   and enforce SSL, so the split adds no new key, no new grant, and no new
   cdk-nag acknowledgement.
 
+## Deployed to dev, 2026-08-14
+
+`make deploy-stack STACK=Mlops-Dev-Monitoring ENV=dev` shipped the change.
+`make verify-deploy SINCE=2026-08-14` reports the resources that changed:
+
+| Stack | Resource | Result |
+|---|---|---|
+| `Mlops-Dev-Security` | `OpsAlertsTopic` | `CREATE_COMPLETE` |
+| `Mlops-Dev-Security` | `OpsAlertsTopic/Policy` | `CREATE_COMPLETE` |
+| `Mlops-Dev-Security` | `OpsAlertsTopic` email subscription | `CREATE_COMPLETE` |
+| `Mlops-Dev-Monitoring` | `Endpoint5xxAlarm` | `UPDATE_COMPLETE` |
+| `Mlops-Dev-Monitoring` | `EndpointSilentAlarm` | `UPDATE_COMPLETE` |
+| `Mlops-Dev-Monitoring` | `DriftEvaluationFn`, `RetrainTriggerFn` | `UPDATE_COMPLETE` |
+| `Mlops-Dev-Data` | none | the stack changed nothing |
+
+**The two Lambda updates carry no source change.** They are the known
+non-reproducible bundled asset hash. A deploy from a cold `cdk.out`
+republishes the function code with an identical source tree.
+
+The live routing check confirms the split. Nine alarms exist. Two name
+`mlops-dev-ops-alerts`: `mlops-dev-endpoint-5xx` and
+`mlops-dev-endpoint-silent`. Seven name `mlops-dev-security-alerts`. Both
+topics use the same audit KMS key.
+
+**The deploy needed a value that `.env` did not hold.** `make deploy-stack`
+stopped at the `check-alert-email` guard, which pull request #67 added the same
+day. The stored `SecurityAlertEmail` parameter on the deployed Security stack
+held the address, and a read recovered it. The value is unchanged, so the
+security topic subscription stayed `CONFIRMED` and AWS sent no second request
+for it.
+
+**`make smoke` needs an identity that can invoke the API.** The auditor gets
+`403` on `/predict`, and the deploy identity cannot resolve the URL because it
+holds no `cloudformation:DescribeStacks`. Under `${AWS_ADMIN_USER_NAME}` the
+six integration tests pass. The API contract is unchanged by this phase.
+
 ## Tensions or open questions
 
-- **No AWS resource carries this change.** It is implemented and reviewed in
-  the repository. The account still routes both endpoint alarms to the security
-  topic. Read this page as an implementation record until a deployment record
-  says otherwise.
-- **The new topic needs its own email confirmation.** AWS sends a fresh
-  subscription request at the first deploy. Until a human accepts it, the
-  endpoint 5xx alarm and the endpoint silence alarm deliver nowhere. No CDK code
-  can do this step.
-- **The deploy pulls in two stacks.** `Mlops-Dev-Monitoring` imports the topic
-  from `Mlops-Dev-Security`, so a Monitoring deploy also ships any pending
-  Security change. Read the `Including dependency stacks:` line on the diff, and
-  run `make verify-deploy` after.
+- **The observation window is open.** Dev carries the change since
+  2026-08-14. Prod does not. The window MUST show one endpoint alarm arriving on
+  the new topic, and it MUST confirm that the seven security alarms still reach
+  the old one.
+- **The new subscription is not confirmed.** AWS sent the request at the deploy
+  and the subscription reads `PendingConfirmation`. Until a human accepts it,
+  the endpoint 5xx alarm and the endpoint silence alarm deliver nowhere. No CDK
+  code can do this step, and the window cannot prove delivery before it happens.
 - **This is an alarm-behavior change, so it takes the Phase 2E gate.**
   Sub-phases 2F and 2G set the precedent: a pre-flight baseline of the live
   alarm state, a reviewed named diff, a scoped dev deploy, resource-level

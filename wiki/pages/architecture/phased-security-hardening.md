@@ -131,8 +131,8 @@ the CloudWatch evidence of that change.
   same topic as the security alarms, which made it a standing noise source in
   that inbox. A later change moves both endpoint alarms to a separate
   operational topic; see
-  [two alert topics](../decisions/alert-topic-split.md). No deployment carries
-  that change yet, so the noise is still live in the account.
+  [two alert topics](../decisions/alert-topic-split.md). That change is live in
+  dev since 2026-08-14, and its observation window is open.
 
   **The 5xx half passed.** The alarm left `INSUFFICIENT_DATA` 48 seconds after
   the deploy, with CloudWatch naming the cause — one missing datapoint `treated

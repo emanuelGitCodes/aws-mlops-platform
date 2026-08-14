@@ -20,7 +20,7 @@ summary: "The deployed Security stack retains validated encrypted CloudTrail evi
 | CloudWatch log group | `/aws/cloudtrail/mlops-dev-audit`, retained, audit-key encrypted, 90 days. |
 | Trail | `mlops-dev-audit`, multi-Region, global read/write management events, integrity validation, S3 and Logs delivery. |
 | SNS topic | `mlops-dev-security-alerts`, audit-key encrypted and TLS-only; email endpoint is a deployment parameter. |
-| Operational SNS topic | `mlops-dev-ops-alerts`, same key and TLS rule, CloudWatch alarms only. Implemented, not yet deployed — see [two alert topics](../decisions/alert-topic-split.md). |
+| Operational SNS topic | `mlops-dev-ops-alerts`, same key and TLS rule, CloudWatch alarms only. Live since 2026-08-14; its subscription is not yet confirmed — see [two alert topics](../decisions/alert-topic-split.md). |
 
 The trail has no data-event selectors, Insights selectors, or organization-trail
 mode. Both would change the cost and the scope, so each one needs its own phase.

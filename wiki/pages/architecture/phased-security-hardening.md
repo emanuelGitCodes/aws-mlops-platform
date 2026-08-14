@@ -667,10 +667,14 @@ positives on its own work.
 its window closed as a go on 2026-08-14. `POST /predict` requires `AWS_IAM`,
 the account has no API key or usage plan, and `make smoke` signs each request.
 
-No stack is held open by an observation window. The next checkpoint is the
-first `deploy.yml` run: both environments allow only `main`, and dev holds its
-role ARN as an environment secret. The manual workflow still needs its first
-run.
+**One window is open.** The alert-topic split reached dev on 2026-08-14, and
+`Mlops-Dev-Security` and `Mlops-Dev-Monitoring` carry it. Its subscription is
+confirmed and its delivery is unproved. See
+[two alert topics](../decisions/alert-topic-split.md).
+
+The other checkpoint is the first `deploy.yml` run: both environments allow only
+`main`, and dev holds its role ARN as an environment secret. The manual workflow
+still needs its first run.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and

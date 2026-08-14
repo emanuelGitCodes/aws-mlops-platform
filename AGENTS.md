@@ -47,13 +47,21 @@ trusting this summary, which is coarse by design.
   minutes. 2G reached the account as a dependency of the Monitoring deploy
   rather than on its own, so the two shared one window.
 - Phase 6 (SigV4 on `/predict`) is **complete**: deployed to dev on 2026-08-09,
-  window closed as a go on 2026-08-14. No stack is held open by an observation
-  window. The account holds no API key and no usage plan, and the stage carries
+  window closed as a go on 2026-08-14. The account holds no API key and no usage
+  plan, and the stage carries
   the throttle they used to. `CicdStack` is deployed the same day, so the OIDC
   provider and `${GITHUB_DEPLOY_ROLE_NAME}` exist. **`deploy.yml` still has not
   run**: the `dev` and `prod` GitHub environments allow only `main`, and dev
   holds the role ARN. Environment reviewers remain unavailable on the current
   private-repository plan. Phase 4 (KMS) and Phases 7–9 are not started.
+- **One observation window is open.** The alert-topic split deployed to dev on
+  2026-08-14. `mlops-<env>-ops-alerts` now carries the two endpoint alarms, and
+  the seven security alarms stay on `mlops-<env>-security-alerts`. The email
+  subscription is confirmed. **Delivery through the new topic is still
+  unproved**, and that evidence closes the window. `mlops-dev-endpoint-silent`
+  fires on its own about 24 hours after the last `/predict` call. Prod keeps the
+  single topic. See
+  [two alert topics](wiki/pages/decisions/alert-topic-split.md).
 - The repository is prepared for public release but stays **private**. `main`
   requires both CI checks, one approval, linear history, and resolved
   conversations. `make public-check` is the standing gate against tracked

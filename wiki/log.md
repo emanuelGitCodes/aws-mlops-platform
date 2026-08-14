@@ -6923,3 +6923,61 @@ stays a separate change set, because EC2 landing is its approved trigger.
 ### Verification
 
 `make wiki-index` rebuilt the index and `make wiki-lint` passed.
+
+## [2026-08-14] update | Execution-policy extension rotated to v3
+
+### Objective
+
+Put the website grants on the deployed CloudFormation execution boundary, so
+`Mlops-Dev-Website` can create its resources.
+
+### Scope
+
+`MLOpsCloudFormationExecutionPolicyExtension` in the live account, and
+`wiki/pages/architecture/cdk-deployment-iam.md`. The repository document
+`infra/policies/mlops-cloudformation-execution-policy-extension.json` did not
+change; this entry records the rotation of the deployed copy to match it.
+
+### Identity and environment
+
+Profile `${AWS_ADMIN_USER_NAME}`, account-scoped IAM, us-east-1.
+
+### Commands and results
+
+- `git diff origin/main..HEAD -- infra/policies/` showed one changed file. The
+  main document is byte-identical, so it needs no rotation.
+- `aws iam list-policy-versions` (read) reported `v1` and `v2` with `v2` as the
+  default. Two of five slots were used, so `v3` needed no cleanup delete. The
+  wiki claim matched the account this time.
+- `aws iam get-policy-version --version-id v2` (read) returned a document
+  byte-identical to the repository copy at `origin/main`. No out-of-band drift
+  existed to overwrite.
+- `envsubst` rendered the new document from a populated local `.env`. A check
+  confirmed 3664 bytes, ten statements, and no unsubstituted placeholder.
+- `aws iam create-policy-version --set-as-default` (mutating) returned `v3`
+  with `IsDefaultVersion: true`.
+- `aws iam get-policy-version --version-id v3` (read) returned a document
+  byte-identical to the rendered file.
+- `aws iam list-entities-for-policy` (read) confirmed the policy still attaches
+  to `cdk-hnb659fds-cfn-exec-role-*`.
+
+### Interpretation
+
+The drift check before the write is the important step. A rotation overwrites
+the default version, so an unrecorded manual grant would disappear without a
+message. The comparison proved there was none.
+
+Three of the five version slots are now used. The next rotation is free; the
+one after it MUST delete a version first.
+
+### Decision and next checkpoint
+
+The boundary now permits the website resources. Nothing is deployed. The next
+checkpoints are a running Docker daemon, a reviewed
+`make diff-stack STACK=Mlops-Dev-Website ENV=dev` with the Data and Serving
+dependency stacks clean, the deploy, `make verify-deploy`, and the smoke
+checks. The Reserved Instance purchase follows a verified deploy.
+
+### Verification
+
+`make wiki-index` rebuilt the index and `make wiki-lint` passed.

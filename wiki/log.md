@@ -6035,3 +6035,64 @@ changed.
 
 **Decision and next checkpoint.** Unchanged: the Phase 6 observation window is
 still the next checkpoint.
+
+## [2026-08-14] verify | The Phase 6 observation window closed as a go
+
+**Objective.** Close the observation window that opened with the 2026-08-09
+SigV4 deployment. Every criterion is met, and Phase 6 is a go.
+
+**Identity.** `${AWS_SECURITY_AUDITOR_USER_NAME}` for the alarm, method, and
+stage reads. `${AWS_ADMIN_USER_NAME}` for the account-scope reads and for
+`make smoke`.
+
+**Closing evidence.**
+
+| Criterion | Result |
+|---|---|
+| `POST /predict` authorization | `AWS_IAM`, `apiKeyRequired: false` |
+| Unsigned `POST /predict` | `403` |
+| `make smoke` | 6 passed in 9.86s, signing each request |
+| API keys in the account | **0** |
+| Usage plans in the account | **0** |
+| Stage throttle | rate 10, burst 20 |
+| Six security alarms | `OK` |
+| `mlops-dev-endpoint-5xx` | `OK` |
+| `mlops-dev-endpoint-silent` | `ALARM` on entry, `OK` on exit — see below |
+| Budget | `$20` limit, `$0.00` actual, `$0.786` forecast |
+| Month-to-date cost | `$0.00` |
+
+**The five-day gap is itself evidence.** The window ran from 2026-08-09T18:21Z
+to 2026-08-14. Across it the method never left `AWS_IAM`, the throttle stayed on
+the stage, and no API key or usage plan came back. The boundary holds without
+attention.
+
+**One alarm was in `ALARM` at the start of the check, and it was right.**
+`mlops-dev-endpoint-silent` fired at 2026-08-12T22:07Z on 24 hourly datapoints
+of zero invocations. Its history shows the same cycle twice in the window:
+fired 2026-08-10T23:40Z, cleared 2026-08-11T22:07Z, fired 2026-08-12T22:07Z,
+cleared 2026-08-14T10:32Z on `1 datapoint [2.0]` — the `make smoke` run of this
+check. **The 2F detector measures traffic, not health.** On a platform with no
+scheduled traffic it will sit in `ALARM` whenever a day passes without a call,
+and it will clear on the next one. Read it as an idle indicator until traffic
+becomes continuous. It is not a Phase 6 regression, and it does not block the
+go.
+
+**The auditor cannot complete this check alone.** `apigateway:GET` on
+`/apikeys` and `/usageplans`, and `budgets:ViewBudget`, are all denied to
+`${AWS_SECURITY_AUDITOR_USER_NAME}`. The three denials are true
+`unauthorized-api-calls` events on the auditor's own read-only work, and the
+Phase 2E three-of-three rule correctly assembled no page from them. The
+key and plan counts and the budget came from `${AWS_ADMIN_USER_NAME}`. The
+pattern already recorded for the audit log holds here too: verifying the API
+boundary needs two identities.
+
+**Decision: go.** Phase 6 is complete. No stack is held open by an observation
+window. The next checkpoint is the first `deploy.yml` run, which is blocked on
+neither code nor AWS: `CicdStack` is deployed, the OIDC provider and the deploy
+role exist, both GitHub environments allow only `main`, and dev holds the role
+ARN as an environment secret. Phase 4 (KMS) and Phases 7–9 remain unstarted.
+
+**Verification.** `describe-alarms`, `describe-alarm-history`, `get-method`,
+`get-stages`, `get-api-keys`, `get-usage-plans`, `describe-budgets`,
+`get-cost-and-usage`, one unsigned `/predict`, and `make smoke`.
+`python scripts/wiki.py lint`.

@@ -265,10 +265,10 @@ The [phased security hardening roadmap](wiki/pages/architecture/phased-security-
 runs 0-9: baseline, repository guardrails, audit and detection, threat
 detection services, customer-managed KMS encryption, least-privilege IAM,
 IAM/SigV4 API authorization, TLS/logging, WAF, and operator-identity cleanup.
-Phases 0-2 and 5 are complete. Phase 3 is partial: Access Analyzer, AWS Config,
-account S3 blocking, and alert routing are live in dev. GuardDuty and Security
-Hub remain behind the paid-plan gate. Phase 6 is deployed to dev with its
-observation window open. Phases 4 and 7-9 are not started. The per-phase
+Phases 0-2, 5, and 6 are complete. Phase 3 is partial: Access Analyzer, AWS
+Config, account S3 blocking, and alert routing are live in dev. GuardDuty and
+Security Hub remain behind the paid-plan gate. Phases 4 and 7-9 are not
+started. The per-phase
 records live in `wiki/pages/sources/`.
 
 ## Copyright and security

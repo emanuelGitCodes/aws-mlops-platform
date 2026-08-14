@@ -2,7 +2,7 @@
 type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../README.md", "../../infra/app.py", "../../infra/stacks/monitoring_stack.py", "../../src/monitoring/drift_handler.py", "../../src/monitoring/retrain_handler.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../raw/aws-security-hardening-phase-1-completion-july-12-2026.md"]
 summary: "A portfolio-grade AWS platform with gated models, reproducible evaluation reports, and a deployed drift-to-retrain loop."
 ---
@@ -34,8 +34,8 @@ The most important boundaries are the [training and inference contracts](concept
 
 The approved improvement is the
 [phased AWS security hardening roadmap](architecture/phased-security-hardening.md).
-Phases 0-2 and 5 are complete. Phase 3 is partial, and Phase 6 is deployed to
-dev with observation open. Phase 4 and Phases 7-9 are not started.
+Phases 0-2, 5, and 6 are complete. Phase 3 is partial. Phase 4 and Phases 7-9
+are not started.
 
 ## Tensions or open questions
 

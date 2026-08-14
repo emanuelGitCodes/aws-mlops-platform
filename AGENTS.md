@@ -46,19 +46,27 @@ trusting this summary, which is coarse by design.
   to run — and was refixed with `FILL`, which then fired and cleared inside 16
   minutes. 2G reached the account as a dependency of the Monitoring deploy
   rather than on its own, so the two shared one window.
-- Phase 6 (SigV4 on `/predict`) is deployed to dev on 2026-08-09, observation
-  open. The account holds no API key and no usage plan, and the stage carries
+- Phase 6 (SigV4 on `/predict`) is **complete**: deployed to dev on 2026-08-09,
+  window closed as a go on 2026-08-14. No stack is held open by an observation
+  window. The account holds no API key and no usage plan, and the stage carries
   the throttle they used to. `CicdStack` is deployed the same day, so the OIDC
   provider and `${GITHUB_DEPLOY_ROLE_NAME}` exist. **`deploy.yml` still has not
   run**: the `dev` and `prod` GitHub environments allow only `main`, and dev
   holds the role ARN. Environment reviewers remain unavailable on the current
   private-repository plan. Phase 4 (KMS) and Phases 7–9 are not started.
+- The repository is prepared for public release but stays **private**. `main`
+  requires both CI checks, one approval, linear history, and resolved
+  conversations. `make public-check` is the standing gate against tracked
+  account metadata and private filenames, and CI runs it. The repository MUST
+  stay private until the history choice is explicit: a clean public mirror, or
+  a history rewrite. Going public is what turns on `codeql.yml`, GitHub secret
+  scanning, and environment reviewers.
 
 **The execution boundary spans two managed policies. Add new grants to the
 extension.** AWS caps one managed policy at 6144 characters, and
 `MLOpsCloudFormationExecutionPolicy` reached 5888 with 256 bytes free — too
 little for any useful statement. `MLOpsCloudFormationExecutionPolicyExtension`
-carries the overflow and had 492 bytes in use when it was created. Both attach
+carries the overflow and holds 1031 bytes of its own 6144. Both attach
 to `cdk-hnb659fds-cfn-exec-role-*`, so the grants union. The AWS policy names
 differ from the `mlops-cloudformation-execution-policy*.json` filenames. Size,
 not the three-of-five version slots, is what blocks a change; `make test`
@@ -148,7 +156,7 @@ Look here **before** writing anything new:
 | `infra/stacks/` | One CDK stack per file: data, ingestion, training, registry, serving, monitoring, security, security_monitoring, cicd. Plus `shared.py` (cross-stack helpers + the `PlatformConfig` TypedDicts) and `lambda_code.py` (the shared bundled Lambda asset). |
 | `infra/config/` | `dev.yaml` / `prod.yaml` environment config |
 | `infra/policies/` | The repository-owned CloudFormation execution boundary, split across `mlops-cloudformation-execution-policy.json` and `-extension.json` because AWS caps one managed policy at 6144 characters. Version-pinned and fingerprint-tested |
-| `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py` |
+| `scripts/` | Operational CLIs: `evaluate_api.py`, `verify_deployment.py`, `send_drift_traffic.py`, `wiki.py`. Plus the two CLIs that back a Make gate: `check_public_release.py` (`make public-check`) and `prepare_cdk_diagrams.py` (`make diagrams`) |
 | `tests/unit/` | Mirrors source modules as `test_<module>.py` — including one per CDK stack; `conftest.py` holds the session-scoped synthesized CDK app and reads the shared sample record from `sample.json` |
 | `tests/integration/` | `make smoke` only — skips itself unless `API_URL` is set |
 | `sample.json`, `sample-high-risk.json` | The canonical request payloads, shared by the unit fixtures and by hand-run `curl` calls — change them together, never restate one in a test |
@@ -187,11 +195,54 @@ required workflow, not suggestions.
    function and its call sites. Do not leave the old path in place and add
    a parallel `_v2`/`_new`/`foo2` variant.
 
+## Writing style (mandatory)
+
+Two standards govern every comment, docstring, Markdown file, wiki page,
+commit message, and response in this repository:
+
+- **ASD-STE100** governs the prose. Write short, plain, active sentences.
+- **RFC 2119** governs the requirement words. Write MUST, MUST NOT,
+  SHOULD, SHOULD NOT, and MAY in uppercase when you state a rule.
+
+The two standards do not conflict. RFC 2119 defines the strength of a
+rule. ASD-STE100 defines every other word in the sentence.
+
+### Requirement keywords, per RFC 2119
+
+Use these five keywords, in uppercase, and only in a normative statement:
+
+| Keyword | Meaning |
+|---|---|
+| **MUST** | An absolute requirement. Break it and the change is wrong. |
+| **MUST NOT** | An absolute prohibition. |
+| **SHOULD** | A strong recommendation. Deviate only with a stated reason. |
+| **SHOULD NOT** | A strong recommendation against. The same reason rule applies. |
+| **MAY** | A true option. Both choices are correct. |
+
+Rules for the keywords:
+
+1. **Uppercase marks the keyword.** Uppercase MUST carries the RFC 2119
+   meaning. Lowercase "must" is ordinary prose and carries no strength.
+2. **One word per strength.** Do not write REQUIRED, SHALL, SHALL NOT,
+   RECOMMENDED, NOT RECOMMENDED, or OPTIONAL. RFC 2119 permits those
+   synonyms; ASD-STE100 forbids two words for one meaning. The five
+   keywords in the table are the whole set.
+3. **State who the rule binds.** Write "The pipeline modules MUST keep
+   `from __future__ import annotations`", not "annotations MUST be kept".
+4. **Reserve the keywords for real requirements.** Use a keyword when a
+   reader who ignores it breaks the build, the deploy, or the security
+   boundary. Describe everything else in plain sentences.
+5. **Give SHOULD an escape.** When you write SHOULD, name the condition
+   that permits the deviation. A SHOULD with no stated escape is a MUST —
+   write MUST instead.
+6. **Do not stack keywords.** One requirement per sentence.
+
 ## Comments and docstrings (mandatory)
 
-Write every comment and docstring in Simplified Technical English, per
-ASD-STE100. A comment earns its place by telling a reader something the
-code cannot. Delete it otherwise.
+A comment earns its place by telling a reader something the code cannot.
+Delete it otherwise. The ASD-STE100 rules below apply to every comment
+and docstring; the RFC 2119 keywords apply when a comment states a rule
+the next editor MUST obey.
 
 **Sentences**
 
@@ -234,8 +285,8 @@ code cannot. Delete it otherwise.
 
 - A constraint that fails at runtime rather than at synth or lint.
 - A non-obvious AWS or SDK behaviour, and what breaks without the code.
-- A rule the next editor must obey, such as "update in place, never
-  replace — the deployed pipeline pins this ARN".
+- A rule the next editor MUST obey, such as "Update this role in place.
+  You MUST NOT replace it — the deployed pipeline pins this ARN".
 - Why an alternative was not taken, stated as a fact about the
   alternative, not as a defence of the choice.
 
@@ -264,7 +315,7 @@ behaviour that no longer exists is a defect — fix it when you see it.
   must not use PEP 604 unions in runtime-evaluated positions.
 - Tests go in `tests/unit/` and mirror the source module they cover; run
   with `make test`. Coverage is measured on every run and enforced against
-  `fail_under` in `pyproject.toml` (currently **92.63**). That floor is a
+  `fail_under` in `pyproject.toml` (currently **94.12**). That floor is a
   ratchet: raise it when a phase lands, never lower it to make a red run
   green. Take a new floor from the printed total rounded down — the
   comparison uses the unrounded value.

@@ -2,7 +2,7 @@
 type: architecture
 title: Phased AWS security hardening roadmap
 created: "2026-07-12"
-updated: "2026-08-10"
+updated: "2026-08-14"
 sources: ["../../raw/aws-security-hardening-phase-5d-pipeline-execution-role-august-6-2026.md", "../../raw/aws-security-hardening-phase-5c-deploy-execution-role-august-5-2026.md", "../../raw/aws-security-hardening-phase-2e-implementation-and-deployment-july-30-2026.md", "../../raw/aws-security-hardening-phase-3e-implementation-and-deployment-july-24-2026.md", "../../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-1-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2a-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2b-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2c-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-implementation-july-12-2026.md", "../../raw/aws-security-hardening-phase-2d-completion-july-12-2026.md", "../../raw/aws-security-hardening-phase-3a-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-implementation-july-18-2026.md", "../../raw/aws-security-hardening-phase-3b-first-deployment-rollback-july-18-2026.md", "../../raw/aws-free-plan-account-service-limits-july-18-2026.md", "../../raw/phase-3-plan-revision-under-the-aws-free-plan-july-19-2026.md", "../../../infra/cdk.json", "../../../infra/security_checks.py", "../../../infra/policies/mlops-cloudformation-execution-policy.json", "../../../infra/stacks/security_stack.py", "../../../infra/stacks/security_monitoring_stack.py", "../../../infra/stacks/data_stack.py", "../../../infra/stacks/training_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/monitoring_stack.py"]
 summary: "A gated, rollback-friendly roadmap for adding AWS audit, detection, encryption, least privilege, IAM API authentication, and WAF controls."
 ---
@@ -52,7 +52,7 @@ the boundary.
 | 4B | Change bucket encryption defaults | Migrate artifacts, curated, then raw; verify each bucket before continuing. |
 | 4C | Re-encrypt existing objects and add lifecycle rules | Checksums, metadata, readability, key IDs, and retention are verified. |
 | 5 | Replace broad IAM one role at a time — **complete** | Proxy, model, deploy, then pipeline roles pass their component checks; a billable pipeline run succeeds. All met by 2026-08-06. |
-| 6 | Replace API keys with IAM/SigV4 — **deployed to dev; observation open** | Signed authorized calls succeed; unsigned and unauthorized calls fail; response contract is unchanged. |
+| 6 | Replace API keys with IAM/SigV4 — **complete** | Signed authorized calls succeed; unsigned and unauthorized calls fail; response contract is unchanged. All met, and the window closed as a go on 2026-08-14. |
 | 7 | TLS 1.2, API logs, metrics, tracing, and alarms | TLS and observability work without logging credentials or customer inputs. |
 | 8 | WAF in count mode, then rule-by-rule blocking | Legitimate evaluation traffic passes and controlled malicious/rate traffic is blocked. |
 | 9 | Identity Center, long-lived-key retirement, finding review, and final docs | Temporary access works before old keys are disabled; no high finding is unexplained. |
@@ -396,7 +396,8 @@ the boundary.
   through a healthy delivery**, which is the negative half of its contract.
   See the
   [Phase 3F record](../sources/aws-security-hardening-phase-3f-alert-routing-august-8-2026.md).
-- **Phase 6: deployed to dev 2026-08-09, observation open.** `POST /predict` takes
+- **Phase 6: complete; deployed to dev 2026-08-09, observation closed as a go
+  2026-08-14.** `POST /predict` takes
   `AWS_IAM` authorization. The caller signs with SigV4 and needs
   `execute-api:Invoke` on the method, so an unsigned call fails at API Gateway
   and never reaches the proxy Lambda. `evaluate_api.py` and
@@ -658,13 +659,14 @@ one reached. The 2026-08-08 `wiki/log.md` entry holds the per-statement sizes.
 Second, expect the `iam-policy-changes` and `unauthorized-api-calls`
 alarms to fire during a gated deploy; 3C produced six such emails, all true
 positives on its own work.
-**Sub-phases 2F and 2G are deployed and closed as a go.** Phase 6 is deployed
-to dev with its observation window open. `POST /predict` requires `AWS_IAM`,
+**Sub-phases 2F and 2G are deployed and closed as a go.** Phase 6 is complete:
+its window closed as a go on 2026-08-14. `POST /predict` requires `AWS_IAM`,
 the account has no API key or usage plan, and `make smoke` signs each request.
 
-The next checkpoint closes the Phase 6 observation window. CI/CD activation is
-separate: both environments allow only `main`, and dev holds its role ARN as an
-environment secret. The manual workflow still needs its first run.
+No stack is held open by an observation window. The next checkpoint is the
+first `deploy.yml` run: both environments allow only `main`, and dev holds its
+role ARN as an environment secret. The manual workflow still needs its first
+run.
 
 Phases 3B and 3D wait for the explicit paid-plan upgrade decision, after
 which each repeats its full pre-state gate, policy rotation, named diff and

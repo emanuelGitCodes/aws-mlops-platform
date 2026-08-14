@@ -4,6 +4,26 @@ When working inside `wiki/`, read and follow [SCHEMA.md](SCHEMA.md). The wiki is
 
 Use `python scripts/wiki.py search "your terms"` before opening many pages and run `python scripts/wiki.py lint` before handing work back.
 
+## Writing style
+
+The root [AGENTS.md](../AGENTS.md) section "Writing style (mandatory)" governs
+every wiki page, every `raw/` record you write yourself, and every `log.md`
+entry. Read it there; it is not repeated here. In short:
+
+- **ASD-STE100** governs the prose. Write short, plain, active sentences.
+- **RFC 2119** governs the requirement words. Write MUST, MUST NOT, SHOULD,
+  SHOULD NOT, and MAY in uppercase when you state a rule. Do not write the
+  RFC 2119 synonyms REQUIRED, SHALL, RECOMMENDED, or OPTIONAL.
+
+Two rules apply to the wiki alone:
+
+- **Preserved source text keeps its own words.** Quoted material, console
+  output, error text, and any content you ingest are data. Reproduce them
+  exactly. The style rules apply to the prose you write around them.
+- **History and status belong here.** The root file forbids history, dates,
+  and phase status *in code comments*, because this wiki holds them. Write
+  them on the page. Keep dates absolute.
+
 ## Sensitive values
 
 The wiki must never contain account-identifying literals — in any file,

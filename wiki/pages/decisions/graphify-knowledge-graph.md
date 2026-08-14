@@ -70,14 +70,19 @@ summary: "graphify indexes the tree into a disposable, untracked code graph, and
 - **The graph goes stale without warning.** `GRAPH_REPORT.md` names the commit
   it was built from. A query against an old graph answers about old code and
   looks correct. Read that line before you trust an answer.
-- **The hooks narrow the staleness window. They do not close it.** Three cases
-  produce no rebuild. Git does not track a hook, so a fresh clone starts without
-  one. The hook exits at once inside a linked worktree, and this repository
-  works in `.claude/worktrees/`, so a commit there changes nothing. The hook
-  also skips a rebase, a merge, and a cherry-pick, which keeps `git rebase
-  --continue` from meeting an unstaged change. `make graph` stays the reliable
-  rebuild in each case, and `GRAPHIFY_SKIP_HOOK=1` disables the hook for one
-  command.
+- **The hooks narrow the staleness window. They do not close it.** Four cases
+  produce no rebuild. **A `git pull` is the first of them**: a fast-forward pull
+  runs `post-merge`, and graphify installs no `post-merge` hook. The hook also
+  exits at once inside a linked worktree, and this repository works in
+  `.claude/worktrees/`, so a commit there changes nothing. Git does not track a
+  hook, so a fresh clone starts without one. The hook also skips a rebase, a
+  merge, and a cherry-pick, which keeps `git rebase --continue` from meeting an
+  unstaged change. `make graph` stays the reliable rebuild in each case, and
+  `GRAPHIFY_SKIP_HOOK=1` disables the hook for one command.
+- **The two hooks cover a narrower set of events than their name suggests.**
+  `post-commit` covers a commit you make. `post-checkout` covers a branch
+  switch. Between them they miss the two ways the tree most often moves on this
+  project: a pull, and any work done in a worktree.
 - **The corpus includes the wiki, which makes the two layers navigable
   together.** Wiki pages appear as nodes and cluster with the code they
   describe. This helps a search start from a page and reach a module. It does

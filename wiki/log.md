@@ -6335,11 +6335,26 @@ The hook script was run directly, once from each side.
 The test drove the hook script directly. A rebuild started by git itself, at the
 end of a real commit, is not yet observed.
 
+### The pull test corrected the record
+
+A `git pull --ff-only` in the main checkout on 2026-08-14 moved it from
+`df85bd1` to `c1d4fe6` across 50 files. **No rebuild started.** The graph stayed
+on `df85bd1` and no rebuild process ran. A hand-run `graphify update .` then
+took it to `c1d4fe6`.
+
+**A fast-forward pull runs `post-merge`, and graphify installs no `post-merge`
+hook.** It installs `post-commit` and `post-checkout` only. An earlier note in
+this session predicted that a pull would trigger the post-checkout rebuild, and
+that prediction was wrong. The two hooks between them miss the two ways this
+tree most often moves: a pull, and any work in a worktree.
+
 ### Decision and next checkpoint
 
 The hooks are installed and the merge driver is not. No gate depends on either.
 The next checkpoint is the first commit in the main checkout: confirm that
-`GRAPH_REPORT.md` follows it without a hand-run `make graph`.
+`GRAPH_REPORT.md` follows it without a hand-run `make graph`. A `post-merge`
+hook is possible and is not installed, because the pull case is now written
+down and `make graph` covers it.
 
 ### Verification
 

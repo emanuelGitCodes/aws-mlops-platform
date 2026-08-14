@@ -196,12 +196,18 @@ Rules:
 3. **The git hooks rebuild the graph, and they do not cover every case.**
    `graphify hook install` writes a `post-commit` hook and a `post-checkout`
    hook into `.git/hooks/`. The rebuild runs detached, so it does not hold the
-   shell. Three limits matter. Git does not track a hook, so a fresh clone has
-   none until someone runs the installer. **The hook exits immediately in a
-   linked worktree**, and this repository uses worktrees, so a commit under
-   `.claude/worktrees/` never rebuilds the graph. The hook also skips a rebase,
-   a merge, and a cherry-pick. Run `make graph` by hand in each of those cases.
-   `GRAPHIFY_SKIP_HOOK=1` turns the hook off for one command.
+   shell. Four limits matter:
+   - **`git pull` does not rebuild.** A fast-forward pull runs `post-merge`,
+     and graphify installs no `post-merge` hook. This is the case that bites,
+     because a pull is what makes the tree move most.
+   - **The hook exits immediately in a linked worktree.** This repository uses
+     worktrees, so a commit under `.claude/worktrees/` rebuilds nothing.
+   - **Git does not track a hook.** A fresh clone has none until someone runs
+     the installer.
+   - **The hook skips a rebase, a merge, and a cherry-pick.**
+
+   Run `make graph` by hand in each of those cases. `GRAPHIFY_SKIP_HOOK=1`
+   turns the hook off for one command.
 4. **The graph MUST NOT become a second knowledge base.** When a query
    produces durable knowledge, file it on a wiki page under the SCHEMA.md
    contract. Do not hand-edit a file in `graphify-out/`.

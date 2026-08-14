@@ -6630,3 +6630,20 @@ Prod keeps the single topic until a deliberate rollout.
 `describe-alarms`, `list-subscriptions-by-topic`, `get-topic-attributes`, the
 six integration tests, `make wiki-index`, `make wiki-lint`, and
 `make public-check`.
+
+## [2026-08-14] verify | The ops topic subscription is confirmed
+
+The first of the two window conditions is met. `list-subscriptions-by-topic`
+on `mlops-dev-ops-alerts` returns one `email` subscription with a real
+subscription ARN, so the state is `CONFIRMED` and no longer
+`PendingConfirmation`.
+
+**This is not delivery evidence.** A confirmed subscription proves that the
+address accepted the topic. The window still needs one endpoint alarm to fire
+and reach the inbox through the new topic. Two paths reach that evidence. The
+silence alarm fires on its own about 24 hours after the last call, and the
+smoke run of this deploy was the last call. A controlled `set-alarm-state`
+call would prove the path at once, as the Phase 2C controlled denial did, at
+the cost of a synthetic fire rather than a real one.
+
+The window stays open.

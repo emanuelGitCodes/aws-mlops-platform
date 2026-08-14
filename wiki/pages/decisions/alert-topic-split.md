@@ -82,6 +82,10 @@ The live routing check confirms the split. Nine alarms exist. Two name
 `mlops-dev-endpoint-silent`. Seven name `mlops-dev-security-alerts`. Both
 topics use the same audit KMS key.
 
+**The subscription is confirmed.** The request arrived at the deploy, a human
+accepted it the same day, and the topic reports one `CONFIRMED` email
+subscription.
+
 **The deploy needed a value that `.env` did not hold.** `make deploy-stack`
 stopped at the `check-alert-email` guard, which pull request #67 added the same
 day. The stored `SecurityAlertEmail` parameter on the deployed Security stack
@@ -100,10 +104,11 @@ six integration tests pass. The API contract is unchanged by this phase.
   2026-08-14. Prod does not. The window MUST show one endpoint alarm arriving on
   the new topic, and it MUST confirm that the seven security alarms still reach
   the old one.
-- **The new subscription is not confirmed.** AWS sent the request at the deploy
-  and the subscription reads `PendingConfirmation`. Until a human accepts it,
-  the endpoint 5xx alarm and the endpoint silence alarm deliver nowhere. No CDK
-  code can do this step, and the window cannot prove delivery before it happens.
+- **The subscription is confirmed, and delivery is still unproved.** A human
+  accepted the request on 2026-08-14, and the ops topic now reports one
+  `CONFIRMED` email subscription. A confirmed subscription proves that the
+  address accepted the topic. It does not prove that an alarm reaches the
+  inbox. The window still owes that evidence.
 - **This is an alarm-behavior change, so it takes the Phase 2E gate.**
   Sub-phases 2F and 2G set the precedent: a pre-flight baseline of the live
   alarm state, a reviewed named diff, a scoped dev deploy, resource-level

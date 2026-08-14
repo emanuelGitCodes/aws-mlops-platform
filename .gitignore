@@ -12,3 +12,5 @@ cdk.out/
 data/
 telco/
 .DS_Store
+graphify-out/
+.claude/settings.local.json

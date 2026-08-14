@@ -27,6 +27,7 @@ This is the content map. Read it first, then follow the most relevant links.
 ## Decisions
 
 - [Drift capture design for a serverless endpoint](pages/decisions/drift-capture-design.md) — Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay.
+- [graphify code graph beside the wiki](pages/decisions/graphify-knowledge-graph.md) — graphify indexes the tree into a disposable, untracked code graph, and the wiki keeps its role as the source of record for history, decisions, and status.
 - [Paid Phase 3 security services — GuardDuty cost and timing](pages/decisions/phase-3-paid-security-services.md) — GuardDuty costs roughly a dollar a month here and is approved, but deliberately waits for the planned EC2 and load-balancer website, where its detections finally apply.
 - [Platform design decisions](pages/decisions/platform-design.md) — The platform favors managed SageMaker lineage where it matters and small AWS primitives where simple event wiring is clearer.
 

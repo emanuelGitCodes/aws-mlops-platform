@@ -6096,3 +6096,67 @@ ARN as an environment secret. Phase 4 (KMS) and Phases 7–9 remain unstarted.
 `get-stages`, `get-api-keys`, `get-usage-plans`, `describe-budgets`,
 `get-cost-and-usage`, one unsigned `/predict`, and `make smoke`.
 `python scripts/wiki.py lint`.
+
+## [2026-08-14] update | graphify installed beside the wiki
+
+### Objective
+
+Add the graphify code graph to the repository as a second navigation layer,
+and keep the wiki as the source of record.
+
+### Scope
+
+- `.claude/skills/graphify/` (skill and references), `.graphifyignore`,
+  `.gitignore`, `Makefile`, `AGENTS.md`.
+- New page `pages/decisions/graphify-knowledge-graph.md`, plus a link from
+  `pages/overview.md`.
+- No AWS resource and no application code were touched.
+
+### Commands and observed results
+
+1. `uv tool install graphifyy` installed version 0.9.42 and the `graphify`
+   and `graphify-mcp` executables. The tool stays outside `uv.lock` and
+   outside the project environment.
+2. `graphify install --project --platform claude` was blocked by the local
+   agent permission layer. The same two paths were written by hand instead:
+   `skill.md` was copied to `.claude/skills/graphify/SKILL.md`, and the
+   packaged `skills/claude/references/` directory was copied next to it.
+   Claude Code discovers a project skill from that path, so no registration
+   file is needed. The `PreToolUse` hooks that `graphify hook install` adds
+   were deliberately not installed.
+3. The first `graphify update .` run read 168 files and warned that seven
+   files produced zero nodes. It also indexed the third-party AWS icon set
+   under `wiki/assets/architecture/cdk-dia-icons/`.
+4. `.graphifyignore` was added to exclude that icon set, `graphify-out/`,
+   `infra/cdk.out/`, and `uv.lock`. `.gitignore` already excludes `.env` and
+   `telco/`, and graphify honours it.
+5. `make graph` rebuilt from commit `90dc79d`: 176 files, about 368,850 words,
+   2141 nodes, 2953 edges, 209 communities, 100% EXTRACTED edges, 12 INFERRED
+   edges at an average confidence of 0.53, and 0 tokens.
+6. The generated files were searched for account-identifying literals. No
+   twelve-digit account identifier and no `execute-api` host appeared; the
+   twelve-digit matches were cohesion scores. `.env` was never read.
+
+### Interpretation
+
+The extraction is local, deterministic, and free, so the graph can be
+rebuilt at will and does not need to be preserved. That is why
+`graphify-out/` is untracked, like `infra/cdk.out/`. The wiki keeps history,
+decisions, and status; the graph holds structure only. A generated file MUST
+NOT appear in a `sources:` list, because it does not survive a clean clone.
+
+The one real risk is silence: a query against a stale graph returns a
+confident answer about old code. `GRAPH_REPORT.md` names the commit it was
+built from, and that line MUST be read before an answer is trusted.
+
+### Decision and next checkpoint
+
+graphify is a convenience layer, not a gate. It is deliberately absent from
+CI and from the pre-release checks. Revisit two choices later: committing
+`graphify-out/` if a second contributor joins, and running `graphify label`
+if an LLM backend is ever configured for community naming.
+
+### Verification
+
+`make graph`, `make lint`, `make test`, `make docs-sync`, `make wiki-lint`,
+and `make public-check`.

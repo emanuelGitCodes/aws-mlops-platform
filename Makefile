@@ -1,7 +1,7 @@
 .PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
 	diagrams security bootstrap check-stack diff-stack deploy-stack deploy \
 	destroy verify-deploy smoke wiki-init wiki-index wiki-search wiki-ingest \
-	wiki-lint public-check
+	wiki-lint public-check graph graph-query graph-explain
 
 ENV ?= dev
 CDK_CLI := uv run --locked npx aws-cdk@2.1130.0
@@ -156,3 +156,18 @@ wiki-lint:
 
 public-check:
 	uv run --locked python scripts/check_public_release.py
+
+# Rebuild the graphify code graph in `graphify-out/`, which stays untracked.
+# The extraction is local and deterministic and needs no LLM.
+graph:
+	graphify update .
+
+graph-query:
+	@test -n "$(Q)" || \
+		(echo "Q is required, for example Q='what calls the drift Lambda?'" >&2; exit 2)
+	graphify query "$(Q)"
+
+graph-explain:
+	@test -n "$(NODE)" || \
+		(echo "NODE is required, for example NODE=proxy_handler" >&2; exit 2)
+	graphify explain "$(NODE)"

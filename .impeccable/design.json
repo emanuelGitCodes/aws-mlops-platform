@@ -184,6 +184,11 @@
         "purpose": "Moves the evidence cursor between proof categories."
       },
       {
+        "name": "evidence-signal",
+        "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Carries one signal from the selected stage to its proof lens."
+      },
+      {
         "name": "trace-pulse",
         "value": "7s cubic-bezier(0.16, 1, 0.3, 1) infinite",
         "purpose": "Runs one slow pulse through the lifecycle route."
@@ -237,8 +242,8 @@
       "name": "Evidence Tab",
       "kind": "button",
       "refersTo": "evidence-tab",
-      "description": "Selects implemented, deployed, or observed proof without implying completion.",
-      "html": "<button class=\"ds-evidence-tab\" type=\"button\" aria-pressed=\"true\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><path d=\"M6 35V11h36v24H6Z\" /><path d=\"m10 29 7-10 7 7 7-12 7 10M31 35l8 8\" /></svg><span>OBSERVED</span><small>Runtime checks supply behavioral evidence.</small></button>",
+      "description": "Applies an implemented, deployed, or observed proof lens to the selected stage.",
+      "html": "<button class=\"ds-evidence-tab\" type=\"button\" aria-pressed=\"true\" aria-label=\"Inspect Monitor runtime evidence\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><path d=\"M6 35V11h36v24H6Z\" /><path d=\"m10 29 7-10 7 7 7-12 7 10M31 35l8 8\" /></svg><span>OBSERVED</span><small>Monitor: runtime evidence</small></button>",
       "css": ".ds-evidence-tab { display: grid; place-items: center; align-content: center; width: 14rem; min-height: 10rem; padding: 1.25rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 0; background: transparent; color: var(--phosphor-dim, #5ca83c); cursor: pointer; text-align: center; } .ds-evidence-tab svg { width: 3rem; fill: none; stroke: currentColor; stroke-width: 1.2; } .ds-evidence-tab span { margin-top: .65rem; font: 400 1.45rem/1 VT323, monospace; letter-spacing: .11em; } .ds-evidence-tab small { max-width: 24ch; margin-top: .5rem; color: #79af67; font: 400 .64rem/1.45 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-evidence-tab:hover, .ds-evidence-tab[aria-pressed='true'] { color: var(--phosphor-bright, #d3ffb9); background: rgba(71,155,50,.08); } .ds-evidence-tab:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
     },
     {
@@ -264,7 +269,7 @@
       "Phosphor linework that links architecture stages with evidence categories.",
       "Bitmap display type paired with readable system monospace text.",
       "Flat evidence frames with precise borders and controlled state depth.",
-      "One routed trace pulse, with a static reduced-motion state."
+      "One routed trace pulse and one stage-to-proof signal, with static reduced-motion states."
     ],
     "rules": [
       {

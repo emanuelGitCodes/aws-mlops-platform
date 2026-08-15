@@ -7600,6 +7600,47 @@ test library. This interaction has a rendered browser check today.
 `make frontend-check`, `npm run build`, `git diff --check`, the desktop and
 mobile browser checks, and the reduced-motion check passed. The wiki linter runs
 with this record.
+
 ## [2026-08-14] query | trace ledger website
 
 Found 7 matching page(s).
+
+## [2026-08-15] update | Evidence rail became a stage-specific proof control
+
+### Objective
+
+Show how implemented, deployed, and observed evidence relates to the selected
+architecture stage.
+
+### Scope
+
+The change extends `ArchitectureMap.tsx` and the existing frontend stylesheet.
+It updates `DESIGN.md`, the Impeccable surface brief and sidecar, and the local
+website decision page. The work stays local. It does not use an AWS identity.
+
+### Commands and results
+
+`make frontend-check` passed TypeScript and all five frontend tests. The Vite
+production build passed. Playwright exercised each proof lens for Train and
+Monitor. The selected readout changed to the related source, dev infrastructure
+boundary, or runtime signal.
+
+The desktop check found the 0.9-second stage-to-proof signal. The 390 by 844
+pixel page had no horizontal overflow. The reduced-motion check returned a
+0.00001-second animation with one iteration.
+
+### Interpretation
+
+The evidence rail now answers what each category means for the selected stage.
+It does not treat a repository implementation as deployment or runtime proof.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The evidence rail is complete for the local
+architecture experience.
+
+### Verification
+
+`make frontend-check`, `npm run build`, `git diff --check`, desktop and mobile
+browser checks, and the reduced-motion check passed. The wiki linter runs with
+this record.

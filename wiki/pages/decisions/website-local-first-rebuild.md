@@ -2,7 +2,7 @@
 type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
-updated: "2026-08-14"
+updated: "2026-08-15"
 sources: ["./website-stack-plan.md", "../../../PRODUCT.md", "../../../DESIGN.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/api.ts", "../../../website/frontend/src/components/ArchitectureMap.tsx", "../../../website/frontend/src/styles.css", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
@@ -32,6 +32,10 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   training, evaluation, registration, serving, monitoring, and retraining as
   one interactive lifecycle. The evidence rail keeps implemented, deployed,
   and observed evidence distinct. The prediction form is a later section.
+- **The evidence rail applies proof lenses to the selected stage.** Implemented
+  names the source or test boundary. Deployed names the dev infrastructure
+  boundary. Observed names the runtime signal. A one-shot path signal and the
+  coupled readout show the relationship to the lifecycle diagram.
 - **The trace ledger is an architecture control.** Pipeline, signed API, and
   drift select their related stages and animate one route. The selected readout
   names the AWS component chain. A stage selection also selects its related

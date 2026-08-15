@@ -11,6 +11,12 @@ interface Stage {
   detail: string;
 }
 
+interface EvidenceProof {
+  label: string;
+  value: string;
+  detail: string;
+}
+
 const STAGES: Stage[] = [
   {
     key: "ingest",
@@ -49,18 +55,143 @@ const RETRAIN = {
   detail: "Start another pipeline execution after a real drift violation.",
 };
 
-const EVIDENCE: Record<EvidenceKey, { label: string; detail: string }> = {
+const EVIDENCE: Record<EvidenceKey, { label: string; focus: string }> = {
   implemented: {
     label: "Implemented",
-    detail: "Source, tests, and synthesized infrastructure define the behavior.",
+    focus: "source and tests",
   },
   deployed: {
     label: "Deployed",
-    detail: "The project records dev-account delivery separately from repository state.",
+    focus: "dev infrastructure boundary",
   },
   observed: {
     label: "Observed",
-    detail: "Runtime checks and observation windows supply behavioral evidence.",
+    focus: "runtime evidence",
+  },
+};
+
+const STAGE_EVIDENCE: Record<
+  ActiveStageKey,
+  Record<EvidenceKey, EvidenceProof>
+> = {
+  ingest: {
+    implemented: {
+      label: "Source + unit test",
+      value: "src/ingestion/validate_handler.py",
+      detail: "The handler validates each raw row against the shared schema.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "S3 → EventBridge → SQS → validation Lambda",
+      detail: "The ingestion stack owns delivery, retries, and dead-letter handling.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Curated or quarantine object + validation log",
+      detail: "A run shows accepted rows, rejected rows, and each rejection reason.",
+    },
+  },
+  train: {
+    implemented: {
+      label: "Pipeline definition",
+      value: "src/pipeline/pipeline.py",
+      detail: "The definition connects preprocessing, training, evaluation, and registration.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "SageMaker Pipeline + execution role",
+      detail: "The training stack supplies the pipeline execution boundary.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Pipeline execution + step artifacts",
+      detail: "A run exposes step status, cached outputs, and model artifacts.",
+    },
+  },
+  evaluate: {
+    implemented: {
+      label: "Evaluation source",
+      value: "src/pipeline/evaluate.py",
+      detail: "The step calculates held-out test AUC and compares the champion.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "Evaluation processor inside the training pipeline",
+      detail: "The managed evaluation step runs before model registration.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Evaluation report + champion comparison",
+      detail: "The report records the test result and promotion inputs.",
+    },
+  },
+  register: {
+    implemented: {
+      label: "Promotion source",
+      value: "src/pipeline/pipeline.py",
+      detail: "The pipeline registers a challenger only after the promotion gate passes.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "SageMaker Model Registry package group",
+      detail: "The registry stack owns the package group and its boundary.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Package state + promotion gate result",
+      detail: "The package record shows the challenger that reached the registry.",
+    },
+  },
+  serve: {
+    implemented: {
+      label: "Proxy source",
+      value: "src/serving/proxy_handler.py",
+      detail: "The proxy validates the record and signs the endpoint request.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "API Gateway → proxy Lambda → SageMaker endpoint",
+      detail: "The serving stack keeps AWS credentials behind the API boundary.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Signed prediction response + structured event",
+      detail: "A smoke request exercises the deployed inference path.",
+    },
+  },
+  monitor: {
+    implemented: {
+      label: "Drift source",
+      value: "src/monitoring/drift_handler.py",
+      detail: "The handler scores a capture window and emits a violation event.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "Scheduled drift Lambda + monitoring alarms",
+      detail: "The monitoring stack owns evaluation cadence and alert resources.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Capture window + PSI result + violation event",
+      detail: "Runtime evidence shows the score that can close the retraining loop.",
+    },
+  },
+  retrain: {
+    implemented: {
+      label: "Retrain source",
+      value: "src/monitoring/retrain_handler.py",
+      detail: "The handler filters drift events and starts a pipeline execution.",
+    },
+    deployed: {
+      label: "Dev infrastructure boundary",
+      value: "EventBridge → retrain Lambda → SageMaker Pipeline",
+      detail: "The monitoring stack owns the event route and retrain function.",
+    },
+    observed: {
+      label: "Runtime signal",
+      value: "Violation event → pipeline execution ARN",
+      detail: "The execution record proves that a drift violation started retraining.",
+    },
   },
 };
 
@@ -217,6 +348,10 @@ export function ArchitectureMap() {
       ? RETRAIN
       : (STAGES.find((stage) => stage.key === activeStage) ?? STAGES[0]!);
   const selectedTrace = TRACE_PATHS[activeTrace];
+  const selectedEvidence = STAGE_EVIDENCE[activeStage][activeEvidence];
+  const evidencePath =
+    `M ${STAGE_POSITION[activeStage].x} ${STAGE_POSITION[activeStage].y} ` +
+    `H 78 V ${EVIDENCE_POSITION[activeEvidence]} H 80`;
 
   function selectStage(stage: ActiveStageKey) {
     setActiveStage(stage);
@@ -291,7 +426,17 @@ export function ArchitectureMap() {
           <span className="readout-key">
             {selectedStage.label} → {EVIDENCE[activeEvidence].label}
           </span>
-          <p>{selectedStage.detail}</p>
+          <div className="stage-readout-copy">
+            <p className="stage-summary">{selectedStage.detail}</p>
+            <div
+              className="evidence-proof"
+              key={`${activeStage}-${activeEvidence}`}
+            >
+              <span>{selectedEvidence.label}</span>
+              <strong>{selectedEvidence.value}</strong>
+              <p>{selectedEvidence.detail}</p>
+            </div>
+          </div>
         </div>
 
         <ul className="trace-ledger" aria-label="Select a platform trace path">
@@ -317,7 +462,10 @@ export function ArchitectureMap() {
         </div>
       </div>
 
-      <aside className="evidence-rail" aria-label="Evidence categories">
+      <aside
+        className="evidence-rail"
+        aria-label={`Apply an evidence lens to ${selectedStage.label}`}
+      >
         <div className="evidence-rail-line" aria-hidden="true"><span /></div>
         {(Object.keys(EVIDENCE) as EvidenceKey[]).map((key) => (
           <button
@@ -325,15 +473,17 @@ export function ArchitectureMap() {
             type="button"
             key={key}
             aria-pressed={activeEvidence === key}
+            aria-label={`Inspect ${selectedStage.label} ${EVIDENCE[key].focus}`}
             onClick={() => setActiveEvidence(key)}
           >
             <EvidenceIcon evidence={key} />
             <span>{EVIDENCE[key].label}</span>
-            <small>{EVIDENCE[key].detail}</small>
+            <small>{selectedStage.label}: {EVIDENCE[key].focus}</small>
           </button>
         ))}
       </aside>
       <svg
+        key={`${activeStage}-${activeEvidence}`}
         className="stage-evidence-link"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
@@ -341,12 +491,13 @@ export function ArchitectureMap() {
       >
         <path
           className="signal-afterimage"
-          d={`M ${STAGE_POSITION[activeStage].x} ${STAGE_POSITION[activeStage].y} H 78 V ${EVIDENCE_POSITION[activeEvidence]} H 80`}
+          d={evidencePath}
         />
         <path
           className="signal-live"
-          d={`M ${STAGE_POSITION[activeStage].x} ${STAGE_POSITION[activeStage].y} H 78 V ${EVIDENCE_POSITION[activeEvidence]} H 80`}
+          d={evidencePath}
         />
+        <path className="signal-pulse" d={evidencePath} />
       </svg>
     </div>
   );

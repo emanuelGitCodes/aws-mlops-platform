@@ -125,7 +125,8 @@ relationships. Dim rules preserve the structure without competing with content.
 - Phosphor linework that links architecture stages with evidence categories.
 - Bitmap display type paired with readable system monospace text.
 - Flat evidence frames with precise borders and controlled state depth.
-- One routed trace pulse, with a static reduced-motion state.
+- One routed trace pulse and one stage-to-proof signal, with static
+  reduced-motion states.
 
 ## Colors
 
@@ -290,10 +291,14 @@ vertical trace and keep the selected-stage readout.
 ### Evidence Cursor
 
 The cursor links the selected stage to implemented, deployed, or observed
-evidence. Desktop uses an authored SVG route and one luminous rail marker.
+evidence. Each category acts as a proof lens for the selected stage. The
+readout names the exact source, infrastructure boundary, or runtime signal.
+
+Desktop uses an authored SVG route, one luminous rail marker, and one
+stage-to-proof signal. The signal runs once after a stage or proof lens changes.
 
 Mobile removes the routed overlay. A bright vertical rule couples the selected
-stage readout with the stacked evidence rail.
+stage readout with the stacked evidence rail. The proof readout stays visible.
 
 ### Trace Ledger
 

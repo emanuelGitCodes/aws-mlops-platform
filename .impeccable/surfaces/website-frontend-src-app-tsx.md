@@ -21,7 +21,8 @@ related_targets: ["website/frontend/src/components/ArchitectureMap.tsx","website
 - The platform uses AWS CDK, SageMaker Pipelines, serverless inference, and a drift-to-retrain loop.
 - The model is a simple Telco churn model. The engineering system is the deliverable.
 - The frontend MUST preserve the current schema, results, prediction, and subscription API flows.
-- Evidence labels are categories. They MUST NOT imply that every part has the same proof level.
+- Evidence labels are stage-specific proof lenses. They MUST NOT imply that
+  every part has the same proof level.
 - The current GitHub repository remains the source link.
 - This task is local-only. It MUST NOT deploy the website stack or create AWS resources.
 
@@ -32,8 +33,10 @@ related_targets: ["website/frontend/src/components/ArchitectureMap.tsx","website
 - World: Near-black CRT glass with vivid phosphor green and restrained afterimages.
 - First viewport: One continuous lifecycle schematic on the left, a three-line trace ledger below, and an evidence rail on the right.
 - Visitor path: Read the lifecycle, inspect proof boundaries, open source, then try the prediction demo.
-- Signature moment: A luminous evidence cursor follows the active architecture stage and aligns it with the evidence rail.
-- Motion: One slow trace pulse through the route. Reduced-motion users receive a static path.
+- Signature moment: A luminous signal travels from the active architecture
+  stage to its selected proof lens and resolves an exact proof readout.
+- Motion: One slow trace pulse follows the route. One short signal connects a
+  selected stage to its proof lens. Reduced-motion users receive static paths.
 - Memorable detail: The evidence cursor connects architecture to proof instead of turning proof into badges.
 
 The comp is a north star, not a bitmap specification. The implementation MUST keep real text, controls, focus states, and responsive reading order. It MUST NOT copy the comp's decorative corner marks where they add no information. It MUST NOT invent metrics, timestamps, commands, or universal completion claims.
@@ -54,9 +57,9 @@ The comp is a north star, not a bitmap specification. The implementation MUST ke
 | CRT shell and scan texture | A visible curved-glass, scanline, bloom, and afterimage field covers the first viewport | Generated 16:9 raster field plus CSS shell |
 | Lifecycle topology | Ingest to train to evaluate to register to serve to monitor, with retrain loop | Semantic HTML and authored SVG routes |
 | Architecture nodes | Six equal stages and one subordinate retrain stage | Semantic buttons with authored SVG icons |
-| Evidence cursor | A luminous routed line couples the active stage with the selected proof lens | Authored SVG on desktop; luminous coupled readout on mobile |
+| Evidence cursor | A routed line and one-shot signal couple the active stage with the selected proof lens | Authored SVG on desktop; luminous coupled readout on mobile |
 | Display type | Narrow bitmap terminal lettering across headings and controls | Self-hosted VT323 from Google Fonts |
-| Evidence rail | Implemented, deployed, observed as distinct proof categories | Semantic buttons and explanatory text |
+| Evidence rail | Implemented, deployed, and observed resolve the selected stage to a source, infrastructure boundary, or runtime signal | Semantic buttons and a stage-specific proof readout |
 | Trace ledger | Pipeline, signed API, and drift select exact stages and name the AWS component chain; no invented metrics | Semantic button list, authored SVG route marks, and an accessible live readout |
 | Header | Compact project title, architecture-led description | Semantic HTML |
 | Primary action | Open the current GitHub source | Semantic anchor with authored SVG icon |

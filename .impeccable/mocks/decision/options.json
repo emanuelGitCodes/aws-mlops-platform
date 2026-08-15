@@ -1,0 +1,156 @@
+{
+  "title": "Choose the architecture experience",
+  "question": "Which visual world should introduce the AWS MLOps platform to an interviewer?",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Release Control Dossier",
+      "kicker": "THE ROLL",
+      "lineage": "release engineering change sets and systems review packets",
+      "thesis": "The platform opens as an evidence dossier where every architecture route ends in proof.",
+      "palette": ["#101923", "#F3F1EA", "#FF6A3D", "#5BD4FF"],
+      "materials": ["vellum overlays", "stamped change tickets", "binder tabs"],
+      "viewport": "A large dependency map fills the left field while a narrow evidence rail names implementation, deployment, and observation state.",
+      "risk": "It can feel like a document viewer if the system map does not own enough scale.",
+      "raised": [
+        {
+          "from": "Fight Poster",
+          "raise": "Champion and challenger states now use decisive, unequal contrast."
+        },
+        {
+          "from": "Hand-Processed Film",
+          "raise": "A traced route reveals one lifecycle stage at a time."
+        },
+        {
+          "from": "Rain-Night City",
+          "raise": "The architecture field now owns the whole viewport as one luminous system."
+        },
+        {
+          "from": "Phosphor Terminal",
+          "raise": "Every system state writes itself in plain technical language."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "label": "Architecture Review Wall",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "mission-control reviews and electrical single-line drawings",
+      "thesis": "The visitor stands before one living system wall and opens evidence directly from its subsystems.",
+      "palette": ["#171A1E", "#F0EDE5", "#F2C94C", "#3DD6D0"],
+      "materials": ["etched aluminum rails", "magnetic legend tiles", "transparent overlays"],
+      "viewport": "A full-width architecture wall places the model lifecycle at eye level with a compact project brief and trace action above it.",
+      "risk": "This is the most familiar direction and needs exceptional diagram craft to stay memorable.",
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-transit",
+      "label": "Midnight Systems Map",
+      "verdict": "wins",
+      "lineage": "metropolitan transit diagrams fired in midnight enamel",
+      "thesis": "Ingestion, training, serving, and monitoring become routes that meet at verifiable engineering interchanges.",
+      "palette": ["#0A1330", "#F7F2E8", "#E7002A", "#0057FF", "#FFB800", "#009B4D"],
+      "materials": ["midnight enamel", "porcelain station ticks", "relief line ink"],
+      "viewport": "Four disciplined routes occupy most of the screen and converge on Model Registry before serving and drift loop back to training.",
+      "case": "It beats the dossier on immediate architecture clarity and gives technical visitors a familiar way to trace the whole system.",
+      "risk": "The route metaphor fails if labels become decorative or the real AWS boundaries disappear.",
+      "comp": ".impeccable/mocks/decision/challenger-transit.webp",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-midnight-transit-diagram-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-midnight-transit-diagram.webp"
+    },
+    {
+      "id": "challenger-one-bit",
+      "label": "One-Bit Systems Desk",
+      "verdict": "competitive",
+      "lineage": "early one-bit desktop interfaces",
+      "thesis": "The architecture lives in crisp overlapping windows that open source evidence, metrics, and the prediction tool.",
+      "palette": ["#000000", "#FFFFFF"],
+      "materials": ["ordered stipple", "one-pixel chrome", "marching-ants selection"],
+      "viewport": "A large architecture window anchors the desktop while evaluation and repository windows expose evidence around it.",
+      "case": "It strongly identifies with software craft but loses to the map on modern platform clarity.",
+      "risk": "The retro system can read as a visual joke instead of a serious cloud-engineering artifact.",
+      "comp": ".impeccable/mocks/decision/challenger-one-bit.webp",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop.webp"
+    },
+    {
+      "id": "challenger-fight",
+      "label": "Champion Fight Bill",
+      "verdict": "declined",
+      "lineage": "letterpress boxing fight posters",
+      "thesis": "Champion and challenger models collide across a central promotion gate.",
+      "palette": ["#F4EBD8", "#111111", "#D9A21B"],
+      "materials": ["newsprint", "heavy slab ink"],
+      "viewport": "Two model names confront each other above a ranked undercard of pipeline stages.",
+      "case": "The promotion story is strong, but it hides most of the platform architecture.",
+      "kept": "Decisive contrast now separates champion and challenger state.",
+      "risk": "The fight metaphor overstates competition and narrows the platform to one gate.",
+      "comp": ".impeccable/mocks/decision/challenger-fight.webp",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-fight-poster-hero.webp"
+    },
+    {
+      "id": "challenger-film",
+      "label": "Processed Lifecycle Strip",
+      "verdict": "declined",
+      "lineage": "hand-processed 16mm film strips",
+      "thesis": "The model lifecycle advances frame by frame from raw data to observed behavior.",
+      "palette": ["#161719", "#C7C2B8", "#F06D2F", "#8D6C4B"],
+      "materials": ["silver emulsion", "edge codes", "light leaks"],
+      "viewport": "A horizontal strip turns each lifecycle stage into a large technical frame.",
+      "case": "Sequence is clear, but the film world does not identify with cloud engineering.",
+      "kept": "The selected route now reveals the lifecycle in a controlled sequence.",
+      "risk": "Texture can overpower labels and reduce the architecture to a timeline.",
+      "comp": ".impeccable/mocks/decision/challenger-film.webp",
+      "hero": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-hand-processed-film-bloom-hero.webp"
+    },
+    {
+      "id": "challenger-city",
+      "label": "Rain-Night Cloud City",
+      "verdict": "declined",
+      "lineage": "rain-dark city infrastructure at blue hour",
+      "thesis": "AWS services become an illuminated civic network that runs through the night.",
+      "palette": ["#071225", "#173B73", "#E3A429", "#CAD3DA"],
+      "materials": ["wet asphalt", "window grids", "river reflections"],
+      "viewport": "A layered city-scale system connects training towers, serving lines, and monitoring beacons.",
+      "case": "It supplies scale and atmosphere, but the metaphor makes technical boundaries less exact.",
+      "kept": "The chosen architecture field now carries environmental scale and depth.",
+      "risk": "The city can become generic cloud spectacle instead of verifiable architecture.",
+      "comp": ".impeccable/mocks/decision/challenger-city.webp",
+      "hero": "https://impeccable.style/worlds/cards/light-shadow-caustics-rain-night-cityscape-hero.webp"
+    },
+    {
+      "id": "challenger-terminal",
+      "label": "Phosphor Run Log",
+      "verdict": "declined",
+      "lineage": "green-phosphor terminals in midnight machine rooms",
+      "thesis": "The platform explains itself as one searchable execution transcript.",
+      "palette": ["#030B08", "#6CFF8A", "#2A8F4A"],
+      "materials": ["curved glass", "scanline bloom", "afterimage trails"],
+      "viewport": "A fixed-width run log prints architecture, states, and proof in one continuous technical history.",
+      "case": "The developer culture fits, but a transcript cannot make the architecture spatial enough.",
+      "kept": "Every status and error now states itself in direct technical language.",
+      "risk": "A terminal aesthetic is expected for developer portfolios and weakens differentiation.",
+      "comp": ".impeccable/mocks/decision/challenger-terminal.webp",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-phosphor-terminal-midnight-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "The polished cloud portfolio",
+    "thesis": "A conventional cloud landing page presents architecture, metrics, and a demo with excellent finish.",
+    "palette": ["#070B16", "#F8FAFC", "#FF9900", "#3B82F6"],
+    "materials": ["dark dashboard grid", "precise product cards"],
+    "viewport": "A concise headline sits beside a simplified architecture illustration above proof cards and a demo action.",
+    "risk": "It is easy to understand and indistinguishable from other cloud-engineering portfolios by design.",
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  },
+  "steer": true
+}

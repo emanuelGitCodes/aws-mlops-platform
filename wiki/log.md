@@ -7474,3 +7474,132 @@ one explicit word before a full deploy creates them.
 ### Verification
 
 `make docs-sync` passed, and the four guard paths behaved as recorded.
+## [2026-08-14] query | website local first frontend
+
+Found 40 matching page(s).
+
+## [2026-08-14] update | Architecture became the website's first experience
+
+### Objective
+
+Build the local frontend for engineering interviews. Put the platform
+architecture before the prediction demo.
+
+### Scope
+
+The change updates `PRODUCT.md`, the React composition, five existing frontend
+components, the new `ArchitectureMap.tsx`, the shared stylesheet, the favicon,
+and one small CRT texture. It also records the Impeccable design work under
+`.impeccable/`.
+
+### Commands and results
+
+`make frontend-check` passed TypeScript and all five frontend tests. The Vite
+production build passed. Its output retained the direction seed `b969f170`.
+
+The Impeccable detector ran once. Its HTML parser dependencies were absent, so
+it used the regex fallback and returned no findings. This result is an
+undercount, not a full detector pass.
+
+Playwright captured the page at 1600 by 1000 pixels and 390 by 844 pixels. The
+checks exercised the retrain state, the evidence state, the schema-driven form,
+and the prediction error state. The screenshot server imported the repository
+feature contract and did not restate it.
+
+Docker Compose did not start because the local Docker daemon was not running.
+No container or AWS resource changed.
+
+### Interpretation
+
+The first viewport now explains the system as one lifecycle. The prediction
+form remains functional, but it no longer defines the project for an
+interviewer.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. The local design MUST pass the Impeccable
+finish review before any deployment decision resumes.
+
+### Verification
+
+`make frontend-check`, the Vite production build, provenance scan, desktop and
+mobile captures, and Playwright interaction checks passed. The wiki linter runs
+with this record.
+
+## [2026-08-14] update | Impeccable accepted the frontend rebuild
+
+### Objective
+
+Close the visual review and document the built system.
+
+### Scope
+
+The final pass reviewed the approved comp, the 1672 by 941 hero capture, the
+desktop capture, the mobile capture, and the frontend source. It added
+`DESIGN.md` and `.impeccable/design.json`.
+
+### Commands and results
+
+The first review required a rebuild. The new pass added the native CRT field,
+the self-hosted VT323 display font, and the routed stage-to-proof cursor. It
+removed duplicate chrome and the unsupported online-status copy.
+
+The fresh full review returned `ship`. It found no material fixes. The asset
+scan found no raster without prompt provenance.
+
+### Decision and next checkpoint
+
+The visual build is accepted locally. The website deploy stays on hold. A
+separate deployment decision MUST preserve that boundary.
+
+### Verification
+
+`make frontend-check`, the Vite production build, the comp-scale capture, the
+desktop and mobile captures, the provenance scan, and the design-sidecar parse
+passed. The wiki linter runs with this record.
+
+## [2026-08-14] update | Trace ledger became an architecture control
+
+### Objective
+
+Make pipeline, signed API, and drift useful to an interviewer.
+
+### Scope
+
+The change extends `ArchitectureMap.tsx` and the existing frontend stylesheet.
+It updates `DESIGN.md`, the Impeccable surface brief and sidecar, and the local
+website decision page. The work stays local. It does not use an AWS identity.
+
+### Commands and results
+
+`make frontend-check` passed TypeScript and all five frontend tests. The Vite
+production build passed. Playwright exercised the page at 1440 by 1000 pixels
+and 390 by 844 pixels.
+
+Selecting signed API selected Serve and named API Gateway, the proxy Lambda,
+and the SageMaker endpoint. Selecting Monitor selected Drift and named the
+capture, evaluation, EventBridge, retrain, and pipeline path. Each state had one
+active route. The mobile page had no horizontal overflow.
+
+The reduced-motion check returned a 0.00001-second animation with one
+iteration. This produces the static selected state from the existing media
+query.
+
+### Interpretation
+
+The ledger now explains three engineering paths. It does not display invented
+metrics, timestamps, or deployment claims.
+
+### Decision and next checkpoint
+
+The website deploy stays on hold. A later component-test change MAY add a DOM
+test library. This interaction has a rendered browser check today.
+
+### Verification
+
+`make frontend-check`, `npm run build`, `git diff --check`, the desktop and
+mobile browser checks, and the reduced-motion check passed. The wiki linter runs
+with this record.
+## [2026-08-14] query | trace ledger website
+
+Found 7 matching page(s).

@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T01:29:40.873Z",
+  "title": "Design System: AWS MLOps Reference Platform",
+  "extensions": {
+    "colorMeta": {
+      "phosphor": {
+        "role": "primary",
+        "displayName": "Live Phosphor",
+        "canonical": "#8dff4d",
+        "tonalRamp": [
+          "oklch(15% 0.234 136.6)", "oklch(26.4% 0.234 136.6)",
+          "oklch(37.9% 0.234 136.6)", "oklch(49.3% 0.234 136.6)",
+          "oklch(60.7% 0.234 136.6)", "oklch(72.1% 0.234 136.6)",
+          "oklch(83.6% 0.234 136.6)", "oklch(95% 0.234 136.6)"
+        ]
+      },
+      "phosphor-bright": {
+        "role": "primary",
+        "displayName": "Signal White",
+        "canonical": "#d3ffb9",
+        "tonalRamp": [
+          "oklch(15% 0.102 134.2)", "oklch(26.4% 0.102 134.2)",
+          "oklch(37.9% 0.102 134.2)", "oklch(49.3% 0.102 134.2)",
+          "oklch(60.7% 0.102 134.2)", "oklch(72.1% 0.102 134.2)",
+          "oklch(83.6% 0.102 134.2)", "oklch(95% 0.102 134.2)"
+        ]
+      },
+      "phosphor-dim": {
+        "role": "neutral",
+        "displayName": "Afterimage Green",
+        "canonical": "#5ca83c",
+        "tonalRamp": [
+          "oklch(15% 0.162 137.7)", "oklch(26.4% 0.162 137.7)",
+          "oklch(37.9% 0.162 137.7)", "oklch(49.3% 0.162 137.7)",
+          "oklch(60.7% 0.162 137.7)", "oklch(72.1% 0.162 137.7)",
+          "oklch(83.6% 0.162 137.7)", "oklch(95% 0.162 137.7)"
+        ]
+      },
+      "phosphor-faint": {
+        "role": "neutral",
+        "displayName": "Trace Rule",
+        "canonical": "#264a20",
+        "tonalRamp": [
+          "oklch(15% 0.080 140.9)", "oklch(26.4% 0.080 140.9)",
+          "oklch(37.9% 0.080 140.9)", "oklch(49.3% 0.080 140.9)",
+          "oklch(60.7% 0.080 140.9)", "oklch(72.1% 0.080 140.9)",
+          "oklch(83.6% 0.080 140.9)", "oklch(95% 0.080 140.9)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Dossier Ink",
+        "canonical": "#020603",
+        "tonalRamp": [
+          "oklch(15% 0.016 153.3)", "oklch(26.4% 0.016 153.3)",
+          "oklch(37.9% 0.016 153.3)", "oklch(49.3% 0.016 153.3)",
+          "oklch(60.7% 0.016 153.3)", "oklch(72.1% 0.016 153.3)",
+          "oklch(83.6% 0.016 153.3)", "oklch(95% 0.016 153.3)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Terminal Panel",
+        "canonical": "#061007",
+        "tonalRamp": [
+          "oklch(15% 0.025 147.2)", "oklch(26.4% 0.025 147.2)",
+          "oklch(37.9% 0.025 147.2)", "oklch(49.3% 0.025 147.2)",
+          "oklch(60.7% 0.025 147.2)", "oklch(72.1% 0.025 147.2)",
+          "oklch(83.6% 0.025 147.2)", "oklch(95% 0.025 147.2)"
+        ]
+      },
+      "panel-strong": {
+        "role": "neutral",
+        "displayName": "Active Panel",
+        "canonical": "#09180b",
+        "tonalRamp": [
+          "oklch(15% 0.033 147.2)", "oklch(26.4% 0.033 147.2)",
+          "oklch(37.9% 0.033 147.2)", "oklch(49.3% 0.033 147.2)",
+          "oklch(60.7% 0.033 147.2)", "oklch(72.1% 0.033 147.2)",
+          "oklch(83.6% 0.033 147.2)", "oklch(95% 0.033 147.2)"
+        ]
+      },
+      "field-background": {
+        "role": "neutral",
+        "displayName": "Field Black",
+        "canonical": "#030904",
+        "tonalRamp": [
+          "oklch(15% 0.020 149.9)", "oklch(26.4% 0.020 149.9)",
+          "oklch(37.9% 0.020 149.9)", "oklch(49.3% 0.020 149.9)",
+          "oklch(60.7% 0.020 149.9)", "oklch(72.1% 0.020 149.9)",
+          "oklch(83.6% 0.020 149.9)", "oklch(95% 0.020 149.9)"
+        ]
+      },
+      "action-active": {
+        "role": "neutral",
+        "displayName": "Action Panel",
+        "canonical": "#0a1c0c",
+        "tonalRamp": [
+          "oklch(15% 0.039 146.4)", "oklch(26.4% 0.039 146.4)",
+          "oklch(37.9% 0.039 146.4)", "oklch(49.3% 0.039 146.4)",
+          "oklch(60.7% 0.039 146.4)", "oklch(72.1% 0.039 146.4)",
+          "oklch(83.6% 0.039 146.4)", "oklch(95% 0.039 146.4)"
+        ]
+      },
+      "body-copy": {
+        "role": "neutral",
+        "displayName": "Readable Phosphor",
+        "canonical": "#bafc8c",
+        "tonalRamp": [
+          "oklch(15% 0.158 133.6)", "oklch(26.4% 0.158 133.6)",
+          "oklch(37.9% 0.158 133.6)", "oklch(49.3% 0.158 133.6)",
+          "oklch(60.7% 0.158 133.6)", "oklch(72.1% 0.158 133.6)",
+          "oklch(83.6% 0.158 133.6)", "oklch(95% 0.158 133.6)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Fault Signal",
+        "canonical": "#ffb4a8",
+        "tonalRamp": [
+          "oklch(15% 0.090 29.2)", "oklch(26.4% 0.090 29.2)",
+          "oklch(37.9% 0.090 29.2)", "oklch(49.3% 0.090 29.2)",
+          "oklch(60.7% 0.090 29.2)", "oklch(72.1% 0.090 29.2)",
+          "oklch(83.6% 0.090 29.2)", "oklch(95% 0.090 29.2)"
+        ]
+      },
+      "danger-line": {
+        "role": "tertiary",
+        "displayName": "Fault Rule",
+        "canonical": "#b44136",
+        "tonalRamp": [
+          "oklch(15% 0.152 28.6)", "oklch(26.4% 0.152 28.6)",
+          "oklch(37.9% 0.152 28.6)", "oklch(49.3% 0.152 28.6)",
+          "oklch(60.7% 0.152 28.6)", "oklch(72.1% 0.152 28.6)",
+          "oklch(83.6% 0.152 28.6)", "oklch(95% 0.152 28.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Leads major sections." },
+      "headline": { "displayName": "Headline", "purpose": "Names the platform." },
+      "title": { "displayName": "Title", "purpose": "Names evidence panels and system stories." },
+      "body": { "displayName": "Body", "purpose": "Carries explanations and supporting copy." },
+      "label": { "displayName": "Label", "purpose": "Marks controls and readout keys." },
+      "data": { "displayName": "Data", "purpose": "Carries tables, results, and form values." }
+    },
+    "shadows": [
+      {
+        "name": "crt-ambient",
+        "value": "0 18px 55px rgba(0, 0, 0, 0.72)",
+        "purpose": "Separates the curved shell from the page field."
+      },
+      {
+        "name": "crt-inset",
+        "value": "inset 0 0 4.5rem rgba(61, 186, 66, 0.1)",
+        "purpose": "Adds restrained phosphor bloom inside the shell."
+      },
+      {
+        "name": "active-control",
+        "value": "0 8px 18px rgba(0, 0, 0, 0.36)",
+        "purpose": "Marks a hovered or selected interactive frame."
+      },
+      {
+        "name": "cursor-bloom",
+        "value": "0 0 0.9rem rgba(141, 255, 77, 0.95)",
+        "purpose": "Locates the active evidence category."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "180ms ease",
+        "purpose": "Changes terminal keys, fields, and command buttons."
+      },
+      {
+        "name": "state-standard",
+        "value": "220ms ease",
+        "purpose": "Changes architecture nodes and evidence tabs."
+      },
+      {
+        "name": "cursor-route",
+        "value": "500ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Moves the evidence cursor between proof categories."
+      },
+      {
+        "name": "evidence-signal",
+        "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Carries one signal from the selected stage to its proof lens."
+      },
+      {
+        "name": "trace-pulse",
+        "value": "7s cubic-bezier(0.16, 1, 0.3, 1) infinite",
+        "purpose": "Runs one slow pulse through the lifecycle route."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Resolves animation and transitions to a static state."
+      }
+    ],
+    "breakpoints": [
+      { "name": "rail-stack", "value": "1100px" },
+      { "name": "mobile-trace", "value": "760px" },
+      { "name": "single-column", "value": "460px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Terminal Key",
+      "kind": "nav",
+      "refersTo": "terminal-key",
+      "description": "Moves visitors between architecture, source, and prediction evidence.",
+      "html": "<a class=\"ds-terminal-key\" href=\"#architecture\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 5h18v14H3V5Zm4 4h4m-4 4h8m-8 4h5\" /></svg>TRACE THE PLATFORM</a>",
+      "css": ".ds-terminal-key { display: inline-flex; gap: .9rem; align-items: center; justify-content: center; min-height: 3.4rem; padding: .75rem 1rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--phosphor, #8dff4d); font: 400 1.2rem/1 VT323, monospace; letter-spacing: .1em; text-decoration: none; } .ds-terminal-key svg { width: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.3; } .ds-terminal-key:hover { border-color: var(--phosphor, #8dff4d); background: var(--action-active, #0a1c0c); color: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.38); } .ds-terminal-key:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    },
+    {
+      "name": "Command Button",
+      "kind": "button",
+      "refersTo": "command-button",
+      "description": "Submits a schema-driven prediction or subscription request.",
+      "html": "<button class=\"ds-command-button\" type=\"button\">RUN PREDICTION</button>",
+      "css": ".ds-command-button { min-height: 3rem; padding: .65rem 1rem; border: 1px solid var(--phosphor, #8dff4d); border-radius: 1px; background: var(--phosphor, #8dff4d); color: var(--ink, #020603); font: 700 1.2rem/1 VT323, monospace; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease; } .ds-command-button:hover { background: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.36); transform: translateY(-1px); } .ds-command-button:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; } .ds-command-button:active { transform: translateY(0); } .ds-command-button:disabled { cursor: progress; opacity: .55; transform: none; }"
+    },
+    {
+      "name": "Terminal Field",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Collects readable schema and subscription values inside dense panels.",
+      "html": "<label class=\"ds-field-label\">EMAIL ADDRESS<input class=\"ds-terminal-field\" type=\"email\" placeholder=\"you@example.com\" /></label>",
+      "css": ".ds-field-label { display: flex; flex-direction: column; gap: .55rem; color: #79af67; font: 400 .68rem/1.55 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; letter-spacing: .04em; } .ds-terminal-field { min-height: 2.65rem; padding: .55rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 1px; outline: none; background: var(--field-background, #030904); color: var(--phosphor-bright, #d3ffb9); caret-color: var(--phosphor, #8dff4d); font: 400 .82rem/1.55 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-terminal-field::placeholder { color: #6d9f5c; } .ds-terminal-field:hover, .ds-terminal-field:focus { border-color: var(--phosphor, #8dff4d); box-shadow: 0 0 0 1px rgba(141,255,77,.2); } .ds-terminal-field:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    },
+    {
+      "name": "Architecture Stage",
+      "kind": "custom",
+      "refersTo": "stage-node",
+      "description": "Selects one lifecycle stage without breaking the connected route.",
+      "html": "<button class=\"ds-stage-node\" type=\"button\" aria-pressed=\"true\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><circle cx=\"24\" cy=\"9\" r=\"3\" /><circle cx=\"11\" cy=\"24\" r=\"3\" /><circle cx=\"37\" cy=\"24\" r=\"3\" /><circle cx=\"24\" cy=\"39\" r=\"3\" /><path d=\"m24 12-11 10m13-10 9 10M14 26l8 11m12-11-8 11M14 24h20\" /></svg><span>TRAIN</span></button>",
+      "css": ".ds-stage-node { position: relative; display: grid; place-items: center; min-width: 8.5rem; padding: 1rem .4rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--body-copy, #bafc8c); cursor: pointer; } .ds-stage-node svg { width: 3rem; height: 3rem; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: square; stroke-linejoin: miter; } .ds-stage-node span { margin-top: .7rem; font: 400 1.35rem/1 VT323, monospace; letter-spacing: .06em; } .ds-stage-node:hover, .ds-stage-node[aria-pressed='true'] { border-color: var(--phosphor, #8dff4d); background: var(--panel-strong, #09180b); color: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.36), inset 0 0 1.2rem rgba(77,176,54,.12); } .ds-stage-node:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    },
+    {
+      "name": "Evidence Tab",
+      "kind": "button",
+      "refersTo": "evidence-tab",
+      "description": "Applies an implemented, deployed, or observed proof lens to the selected stage.",
+      "html": "<button class=\"ds-evidence-tab\" type=\"button\" aria-pressed=\"true\" aria-label=\"Inspect Monitor runtime evidence\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><path d=\"M6 35V11h36v24H6Z\" /><path d=\"m10 29 7-10 7 7 7-12 7 10M31 35l8 8\" /></svg><span>OBSERVED</span><small>Monitor: runtime evidence</small></button>",
+      "css": ".ds-evidence-tab { display: grid; place-items: center; align-content: center; width: 14rem; min-height: 10rem; padding: 1.25rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 0; background: transparent; color: var(--phosphor-dim, #5ca83c); cursor: pointer; text-align: center; } .ds-evidence-tab svg { width: 3rem; fill: none; stroke: currentColor; stroke-width: 1.2; } .ds-evidence-tab span { margin-top: .65rem; font: 400 1.45rem/1 VT323, monospace; letter-spacing: .11em; } .ds-evidence-tab small { max-width: 24ch; margin-top: .5rem; color: #79af67; font: 400 .64rem/1.45 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-evidence-tab:hover, .ds-evidence-tab[aria-pressed='true'] { color: var(--phosphor-bright, #d3ffb9); background: rgba(71,155,50,.08); } .ds-evidence-tab:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    },
+    {
+      "name": "Trace Ledger Row",
+      "kind": "custom",
+      "description": "Selects one architecture route and exposes its exact AWS component chain.",
+      "html": "<button class=\"ds-trace-row\" type=\"button\" aria-pressed=\"true\"><span>PIPELINE</span><i aria-hidden=\"true\"></i></button>",
+      "css": ".ds-trace-row { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; align-items: center; width: 100%; min-width: 28rem; min-height: 2.6rem; padding: 0; border: 0; border-top: 1px solid var(--phosphor-dim, #5ca83c); border-bottom: 1px solid var(--phosphor-dim, #5ca83c); background: transparent; color: var(--phosphor-dim, #5ca83c); cursor: pointer; text-align: left; } .ds-trace-row span { font: 400 1.15rem/1 VT323, monospace; letter-spacing: .11em; } .ds-trace-row i { position: relative; display: block; border-top: 1px dashed currentColor; } .ds-trace-row i::before, .ds-trace-row i::after { position: absolute; top: -.25rem; width: .45rem; height: .45rem; border: 1px solid var(--phosphor-dim, #5ca83c); border-radius: 50%; background: var(--panel, #061007); content: ''; } .ds-trace-row i::before { left: 22%; } .ds-trace-row i::after { right: 12%; } .ds-trace-row:hover, .ds-trace-row[aria-pressed='true'] { color: var(--phosphor-bright, #d3ffb9); background: rgba(71,155,50,.06); } .ds-trace-row:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    },
+    {
+      "name": "Prediction Console",
+      "kind": "card",
+      "description": "Frames the secondary schema-driven demo as a terminal process.",
+      "html": "<section class=\"ds-console\"><header><span>POST /API/PREDICT</span><span>SCHEMA-DRIVEN REQUEST</span></header><div class=\"ds-console-body\"><label>MONTHLY CHARGES<input type=\"number\" value=\"0\" /></label><button type=\"button\">RUN PREDICTION</button></div></section>",
+      "css": ".ds-console { width: min(38rem, 100%); border: 1px solid var(--phosphor-dim, #5ca83c); background: rgba(5,15,6,.78); box-shadow: 0 18px 38px rgba(0,0,0,.4); color: var(--body-copy, #bafc8c); font-family: SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-console header { display: flex; justify-content: space-between; padding: .85rem 1rem; border-bottom: 1px solid var(--phosphor-faint, #264a20); color: var(--phosphor-dim, #5ca83c); font-size: .68rem; letter-spacing: .08em; } .ds-console-body { display: grid; gap: 1rem; padding: 1.5rem; } .ds-console label { display: grid; gap: .55rem; color: #79af67; font-size: .68rem; } .ds-console input { min-height: 2.65rem; padding: .55rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 1px; background: var(--field-background, #030904); color: var(--phosphor-bright, #d3ffb9); } .ds-console input:focus { border-color: var(--phosphor, #8dff4d); outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; } .ds-console button { justify-self: end; min-height: 3rem; padding: .65rem 1rem; border: 1px solid var(--phosphor, #8dff4d); border-radius: 1px; background: var(--phosphor, #8dff4d); color: var(--ink, #020603); font: 700 1.2rem/1 VT323, monospace; letter-spacing: .06em; } .ds-console button:hover { background: var(--phosphor-bright, #d3ffb9); } .ds-console button:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Layered Trace Ledger",
+    "overview": "The system presents architecture as a near-black phosphor dossier. A curved CRT shell contains exact routes, authored line icons, and evidence boundaries.\n\nThe visual voice stays technical, calm, and dense. Bright signals mark active relationships. Dim rules preserve the structure without competing with content.",
+    "keyCharacteristics": [
+      "Near-black CRT glass with restrained scanlines and perimeter bloom.",
+      "Phosphor linework that links architecture stages with evidence categories.",
+      "Bitmap display type paired with readable system monospace text.",
+      "Flat evidence frames with precise borders and controlled state depth.",
+      "One routed trace pulse and one stage-to-proof signal, with static reduced-motion states."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Rarity Rule",
+        "body": "Bright phosphor MUST identify a current action, selection, focus target, or primary readout.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fault Isolation Rule",
+        "body": "Warm fault colors MUST appear only in error states.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voice Rule",
+        "body": "Display text and controls MUST use VT323. Body text and data MUST use the system monospace stack.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shell Depth Rule",
+        "body": "The CRT shell MUST own the strongest ambient shadow. Internal frames MUST use borders at rest.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do: New screens MUST preserve the two-voice type system.",
+      "Do: Evidence relationships MUST use semantic HTML or authored SVG.",
+      "Do: Responsive layouts MUST keep the content order readable without the desktop route overlay.",
+      "Do: Motion MUST resolve to a static path when the visitor requests reduced motion."
+    ],
+    "donts": [
+      "Don't: New screens MUST NOT place semantic evidence inside a raster image.",
+      "Don't: Active states MUST NOT use glow without a border, route, or label.",
+      "Don't: Sequential architecture MUST NOT become isolated tiles when the route relationship carries meaning.",
+      "Don't: Error colors MUST NOT decorate neutral or successful states."
+    ]
+  }
+}

@@ -2,8 +2,8 @@
 type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
-updated: "2026-08-14"
-sources: ["./website-stack-plan.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/api.ts", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+updated: "2026-08-15"
+sources: ["./website-stack-plan.md", "../../../PRODUCT.md", "../../../DESIGN.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/api.ts", "../../../website/frontend/src/components/ArchitectureMap.tsx", "../../../website/frontend/src/styles.css", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -23,11 +23,35 @@ summary: "The website work stops at the deploy boundary and restarts as a three-
   backing services are `amazon/dynamodb-local` for the mailing list and
   `minio/minio` for the evaluation reports in S3. `local/compose.yaml` runs
   both today, with volumes, and is proved against the current backend code.
-- **The frontend is scaffolded and runs.** `frontend/` holds a React 19 and
-  TypeScript application built by Vite. `App.tsx` composes four components,
+- **The frontend is designed and runs locally.** `frontend/` holds a React 19
+  and TypeScript application built by Vite. `App.tsx` composes five components,
   `api.ts` is the one place that calls the backend, and `types.ts` states the
   response shapes. `npm run typecheck` and `npm test` pass, and
   `make frontend-check` runs both.
+- **Architecture leads the page.** `ArchitectureMap.tsx` presents ingestion,
+  training, evaluation, registration, serving, monitoring, and retraining as
+  one interactive lifecycle. The evidence rail keeps implemented, deployed,
+  and observed evidence distinct. The prediction form is a later section.
+- **The evidence rail applies proof lenses to the selected stage.** Implemented
+  names the source or test boundary. Deployed names the dev infrastructure
+  boundary. Observed names the runtime signal. A one-shot path signal and the
+  coupled readout show the relationship to the lifecycle diagram.
+- **The trace ledger is an architecture control.** Pipeline, signed API, and
+  drift select their related stages and animate one route. The selected readout
+  names the AWS component chain. A stage selection also selects its related
+  trace. Native buttons provide keyboard access, and reduced motion keeps a
+  static selected route.
+- **The approved visual direction is Layered Trace Ledger.** The page uses a
+  near-black CRT surface, phosphor-green linework, a compact evidence rail,
+  and a quiet trace ledger. One 1672 by 941 WebP supplies the CRT field. HTML,
+  CSS, and authored SVG keep the architecture and controls accessible. VT323
+  supplies the self-hosted bitmap display voice under the SIL Open Font License.
+- **The current repository remains the source target.** Header and first-fold
+  actions link to `emanuelGitCodes/aws-mlops-platform`. A public mirror can
+  replace that target after the user publishes it.
+- **The visual system is documented.** Root `DESIGN.md` records the built
+  tokens and rules. `.impeccable/design.json` carries the extended component,
+  motion, breakpoint, and color metadata.
 - **The form builds itself from `/api/schema`.** `PredictForm` reads
   `feature_columns` and `categorical_values` at run time and renders a control
   for each. A new feature column needs no frontend change, and the vocabulary

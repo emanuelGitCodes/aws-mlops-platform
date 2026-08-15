@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: compositional option 1 for a desktop engineering portfolio
+Primary request: Add one small secondary action labeled exactly “TRY PREDICTION” inside the bottom action strip, to the left of “TRACE THE PLATFORM”. Keep it visibly quieter than both existing actions.
+Constraints: Change only the bottom action strip. Preserve every other pixel-level layout decision, architecture module, evidence rail, title, color, phosphor treatment, scanlines, and existing text. Do not remove or rewrite any existing label. Add no other text or symbols.
+Avoid: changing the diagram, adding colors, moving the evidence rail, pseudo-text, watermarks.

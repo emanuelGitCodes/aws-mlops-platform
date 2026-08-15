@@ -20,8 +20,8 @@ export function LatestEvaluation({
 }) {
   if (!results.available) {
     return (
-      <section>
-        <h2>Latest evaluation</h2>
+      <section className="evidence-panel">
+        <h3>Latest evaluation</h3>
         {/* The prefix is empty before the first pipeline run, and the read can
             fail on its own. The backend tells the two apart. */}
         <p>{results.error ?? "No evaluation report has been published yet."}</p>
@@ -31,8 +31,8 @@ export function LatestEvaluation({
 
   const auc = readAuc(results.report);
   return (
-    <section>
-      <h2>Latest evaluation</h2>
+    <section className="evidence-panel">
+      <h3>Latest evaluation</h3>
       <dl>
         <dt>Test AUC</dt>
         <dd>{auc === null ? "not reported" : auc.toFixed(4)}</dd>
@@ -42,7 +42,7 @@ export function LatestEvaluation({
         <dd>{results.generated_at ?? "unknown"}</dd>
       </dl>
       <details>
-        <summary>Full report</summary>
+        <summary>Inspect full report</summary>
         <pre>{JSON.stringify(results.report, null, 2)}</pre>
       </details>
     </section>

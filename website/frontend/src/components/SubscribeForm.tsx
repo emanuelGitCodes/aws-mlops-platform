@@ -26,11 +26,11 @@ export function SubscribeForm() {
   }
 
   return (
-    <section>
-      <h2>Keep in touch</h2>
+    <section className="subscribe-panel">
+      <h2>Follow the build</h2>
       <form onSubmit={submit}>
-        <label>
-          <span>Email</span>
+        <label className="email-field">
+          <span className="sr-only">Email address</span>
           <input
             type="email"
             required
@@ -40,12 +40,12 @@ export function SubscribeForm() {
           />
         </label>
         <button type="submit" disabled={pending}>
-          {pending ? "Sending…" : "Subscribe"}
+          {pending ? "Sending…" : "Subscribe for updates"}
         </button>
       </form>
 
-      {error && <p role="alert">{error}</p>}
-      {signedUpAt && <p>Signed up at {signedUpAt}</p>}
+      {error && <p className="form-note is-error" role="alert">{error}. Check the address, then try again.</p>}
+      {signedUpAt && <p className="form-note">Subscribed. First recorded at {signedUpAt}.</p>}
     </section>
   );
 }

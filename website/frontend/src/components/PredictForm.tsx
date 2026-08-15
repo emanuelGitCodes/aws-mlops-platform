@@ -37,10 +37,13 @@ export function PredictForm({ schema }: { schema: ModelSchema }) {
   }
 
   return (
-    <section>
-      <h2>Try the model</h2>
+    <div className="prediction-console">
+      <div className="console-bar">
+        <span>POST /api/predict</span>
+        <span>Schema-driven request</span>
+      </div>
       <form onSubmit={submit}>
-        <div className="grid">
+        <div className="input-grid">
           {schema.feature_columns.map((column) => {
             const options = schema.categorical_values[column];
             return (
@@ -73,18 +76,22 @@ export function PredictForm({ schema }: { schema: ModelSchema }) {
             );
           })}
         </div>
-        <button type="submit" disabled={pending}>
-          {pending ? "Scoring…" : "Predict"}
+        <button className="submit-command" type="submit" disabled={pending}>
+          {pending ? "Scoring record…" : "Run prediction"}
         </button>
       </form>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="inline-result is-error" role="alert">{error}. Check the values, then try again.</p>}
       {result && (
-        <p>
-          <strong>{result.churn ? "Likely to churn" : "Likely to stay"}</strong> — probability{" "}
-          {result.churn_probability.toFixed(4)} against a {schema.decision_threshold} threshold.
-        </p>
+        <div className="inline-result" aria-live="polite">
+          <span>Prediction result</span>
+          <strong>{result.churn ? "Likely to churn" : "Likely to stay"}</strong>
+          <p>
+            Probability {result.churn_probability.toFixed(4)} against a{" "}
+            {schema.decision_threshold} decision threshold.
+          </p>
+        </div>
       )}
-    </section>
+    </div>
   );
 }

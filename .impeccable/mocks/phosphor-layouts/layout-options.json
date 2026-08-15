@@ -1,0 +1,37 @@
+{
+  "title": "Choose the phosphor dossier composition",
+  "question": "All three keep the Release Control Dossier layout and the Phosphor Run Log palette. Which composition should the frontend match?",
+  "options": [
+    {
+      "id": "phosphor-evidence-dossier",
+      "label": "Phosphor Evidence Dossier",
+      "thesis": "The dossier layout translates directly into one crisp phosphor architecture plate and a three-part evidence rail.",
+      "palette": ["#020905", "#6CFF5B", "#2A7A2D"],
+      "materials": ["curved CRT glass", "scanlines", "phosphor blueprint"],
+      "viewport": "Seven equal lifecycle modules dominate the left field while the evidence categories stay large and quiet on the right.",
+      "risk": "The equal modules are clear but make every lifecycle stage feel equally important.",
+      "comp": ".impeccable/mocks/phosphor-layouts/option-1.webp"
+    },
+    {
+      "id": "active-trace-dossier",
+      "label": "Active Trace Dossier",
+      "thesis": "A selected lifecycle route burns bright while retraining remains visible as a fading afterimage.",
+      "palette": ["#020905", "#78FF5C", "#214F24"],
+      "materials": ["curved CRT glass", "route bloom", "afterimage trail"],
+      "viewport": "The active route becomes the focal interaction, with compact evidence waveforms aligned in the right rail.",
+      "risk": "The route focus is memorable but requires a clear default state before the visitor interacts.",
+      "comp": ".impeccable/mocks/phosphor-layouts/option-2.webp"
+    },
+    {
+      "id": "layered-trace-ledger",
+      "label": "Layered Trace Ledger",
+      "thesis": "One continuous architecture schematic sits above a quiet ledger for pipeline, API, and drift evidence.",
+      "palette": ["#020905", "#72FF52", "#1B5E20"],
+      "materials": ["curved CRT glass", "luminous cursor", "trace ledger"],
+      "viewport": "The main diagram, trace ledger, and evidence rail form three linked layers without turning into a card grid.",
+      "risk": "The added ledger carries more engineering detail and increases first-viewport density.",
+      "comp": ".impeccable/mocks/phosphor-layouts/option-3.webp"
+    }
+  ],
+  "steer": true
+}

@@ -1,0 +1,13 @@
+Use case: ui-mockup
+Asset type: compositional option 3 for a desktop engineering portfolio
+Input images: Image 1 is the layout family: a dominant architecture drawing on the left and a narrow evidence rail on the right. Image 2 is the exclusive palette and material authority: near-black curved CRT glass, phosphor green hierarchy, bitmap typography, scanlines, bloom, and afterimages. Do not use Image 2's single transcript layout.
+Primary request: Create a third production-grade fusion called “Layered Trace Ledger.” Preserve the Release Control Dossier's diagram-plus-evidence-rail structure, but replace its separate stage cards with one continuous system schematic and a compact live trace ledger below it.
+Scene/backdrop: Near-black CRT glass with a subtle curved perimeter, restrained scanlines, and precise green linework.
+Subject: The left 76 percent has two stacked layers. The upper layer, about 70 percent of the left field, is one continuous node-and-route schematic from INGEST to TRAIN to EVALUATE to REGISTER to SERVE to MONITOR, with RETRAIN looping back to TRAIN. The lower layer is a quiet three-line trace ledger using only the labels PIPELINE, SIGNED API, and DRIFT; it shows no metrics, timestamps, filenames, or commands. The right 24 percent holds three large evidence tabs labeled IMPLEMENTED, DEPLOYED, OBSERVED, with abstract node icons and no checkmarks. One luminous vertical cursor links the selected architecture node to its evidence category.
+Style/medium: High-fidelity shippable desktop web UI, terminal phosphor material fused with a technical evidence dossier, dense but calm.
+Composition/framing: Landscape 16:9, no browser chrome. Continuous architecture schematic upper-left, quiet trace ledger lower-left, evidence rail right, compact title top, action strip at the bottom. The luminous evidence cursor is the signature focal moment.
+Color palette: Near-black, vivid P1 phosphor green, dim afterimage green only.
+Materials/textures: Curved CRT glass, restrained scanlines, precise bitmap glyphs, a single bright cursor bloom, faint afterimage route history.
+Text (verbatim): “AWS MLOPS REFERENCE PLATFORM”, “INGEST”, “TRAIN”, “EVALUATE”, “REGISTER”, “SERVE”, “MONITOR”, “RETRAIN”, “PIPELINE”, “SIGNED API”, “DRIFT”, “IMPLEMENTED”, “DEPLOYED”, “OBSERVED”, “TRACE THE PLATFORM”, “GITHUB SOURCE”, “TRY PREDICTION”
+Constraints: Architecture is the hero. Keep the large-left-diagram and narrow-right-evidence layout. Prediction is secondary. Use evidence labels as categories, not universal claims.
+Avoid: paper, cream, blue or orange ink, extra colors, invented metrics, timestamps, filenames, commands, checkmarks, customers, logos, gradients, glassmorphism, generic cards, pseudo-text, browser chrome, watermarks.

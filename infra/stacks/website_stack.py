@@ -59,6 +59,9 @@ _IMAGE_CONTENT = [
     "!src/__init__.py",
     "!src/common",
     "!src/common/**",
+    # The backend reads these to seed the prediction form.
+    "!sample.json",
+    "!sample-high-risk.json",
     "website/frontend",
     "website/frontend/**",
     "website/local",

@@ -55,6 +55,40 @@ def test_schema_payload_comes_from_the_shared_contract():
     assert payload["decision_threshold"] == 0.5
 
 
+def test_numeric_bounds_come_from_the_request_model():
+    """Read each numeric range from `CustomerRecord`, never from a literal."""
+    bounds = services.numeric_bounds()
+
+    assert set(bounds) == set(services.NUMERIC)
+    # `SeniorCitizen` is the one integer flag, so the form can render a choice.
+    assert bounds["SeniorCitizen"] == {"integer": True, "minimum": 0, "maximum": 1}
+    assert bounds["tenure"] == {"integer": True, "minimum": 0}
+    assert bounds["MonthlyCharges"] == {"integer": False, "minimum": 0}
+
+
+def test_examples_come_from_the_canonical_sample_files():
+    """Seed the form from the payloads the fixtures and curl calls already use."""
+    examples = services.example_records()
+
+    assert [example["key"] for example in examples] == ["typical", "high_risk"]
+    for example in examples:
+        assert set(example["record"]) >= set(services.FEATURE_COLUMNS)
+        assert example["label"]
+
+
+def test_a_missing_sample_file_drops_its_example(tmp_path, monkeypatch):
+    """Lose one example rather than the whole schema route."""
+    services.example_records.cache_clear()
+    monkeypatch.setattr(services, "_REPO_ROOT", tmp_path)
+    (tmp_path / "sample.json").write_text(json.dumps(VALID))
+    try:
+        examples = services.example_records()
+    finally:
+        services.example_records.cache_clear()
+
+    assert [example["key"] for example in examples] == ["typical"]
+
+
 def test_latest_results_returns_the_newest_report(cache):
     """Select the report with the newest last-modified time."""
     with mock.patch.object(services, "s3") as s3:

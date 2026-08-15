@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-15T01:29:40.873Z",
+  "generatedAt": "2026-08-15T00:00:00Z",
   "title": "Design System: AWS MLOps Reference Platform",
   "extensions": {
     "colorMeta": {
@@ -9,54 +9,79 @@
         "displayName": "Live Phosphor",
         "canonical": "#8dff4d",
         "tonalRamp": [
-          "oklch(15% 0.234 136.6)", "oklch(26.4% 0.234 136.6)",
-          "oklch(37.9% 0.234 136.6)", "oklch(49.3% 0.234 136.6)",
-          "oklch(60.7% 0.234 136.6)", "oklch(72.1% 0.234 136.6)",
-          "oklch(83.6% 0.234 136.6)", "oklch(95% 0.234 136.6)"
+          "oklch(20% 0.11 132)",
+          "oklch(30% 0.14 132)",
+          "oklch(40% 0.17 132)",
+          "oklch(52% 0.20 132)",
+          "oklch(64% 0.23 132)",
+          "oklch(75% 0.25 132)",
+          "oklch(86% 0.18 132)",
+          "oklch(95% 0.08 132)"
         ]
       },
-      "phosphor-bright": {
+      "bright": {
         "role": "primary",
         "displayName": "Signal White",
         "canonical": "#d3ffb9",
         "tonalRamp": [
-          "oklch(15% 0.102 134.2)", "oklch(26.4% 0.102 134.2)",
-          "oklch(37.9% 0.102 134.2)", "oklch(49.3% 0.102 134.2)",
-          "oklch(60.7% 0.102 134.2)", "oklch(72.1% 0.102 134.2)",
-          "oklch(83.6% 0.102 134.2)", "oklch(95% 0.102 134.2)"
+          "oklch(22% 0.06 132)",
+          "oklch(33% 0.08 132)",
+          "oklch(44% 0.09 132)",
+          "oklch(56% 0.10 132)",
+          "oklch(68% 0.11 132)",
+          "oklch(79% 0.11 132)",
+          "oklch(88% 0.10 132)",
+          "oklch(96% 0.05 132)"
         ]
       },
-      "phosphor-dim": {
-        "role": "neutral",
+      "dim": {
+        "role": "secondary",
         "displayName": "Afterimage Green",
         "canonical": "#5ca83c",
         "tonalRamp": [
-          "oklch(15% 0.162 137.7)", "oklch(26.4% 0.162 137.7)",
-          "oklch(37.9% 0.162 137.7)", "oklch(49.3% 0.162 137.7)",
-          "oklch(60.7% 0.162 137.7)", "oklch(72.1% 0.162 137.7)",
-          "oklch(83.6% 0.162 137.7)", "oklch(95% 0.162 137.7)"
+          "oklch(18% 0.07 135)",
+          "oklch(27% 0.09 135)",
+          "oklch(36% 0.11 135)",
+          "oklch(45% 0.13 135)",
+          "oklch(55% 0.14 135)",
+          "oklch(66% 0.14 135)",
+          "oklch(78% 0.12 135)",
+          "oklch(92% 0.06 135)"
         ]
       },
-      "phosphor-faint": {
-        "role": "neutral",
+      "faint": {
+        "role": "secondary",
         "displayName": "Trace Rule",
         "canonical": "#264a20",
         "tonalRamp": [
-          "oklch(15% 0.080 140.9)", "oklch(26.4% 0.080 140.9)",
-          "oklch(37.9% 0.080 140.9)", "oklch(49.3% 0.080 140.9)",
-          "oklch(60.7% 0.080 140.9)", "oklch(72.1% 0.080 140.9)",
-          "oklch(83.6% 0.080 140.9)", "oklch(95% 0.080 140.9)"
+          "oklch(15% 0.05 138)",
+          "oklch(23% 0.06 138)",
+          "oklch(32% 0.08 138)",
+          "oklch(41% 0.09 138)",
+          "oklch(52% 0.10 138)",
+          "oklch(64% 0.10 138)",
+          "oklch(77% 0.08 138)",
+          "oklch(92% 0.04 138)"
         ]
+      },
+      "rule-soft": {
+        "role": "secondary",
+        "displayName": "Soft Rule",
+        "canonical": "rgba(38, 74, 32, 0.72)"
       },
       "ink": {
         "role": "neutral",
         "displayName": "Dossier Ink",
         "canonical": "#020603",
         "tonalRamp": [
-          "oklch(15% 0.016 153.3)", "oklch(26.4% 0.016 153.3)",
-          "oklch(37.9% 0.016 153.3)", "oklch(49.3% 0.016 153.3)",
-          "oklch(60.7% 0.016 153.3)", "oklch(72.1% 0.016 153.3)",
-          "oklch(83.6% 0.016 153.3)", "oklch(95% 0.016 153.3)"
+          "oklch(8% 0.01 140)",
+          "oklch(14% 0.01 140)",
+          "oklch(22% 0.01 140)",
+          "oklch(33% 0.01 140)",
+          "oklch(45% 0.01 140)",
+          "oklch(60% 0.01 140)",
+          "oklch(78% 0.01 140)",
+          "oklch(95% 0.01 140)"
         ]
       },
       "panel": {
@@ -64,214 +89,357 @@
         "displayName": "Terminal Panel",
         "canonical": "#061007",
         "tonalRamp": [
-          "oklch(15% 0.025 147.2)", "oklch(26.4% 0.025 147.2)",
-          "oklch(37.9% 0.025 147.2)", "oklch(49.3% 0.025 147.2)",
-          "oklch(60.7% 0.025 147.2)", "oklch(72.1% 0.025 147.2)",
-          "oklch(83.6% 0.025 147.2)", "oklch(95% 0.025 147.2)"
+          "oklch(10% 0.02 140)",
+          "oklch(16% 0.02 140)",
+          "oklch(24% 0.03 140)",
+          "oklch(35% 0.03 140)",
+          "oklch(47% 0.03 140)",
+          "oklch(62% 0.03 140)",
+          "oklch(79% 0.02 140)",
+          "oklch(95% 0.01 140)"
         ]
       },
       "panel-strong": {
         "role": "neutral",
         "displayName": "Active Panel",
-        "canonical": "#09180b",
-        "tonalRamp": [
-          "oklch(15% 0.033 147.2)", "oklch(26.4% 0.033 147.2)",
-          "oklch(37.9% 0.033 147.2)", "oklch(49.3% 0.033 147.2)",
-          "oklch(60.7% 0.033 147.2)", "oklch(72.1% 0.033 147.2)",
-          "oklch(83.6% 0.033 147.2)", "oklch(95% 0.033 147.2)"
-        ]
+        "canonical": "#09180b"
       },
-      "field-background": {
+      "field": {
         "role": "neutral",
         "displayName": "Field Black",
-        "canonical": "#030904",
-        "tonalRamp": [
-          "oklch(15% 0.020 149.9)", "oklch(26.4% 0.020 149.9)",
-          "oklch(37.9% 0.020 149.9)", "oklch(49.3% 0.020 149.9)",
-          "oklch(60.7% 0.020 149.9)", "oklch(72.1% 0.020 149.9)",
-          "oklch(83.6% 0.020 149.9)", "oklch(95% 0.020 149.9)"
-        ]
+        "canonical": "#030904"
       },
       "action-active": {
         "role": "neutral",
-        "displayName": "Action Panel",
-        "canonical": "#0a1c0c",
-        "tonalRamp": [
-          "oklch(15% 0.039 146.4)", "oklch(26.4% 0.039 146.4)",
-          "oklch(37.9% 0.039 146.4)", "oklch(49.3% 0.039 146.4)",
-          "oklch(60.7% 0.039 146.4)", "oklch(72.1% 0.039 146.4)",
-          "oklch(83.6% 0.039 146.4)", "oklch(95% 0.039 146.4)"
-        ]
+        "displayName": "Action Black",
+        "canonical": "#0a1c0c"
       },
-      "body-copy": {
+      "text": {
         "role": "neutral",
-        "displayName": "Readable Phosphor",
+        "displayName": "Body Phosphor",
         "canonical": "#bafc8c",
         "tonalRamp": [
-          "oklch(15% 0.158 133.6)", "oklch(26.4% 0.158 133.6)",
-          "oklch(37.9% 0.158 133.6)", "oklch(49.3% 0.158 133.6)",
-          "oklch(60.7% 0.158 133.6)", "oklch(72.1% 0.158 133.6)",
-          "oklch(83.6% 0.158 133.6)", "oklch(95% 0.158 133.6)"
+          "oklch(24% 0.09 132)",
+          "oklch(35% 0.11 132)",
+          "oklch(46% 0.13 132)",
+          "oklch(57% 0.14 132)",
+          "oklch(68% 0.15 132)",
+          "oklch(79% 0.14 132)",
+          "oklch(89% 0.11 132)",
+          "oklch(96% 0.05 132)"
         ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Muted Phosphor",
+        "canonical": "#9cd087"
+      },
+      "text-quiet": {
+        "role": "neutral",
+        "displayName": "Quiet Phosphor",
+        "canonical": "#83c66b"
+      },
+      "text-faint": {
+        "role": "neutral",
+        "displayName": "Faint Phosphor",
+        "canonical": "#6d9f5c"
       },
       "danger": {
         "role": "tertiary",
         "displayName": "Fault Signal",
         "canonical": "#ffb4a8",
         "tonalRamp": [
-          "oklch(15% 0.090 29.2)", "oklch(26.4% 0.090 29.2)",
-          "oklch(37.9% 0.090 29.2)", "oklch(49.3% 0.090 29.2)",
-          "oklch(60.7% 0.090 29.2)", "oklch(72.1% 0.090 29.2)",
-          "oklch(83.6% 0.090 29.2)", "oklch(95% 0.090 29.2)"
+          "oklch(22% 0.06 28)",
+          "oklch(33% 0.09 28)",
+          "oklch(44% 0.12 28)",
+          "oklch(55% 0.14 28)",
+          "oklch(66% 0.14 28)",
+          "oklch(77% 0.11 28)",
+          "oklch(87% 0.07 28)",
+          "oklch(95% 0.03 28)"
         ]
       },
       "danger-line": {
         "role": "tertiary",
         "displayName": "Fault Rule",
-        "canonical": "#b44136",
-        "tonalRamp": [
-          "oklch(15% 0.152 28.6)", "oklch(26.4% 0.152 28.6)",
-          "oklch(37.9% 0.152 28.6)", "oklch(49.3% 0.152 28.6)",
-          "oklch(60.7% 0.152 28.6)", "oklch(72.1% 0.152 28.6)",
-          "oklch(83.6% 0.152 28.6)", "oklch(95% 0.152 28.6)"
-        ]
+        "canonical": "#b44136"
+      },
+      "wash-hover": {
+        "role": "neutral",
+        "displayName": "Hover Wash",
+        "canonical": "rgba(141, 255, 77, 0.07)"
+      },
+      "wash-active": {
+        "role": "neutral",
+        "displayName": "Active Wash",
+        "canonical": "rgba(141, 255, 77, 0.11)"
+      },
+      "bloom-shell": {
+        "role": "neutral",
+        "displayName": "Shell Bloom",
+        "canonical": "rgba(141, 255, 77, 0.09)"
+      },
+      "bloom-inset": {
+        "role": "neutral",
+        "displayName": "Inset Bloom",
+        "canonical": "rgba(141, 255, 77, 0.07)"
+      },
+      "bloom-route": {
+        "role": "neutral",
+        "displayName": "Route Bloom",
+        "canonical": "rgba(141, 255, 77, 0.7)"
+      },
+      "bloom-cursor": {
+        "role": "neutral",
+        "displayName": "Cursor Bloom",
+        "canonical": "rgba(141, 255, 77, 0.9)"
+      },
+      "shadow-ambient": {
+        "role": "neutral",
+        "displayName": "Ambient Shadow",
+        "canonical": "rgba(0, 0, 0, 0.72)"
+      },
+      "shadow-control": {
+        "role": "neutral",
+        "displayName": "Control Shadow",
+        "canonical": "rgba(0, 0, 0, 0.36)"
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Leads major sections." },
-      "headline": { "displayName": "Headline", "purpose": "Names the platform." },
-      "title": { "displayName": "Title", "purpose": "Names evidence panels and system stories." },
-      "body": { "displayName": "Body", "purpose": "Carries explanations and supporting copy." },
-      "label": { "displayName": "Label", "purpose": "Marks controls and readout keys." },
-      "data": { "displayName": "Data", "purpose": "Carries tables, results, and form values." }
+      "display": { "displayName": "Display", "purpose": "Opens a major page section." },
+      "headline": { "displayName": "Headline", "purpose": "Names the platform inside the CRT shell." },
+      "headline-compact": { "displayName": "Headline, compact", "purpose": "Replaces the headline on a short viewport, so the first frame ends above the fold." },
+      "metric": { "displayName": "Metric", "purpose": "Carries one headline number, tabular." },
+      "subhead": { "displayName": "Subhead", "purpose": "Opens the footer contact block." },
+      "masthead": { "displayName": "Masthead", "purpose": "Carries the engineer's name in the header and footer." },
+      "title": { "displayName": "Title", "purpose": "Names a story column or an evidence panel." },
+      "label": { "displayName": "Label", "purpose": "Marks terminal keys, readout keys, and evidence tabs." },
+      "node": { "displayName": "Node", "purpose": "Names an architecture stage and the submit command." },
+      "control": { "displayName": "Control", "purpose": "Names a trace, a disclosure summary, and the skip link." },
+      "lead": { "displayName": "Lead", "purpose": "Carries a section standfirst." },
+      "body": { "displayName": "Body", "purpose": "Carries paragraphs, 40ch to 70ch." },
+      "data": { "displayName": "Data", "purpose": "Carries readouts, input values, and summaries." },
+      "detail": { "displayName": "Detail", "purpose": "Carries tables, proof copy, and trace detail." },
+      "meta": { "displayName": "Meta", "purpose": "Marks uppercase field labels and unit names." },
+      "micro": { "displayName": "Micro", "purpose": "Carries the route line and code blocks. The legibility floor." }
     },
+    "fonts": [
+      {
+        "family": "VT323",
+        "source": "self-hosted",
+        "format": "woff2",
+        "url": "/fonts/VT323-Regular.woff2",
+        "display": "swap",
+        "preloaded": true,
+        "purpose": "The display voice. Every heading, control label, and node name."
+      },
+      {
+        "family": "system monospace",
+        "source": "system",
+        "stack": "SFMono-Regular, Cascadia Code, Liberation Mono, ui-monospace, monospace",
+        "purpose": "Body text and data. Never self-hosted."
+      }
+    ],
     "shadows": [
       {
-        "name": "crt-ambient",
+        "name": "page-bloom",
+        "value": "inset 0 0 12rem rgba(141, 255, 77, 0.07)",
+        "purpose": "Lights the page field from its own edges, behind every section."
+      },
+      {
+        "name": "shell-ambient",
         "value": "0 18px 55px rgba(0, 0, 0, 0.72)",
-        "purpose": "Separates the curved shell from the page field."
+        "purpose": "Separates the CRT shell from the page field. The one real cast shadow."
       },
       {
-        "name": "crt-inset",
-        "value": "inset 0 0 4.5rem rgba(61, 186, 66, 0.1)",
-        "purpose": "Adds restrained phosphor bloom inside the shell."
+        "name": "shell-inner-bloom",
+        "value": "inset 0 0 4.5rem rgba(141, 255, 77, 0.09)",
+        "purpose": "Lights the inside of the CRT shell; an inset 1.25rem edge repeats it."
       },
       {
-        "name": "active-control",
-        "value": "0 8px 18px rgba(0, 0, 0, 0.36)",
-        "purpose": "Marks a hovered or selected interactive frame."
+        "name": "console-depth",
+        "value": "0 18px 38px rgba(0, 0, 0, 0.72), inset 0 0 3.5rem rgba(141, 255, 77, 0.07)",
+        "purpose": "Sets the prediction console apart from the page at lower strength."
       },
       {
-        "name": "cursor-bloom",
-        "value": "0 0 0.9rem rgba(141, 255, 77, 0.95)",
-        "purpose": "Locates the active evidence category."
+        "name": "control-press",
+        "value": "0 6px 16px rgba(0, 0, 0, 0.36), inset 0 0 1.1rem rgba(141, 255, 77, 0.07)",
+        "purpose": "Marks an active stage node or terminal key."
+      },
+      {
+        "name": "route-glow",
+        "value": "drop-shadow(0 0 4px rgba(141, 255, 77, 0.7))",
+        "purpose": "Lights a route that belongs to the selected trace."
+      },
+      {
+        "name": "cursor-glow",
+        "value": "drop-shadow(0 0 7px rgba(141, 255, 77, 0.9))",
+        "purpose": "Lights the evidence pulse and the node it lands on."
+      },
+      {
+        "name": "rail-edge",
+        "value": "inset 3px 0 0 #8dff4d",
+        "purpose": "Marks the selected evidence tab; becomes a top edge when the rail stacks."
+      },
+      {
+        "name": "footer-edge",
+        "value": "0 0 1.5rem 1px rgba(141, 255, 77, 0.09)",
+        "purpose": "Closes the page on the same emissive edge the hero opened with."
       }
     ],
     "motion": [
       {
-        "name": "state-fast",
+        "name": "state-quick",
+        "value": "160ms ease",
+        "purpose": "Colour change on links, presets, and contact rows."
+      },
+      {
+        "name": "state-control",
         "value": "180ms ease",
-        "purpose": "Changes terminal keys, fields, and command buttons."
+        "purpose": "Border, fill, and shadow change on keys, fields, and the command button."
       },
       {
-        "name": "state-standard",
-        "value": "220ms ease",
-        "purpose": "Changes architecture nodes and evidence tabs."
-      },
-      {
-        "name": "cursor-route",
-        "value": "500ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Moves the evidence cursor between proof categories."
+        "name": "state-node",
+        "value": "200ms ease",
+        "purpose": "Border, fill, and bracket opacity change on nodes, tabs, and ledger rows."
       },
       {
         "name": "evidence-signal",
         "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Carries one signal from the selected stage to its proof lens."
+        "purpose": "The one bright pulse along the evidence cursor. Runs once, settles at 0.4 opacity."
       },
       {
-        "name": "trace-pulse",
-        "value": "7s cubic-bezier(0.16, 1, 0.3, 1) infinite",
-        "purpose": "Runs one slow pulse through the lifecycle route."
+        "name": "evidence-resolve",
+        "value": "320ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Wipes the proof readout in from the left as the lens changes."
       },
       {
         "name": "reduced-motion",
         "value": "0.01ms",
-        "purpose": "Resolves animation and transitions to a static state."
+        "purpose": "Every animation and transition collapses under prefers-reduced-motion: reduce."
       }
     ],
     "breakpoints": [
-      { "name": "rail-stack", "value": "1100px" },
-      { "name": "mobile-trace", "value": "760px" },
-      { "name": "single-column", "value": "460px" }
-    ]
+      { "name": "wide-fold", "value": "1180px" },
+      { "name": "rail-stack", "value": "1000px" },
+      { "name": "header-wrap", "value": "820px" },
+      { "name": "column-stack", "value": "760px" },
+      { "name": "single-column", "value": "460px" },
+      { "name": "short-viewport", "value": "(min-width: 761px) and (max-height: 810px)" },
+      { "name": "shortest-viewport", "value": "(min-width: 761px) and (max-height: 745px)" }
+    ],
+    "layout": {
+      "container": "min(100% - 2rem, 96rem)",
+      "containerNarrowGutter": "1.5rem below 760px",
+      "sectionRhythm": "clamp(3.5rem, 6vw, 6rem)",
+      "railWidth": "minmax(11rem, 13rem)",
+      "measure": "40ch to 70ch for body copy, 62ch for standfirsts"
+    }
   },
   "components": [
     {
       "name": "Terminal Key",
-      "kind": "nav",
-      "refersTo": "terminal-key",
-      "description": "Moves visitors between architecture, source, and prediction evidence.",
-      "html": "<a class=\"ds-terminal-key\" href=\"#architecture\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 5h18v14H3V5Zm4 4h4m-4 4h8m-8 4h5\" /></svg>TRACE THE PLATFORM</a>",
-      "css": ".ds-terminal-key { display: inline-flex; gap: .9rem; align-items: center; justify-content: center; min-height: 3.4rem; padding: .75rem 1rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--phosphor, #8dff4d); font: 400 1.2rem/1 VT323, monospace; letter-spacing: .1em; text-decoration: none; } .ds-terminal-key svg { width: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.3; } .ds-terminal-key:hover { border-color: var(--phosphor, #8dff4d); background: var(--action-active, #0a1c0c); color: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.38); } .ds-terminal-key:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
-    },
-    {
-      "name": "Command Button",
       "kind": "button",
-      "refersTo": "command-button",
-      "description": "Submits a schema-driven prediction or subscription request.",
-      "html": "<button class=\"ds-command-button\" type=\"button\">RUN PREDICTION</button>",
-      "css": ".ds-command-button { min-height: 3rem; padding: .65rem 1rem; border: 1px solid var(--phosphor, #8dff4d); border-radius: 1px; background: var(--phosphor, #8dff4d); color: var(--ink, #020603); font: 700 1.2rem/1 VT323, monospace; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease; } .ds-command-button:hover { background: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.36); transform: translateY(-1px); } .ds-command-button:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; } .ds-command-button:active { transform: translateY(0); } .ds-command-button:disabled { cursor: progress; opacity: .55; transform: none; }"
+      "refersTo": "terminal-key",
+      "description": "The rectangular action key that closes the first viewport.",
+      "html": "<a class=\"ds-terminal-key\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M9 8 5 12l4 4m6-8 4 4-4 4\"/></svg>Read the source</a>",
+      "css": ".ds-terminal-key { position: relative; display: inline-flex; gap: 0.8rem; align-items: center; justify-content: center; min-height: 2.7rem; padding: 0.55rem 1rem; border: 1px solid var(--faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--phosphor, #8dff4d); font-family: \"VT323\", ui-monospace, monospace; font-size: 1.25rem; line-height: 1; letter-spacing: 0.09em; text-decoration: none; text-transform: uppercase; transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease; } .ds-terminal-key svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-width: 1.4; } .ds-terminal-key::before, .ds-terminal-key::after { position: absolute; width: 0.45rem; height: 0.45rem; content: \"\"; opacity: 0.55; transition: opacity 200ms ease; } .ds-terminal-key::before { top: 0.25rem; left: 0.25rem; border-top: 1px solid currentColor; border-left: 1px solid currentColor; } .ds-terminal-key::after { right: 0.25rem; bottom: 0.25rem; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; } .ds-terminal-key:hover { border-color: var(--phosphor, #8dff4d); background: var(--action-active, #0a1c0c); color: var(--bright, #d3ffb9); box-shadow: 0 6px 16px rgba(0,0,0,0.36), inset 0 0 1.1rem rgba(141,255,77,0.07); } .ds-terminal-key:hover::before, .ds-terminal-key:hover::after { opacity: 1; } .ds-terminal-key:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: 3px; }"
     },
     {
-      "name": "Terminal Field",
+      "name": "Primary Command Button",
+      "kind": "button",
+      "refersTo": "submit-command",
+      "description": "The one filled control on the page. Submits the prediction.",
+      "html": "<button class=\"ds-submit-command\" type=\"submit\">Run prediction</button>",
+      "css": ".ds-submit-command { min-width: 13rem; min-height: 2.9rem; padding: 0.6rem 1rem; border: 1px solid var(--phosphor, #8dff4d); border-radius: 1px; background: var(--phosphor, #8dff4d); color: var(--ink, #020603); cursor: pointer; font-family: \"VT323\", ui-monospace, monospace; font-size: 1.2rem; letter-spacing: 0.06em; text-transform: uppercase; transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease; } .ds-submit-command:hover { background: var(--bright, #d3ffb9); box-shadow: 0 6px 16px rgba(0,0,0,0.36); transform: translateY(-1px); } .ds-submit-command:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: 3px; } .ds-submit-command:disabled { cursor: progress; opacity: 0.55; transform: none; }"
+    },
+    {
+      "name": "Preset Key",
+      "kind": "chip",
+      "refersTo": "preset-key",
+      "description": "Loads a canonical example record into the prediction form.",
+      "html": "<button class=\"ds-preset-key is-active\" type=\"button\" aria-pressed=\"true\">A typical customer</button><button class=\"ds-preset-key\" type=\"button\" aria-pressed=\"false\">A high-risk customer</button>",
+      "css": ".ds-preset-key { padding: 0.35rem 0.7rem; margin-right: 0.4rem; border: 1px solid var(--faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--text-quiet, #83c66b); cursor: pointer; font-family: \"SFMono-Regular\", ui-monospace, monospace; font-size: 0.74rem; transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease; } .ds-preset-key:hover { border-color: var(--dim, #5ca83c); color: var(--bright, #d3ffb9); } .ds-preset-key.is-active { border-color: var(--phosphor, #8dff4d); background: var(--action-active, #0a1c0c); color: var(--bright, #d3ffb9); } .ds-preset-key:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Field",
       "kind": "input",
       "refersTo": "text-field",
-      "description": "Collects readable schema and subscription values inside dense panels.",
-      "html": "<label class=\"ds-field-label\">EMAIL ADDRESS<input class=\"ds-terminal-field\" type=\"email\" placeholder=\"you@example.com\" /></label>",
-      "css": ".ds-field-label { display: flex; flex-direction: column; gap: .55rem; color: #79af67; font: 400 .68rem/1.55 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; letter-spacing: .04em; } .ds-terminal-field { min-height: 2.65rem; padding: .55rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 1px; outline: none; background: var(--field-background, #030904); color: var(--phosphor-bright, #d3ffb9); caret-color: var(--phosphor, #8dff4d); font: 400 .82rem/1.55 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-terminal-field::placeholder { color: #6d9f5c; } .ds-terminal-field:hover, .ds-terminal-field:focus { border-color: var(--phosphor, #8dff4d); box-shadow: 0 0 0 1px rgba(141,255,77,.2); } .ds-terminal-field:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+      "description": "One feature cell in the prediction grid. The cell rules itself with borders.",
+      "html": "<label class=\"ds-field\"><span>MonthlyCharges</span><input type=\"number\" step=\"any\" value=\"53.85\" /></label>",
+      "css": ".ds-field { display: flex; min-width: 0; flex-direction: column; gap: 0.45rem; padding: 0.75rem; border: 1px solid var(--faint, #264a20); background: var(--panel, #061007); color: var(--text-faint, #6d9f5c); font-family: \"SFMono-Regular\", ui-monospace, monospace; font-size: 0.75rem; letter-spacing: 0.02em; } .ds-field input { width: 100%; min-height: 2.5rem; padding: 0.5rem 0.6rem; border: 1px solid var(--faint, #264a20); border-radius: 1px; outline: none; background: var(--field, #030904); color: var(--bright, #d3ffb9); caret-color: var(--phosphor, #8dff4d); font: inherit; font-size: 0.84rem; font-variant-numeric: tabular-nums; transition: border-color 180ms ease, box-shadow 180ms ease; } .ds-field input::placeholder { color: var(--text-faint, #6d9f5c); } .ds-field input:hover, .ds-field input:focus { border-color: var(--phosphor, #8dff4d); box-shadow: 0 0 0 1px rgba(141,255,77,0.11); }"
     },
     {
-      "name": "Architecture Stage",
+      "name": "Architecture Stage Node",
       "kind": "custom",
       "refersTo": "stage-node",
-      "description": "Selects one lifecycle stage without breaking the connected route.",
-      "html": "<button class=\"ds-stage-node\" type=\"button\" aria-pressed=\"true\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><circle cx=\"24\" cy=\"9\" r=\"3\" /><circle cx=\"11\" cy=\"24\" r=\"3\" /><circle cx=\"37\" cy=\"24\" r=\"3\" /><circle cx=\"24\" cy=\"39\" r=\"3\" /><path d=\"m24 12-11 10m13-10 9 10M14 26l8 11m12-11-8 11M14 24h20\" /></svg><span>TRAIN</span></button>",
-      "css": ".ds-stage-node { position: relative; display: grid; place-items: center; min-width: 8.5rem; padding: 1rem .4rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--body-copy, #bafc8c); cursor: pointer; } .ds-stage-node svg { width: 3rem; height: 3rem; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: square; stroke-linejoin: miter; } .ds-stage-node span { margin-top: .7rem; font: 400 1.35rem/1 VT323, monospace; letter-spacing: .06em; } .ds-stage-node:hover, .ds-stage-node[aria-pressed='true'] { border-color: var(--phosphor, #8dff4d); background: var(--panel-strong, #09180b); color: var(--phosphor-bright, #d3ffb9); box-shadow: 0 8px 18px rgba(0,0,0,.36), inset 0 0 1.2rem rgba(77,176,54,.12); } .ds-stage-node:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+      "description": "One lifecycle stage. Resting, on-trace, and selected are three distinct states.",
+      "html": "<button class=\"ds-stage-node\" type=\"button\" aria-pressed=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5h16l-6 7v6l-4 2v-8z\"/></svg><span class=\"ds-stage-name\">Ingest</span><span class=\"ds-stage-service\">S3 · Lambda</span></button><button class=\"ds-stage-node is-active\" type=\"button\" aria-pressed=\"true\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 4v16M4 12h16M7 7l10 10M17 7 7 17\"/></svg><span class=\"ds-stage-name\">Train</span><span class=\"ds-stage-service\">SageMaker</span></button>",
+      "css": ".ds-stage-node { position: relative; display: inline-grid; place-items: center; min-width: 9rem; padding: 0.6rem 0.4rem 0.55rem; margin-right: 1rem; border: 1px solid var(--faint, #264a20); border-radius: 2px; background: var(--panel, #061007); color: var(--text, #bafc8c); cursor: pointer; font-family: \"SFMono-Regular\", ui-monospace, monospace; transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease; } .ds-stage-node svg { width: 2.2rem; height: 2.2rem; fill: none; stroke: currentColor; stroke-linecap: square; stroke-linejoin: miter; stroke-width: 1.3; } .ds-stage-name { margin-top: 0.4rem; font-family: \"VT323\", ui-monospace, monospace; font-size: 1.2rem; line-height: 1; letter-spacing: 0.07em; text-transform: uppercase; } .ds-stage-service { margin-top: 0.22rem; color: var(--text-faint, #6d9f5c); font-size: 0.73rem; line-height: 1.3; } .ds-stage-node::before, .ds-stage-node::after { position: absolute; width: 0.45rem; height: 0.45rem; content: \"\"; opacity: 0.55; transition: opacity 200ms ease; } .ds-stage-node::before { top: 0.25rem; left: 0.25rem; border-top: 1px solid currentColor; border-left: 1px solid currentColor; } .ds-stage-node::after { right: 0.25rem; bottom: 0.25rem; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; } .ds-stage-node:hover { border-color: var(--phosphor, #8dff4d); background: var(--panel-strong, #09180b); color: var(--bright, #d3ffb9); } .ds-stage-node:hover::before, .ds-stage-node:hover::after, .ds-stage-node.is-active::before, .ds-stage-node.is-active::after { opacity: 1; } .ds-stage-node.is-active { border-color: var(--phosphor, #8dff4d); background: var(--panel-strong, #09180b); color: var(--bright, #d3ffb9); box-shadow: 0 6px 16px rgba(0,0,0,0.36), inset 0 0 1.1rem rgba(141,255,77,0.07); } .ds-stage-node.is-active .ds-stage-service { color: var(--text-muted, #9cd087); } .ds-stage-node:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: 3px; }"
     },
     {
       "name": "Evidence Tab",
-      "kind": "button",
+      "kind": "nav",
       "refersTo": "evidence-tab",
-      "description": "Applies an implemented, deployed, or observed proof lens to the selected stage.",
-      "html": "<button class=\"ds-evidence-tab\" type=\"button\" aria-pressed=\"true\" aria-label=\"Inspect Monitor runtime evidence\"><svg viewBox=\"0 0 48 48\" aria-hidden=\"true\"><path d=\"M6 35V11h36v24H6Z\" /><path d=\"m10 29 7-10 7 7 7-12 7 10M31 35l8 8\" /></svg><span>OBSERVED</span><small>Monitor: runtime evidence</small></button>",
-      "css": ".ds-evidence-tab { display: grid; place-items: center; align-content: center; width: 14rem; min-height: 10rem; padding: 1.25rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 0; background: transparent; color: var(--phosphor-dim, #5ca83c); cursor: pointer; text-align: center; } .ds-evidence-tab svg { width: 3rem; fill: none; stroke: currentColor; stroke-width: 1.2; } .ds-evidence-tab span { margin-top: .65rem; font: 400 1.45rem/1 VT323, monospace; letter-spacing: .11em; } .ds-evidence-tab small { max-width: 24ch; margin-top: .5rem; color: #79af67; font: 400 .64rem/1.45 SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-evidence-tab:hover, .ds-evidence-tab[aria-pressed='true'] { color: var(--phosphor-bright, #d3ffb9); background: rgba(71,155,50,.08); } .ds-evidence-tab:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+      "description": "One proof lens on the evidence rail. The evidence cursor lands on the selected tab.",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-evidence-tab\" type=\"button\" aria-pressed=\"false\"><span class=\"ds-evidence-ring\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M9 8 5 12l4 4m6-8 4 4-4 4\"/></svg></span><span>Implemented</span><small>source and tests</small></button><button class=\"ds-evidence-tab is-active\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-evidence-ring\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"7\"/><path d=\"M12 8v4l3 2\"/></svg></span><span>Observed</span><small>runtime signal</small></button></div>",
+      "css": ".ds-rail { display: grid; grid-template-rows: repeat(2, 1fr); max-width: 13rem; border: 1px solid var(--faint, #264a20); } .ds-evidence-tab { display: grid; place-items: center; align-content: center; padding: 1rem 0.85rem; border: 0; background: transparent; color: var(--dim, #5ca83c); cursor: pointer; font-family: \"SFMono-Regular\", ui-monospace, monospace; text-align: center; transition: color 200ms ease, background-color 200ms ease; } .ds-evidence-tab + .ds-evidence-tab { border-top: 1px solid var(--faint, #264a20); } .ds-evidence-ring { display: grid; place-items: center; width: 3.4rem; height: 3.4rem; border: 1px solid currentColor; border-radius: 50%; opacity: 0.75; transition: opacity 200ms ease, box-shadow 200ms ease; } .ds-evidence-tab svg { width: 1.7rem; height: 1.7rem; fill: none; stroke: currentColor; stroke-width: 1.3; } .ds-evidence-tab > span:last-of-type, .ds-evidence-tab > span:not(.ds-evidence-ring) { margin-top: 0.45rem; font-family: \"VT323\", ui-monospace, monospace; font-size: 1.25rem; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; } .ds-evidence-tab small { max-width: 20ch; margin-top: 0.3rem; color: var(--text-faint, #6d9f5c); font-size: 0.75rem; line-height: 1.45; } .ds-evidence-tab:hover { color: var(--text-muted, #9cd087); background: rgba(141,255,77,0.07); } .ds-evidence-tab.is-active { color: var(--bright, #d3ffb9); background: rgba(141,255,77,0.11); box-shadow: inset 3px 0 0 var(--phosphor, #8dff4d); } .ds-evidence-tab.is-active .ds-evidence-ring { opacity: 1; box-shadow: 0 0 0 3px rgba(141,255,77,0.07); } .ds-evidence-tab:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: -3px; }"
     },
     {
       "name": "Trace Ledger Row",
       "kind": "custom",
-      "description": "Selects one architecture route and exposes its exact AWS component chain.",
-      "html": "<button class=\"ds-trace-row\" type=\"button\" aria-pressed=\"true\"><span>PIPELINE</span><i aria-hidden=\"true\"></i></button>",
-      "css": ".ds-trace-row { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; align-items: center; width: 100%; min-width: 28rem; min-height: 2.6rem; padding: 0; border: 0; border-top: 1px solid var(--phosphor-dim, #5ca83c); border-bottom: 1px solid var(--phosphor-dim, #5ca83c); background: transparent; color: var(--phosphor-dim, #5ca83c); cursor: pointer; text-align: left; } .ds-trace-row span { font: 400 1.15rem/1 VT323, monospace; letter-spacing: .11em; } .ds-trace-row i { position: relative; display: block; border-top: 1px dashed currentColor; } .ds-trace-row i::before, .ds-trace-row i::after { position: absolute; top: -.25rem; width: .45rem; height: .45rem; border: 1px solid var(--phosphor-dim, #5ca83c); border-radius: 50%; background: var(--panel, #061007); content: ''; } .ds-trace-row i::before { left: 22%; } .ds-trace-row i::after { right: 12%; } .ds-trace-row:hover, .ds-trace-row[aria-pressed='true'] { color: var(--phosphor-bright, #d3ffb9); background: rgba(71,155,50,.06); } .ds-trace-row:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+      "refersTo": "trace-control",
+      "description": "One trace path, showing the platform's real AWS component chain.",
+      "html": "<button class=\"ds-trace-control is-active\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-trace-name\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h16M14 6l6 6-6 6\"/></svg>Pipeline</span><span class=\"ds-trace-chain\"><span class=\"ds-trace-hop\">S3</span><span class=\"ds-trace-hop\">EventBridge</span><span class=\"ds-trace-hop\">SageMaker Pipeline</span><span class=\"ds-trace-hop\">Model Registry</span></span></button>",
+      "css": ".ds-trace-control { display: grid; grid-template-columns: minmax(9rem, 0.28fr) 1fr; gap: 1rem; align-items: center; width: 100%; padding: 0.38rem 0.35rem; border: 0; background: rgba(141,255,77,0.11); color: var(--bright, #d3ffb9); cursor: pointer; font-family: \"SFMono-Regular\", ui-monospace, monospace; text-align: left; transition: color 200ms ease, background-color 200ms ease; } .ds-trace-control:hover { color: var(--text-muted, #9cd087); background: rgba(141,255,77,0.07); } .ds-trace-name { display: flex; gap: 0.55rem; align-items: center; font-family: \"VT323\", ui-monospace, monospace; font-size: 1.15rem; letter-spacing: 0.09em; text-transform: uppercase; } .ds-trace-name svg { width: 1.1rem; height: 1.1rem; flex: none; fill: none; stroke: currentColor; stroke-linecap: square; stroke-linejoin: miter; stroke-width: 2.4; } .ds-trace-chain { display: flex; flex-wrap: wrap; gap: 0.3rem 0.55rem; align-items: center; min-width: 0; } .ds-trace-hop { position: relative; padding: 0.1rem 0.42rem; border: 1px solid var(--phosphor, #8dff4d); color: var(--bright, #d3ffb9); font-size: 0.75rem; white-space: nowrap; } .ds-trace-hop + .ds-trace-hop { margin-left: 0.75rem; } .ds-trace-hop + .ds-trace-hop::before { position: absolute; top: 50%; left: -0.95rem; width: 0.7rem; height: 1px; background: var(--dim, #5ca83c); content: \"\"; } .ds-trace-hop + .ds-trace-hop::after { position: absolute; top: 50%; left: -0.36rem; width: 0.22rem; height: 0.22rem; border-top: 1px solid var(--dim, #5ca83c); border-right: 1px solid var(--dim, #5ca83c); content: \"\"; transform: translateY(-50%) rotate(45deg); } .ds-trace-control:focus-visible { outline: 2px solid var(--bright, #d3ffb9); outline-offset: -3px; }"
     },
     {
-      "name": "Prediction Console",
+      "name": "Evidence Cursor",
+      "kind": "custom",
+      "refersTo": "evidence-cursor",
+      "description": "The signature moment. A halo, a dashed line, one pulse, and a lit landing node.",
+      "html": "<svg class=\"ds-route-layer\" viewBox=\"0 0 320 90\" width=\"320\" height=\"90\" aria-hidden=\"true\"><path class=\"ds-evidence-halo\" d=\"M20 70 V20 H280 V45 H300\"/><path class=\"ds-evidence-line\" d=\"M20 70 V20 H280 V45 H300\"/><path class=\"ds-evidence-pulse\" d=\"M20 70 V20 H280 V45 H300\"/><circle class=\"ds-evidence-node-glow\" cx=\"300\" cy=\"45\" r=\"9\"/><circle class=\"ds-evidence-node\" cx=\"300\" cy=\"45\" r=\"4\"/></svg>",
+      "css": ".ds-route-layer { overflow: visible; background: var(--ink, #020603); } .ds-evidence-halo { fill: none; stroke: var(--dim, #5ca83c); stroke-width: 8; opacity: 0.28; filter: blur(5px); } .ds-evidence-line { fill: none; stroke: var(--phosphor, #8dff4d); stroke-width: 1.5; stroke-dasharray: 7 5; filter: drop-shadow(0 0 4px rgba(141,255,77,0.7)); } .ds-evidence-pulse { fill: none; stroke: var(--bright, #d3ffb9); stroke-width: 2.5; stroke-dasharray: 14 600; filter: drop-shadow(0 0 7px rgba(141,255,77,0.9)); animation: ds-evidence-signal 900ms cubic-bezier(0.16, 1, 0.3, 1) both; } .ds-evidence-node { fill: var(--phosphor, #8dff4d); stroke: var(--bright, #d3ffb9); stroke-width: 1.5; filter: drop-shadow(0 0 7px rgba(141,255,77,0.9)); } .ds-evidence-node-glow { fill: var(--phosphor, #8dff4d); opacity: 0.22; filter: blur(4px); } @keyframes ds-evidence-signal { 0% { stroke-dashoffset: 400; opacity: 0; } 18% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0.4; } } @media (prefers-reduced-motion: reduce) { .ds-evidence-pulse { animation-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Dormant Result Row",
       "kind": "card",
-      "description": "Frames the secondary schema-driven demo as a terminal process.",
-      "html": "<section class=\"ds-console\"><header><span>POST /API/PREDICT</span><span>SCHEMA-DRIVEN REQUEST</span></header><div class=\"ds-console-body\"><label>MONTHLY CHARGES<input type=\"number\" value=\"0\" /></label><button type=\"button\">RUN PREDICTION</button></div></section>",
-      "css": ".ds-console { width: min(38rem, 100%); border: 1px solid var(--phosphor-dim, #5ca83c); background: rgba(5,15,6,.78); box-shadow: 0 18px 38px rgba(0,0,0,.4); color: var(--body-copy, #bafc8c); font-family: SFMono-Regular, 'Cascadia Code', 'Liberation Mono', monospace; } .ds-console header { display: flex; justify-content: space-between; padding: .85rem 1rem; border-bottom: 1px solid var(--phosphor-faint, #264a20); color: var(--phosphor-dim, #5ca83c); font-size: .68rem; letter-spacing: .08em; } .ds-console-body { display: grid; gap: 1rem; padding: 1.5rem; } .ds-console label { display: grid; gap: .55rem; color: #79af67; font-size: .68rem; } .ds-console input { min-height: 2.65rem; padding: .55rem .65rem; border: 1px solid var(--phosphor-faint, #264a20); border-radius: 1px; background: var(--field-background, #030904); color: var(--phosphor-bright, #d3ffb9); } .ds-console input:focus { border-color: var(--phosphor, #8dff4d); outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; } .ds-console button { justify-self: end; min-height: 3rem; padding: .65rem 1rem; border: 1px solid var(--phosphor, #8dff4d); border-radius: 1px; background: var(--phosphor, #8dff4d); color: var(--ink, #020603); font: 700 1.2rem/1 VT323, monospace; letter-spacing: .06em; } .ds-console button:hover { background: var(--phosphor-bright, #d3ffb9); } .ds-console button:focus-visible { outline: 2px solid var(--phosphor-bright, #d3ffb9); outline-offset: 4px; }"
+      "refersTo": "inline-result-dormant",
+      "description": "A cold inference endpoint. Dashed and faint, because it is a cost decision, not a fault.",
+      "html": "<div class=\"ds-inline-result is-dormant\" role=\"status\"><span>Endpoint idle</span><strong>The inference endpoint is not running</strong><p>A SageMaker endpoint bills for every hour it stays up.</p></div><div class=\"ds-inline-result is-error\" role=\"alert\"><span>Request failed</span><strong>The prediction failed</strong><p>Check the values, then try again.</p></div>",
+      "css": ".ds-inline-result { display: grid; grid-template-columns: minmax(8rem, 0.2fr) minmax(10rem, 0.32fr) 1fr; gap: 1.25rem; align-items: baseline; padding: 1.1rem 1.5rem; border-top: 1px solid var(--dim, #5ca83c); color: var(--text-muted, #9cd087); font-family: \"SFMono-Regular\", ui-monospace, monospace; font-size: 0.8rem; } .ds-inline-result > span { color: var(--dim, #5ca83c); letter-spacing: 0.08em; text-transform: uppercase; } .ds-inline-result strong { color: var(--bright, #d3ffb9); font-size: 0.95rem; font-weight: 400; } .ds-inline-result p { margin: 0; font-variant-numeric: tabular-nums; } .ds-inline-result.is-dormant { color: var(--text-faint, #6d9f5c); border-top-style: dashed; } .ds-inline-result.is-dormant strong { color: var(--text-quiet, #83c66b); } .ds-inline-result.is-error { color: var(--danger, #ffb4a8); border-color: var(--danger-line, #b44136); } .ds-inline-result.is-error strong, .ds-inline-result.is-error > span { color: var(--danger, #ffb4a8); }"
+    },
+    {
+      "name": "Site Header",
+      "kind": "nav",
+      "refersTo": "site-header",
+      "description": "The status line. Identity first, then sections, then the source link.",
+      "html": "<header class=\"ds-site-header\"><a class=\"ds-header-identity\" href=\"#top\"><span class=\"ds-header-name\">Emanuel Cortes Lugo</span><span class=\"ds-header-role\">Platform &amp; MLOps Engineer</span></a><nav class=\"ds-header-nav\" aria-label=\"Sections\"><a href=\"#architecture\">Architecture</a><a href=\"#approach\">Approach</a><a class=\"ds-header-source\" href=\"#source\">Source<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M8 16 16 8m0 0H9m7 0v7\"/></svg></a></nav></header>",
+      "css": ".ds-site-header { display: flex; gap: 1.5rem; align-items: baseline; justify-content: space-between; padding: 0.75rem 0.25rem 0.6rem; border-bottom: 1px solid var(--faint, #264a20); background: var(--ink, #020603); font-family: \"SFMono-Regular\", ui-monospace, monospace; } .ds-header-identity { display: flex; gap: 0.85rem; align-items: baseline; text-decoration: none; } .ds-header-name { color: var(--bright, #d3ffb9); font-family: \"VT323\", ui-monospace, monospace; font-size: 1.5rem; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; } .ds-header-role { color: var(--text-quiet, #83c66b); font-size: 0.82rem; } .ds-header-identity:hover .ds-header-name { color: var(--phosphor, #8dff4d); } .ds-header-nav { display: flex; gap: 1.4rem; align-items: baseline; } .ds-header-nav a { color: var(--text-quiet, #83c66b); font-size: 0.82rem; text-decoration: none; transition: color 160ms ease; } .ds-header-nav a:hover { color: var(--bright, #d3ffb9); text-decoration: underline; text-underline-offset: 0.24em; } .ds-header-source { display: inline-flex; gap: 0.35rem; align-items: center; color: var(--phosphor, #8dff4d) !important; } .ds-header-source svg { width: 0.9rem; height: 0.9rem; fill: none; stroke: currentColor; stroke-width: 1.6; }"
     }
   ],
   "narrative": {
     "northStar": "Layered Trace Ledger",
-    "overview": "The system presents architecture as a near-black phosphor dossier. A curved CRT shell contains exact routes, authored line icons, and evidence boundaries.\n\nThe visual voice stays technical, calm, and dense. Bright signals mark active relationships. Dim rules preserve the structure without competing with content.",
+    "overview": "The page reads as one instrument, not as a document about an instrument. A near-black field carries a single green signal family. A curved CRT shell holds the lifecycle schematic, and the same material continues below the shell as a page-wide scanline and a soft radial bloom. The visitor never crosses from a themed hero into plain text on black.\n\nBrightness carries the state. Structure sits at the faint step, dormant parts at the dim step, active parts at the phosphor step, and the current selection or readout at the bright step. Nothing changes hue to say it is selected. The one exception is the warm fault pair, which appears only when something failed.\n\nDensity is deliberate. Inside the schematic the rhythm is tight, because the argument is that the parts connect. Between page sections the rhythm is generous, because each section is a separate claim. Routes are measured, not approximated: connectors read real element geometry and land on ports at the node edges.",
     "keyCharacteristics": [
-      "Near-black CRT glass with restrained scanlines and perimeter bloom.",
-      "Phosphor linework that links architecture stages with evidence categories.",
-      "Bitmap display type paired with readable system monospace text.",
-      "Flat evidence frames with precise borders and controlled state depth.",
-      "One routed trace pulse and one stage-to-proof signal, with static reduced-motion states."
+      "One green signal family over near-black, with brightness as the state channel.",
+      "A page-wide scanline and radial bloom that keep every section the same material.",
+      "Measured routes with arrowheads and edge ports, drawn from real geometry.",
+      "An evidence cursor that runs from the selected stage to its proof lens.",
+      "Bitmap display type against a system monospace stack for body and data.",
+      "Flat frames with hairline rules; depth belongs to the shell."
     ],
     "rules": [
+      {
+        "name": "The Single Declaration Rule",
+        "body": "Every colour MUST be declared once in :root. A literal colour anywhere else in the stylesheet is drift.",
+        "section": "colors"
+      },
+      {
+        "name": "The Brightness State Rule",
+        "body": "State MUST travel on brightness. Faint is structure, dim is dormant, phosphor is active, and bright is the current selection or readout.",
+        "section": "colors"
+      },
       {
         "name": "The Signal Rarity Rule",
         "body": "Bright phosphor MUST identify a current action, selection, focus target, or primary readout.",
@@ -279,31 +447,88 @@
       },
       {
         "name": "The Fault Isolation Rule",
-        "body": "Warm fault colors MUST appear only in error states.",
+        "body": "The warm fault pair MUST appear only in a real failure.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dormant Is Not A Fault Rule",
+        "body": "A part that is off by choice MUST read as structure. It uses a dashed rule and the faint text step. A cold inference endpoint and an unset profile link both use this state, not the fault pair.",
         "section": "colors"
       },
       {
         "name": "The Two Voice Rule",
-        "body": "Display text and controls MUST use VT323. Body text and data MUST use the system monospace stack.",
+        "body": "Display text and controls MUST use VT323. Body text and data MUST use the system monospace stack. This rule is load-bearing: a reviewer proposed one voice, and the build kept two.",
         "section": "typography"
+      },
+      {
+        "name": "The Text Ramp Rule",
+        "body": "Reading text MUST take its colour from the four-step text ramp. A new green for a new paragraph is drift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Legibility Floor Rule",
+        "body": "Text MUST NOT render below about 11.5px. The micro step is the floor.",
+        "section": "typography"
+      },
+      {
+        "name": "The Above The Fold Rule",
+        "body": "The first viewport MUST end above the fold at 1280x720 and taller. Short viewports MUST tighten the hero rather than drop a part of it.",
+        "section": "layout"
+      },
+      {
+        "name": "The Mobile Carries The Architecture Rule",
+        "body": "The stacked layout MUST keep the routes drawn. Hiding them removes the page's whole argument.",
+        "section": "layout"
       },
       {
         "name": "The Shell Depth Rule",
         "body": "The CRT shell MUST own the strongest ambient shadow. Internal frames MUST use borders at rest.",
         "section": "elevation"
+      },
+      {
+        "name": "The Page Material Rule",
+        "body": "The scanline and the bloom MUST run the whole page. A section that drops them becomes plain text on black and leaves the world.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two Corner Rule",
+        "body": "A corner bracket MUST use two opposing corners, and it MUST brighten with state. Four corners add no information, and a bracket that never changes is decoration.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Square By Default Rule",
+        "body": "A new frame MUST be square. Radius is reserved for controls and for the shell.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Measured Route Rule",
+        "body": "A route MUST be drawn from measured geometry. Percentage coordinates cannot land on a node whose grid gap and font metrics change at runtime.",
+        "section": "components"
+      },
+      {
+        "name": "The Real Chain Rule",
+        "body": "The ledger MUST render the platform's real component chain. A decorative track that looks like instrumentation is a defect.",
+        "section": "components"
       }
     ],
     "dos": [
-      "Do: New screens MUST preserve the two-voice type system.",
-      "Do: Evidence relationships MUST use semantic HTML or authored SVG.",
-      "Do: Responsive layouts MUST keep the content order readable without the desktop route overlay.",
-      "Do: Motion MUST resolve to a static path when the visitor requests reduced motion."
+      "Do declare every new colour once in :root, and reference it by variable.",
+      "Do carry state on brightness: faint for structure, dim for dormant, phosphor for active, bright for the current selection.",
+      "Do keep the two type voices: VT323 for display and controls, system monospace for body and data.",
+      "Do draw a connector from measured element geometry, with an arrowhead and ports at both ends.",
+      "Do keep the scanline and the bloom under every section, so the lower page stays the same material as the hero.",
+      "Do give a part that is off by choice the dashed dormant treatment and an explanation of the cost decision.",
+      "Do resolve every animation to a static path under prefers-reduced-motion: reduce."
     ],
     "donts": [
-      "Don't: New screens MUST NOT place semantic evidence inside a raster image.",
-      "Don't: Active states MUST NOT use glow without a border, route, or label.",
-      "Don't: Sequential architecture MUST NOT become isolated tiles when the route relationship carries meaning.",
-      "Don't: Error colors MUST NOT decorate neutral or successful states."
+      "Don't write a literal colour value below the :root block.",
+      "Don't use the warm fault pair for anything but a real failure.",
+      "Don't round a structural frame. Radius belongs to controls and to the shell.",
+      "Don't draw four corner brackets, and don't leave a bracket that never changes with state.",
+      "Don't hide the routes at a small width. The stacked page still MUST carry the architecture.",
+      "Don't show an active state with glow alone. A border, a route, or a label MUST carry it too.",
+      "Don't place semantic evidence inside a raster image.",
+      "Don't state a metric, a timestamp, or a completion claim the platform does not measure."
     ]
   }
 }

@@ -13,6 +13,9 @@ data/
 telco/
 .DS_Store
 graphify-out/
+
+# Impeccable design-hook cache. Build output, never source.
+.impeccable/hook.cache.json
 .claude/settings.local.json
 
 # Frontend build output and installed packages.

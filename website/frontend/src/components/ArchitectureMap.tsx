@@ -1,357 +1,113 @@
 import { useState } from "react";
 
-type EvidenceKey = "implemented" | "deployed" | "observed";
-type StageKey = "ingest" | "train" | "evaluate" | "register" | "serve" | "monitor";
-type ActiveStageKey = StageKey | "retrain";
-type TraceKey = "pipeline" | "signed-api" | "drift";
+import type { ActiveStageKey, EvidenceKey, TraceKey } from "./architecture-content";
+import {
+  EVIDENCE,
+  EvidenceIcon,
+  RETRAIN,
+  STAGES,
+  STAGE_EVIDENCE,
+  STAGE_TRACE,
+  StageIcon,
+  TRACE_PATHS,
+  TraceIcon,
+} from "./architecture-content";
+import type { Box } from "./useNodeBoxes";
+import { bottomOf, leftOf, rightOf, topOf, useNodeBoxes } from "./useNodeBoxes";
 
-interface Stage {
-  key: StageKey;
-  label: string;
-  detail: string;
+type NodeKey = ActiveStageKey | `evidence-${EvidenceKey}`;
+
+/** The gap a route leaves before a node, so the arrowhead sits clear of it. */
+const ARROW_GAP = 5;
+
+/** Draw the route from one node to the next, in whichever way they sit. */
+function connector(from: Box, to: Box): string {
+  if (to.x >= from.x + from.width - 1) {
+    const start = rightOf(from);
+    const end = leftOf(to);
+    return `M ${start.x} ${start.y} H ${end.x - ARROW_GAP}`;
+  }
+  const start = bottomOf(from);
+  const end = topOf(to);
+  return `M ${start.x} ${start.y} V ${end.y - ARROW_GAP}`;
 }
 
-interface EvidenceProof {
-  label: string;
-  value: string;
-  detail: string;
+/**
+ * Read the port marks a route meets.
+ *
+ * The comp lands every route on a small circle at the node's edge. The mark is
+ * what makes a line read as connected to the box rather than as a line ending
+ * near it, so each segment contributes the port it leaves from.
+ */
+function portsFor(from: Box, to: Box): { x: number; y: number }[] {
+  if (to.x >= from.x + from.width - 1) return [rightOf(from), leftOf(to)];
+  return [bottomOf(from), topOf(to)];
 }
 
-const STAGES: Stage[] = [
-  {
-    key: "ingest",
-    label: "Ingest",
-    detail: "Validate raw rows against the shared feature contract.",
-  },
-  {
-    key: "train",
-    label: "Train",
-    detail: "Create deterministic train, validation, test, and API fixtures.",
-  },
-  {
-    key: "evaluate",
-    label: "Evaluate",
-    detail: "Compare test AUC with the approved champion before promotion.",
-  },
-  {
-    key: "register",
-    label: "Register",
-    detail: "Register the challenger only when it passes the promotion gate.",
-  },
-  {
-    key: "serve",
-    label: "Serve",
-    detail: "Validate and sign inference requests before the endpoint call.",
-  },
-  {
-    key: "monitor",
-    label: "Monitor",
-    detail: "Score captured traffic against the training distribution.",
-  },
-];
-
-const RETRAIN = {
-  label: "Retrain",
-  detail: "Start another pipeline execution after a real drift violation.",
-};
-
-const EVIDENCE: Record<EvidenceKey, { label: string; focus: string }> = {
-  implemented: {
-    label: "Implemented",
-    focus: "source and tests",
-  },
-  deployed: {
-    label: "Deployed",
-    focus: "dev infrastructure boundary",
-  },
-  observed: {
-    label: "Observed",
-    focus: "runtime evidence",
-  },
-};
-
-const STAGE_EVIDENCE: Record<
-  ActiveStageKey,
-  Record<EvidenceKey, EvidenceProof>
-> = {
-  ingest: {
-    implemented: {
-      label: "Source + unit test",
-      value: "src/ingestion/validate_handler.py",
-      detail: "The handler validates each raw row against the shared schema.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "S3 → EventBridge → SQS → validation Lambda",
-      detail: "The ingestion stack owns delivery, retries, and dead-letter handling.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Curated or quarantine object + validation log",
-      detail: "A run shows accepted rows, rejected rows, and each rejection reason.",
-    },
-  },
-  train: {
-    implemented: {
-      label: "Pipeline definition",
-      value: "src/pipeline/pipeline.py",
-      detail: "The definition connects preprocessing, training, evaluation, and registration.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "SageMaker Pipeline + execution role",
-      detail: "The training stack supplies the pipeline execution boundary.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Pipeline execution + step artifacts",
-      detail: "A run exposes step status, cached outputs, and model artifacts.",
-    },
-  },
-  evaluate: {
-    implemented: {
-      label: "Evaluation source",
-      value: "src/pipeline/evaluate.py",
-      detail: "The step calculates held-out test AUC and compares the champion.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "Evaluation processor inside the training pipeline",
-      detail: "The managed evaluation step runs before model registration.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Evaluation report + champion comparison",
-      detail: "The report records the test result and promotion inputs.",
-    },
-  },
-  register: {
-    implemented: {
-      label: "Promotion source",
-      value: "src/pipeline/pipeline.py",
-      detail: "The pipeline registers a challenger only after the promotion gate passes.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "SageMaker Model Registry package group",
-      detail: "The registry stack owns the package group and its boundary.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Package state + promotion gate result",
-      detail: "The package record shows the challenger that reached the registry.",
-    },
-  },
-  serve: {
-    implemented: {
-      label: "Proxy source",
-      value: "src/serving/proxy_handler.py",
-      detail: "The proxy validates the record and signs the endpoint request.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "API Gateway → proxy Lambda → SageMaker endpoint",
-      detail: "The serving stack keeps AWS credentials behind the API boundary.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Signed prediction response + structured event",
-      detail: "A smoke request exercises the deployed inference path.",
-    },
-  },
-  monitor: {
-    implemented: {
-      label: "Drift source",
-      value: "src/monitoring/drift_handler.py",
-      detail: "The handler scores a capture window and emits a violation event.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "Scheduled drift Lambda + monitoring alarms",
-      detail: "The monitoring stack owns evaluation cadence and alert resources.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Capture window + PSI result + violation event",
-      detail: "Runtime evidence shows the score that can close the retraining loop.",
-    },
-  },
-  retrain: {
-    implemented: {
-      label: "Retrain source",
-      value: "src/monitoring/retrain_handler.py",
-      detail: "The handler filters drift events and starts a pipeline execution.",
-    },
-    deployed: {
-      label: "Dev infrastructure boundary",
-      value: "EventBridge → retrain Lambda → SageMaker Pipeline",
-      detail: "The monitoring stack owns the event route and retrain function.",
-    },
-    observed: {
-      label: "Runtime signal",
-      value: "Violation event → pipeline execution ARN",
-      detail: "The execution record proves that a drift violation started retraining.",
-    },
-  },
-};
-
-const TRACE_PATHS: Record<
-  TraceKey,
-  {
-    label: string;
-    detail: string;
-    components: string;
-    stages: readonly ActiveStageKey[];
-    representativeStage: ActiveStageKey;
-  }
-> = {
-  pipeline: {
-    label: "Pipeline",
-    detail: "Validated data moves through training, evaluation, and model registration.",
-    components: "S3 → EventBridge and SQS → SageMaker Pipeline → Model Registry",
-    stages: ["ingest", "train", "evaluate", "register"],
-    representativeStage: "train",
-  },
-  "signed-api": {
-    label: "Signed API",
-    detail: "A signed request passes the API boundary before the endpoint invocation.",
-    components: "API Gateway → Proxy Lambda → SageMaker endpoint",
-    stages: ["serve"],
-    representativeStage: "serve",
-  },
-  drift: {
-    label: "Drift",
-    detail: "Captured traffic is scored, and a violation starts another pipeline run.",
-    components: "Capture S3 → Drift Lambda → EventBridge → Retrain Lambda → Pipeline",
-    stages: ["monitor", "retrain", "train"],
-    representativeStage: "monitor",
-  },
-};
-
-const STAGE_TRACE: Record<ActiveStageKey, TraceKey> = {
-  ingest: "pipeline",
-  train: "pipeline",
-  evaluate: "pipeline",
-  register: "pipeline",
-  serve: "signed-api",
-  monitor: "drift",
-  retrain: "drift",
-};
-
-const STAGE_POSITION: Record<ActiveStageKey, { x: number; y: number }> = {
-  ingest: { x: 6.5, y: 31 },
-  train: { x: 19.5, y: 31 },
-  evaluate: { x: 32.5, y: 31 },
-  register: { x: 45.5, y: 31 },
-  serve: { x: 58.5, y: 31 },
-  monitor: { x: 71.5, y: 31 },
-  retrain: { x: 19.5, y: 58 },
-};
-
-const EVIDENCE_POSITION: Record<EvidenceKey, number> = {
-  implemented: 16.666,
-  deployed: 50,
-  observed: 83.333,
-};
-
-function StageIcon({ stage }: { stage: StageKey | "retrain" }) {
-  if (stage === "ingest") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="M8 10h32L29 25v11l-10 4V25L8 10Z" />
-        <path d="M14 16h20M17 21h14" />
-      </svg>
-    );
-  }
-  if (stage === "train") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <circle cx="24" cy="9" r="3" />
-        <circle cx="11" cy="24" r="3" />
-        <circle cx="37" cy="24" r="3" />
-        <circle cx="24" cy="39" r="3" />
-        <path d="m24 12-11 10m13-10 9 10M14 26l8 11m12-11-8 11M14 24h20" />
-      </svg>
-    );
-  }
-  if (stage === "evaluate") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <circle cx="21" cy="21" r="13" />
-        <path d="m30 30 10 10M13 27l6-7 5 4 7-10" />
-      </svg>
-    );
-  }
-  if (stage === "register") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="m24 6 14 8-14 8-14-8 14-8Zm-14 8v17l14 9 14-9V14M24 22v18" />
-        <path d="m15 19 14-8m-10 14 14-8" />
-      </svg>
-    );
-  }
-  if (stage === "serve") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="m24 7 14 8v17l-14 9-14-9V15l14-8Z" />
-        <path d="m18 24 4 4 9-10" />
-      </svg>
-    );
-  }
-  if (stage === "monitor") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="M6 35V11h36v24H6Z" />
-        <path d="m10 29 7-10 7 7 7-12 7 10M18 41h12" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M37 19a14 14 0 1 0 0 11" />
-      <path d="m32 12 6 7 4-8M11 29a14 14 0 0 0 2 4" />
-    </svg>
-  );
+/**
+ * Route the drift return from monitor to retrain.
+ *
+ * The path drops below the stage row, runs back along a clear lane, and enters
+ * the retrain node from its right edge. The lane sits halfway between the two
+ * rows, so it never crosses a node.
+ */
+function returnPath(monitor: Box, retrain: Box): string {
+  const start = bottomOf(monitor);
+  const end = rightOf(retrain);
+  // Nothing sits below the last stage, so the path drops straight to the
+  // retrain node's own line and enters it travelling left. A lane between the
+  // two rows would run within a few pixels of the row above it.
+  return `M ${start.x} ${start.y} V ${end.y} H ${end.x + ARROW_GAP}`;
 }
 
-function EvidenceIcon({ evidence }: { evidence: EvidenceKey }) {
-  if (evidence === "implemented") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="m24 6 14 8v19l-14 9-14-9V14l14-8Z" />
-        <path d="M16 19h16M16 25h10M16 31h13" />
-      </svg>
-    );
+/** Route the retrain trigger straight up into the stage it restarts. */
+function triggerPath(retrain: Box, train: Box): string {
+  const start = topOf(retrain);
+  return `M ${start.x} ${start.y} V ${train.y + train.height + ARROW_GAP}`;
+}
+
+/**
+ * Route the retrain trigger back up a side lane.
+ *
+ * When the stages stack into one column, the node the loop restarts is several
+ * nodes above it. A straight vertical line would run through every node in
+ * between, so the path leaves sideways and climbs beside the column.
+ */
+function loopBackPath(retrain: Box, train: Box, lane: number): string {
+  const start = leftOf(retrain);
+  const end = leftOf(train);
+  return `M ${start.x} ${start.y} H ${lane} V ${end.y} H ${end.x - ARROW_GAP}`;
+}
+
+/**
+ * Couple the selected stage to its proof lens across the frame.
+ *
+ * A stage in the lifecycle row sends its signal up and over the row, because a
+ * line leaving its right edge would cut through every stage after it. The
+ * retrain node has clear space beside it and goes straight out.
+ */
+function evidencePath(stage: Box, tab: Box, topLane: number, inRow: boolean): string {
+  const end = leftOf(tab);
+  const lane = end.x - 12;
+  if (!inRow) {
+    const start = rightOf(stage);
+    return `M ${start.x} ${start.y} H ${lane} V ${end.y} H ${end.x}`;
   }
-  if (evidence === "deployed") {
-    return (
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="m24 7 14 8v17l-14 9-14-9V15l14-8Z" />
-        <path d="m10 15 14 8 14-8M24 23v18" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M6 35V11h36v24H6Z" />
-      <path d="m10 29 7-10 7 7 7-12 7 10M31 35l8 8" />
-    </svg>
-  );
+  const start = topOf(stage);
+  return `M ${start.x} ${start.y} V ${topLane} H ${lane} V ${end.y} H ${end.x}`;
 }
 
 export function ArchitectureMap() {
   const [activeStage, setActiveStage] = useState<ActiveStageKey>("train");
   const [activeEvidence, setActiveEvidence] = useState<EvidenceKey>("observed");
   const [activeTrace, setActiveTrace] = useState<TraceKey>("pipeline");
+  const { containerRef, registerNode, geometry } = useNodeBoxes<NodeKey>();
+
   const selectedStage =
-    activeStage === "retrain"
-      ? RETRAIN
-      : (STAGES.find((stage) => stage.key === activeStage) ?? STAGES[0]!);
+    activeStage === "retrain" ? RETRAIN : (STAGES.find((s) => s.key === activeStage) ?? STAGES[0]!);
   const selectedTrace = TRACE_PATHS[activeTrace];
   const selectedEvidence = STAGE_EVIDENCE[activeStage][activeEvidence];
-  const evidencePath =
-    `M ${STAGE_POSITION[activeStage].x} ${STAGE_POSITION[activeStage].y} ` +
-    `H 78 V ${EVIDENCE_POSITION[activeEvidence]} H 80`;
+  const { boxes, width, height } = geometry;
 
   function selectStage(stage: ActiveStageKey) {
     setActiveStage(stage);
@@ -363,75 +119,172 @@ export function ArchitectureMap() {
     setActiveStage(TRACE_PATHS[trace].representativeStage);
   }
 
+  // Each consecutive pair of stages, plus the two halves of the retrain loop.
+  const segments: { key: string; d: string; stages: [ActiveStageKey, ActiveStageKey] }[] = [];
+  const ports: { x: number; y: number }[] = [];
+  for (let index = 0; index < STAGES.length - 1; index += 1) {
+    const from = boxes[STAGES[index]!.key];
+    const to = boxes[STAGES[index + 1]!.key];
+    if (from && to) {
+      segments.push({
+        key: `${STAGES[index]!.key}-${STAGES[index + 1]!.key}`,
+        d: connector(from, to),
+        stages: [STAGES[index]!.key, STAGES[index + 1]!.key],
+      });
+      ports.push(...portsFor(from, to));
+    }
+  }
+  const monitor = boxes.monitor;
+  const retrain = boxes.retrain;
+  const train = boxes.train;
+  // Below the stacking breakpoint every node shares one column, so the retrain
+  // node sits under the last stage instead of beside the one it restarts.
+  const stacked = !!monitor && !!retrain && Math.abs(retrain.x - monitor.x) < 4;
+  const lane =
+    Math.min(...STAGES.map((s) => boxes[s.key]?.x ?? Infinity), retrain?.x ?? Infinity) - 8;
+
+  if (monitor && retrain) {
+    segments.push({
+      key: "monitor-retrain",
+      d: stacked ? connector(monitor, retrain) : returnPath(monitor, retrain),
+      stages: ["monitor", "retrain"],
+    });
+    ports.push(
+      ...(stacked ? portsFor(monitor, retrain) : [bottomOf(monitor), rightOf(retrain)]),
+    );
+  }
+  if (retrain && train) {
+    segments.push({
+      key: "retrain-train",
+      d: stacked
+        ? loopBackPath(retrain, train, Math.max(lane, 3))
+        : triggerPath(retrain, train),
+      stages: ["retrain", "train"],
+    });
+    ports.push(stacked ? leftOf(retrain) : topOf(retrain), stacked ? leftOf(train) : bottomOf(train));
+  }
+
+  const stageBox = boxes[activeStage];
+  const tabBox = boxes[`evidence-${activeEvidence}`];
+  // The rail sits beside the field on wide screens and below it when stacked.
+  // The coupling line only reads as a connection in the side-by-side case.
+  const coupled = stageBox && tabBox && tabBox.x > stageBox.x + stageBox.width;
+  const rowTop = boxes.ingest?.y ?? 0;
+  const link = coupled
+    ? evidencePath(stageBox, tabBox, Math.max(rowTop - 14, 4), activeStage !== "retrain")
+    : null;
+
   return (
     <div
       className={`system-frame stage-${activeStage} evidence-${activeEvidence} trace-${activeTrace}`}
+      ref={containerRef}
     >
+      {width > 0 && (
+        <svg
+          className="route-layer"
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          aria-hidden="true"
+        >
+          <defs>
+            <marker
+              id="route-arrow"
+              markerWidth="7"
+              markerHeight="7"
+              refX="6"
+              refY="3.5"
+              orient="auto"
+            >
+              <path className="arrow-head" d="M0 0.5 6 3.5 0 6.5Z" />
+            </marker>
+            <marker
+              id="route-arrow-live"
+              markerWidth="7"
+              markerHeight="7"
+              refX="6"
+              refY="3.5"
+              orient="auto"
+            >
+              <path className="arrow-head is-live" d="M0 0.5 6 3.5 0 6.5Z" />
+            </marker>
+          </defs>
+
+          {segments.map((segment) => {
+            const live =
+              selectedTrace.stages.includes(segment.stages[0]) &&
+              selectedTrace.stages.includes(segment.stages[1]);
+            return (
+              <path
+                key={segment.key}
+                className={`route-edge${live ? " is-live" : ""}`}
+                d={segment.d}
+                markerEnd={`url(#${live ? "route-arrow-live" : "route-arrow"})`}
+              />
+            );
+          })}
+
+          {ports.map((port, index) => (
+            <circle className="route-port" key={`${port.x}-${port.y}-${index}`} cx={port.x} cy={port.y} r="2.6" />
+          ))}
+
+          {link && tabBox && (
+            <g key={`${activeStage}-${activeEvidence}`}>
+              <path className="evidence-halo" d={link} />
+              <path className="evidence-line" d={link} />
+              <path className="evidence-pulse" d={link} />
+              {/* The cursor lands on the rail as a lit node. It is the one
+                  mark that says which proof lens the stage resolved to. */}
+              <circle className="evidence-node-glow" cx={tabBox.x} cy={tabBox.y + tabBox.height / 2} r="9" />
+              <circle className="evidence-node" cx={tabBox.x} cy={tabBox.y + tabBox.height / 2} r="4" />
+            </g>
+          )}
+        </svg>
+      )}
+
       <div className="architecture-field">
-        <div className="route-map" aria-label="Model lifecycle">
-          <svg className="route-lines" viewBox="0 0 1200 420" preserveAspectRatio="none" aria-hidden="true">
-            <path className="route-base" d="M78 170H1095" />
-            <path className="route-loop" d="M1095 205V350H270V205" />
-            <path
-              className={`route-active${activeTrace === "pipeline" ? " is-active" : ""}`}
-              d="M78 170H690"
-            />
-            <path
-              className={`route-active${activeTrace === "signed-api" ? " is-active" : ""}`}
-              d="M820 170H965"
-            />
-            <path
-              className={`route-active${activeTrace === "drift" ? " is-active" : ""}`}
-              d="M894 170H1095V350H270V205"
-            />
-            <circle cx="78" cy="170" r="5" />
-            <circle cx="282" cy="170" r="5" />
-            <circle cx="486" cy="170" r="5" />
-            <circle cx="690" cy="170" r="5" />
-            <circle cx="894" cy="170" r="5" />
-            <circle cx="1095" cy="170" r="5" />
-          </svg>
+        <div className="stage-row">
+          {STAGES.map((stage) => (
+            <button
+              className={`stage-node${
+                selectedTrace.stages.includes(stage.key) ? " is-trace-active" : ""
+              }${activeStage === stage.key ? " is-active" : ""}`}
+              type="button"
+              key={stage.key}
+              ref={registerNode(stage.key)}
+              aria-pressed={activeStage === stage.key}
+              onClick={() => selectStage(stage.key)}
+            >
+              <StageIcon stage={stage.key} />
+              <span className="stage-name">{stage.label}</span>
+              <span className="stage-service">{stage.service}</span>
+            </button>
+          ))}
+        </div>
 
-          <div className="stage-row">
-            {STAGES.map((stage) => (
-              <button
-                className={`stage-node${
-                  selectedTrace.stages.includes(stage.key) ? " is-trace-active" : ""
-                }${activeStage === stage.key ? " is-active" : ""}`}
-                type="button"
-                key={stage.key}
-                aria-pressed={activeStage === stage.key}
-                onClick={() => selectStage(stage.key)}
-              >
-                <StageIcon stage={stage.key} />
-                <span>{stage.label}</span>
-              </button>
-            ))}
-          </div>
-
+        <div className="retrain-row">
           <button
-            className={`retrain-node${
+            className={`stage-node retrain-node${
               selectedTrace.stages.includes("retrain") ? " is-trace-active" : ""
-            }`}
+            }${activeStage === "retrain" ? " is-active" : ""}`}
             type="button"
+            ref={registerNode("retrain")}
             aria-pressed={activeStage === "retrain"}
             onClick={() => selectStage("retrain")}
           >
             <StageIcon stage="retrain" />
-            <span>Retrain</span>
+            <span className="stage-name">{RETRAIN.label}</span>
+            <span className="stage-service">{RETRAIN.service}</span>
           </button>
         </div>
 
         <div className="stage-readout" aria-live="polite">
-          <span className="readout-key">
+          <p className="readout-key">
             {selectedStage.label} → {EVIDENCE[activeEvidence].label}
-          </span>
+          </p>
           <div className="stage-readout-copy">
             <p className="stage-summary">{selectedStage.detail}</p>
-            <div
-              className="evidence-proof"
-              key={`${activeStage}-${activeEvidence}`}
-            >
+            <div className="evidence-proof" key={`${activeStage}-${activeEvidence}`}>
               <span>{selectedEvidence.label}</span>
               <strong>{selectedEvidence.value}</strong>
               <p>{selectedEvidence.detail}</p>
@@ -439,66 +292,56 @@ export function ArchitectureMap() {
           </div>
         </div>
 
-        <ul className="trace-ledger" aria-label="Select a platform trace path">
-          {(Object.keys(TRACE_PATHS) as TraceKey[]).map((trace) => (
-            <li key={trace}>
-              <button
-                className={`trace-control${activeTrace === trace ? " is-active" : ""}`}
-                type="button"
-                aria-pressed={activeTrace === trace}
-                onClick={() => selectTrace(trace)}
-              >
-                <span>{TRACE_PATHS[trace].label}</span>
-                <i className="trace-track" aria-hidden="true"><b /></i>
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <div className="trace-detail" aria-live="polite">
-          <span>{selectedTrace.label} path</span>
-          <p>{selectedTrace.detail}</p>
-          <strong>{selectedTrace.components}</strong>
+        <div className="trace-ledger">
+          <ul aria-label="Select a platform trace path">
+            {(Object.keys(TRACE_PATHS) as TraceKey[]).map((trace) => (
+              <li key={trace}>
+                <button
+                  className={`trace-control${activeTrace === trace ? " is-active" : ""}`}
+                  type="button"
+                  aria-pressed={activeTrace === trace}
+                  onClick={() => selectTrace(trace)}
+                >
+                  <span className="trace-name">
+                    <TraceIcon trace={trace} />
+                    {TRACE_PATHS[trace].label}
+                  </span>
+                  <span className="trace-chain">
+                    {TRACE_PATHS[trace].chain.map((hop) => (
+                      <span className="trace-hop" key={hop}>
+                        {hop}
+                      </span>
+                    ))}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="trace-detail" aria-live="polite">
+            {selectedTrace.detail}
+          </p>
         </div>
       </div>
 
-      <aside
-        className="evidence-rail"
-        aria-label={`Apply an evidence lens to ${selectedStage.label}`}
-      >
-        <div className="evidence-rail-line" aria-hidden="true"><span /></div>
+      <div className="evidence-rail" role="group" aria-label={`Proof lens for ${selectedStage.label}`}>
         {(Object.keys(EVIDENCE) as EvidenceKey[]).map((key) => (
           <button
             className={`evidence-tab${activeEvidence === key ? " is-active" : ""}`}
             type="button"
             key={key}
+            ref={registerNode(`evidence-${key}`)}
             aria-pressed={activeEvidence === key}
-            aria-label={`Inspect ${selectedStage.label} ${EVIDENCE[key].focus}`}
+            aria-label={`Show ${selectedStage.label} ${EVIDENCE[key].focus}`}
             onClick={() => setActiveEvidence(key)}
           >
-            <EvidenceIcon evidence={key} />
+            <span className="evidence-ring">
+              <EvidenceIcon evidence={key} />
+            </span>
             <span>{EVIDENCE[key].label}</span>
-            <small>{selectedStage.label}: {EVIDENCE[key].focus}</small>
+            <small>{EVIDENCE[key].focus}</small>
           </button>
         ))}
-      </aside>
-      <svg
-        key={`${activeStage}-${activeEvidence}`}
-        className="stage-evidence-link"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <path
-          className="signal-afterimage"
-          d={evidencePath}
-        />
-        <path
-          className="signal-live"
-          d={evidencePath}
-        />
-        <path className="signal-pulse" d={evidencePath} />
-      </svg>
+      </div>
     </div>
   );
 }

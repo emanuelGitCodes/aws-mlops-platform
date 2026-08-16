@@ -7754,3 +7754,60 @@ to measure the real size of the migration.
 
 `uv run --locked python scripts/wiki.py index` rebuilt the catalog, and
 `scripts/wiki.py lint` reported "Wiki healthy: 53 page(s)".
+\n
+## [2026-08-16] implementation | Website evidence panel and layout review
+
+### Objective
+
+Answer a design review of the running frontend, and give the evidence section
+the data it was already fetching.
+
+### Scope
+
+`website/frontend/src/styles.css`, `website/frontend/src/App.tsx`,
+`website/frontend/src/components/LatestEvaluation.tsx`,
+`src/pipeline/evaluate.py`, `tests/unit/test_evaluate.py`, and root
+`DESIGN.md`. The wiki page is
+`wiki/pages/decisions/website-local-first-rebuild.md`. No stack was synthesized
+and no AWS resource was touched. The website stays on hold.
+
+### Identity and environment
+
+Local only. The three local containers ran throughout, and the browser measured
+the page at 1351, 1280, 1100, 1078, and 375 pixels wide. No AWS profile was
+used.
+
+### Commands and results
+
+`make lint`, `make typecheck`, `make test` (411 passed, coverage 94.76% against
+the 94.74% floor), and `make frontend-check` passed. Browser measurements
+recorded the before and after of each defect: the schema table 352px against a
+495px neighbour, then both panels level; heading and standfirst cap tops 8.7 to
+9.4px apart, then 0.3px; the story cards at x=39 and x=550 in both rows; zero
+truncated service labels; the mobile ring right edge at 84px against a name at
+96px.
+
+### Interpretation
+
+Two findings were data problems wearing layout clothes. The evaluation panel
+looked empty because it displayed one number out of a report holding ten, and
+the AUC rendered as an em dash because `readAuc` knew only the nested
+ModelMetrics shape while the newest object was `metrics.json`. The evaluation
+step had computed the promotion comparison for its log event since it was
+written, and threw it away instead of writing it to the report the page reads.
+
+### Decision and next checkpoint
+
+`write_evaluation_artifacts` takes an optional `champion_test_auc` and records
+it with `promotion_decision`. The panel renders the verdict, the rate metrics,
+and the confusion matrix only when the fields are present, so a newest
+`evaluation.json` still renders correctly. Three items stay open and none is
+mine to close: the repository is private, so every "read the source" link on
+the page reaches a 404; `PROFILE.linkedin` and `PROFILE.resume` are empty; and
+the idle-endpoint state has no captured real response to show, which needs one
+signed call against the deployed endpoint.
+
+### Verification
+
+The four Make targets above, plus `make public-check`. The wiki linter runs
+with this record.

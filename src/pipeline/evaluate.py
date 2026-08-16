@@ -184,10 +184,24 @@ def _save_score_distribution(
 
 
 def write_evaluation_artifacts(
-    labels: list[int], scores: list[float], output_dir: str, threshold: float = DEFAULT_THRESHOLD
+    labels: list[int],
+    scores: list[float],
+    output_dir: str,
+    threshold: float = DEFAULT_THRESHOLD,
+    champion_test_auc: float | None = None,
 ) -> dict:
-    """Write the complete report bundle and return its metrics dictionary."""
+    """Write the complete report bundle and return its metrics dictionary.
+
+    ``champion_test_auc`` records the score the challenger had to beat. The
+    gate reads the same comparison, so the report carries the decision rather
+    than the score alone.
+    """
     metrics = calculate_classification_metrics(labels, scores, threshold)
+    if champion_test_auc is not None:
+        metrics["champion_test_auc"] = champion_test_auc
+        metrics["promotion_decision"] = (
+            "register" if metrics["auc"] > champion_test_auc else "reject"
+        )
     destination = pathlib.Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     predictions = [int(score >= threshold) for score in scores]
@@ -255,14 +269,16 @@ def main() -> None:
     booster.load_model(f"{MODEL_DIR}/xgboost-model")
     labels, features = _load_test_data(TEST_DIR)
     scores = [float(score) for score in booster.predict(xgb.DMatrix(features))]
-    metrics = write_evaluation_artifacts(labels, scores, OUTPUT_DIR)
+    metrics = write_evaluation_artifacts(
+        labels, scores, OUTPUT_DIR, champion_test_auc=args.champion_test_auc
+    )
     log_event(
         "challenger_evaluation",
         challenger_model_artifact=args.challenger_model_artifact,
         challenger_test_auc=round(metrics["auc"], 4),
         champion_model_package_arn=args.champion_model_package_arn,
         champion_test_auc=args.champion_test_auc,
-        promotion_decision="register" if metrics["auc"] > args.champion_test_auc else "reject",
+        promotion_decision=metrics["promotion_decision"],
     )
 
 

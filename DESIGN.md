@@ -400,9 +400,10 @@ micro step is the floor.
 
 ## Layout
 
-The page centres on `min(100% - 2rem, 96rem)`, and the gutter narrows to
-`1.5rem` below 760px. The header, the main column, and the footer share that
-one measure.
+The page centres on `min(100% - clamp(2rem, 7vw, 8rem), 96rem)`. Every section
+runs to that edge, so the gutter is the only place that holds the page off the
+window: it opens to 4rem on each side on a wide screen and closes to 1rem on a
+phone. The header, the main column, and the footer share that one measure.
 
 The first viewport holds a named status line, then the CRT shell. Inside the
 shell a continuous lifecycle schematic sits beside a narrow evidence rail
@@ -611,6 +612,18 @@ becomes three columns under the schematic and the edge moves to the top; below
 Tables, definition lists, and count blocks share one treatment: panel fill,
 hairline faint rules, an uppercase faint key, and a bright tabular value. Table
 heads stick to the top of a scrolling region and take the strong panel.
+
+A rate readout adds a 2px track under the row. The track takes the faint step
+and the fill takes phosphor, so the row reads as a number first and a length
+second. The number MUST carry the value; the track repeats it and stays out of
+the accessibility tree.
+
+A count matrix drops the panel fill and keeps the hairline rules. The cells the
+model called right take phosphor, and the rest stay at the muted step.
+
+A verdict line pairs one display-voice word with a sentence of context. The word
+takes phosphor when the gate passed and the fault signal when it stopped. This
+is the one place a readout states an outcome instead of a value.
 
 ## Do's and Don'ts
 

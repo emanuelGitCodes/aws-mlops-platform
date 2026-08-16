@@ -50,3 +50,38 @@ def test_write_evaluation_artifacts_creates_json_csv_and_charts(tmp_path):
         "score_distribution.png",
     ):
         assert (tmp_path / filename).stat().st_size > 0
+
+
+def test_write_evaluation_artifacts_records_the_gate_decision(tmp_path):
+    write_evaluation_artifacts(
+        labels=[0, 0, 1, 1],
+        scores=[0.1, 0.6, 0.5, 0.9],
+        output_dir=str(tmp_path),
+        champion_test_auc=0.7,
+    )
+
+    metrics = json.loads((tmp_path / "metrics.json").read_text())
+    assert metrics["champion_test_auc"] == 0.7
+    assert metrics["promotion_decision"] == "register"
+
+
+def test_write_evaluation_artifacts_rejects_a_worse_challenger(tmp_path):
+    write_evaluation_artifacts(
+        labels=[0, 0, 1, 1],
+        scores=[0.1, 0.6, 0.5, 0.9],
+        output_dir=str(tmp_path),
+        champion_test_auc=0.9,
+    )
+
+    metrics = json.loads((tmp_path / "metrics.json").read_text())
+    assert metrics["promotion_decision"] == "reject"
+
+
+def test_write_evaluation_artifacts_omits_the_gate_without_a_champion(tmp_path):
+    write_evaluation_artifacts(
+        labels=[0, 0, 1, 1], scores=[0.1, 0.6, 0.5, 0.9], output_dir=str(tmp_path)
+    )
+
+    metrics = json.loads((tmp_path / "metrics.json").read_text())
+    assert "champion_test_auc" not in metrics
+    assert "promotion_decision" not in metrics

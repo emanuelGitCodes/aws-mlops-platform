@@ -938,6 +938,15 @@ summary:hover { color: var(--phosphor); }
   background: var(--panel);
 }
 .table-scroll { max-height: 22rem; }
+/* The two panels share one grid row, so the taller one sets the height. The
+   schema table fills the space the neighbour opens, and it keeps the 22rem
+   flex basis so the closed state still asks for the same height. */
+.schema-panel { display: flex; flex-direction: column; }
+.schema-panel .table-scroll {
+  flex: 1 1 22rem;
+  min-height: 0;
+  max-height: none;
+}
 table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 th, td {
   padding: 0.65rem 0.9rem;

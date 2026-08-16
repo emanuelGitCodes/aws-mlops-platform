@@ -1,9 +1,17 @@
 import type { EvaluationReport, ModelSchema } from "../types";
 
-/** Read the AUC out of the SageMaker evaluation report, when it is there. */
+/**
+ * Read the AUC out of the newest evaluation report, when it is there.
+ *
+ * The pipeline writes two reports per execution. `evaluation.json` nests the
+ * value in the SageMaker ModelMetrics shape, and `metrics.json` holds it as a
+ * plain number beside the other metrics. Either one can be the newest object.
+ */
 function readAuc(report: unknown): number | null {
   if (typeof report !== "object" || report === null) return null;
-  const metrics = (report as Record<string, unknown>)["binary_classification_metrics"];
+  const fields = report as Record<string, unknown>;
+  if (typeof fields["auc"] === "number") return fields["auc"];
+  const metrics = fields["binary_classification_metrics"];
   if (typeof metrics !== "object" || metrics === null) return null;
   const auc = (metrics as Record<string, unknown>)["auc"];
   if (typeof auc !== "object" || auc === null) return null;

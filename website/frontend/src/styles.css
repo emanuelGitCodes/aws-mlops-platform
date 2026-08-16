@@ -158,7 +158,10 @@ button { color: inherit; }
 
 .site-shell { min-height: 100vh; }
 main, .site-header, .site-footer {
-  width: min(100% - 2rem, 96rem);
+  /* One measure for the header, the page, and the footer. Every section runs
+     to this edge, so the gutter is the only place to give the page room from
+     the window. A phone keeps 1rem on each side. */
+  width: min(100% - clamp(2rem, 7vw, 8rem), 96rem);
   margin-inline: auto;
 }
 
@@ -443,16 +446,18 @@ main { padding-block: 1.25rem 4rem; }
   text-transform: uppercase;
 }
 .stage-service {
+  /* The service names the AWS component, so a clipped one reads as a defect.
+     Six nodes on one row leave about 12 characters between 1000px and 1180px,
+     and the name wraps rather than truncates. Every node in the row takes the
+     tallest height, so a wrapped name keeps the row even. */
   margin-top: 0.22rem;
   max-width: 100%;
-  overflow: hidden;
   color: var(--text-faint);
   font-size: 0.73rem;
   letter-spacing: 0.01em;
   line-height: 1.3;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: balance;
 }
 .stage-node.is-trace-active {
   border-color: var(--dim);
@@ -760,6 +765,9 @@ main { padding-block: 1.25rem 4rem; }
 .live-evidence, .prediction-section { border-top: 1px dashed var(--faint); }
 
 .section-heading {
+  /* Both columns read the same step, so the standfirst offset below stays
+     correct at every viewport width. */
+  --heading-step: clamp(2.8rem, 5vw, 4.75rem);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
   gap: clamp(2rem, 5vw, 5rem);
@@ -772,7 +780,7 @@ main { padding-block: 1.25rem 4rem; }
   margin: 0;
   color: var(--bright);
   font-family: var(--display);
-  font-size: clamp(2.8rem, 5vw, 4.75rem);
+  font-size: var(--heading-step);
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -783,6 +791,14 @@ main { padding-block: 1.25rem 4rem; }
   margin: 0;
   color: var(--text-quiet);
   font-size: 0.92rem;
+  /* VT323 carries tall internal ascent, so its capital letters start 0.24em
+     below the line box. The two columns start at the same box top, and the
+     standfirst reads higher than the heading without these two rules. The
+     trim removes the standfirst's own leading, and the padding replaces it
+     with the heading's cap offset. A browser without `text-box` keeps the
+     leading and lands about 6px low, which still reads as one line. */
+  text-box: trim-start cap alphabetic;
+  padding-top: calc(var(--heading-step) * 0.24);
 }
 
 /* The first-person band. Slightly warmer measure than the technical copy. */
@@ -793,13 +809,23 @@ main { padding-block: 1.25rem 4rem; }
   padding-left: 1.25rem;
   border-left: 1px solid var(--dim);
 }
+/* The band holds the second column of a section heading, so its rule and its
+   first line take the same cap offset as a standfirst. */
+.section-heading > .approach-voice { padding-top: calc(var(--heading-step) * 0.24); }
 .approach-voice p {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.75;
 }
+.section-heading > .approach-voice > p:first-child { text-box: trim-start cap alphabetic; }
 .approach-voice p:last-child { color: var(--text-quiet); }
+.voice-record a {
+  color: var(--phosphor);
+  text-decoration: none;
+  border-bottom: 1px solid var(--dim);
+}
+.voice-record a:hover { color: var(--bright); border-bottom-color: var(--phosphor); }
 
 .system-story {
   display: grid;
@@ -918,6 +944,92 @@ main { padding-block: 1.25rem 4rem; }
   text-transform: uppercase;
 }
 
+/* The gate verdict. The number above says how well; this says what happened. */
+.gate-verdict {
+  margin: 0.6rem 0 0;
+  color: var(--text-quiet);
+  font-size: 0.8rem;
+}
+.gate-verdict span {
+  margin-right: 0.5rem;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gate-pass { color: var(--phosphor); }
+.gate-stop { color: var(--danger); }
+
+/* The rate metrics that sit under the headline number. Each row reads as a
+   value first, and the track repeats it as length. */
+.metric-bars { margin-top: 1.5rem; }
+.metric-note {
+  margin: 0.9rem 0 0;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.metric-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem 0.75rem;
+  margin: 0;
+  padding: 0.6rem 0 0.55rem;
+  border-bottom: 1px solid var(--faint);
+}
+.bar-name {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.bar-value {
+  color: var(--bright);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.bar-track {
+  grid-column: 1 / -1;
+  height: 2px;
+  background: var(--faint);
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--phosphor);
+}
+
+/* The confusion matrix. The diagonal the model got right reads bright. */
+.matrix { margin-top: 1.75rem; }
+.matrix caption {
+  padding-bottom: 0.7rem;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  text-align: left;
+}
+.matrix thead th {
+  position: static;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  text-align: right;
+}
+.matrix th[scope="row"] {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.matrix td {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.matrix td.hit { color: var(--phosphor); }
+
 details { margin-top: 1.25rem; }
 summary {
   width: fit-content;
@@ -938,6 +1050,15 @@ summary:hover { color: var(--phosphor); }
   background: var(--panel);
 }
 .table-scroll { max-height: 22rem; }
+/* The two panels share one grid row, so the taller one sets the height. The
+   schema table fills the space the neighbour opens, and it keeps the 22rem
+   flex basis so the closed state still asks for the same height. */
+.schema-panel { display: flex; flex-direction: column; }
+.schema-panel .table-scroll {
+  flex: 1 1 22rem;
+  min-height: 0;
+  max-height: none;
+}
 table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 th, td {
   padding: 0.65rem 0.9rem;
@@ -970,7 +1091,8 @@ dt, dd {
   border-bottom: 1px solid var(--faint);
   font-size: 0.8rem;
 }
-dt { color: var(--text-faint); }
+/* A narrow panel lets a long key meet its value with no space between. */
+dt { padding-right: 1rem; color: var(--text-faint); }
 dd { margin: 0; color: var(--bright); font-variant-numeric: tabular-nums; }
 dd.wraps { overflow-wrap: anywhere; }
 
@@ -1239,7 +1361,9 @@ button:disabled { cursor: progress; opacity: 0.55; transform: none; }
 @media (max-width: 1180px) {
   .terminal-heading { grid-template-columns: 1fr; gap: 0.75rem; }
   .system-story { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .system-story article:nth-child(3) { border-left: 0; }
+  /* Two columns move the third card to column one, where the padding meant
+     for a second-column card would push its text off the column edge. */
+  .system-story article:nth-child(3) { padding-left: 0; border-left: 0; }
   .system-story article:nth-child(n + 3) { border-top: 1px solid var(--faint); }
   .input-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -1256,6 +1380,10 @@ button:disabled { cursor: progress; opacity: 0.55; transform: none; }
   .evidence-tab.is-active { box-shadow: inset 0 3px 0 var(--phosphor); }
   .section-heading { grid-template-columns: 1fr; gap: 1.75rem; }
   .section-heading h2 { max-width: 22ch; }
+  /* One column puts the standfirst under the heading, where the cap offset
+     becomes an extra gap. The grid gap owns the space here. */
+  .section-heading > p,
+  .section-heading > .approach-voice { padding-top: 0; }
   .evidence-workbench { grid-template-columns: 1fr; }
   .evidence-panel { padding-right: 0; }
   .evidence-panel + .evidence-panel {
@@ -1304,20 +1432,39 @@ button:disabled { cursor: progress; opacity: 0.55; transform: none; }
      that comes from empty margin. Scrolling keeps it one readable sequence. */
   .trace-chain {
     flex-wrap: nowrap;
-    padding-bottom: 0.3rem;
+    /* The fade sits at a fixed place, so the end of the scroll MUST reach it
+       with empty space. Without this padding the fade dims the last hop. */
+    padding-right: 2.25rem;
+    padding-bottom: 0.45rem;
     overflow-x: auto;
-    scrollbar-width: none;
+    /* A hop cut by the frame edge reads as broken markup. The fade says the
+       row continues, and the bar says it is the reader who moves it. */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+    scrollbar-width: thin;
+    scrollbar-color: var(--dim) transparent;
   }
-  .trace-chain::-webkit-scrollbar { display: none; }
+  /* The spacer aligns the detail under the chain column on a wide screen.
+     One column here would leave it holding half the width and no content. */
+  .trace-detail { grid-template-columns: 1fr; gap: 0; }
+  .trace-detail::before { display: none; }
+  .trace-chain::-webkit-scrollbar { height: 3px; }
+  .trace-chain::-webkit-scrollbar-thumb { background: var(--dim); }
   .evidence-rail { grid-template-columns: 1fr; }
   .evidence-tab {
-    grid-template-columns: 2rem 1fr;
+    grid-template-columns: 2.6rem 1fr;
     place-items: center start;
     gap: 0 0.8rem;
     padding: 0.75rem 0.9rem;
     text-align: left;
   }
-  .evidence-tab svg { grid-row: 1 / span 2; width: 1.7rem; height: 1.7rem; }
+  /* The ring holds the icon, so the first column MUST carry the ring width.
+     A 2rem column leaves the ring to overlap the name beside it. */
+  .evidence-tab .evidence-ring {
+    grid-row: 1 / span 2;
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  .evidence-tab svg { width: 1.4rem; height: 1.4rem; }
   .evidence-tab > span { margin-top: 0; }
   .evidence-tab small { max-width: none; margin-top: 0.1rem; }
   .evidence-tab + .evidence-tab { border-left: 0; border-top: 1px solid var(--faint); }

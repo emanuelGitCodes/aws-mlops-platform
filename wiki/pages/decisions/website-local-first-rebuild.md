@@ -2,8 +2,8 @@
 type: decision
 title: Website rebuild, local application before deployment
 created: "2026-08-14"
-updated: "2026-08-15"
-sources: ["./website-stack-plan.md", "../../../PRODUCT.md", "../../../DESIGN.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/api.ts", "../../../website/frontend/src/components/ArchitectureMap.tsx", "../../../website/frontend/src/styles.css", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
+updated: "2026-08-16"
+sources: ["./website-stack-plan.md", "../../../PRODUCT.md", "../../../DESIGN.md", "../../../infra/stacks/website_stack.py", "../../../website/backend/app.py", "../../../website/backend/services.py", "../../../website/frontend/src/App.tsx", "../../../website/frontend/src/components/LatestEvaluation.tsx", "../../../src/pipeline/evaluate.py", "../../../website/frontend/src/api.ts", "../../../website/frontend/src/components/ArchitectureMap.tsx", "../../../website/frontend/src/styles.css", "../../../website/frontend/vite.config.ts", "../../../website/local/compose.yaml", "../architecture/cdk-deployment-iam.md", "../architecture/generated-cdk-diagrams.md", "./platform-design.md"]
 summary: "The website work stops at the deploy boundary and restarts as a three-container local application, because the infrastructure was designed before the application it carries."
 ---
 # Website rebuild, local application before deployment
@@ -220,6 +220,57 @@ approved "Layered Trace Ledger" world and changes what the page carries.
 - **The display font dropped from 153 KB to 32 KB.** VT323 shipped as
   TrueType. It is WOFF2 now, and it sits in `public/` so `index.html` can
   preload it; a bundled asset carries a content hash the markup cannot name.
+
+### The evidence section states the gate decision
+
+A second review, on 2026-08-16, read the running page as a hiring reader. It
+found one column of evidence carrying a single number, and it found six layout
+defects. The work that followed changed both the data and the frame.
+
+- **The report carries the decision, not the score alone.**
+  `write_evaluation_artifacts` in `src/pipeline/evaluate.py` now records
+  `champion_test_auc` and `promotion_decision` in `metrics.json`. The step
+  already computed that comparison for its `challenger_evaluation` log event
+  and then dropped it. `main()` reads the decision back from the metrics rather
+  than repeating the comparison, so one expression owns the gate.
+- **The panel reads either report shape.** The pipeline writes two reports per
+  execution: `evaluation.json` in the SageMaker ModelMetrics shape, and
+  `metrics.json` with the values beside each other. The backend serves whichever
+  object is newest under the prefix, and `readAuc` understood only the nested
+  shape, so a newest `metrics.json` rendered an em dash where the AUC belongs.
+- **The panel shows the evidence it already fetched.** It held one number and
+  hid the rest inside a JSON disclosure. It now states the verdict, five rate
+  metrics with a track under each, and the confusion matrix with its sample
+  line. Every added field is guarded: `evaluation.json` carries the AUC alone,
+  and the extra blocks then render nothing.
+- **A rate needs its threshold.** A note names the 0.5 serving threshold and
+  the trade it makes, because the endpoint returns the probability and a caller
+  picks its own cut. Recall at 0.5 is the first question a reader asks.
+- **The approach band links the wiki.** The decision record was invisible from
+  the page. The band also closes on what the rebuild produced rather than on
+  the mistake that started it.
+
+Six defects came out of the same review, and each was measured in the browser
+before and after:
+
+1. **The two evidence panels share one grid row**, so the taller one set the
+   height and the schema table kept a fixed 22rem cap. The table now takes
+   22rem as a flex basis and absorbs the height its neighbour opens.
+2. **A display heading and its standfirst did not share a cap line.** VT323
+   starts its capitals about 0.24em below the line box, so two boxes with the
+   same top read 9 pixels apart. The standfirst trims its own leading with
+   `text-box` and takes the heading's cap offset as padding.
+3. **The page gutter opens with the viewport.** `min(100% - 2rem, 96rem)` left
+   16 pixels between the content and the window. Every section runs to that one
+   measure, so the gutter is the only place that can hold the page off the edge.
+4. **Two columns moved the third story card to column one**, where it kept the
+   padding meant for a second-column card.
+5. **The mobile evidence rail sized its first column for the icon**, not for
+   the ring that holds it, so each ring covered the name beside it. A stage
+   service name wrapped rather than truncating to `Processing…`.
+6. **A mobile trace chain scrolls**, and now says so with an edge fade and a
+   thin bar. The chain carries right padding wider than the fade, so the end of
+   the scroll reaches the fade with empty space and the last hop stays bright.
 
 Two decisions went against the finish review, and both are recorded here rather
 than argued twice:

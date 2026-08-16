@@ -7700,3 +7700,114 @@ stack that is not deployed.
 `make frontend-check`, `make lint`, `make typecheck`, `make test` (408 passed,
 coverage 94.75%, floor raised to 94.74), `make public-check`, and
 `make synth-all` passed. The wiki linter runs with this record.
+
+## [2026-08-16] query | Dependabot alert 1, SageMaker SDK advisory
+
+### Objective
+
+Triage the Dependabot alert that the remote prints on every push to
+`claude/front-end-questions-a1786b`, and record whether it describes a risk to
+this platform.
+
+### Scope
+
+`pyproject.toml`, `uv.lock`, `src/pipeline/pipeline.py`,
+`infra/stacks/lambda_code.py`, and the CI `audit` job. No code changed. The new
+page is `wiki/pages/decisions/sagemaker-sdk-advisory-triage.md`.
+
+### Identity and environment
+
+Read-only GitHub API calls through `gh`, against
+`emanuelGitCodes/aws-mlops-platform`. No AWS call.
+
+### Commands and results
+
+`gh api repos/.../dependabot/alerts` returned one open alert, number 1, created
+2026-08-10. It cites `GHSA-5r2p-pjr8-7fh7` against `sagemaker` below 3.4.0,
+severity high, CVSS score 0 and no vector, CWE-184. A repository search for
+`search_hub`, `JumpStart`, and `jumpstart` over `src/`, `infra/`, `scripts/`,
+`website/`, and `tests/` returned no match. `uv.lock` resolves sagemaker
+2.257.5 under the `>=2.220,<3` pin. `_RUNTIME_DEPS` in
+`infra/stacks/lambda_code.py` is `["pydantic==2.*"]`. `make audit` printed
+"No known vulnerabilities found".
+
+### Interpretation
+
+The advisory is real and unreachable here. The vulnerable function needs an
+attacker-controlled query string, and the platform calls the SDK only to build
+a pipeline definition from repository values. The SDK is a build-time
+dependency, so no deployed Lambda carries it. pip-audit and Dependabot disagree
+because pip-audit reads the PyPI database and Dependabot reads the GitHub
+Advisory Database; the green `audit` job is not evidence against the alert.
+
+### Decision and next checkpoint
+
+The alert stays open, and the pin stays on 2.x. The first patched version is
+3.4.0, and SageMaker Python SDK v3 changes the estimator, processor, and
+workflow API that `src/pipeline/pipeline.py` uses, so the fix is a migration
+under the full phase gate rather than a version bump. The dismissal reason
+`vulnerable_code_not_actually_used` matches the evidence and stays available.
+Next checkpoint: a throwaway branch that installs 3.4.0 and runs `make test`,
+to measure the real size of the migration.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index` rebuilt the catalog, and
+`scripts/wiki.py lint` reported "Wiki healthy: 53 page(s)".
+\n
+## [2026-08-16] implementation | Website evidence panel and layout review
+
+### Objective
+
+Answer a design review of the running frontend, and give the evidence section
+the data it was already fetching.
+
+### Scope
+
+`website/frontend/src/styles.css`, `website/frontend/src/App.tsx`,
+`website/frontend/src/components/LatestEvaluation.tsx`,
+`src/pipeline/evaluate.py`, `tests/unit/test_evaluate.py`, and root
+`DESIGN.md`. The wiki page is
+`wiki/pages/decisions/website-local-first-rebuild.md`. No stack was synthesized
+and no AWS resource was touched. The website stays on hold.
+
+### Identity and environment
+
+Local only. The three local containers ran throughout, and the browser measured
+the page at 1351, 1280, 1100, 1078, and 375 pixels wide. No AWS profile was
+used.
+
+### Commands and results
+
+`make lint`, `make typecheck`, `make test` (411 passed, coverage 94.76% against
+the 94.74% floor), and `make frontend-check` passed. Browser measurements
+recorded the before and after of each defect: the schema table 352px against a
+495px neighbour, then both panels level; heading and standfirst cap tops 8.7 to
+9.4px apart, then 0.3px; the story cards at x=39 and x=550 in both rows; zero
+truncated service labels; the mobile ring right edge at 84px against a name at
+96px.
+
+### Interpretation
+
+Two findings were data problems wearing layout clothes. The evaluation panel
+looked empty because it displayed one number out of a report holding ten, and
+the AUC rendered as an em dash because `readAuc` knew only the nested
+ModelMetrics shape while the newest object was `metrics.json`. The evaluation
+step had computed the promotion comparison for its log event since it was
+written, and threw it away instead of writing it to the report the page reads.
+
+### Decision and next checkpoint
+
+`write_evaluation_artifacts` takes an optional `champion_test_auc` and records
+it with `promotion_decision`. The panel renders the verdict, the rate metrics,
+and the confusion matrix only when the fields are present, so a newest
+`evaluation.json` still renders correctly. Three items stay open and none is
+mine to close: the repository is private, so every "read the source" link on
+the page reaches a 404; `PROFILE.linkedin` and `PROFILE.resume` are empty; and
+the idle-endpoint state has no captured real response to show, which needs one
+signed call against the deployed endpoint.
+
+### Verification
+
+The four Make targets above, plus `make public-check`. The wiki linter runs
+with this record.

@@ -99,7 +99,16 @@ export function App() {
               <p>
                 The thing I got wrong: I designed the infrastructure for this website
                 before I designed the website, then had to stop and rebuild it in the
-                right order.
+                right order. The stack stays written and tested, and it ships after the
+                application it carries runs.
+              </p>
+              <p className="voice-record">
+                Every phase carries a written record — the decision, the deploy, the
+                observation window, and the go or no-go call.{" "}
+                <a href={`${PROFILE.repository}/tree/main/wiki`} target="_blank" rel="noreferrer">
+                  Read the engineering wiki
+                </a>
+                .
               </p>
             </div>
           </div>

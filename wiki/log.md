@@ -7700,3 +7700,57 @@ stack that is not deployed.
 `make frontend-check`, `make lint`, `make typecheck`, `make test` (408 passed,
 coverage 94.75%, floor raised to 94.74), `make public-check`, and
 `make synth-all` passed. The wiki linter runs with this record.
+
+## [2026-08-16] query | Dependabot alert 1, SageMaker SDK advisory
+
+### Objective
+
+Triage the Dependabot alert that the remote prints on every push to
+`claude/front-end-questions-a1786b`, and record whether it describes a risk to
+this platform.
+
+### Scope
+
+`pyproject.toml`, `uv.lock`, `src/pipeline/pipeline.py`,
+`infra/stacks/lambda_code.py`, and the CI `audit` job. No code changed. The new
+page is `wiki/pages/decisions/sagemaker-sdk-advisory-triage.md`.
+
+### Identity and environment
+
+Read-only GitHub API calls through `gh`, against
+`emanuelGitCodes/aws-mlops-platform`. No AWS call.
+
+### Commands and results
+
+`gh api repos/.../dependabot/alerts` returned one open alert, number 1, created
+2026-08-10. It cites `GHSA-5r2p-pjr8-7fh7` against `sagemaker` below 3.4.0,
+severity high, CVSS score 0 and no vector, CWE-184. A repository search for
+`search_hub`, `JumpStart`, and `jumpstart` over `src/`, `infra/`, `scripts/`,
+`website/`, and `tests/` returned no match. `uv.lock` resolves sagemaker
+2.257.5 under the `>=2.220,<3` pin. `_RUNTIME_DEPS` in
+`infra/stacks/lambda_code.py` is `["pydantic==2.*"]`. `make audit` printed
+"No known vulnerabilities found".
+
+### Interpretation
+
+The advisory is real and unreachable here. The vulnerable function needs an
+attacker-controlled query string, and the platform calls the SDK only to build
+a pipeline definition from repository values. The SDK is a build-time
+dependency, so no deployed Lambda carries it. pip-audit and Dependabot disagree
+because pip-audit reads the PyPI database and Dependabot reads the GitHub
+Advisory Database; the green `audit` job is not evidence against the alert.
+
+### Decision and next checkpoint
+
+The alert stays open, and the pin stays on 2.x. The first patched version is
+3.4.0, and SageMaker Python SDK v3 changes the estimator, processor, and
+workflow API that `src/pipeline/pipeline.py` uses, so the fix is a migration
+under the full phase gate rather than a version bump. The dismissal reason
+`vulnerable_code_not_actually_used` matches the evidence and stays available.
+Next checkpoint: a throwaway branch that installs 3.4.0 and runs `make test`,
+to measure the real size of the migration.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index` rebuilt the catalog, and
+`scripts/wiki.py lint` reported "Wiki healthy: 53 page(s)".

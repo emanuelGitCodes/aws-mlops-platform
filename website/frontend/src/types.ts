@@ -9,12 +9,28 @@
 // These types can be generated from `/api/openapi.json` when the API grows
 // past hand-written types.
 
+/** One numeric column's range, read from the shared request model. */
+export interface NumericBound {
+  integer: boolean;
+  minimum?: number;
+  maximum?: number;
+}
+
+/** One canonical request payload the backend publishes to seed the form. */
+export interface SchemaExample {
+  key: string;
+  label: string;
+  record: CustomerRecord;
+}
+
 export interface ModelSchema {
   feature_columns: string[];
   label_column: string;
   numeric_columns: string[];
   categorical_values: Record<string, string[]>;
+  numeric_bounds?: Record<string, NumericBound>;
   decision_threshold: number;
+  examples?: SchemaExample[];
 }
 
 export interface EvaluationReport {

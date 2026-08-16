@@ -7644,3 +7644,59 @@ architecture experience.
 `make frontend-check`, `npm run build`, `git diff --check`, desktop and mobile
 browser checks, and the reduced-motion check passed. The wiki linter runs with
 this record.
+
+## [2026-08-15] update | Frontend rebuilt as a job-application artifact
+
+### Objective
+
+Make the website carry the engineer, not only the platform. The owner is
+preparing it to support job applications, and a review of the running page
+found no name, no contact, and the first-viewport actions below the fold on
+every laptop viewport tested.
+
+### What changed
+
+The approved "Layered Trace Ledger" world stays. The page gained an identity
+layer, a first-person section, and a contact block that replaces the mailing
+list. The architecture diagram regained the arrowheads and connectors the
+approved comp specifies, and now draws them from measured element geometry
+rather than percentage estimates. The trace ledger states the real AWS
+component chain in place of tracks that measured nothing. Mobile renders the
+whole lifecycle instead of hiding it. The prediction form opens on a canonical
+sample record served by the API.
+
+`.impeccable/surfaces/website-frontend-src-app-tsx.md` and
+`wiki/pages/decisions/website-local-first-rebuild.md` hold the detail.
+
+### Evidence
+
+The hero measured 979 to 1001 pixels before the change and 673 to 813 after
+it. The three actions are visible at 1512x860, 1440x790, 1920x969, and
+1280x720; none of the four passed before. A contrast pass over every text node
+found no WCAG AA failure. The page reports one `main`, one `nav`, one `header`,
+a `footer` outside `main`, and a skip link. The display font dropped from 153 KB
+TrueType to 32 KB WOFF2. The page carries eleven Open Graph and Twitter tags
+and a generated cover; it carried none.
+
+### Limits of this record
+
+The design detector ran degraded on this machine, because the HTML parser
+modules were unavailable. It fell back to regex matching and reported nothing,
+which is an undercount and not a clean pass.
+
+`DESIGN.md` still describes the previous build. It is regenerated from the
+built world after the finish review closes, so the design hook's font-size,
+colour, and radius findings against `styles.css` stay open until then.
+
+### Decision and next checkpoint
+
+**The website deploy stays on hold, and no AWS resource was created.** The
+image content allowlist in `infra/stacks/website_stack.py` gained
+`sample.json` and `sample-high-risk.json`, which changes the asset hash of a
+stack that is not deployed.
+
+### Verification
+
+`make frontend-check`, `make lint`, `make typecheck`, `make test` (408 passed,
+coverage 94.75%, floor raised to 94.74), `make public-check`, and
+`make synth-all` passed. The wiki linter runs with this record.

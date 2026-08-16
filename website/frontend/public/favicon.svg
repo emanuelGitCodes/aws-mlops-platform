@@ -1,4 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="8" fill="#020603"/>
-  <path d="M32 10v44M10 32h44" stroke="#8dff4d" stroke-width="6"/>
+  <!-- The lifecycle mark: three stages on a route, and the return edge that
+       closes the loop. It stays legible at 16 pixels. -->
+  <rect width="64" height="64" rx="10" fill="#020603"/>
+  <g fill="none" stroke="#8dff4d" stroke-width="4" stroke-linecap="square">
+    <path d="M12 24h40"/>
+    <path d="M52 24v16H20v-8"/>
+  </g>
+  <g fill="#d3ffb9">
+    <rect x="7" y="19" width="10" height="10"/>
+    <rect x="27" y="19" width="10" height="10"/>
+    <rect x="47" y="19" width="10" height="10"/>
+  </g>
+  <rect x="15" y="35" width="10" height="10" fill="#8dff4d"/>
 </svg>

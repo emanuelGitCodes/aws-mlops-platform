@@ -17,6 +17,10 @@ COPY src/common/ ./src/common/
 COPY website/__init__.py ./website/__init__.py
 COPY website/backend/ ./website/backend/
 
+# The canonical request payloads seed the prediction form. The backend reads
+# these files rather than restating one record.
+COPY sample.json sample-high-risk.json ./
+
 # A user without privileges cannot bind a port below 1024. The container
 # listens on 8080 and the host publishes it as port 80.
 RUN useradd --create-home --uid 10001 website

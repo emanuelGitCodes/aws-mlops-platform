@@ -11,6 +11,8 @@ helpers. This module MUST NOT restate any of them.
 import json
 import time
 import urllib.error
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -23,7 +25,7 @@ from src.common.features import (
     LABEL_COLUMN,
     NUMERIC,
 )
-from src.common.schema import FEATURE_COLUMNS
+from src.common.schema import FEATURE_COLUMNS, CustomerRecord
 from src.common.signing import SigningError, post_prediction
 from website.backend.settings import Settings
 
@@ -34,6 +36,58 @@ class ServiceError(RuntimeError):
 
 s3 = boto3.client("s3")
 dynamodb = boto3.client("dynamodb")
+
+
+# The repository root, which is `/app` inside the image and the checkout
+# during local development. Both hold the sample payloads beside `src/`.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# The canonical request payloads. They already back the unit fixtures and the
+# hand-run `curl` calls, so the website reads the same files rather than
+# restating one record in TypeScript or in this module.
+_EXAMPLE_FILES = (
+    ("typical", "A typical customer", "sample.json"),
+    ("high_risk", "A high-risk customer", "sample-high-risk.json"),
+)
+
+
+@lru_cache(maxsize=1)
+def example_records() -> list[dict[str, Any]]:
+    """Read the sample payloads that seed the prediction form.
+
+    A missing file drops its example rather than failing the schema route. The
+    form then starts from the schema defaults, and the page still works.
+    """
+    examples: list[dict[str, Any]] = []
+    for key, label, filename in _EXAMPLE_FILES:
+        path = _REPO_ROOT / filename
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            log_event("website_example_missing", file=filename, reason=type(error).__name__)
+            continue
+        examples.append({"key": key, "label": label, "record": record})
+    return examples
+
+
+@lru_cache(maxsize=1)
+def numeric_bounds() -> dict[str, dict[str, Any]]:
+    """Read each numeric column's range from the shared request model.
+
+    A numeric column has no value set. Its contract is the range check on
+    `CustomerRecord`, so the form reads that model rather than repeating a
+    minimum or a maximum that the schema already states.
+    """
+    properties = CustomerRecord.model_json_schema()["properties"]
+    bounds: dict[str, dict[str, Any]] = {}
+    for column in sorted(NUMERIC):
+        spec = properties.get(column, {})
+        entry: dict[str, Any] = {"integer": spec.get("type") == "integer"}
+        for key in ("minimum", "maximum"):
+            if key in spec:
+                entry[key] = spec[key]
+        bounds[column] = entry
+    return bounds
 
 
 def schema_payload() -> dict[str, Any]:
@@ -48,7 +102,9 @@ def schema_payload() -> dict[str, Any]:
         "categorical_values": {
             column: sorted(values) for column, values in FEATURE_VOCABULARY.items()
         },
+        "numeric_bounds": numeric_bounds(),
         "decision_threshold": DEFAULT_THRESHOLD,
+        "examples": example_records(),
     }
 
 

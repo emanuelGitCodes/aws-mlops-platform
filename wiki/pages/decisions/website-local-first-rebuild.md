@@ -166,6 +166,73 @@ both the row and the object unchanged.
 The deployed backend talks to the real DynamoDB and S3. Neither container ever
 reaches AWS.
 
+### The frontend became a job-application artifact
+
+A review of the running frontend on 2026-08-15 found that the page presented
+the platform and never presented the engineer. The work that followed keeps the
+approved "Layered Trace Ledger" world and changes what the page carries.
+
+- **The page states who built it.** `frontend/src/profile.ts` is the one source
+  of the name, the role, and every contact link. `SiteHeader.tsx` and
+  `SiteFooter.tsx` read it. An empty value renders nothing, so an unset link
+  never ships as a dead link. `missingLinks()` names the empty ones in the
+  footer during development only, because a link that silently disappears is
+  how a site ships without its own contact details. **`linkedin` and `resume`
+  are still empty, and `email` carries a personal address.**
+- **The first viewport ends above the fold.** The hero measured 979 to 1001
+  pixels on every viewport tested, so the three actions sat below the fold at
+  1512x860, 1440x790, 1920x969, and 1280x720. It now measures 673 to 813, and
+  the actions are visible at all four. A `max-height: 810px` block tightens the
+  hero for short laptop viewports.
+- **The routes are measured, not estimated.** `useNodeBoxes.ts` reads the real
+  element boxes with a `ResizeObserver` and redraws after `document.fonts.ready`.
+  The stage row is a grid with a `clamp()` gap, so no column centre is a fixed
+  fraction of the width, and the bitmap font changes each node's height when it
+  loads. One set of path builders now serves the horizontal desktop row and the
+  stacked mobile column. Two defects came out of building it:
+  1. **A ref callback MUST keep one identity.** Returning a new function per
+     render made React detach and reattach every node ref, each reattach
+     scheduled a measurement, and the page died with "Maximum update depth
+     exceeded". The callbacks are cached per key.
+  2. **A stacked column needs a different loop route.** The retrain return runs
+     straight down into the node's edge on desktop. Stacked, the node it
+     restarts is several nodes above it, so the path leaves sideways and climbs
+     a left lane.
+- **The mobile page carries the architecture.** `route-lines` was
+  `display: none` below 760 pixels, so a phone showed seven words in a list and
+  no system. Mobile now renders the whole connected vertical trace, retrain loop
+  included.
+- **The trace ledger states true values.** It drew dashed tracks with marks
+  fixed at 22% and 88% that measured nothing. Each row now renders its real AWS
+  component chain, one hop per component.
+- **The form opens on a real customer.** `/api/schema` publishes `examples`,
+  read from `sample.json` and `sample-high-risk.json`, and `numeric_bounds`,
+  read from `CustomerRecord.model_json_schema()`. Neither restates the contract.
+  The form seeds itself from the first example and offers both as presets.
+  `SeniorCitizen` renders as a choice because its published bound is an integer
+  from 0 to 1, not because the frontend knows its name.
+- **A cold endpoint is not an error.** A 502 renders as a dormant state naming
+  the hourly cost of a SageMaker endpoint. The alternative shows a visitor a
+  failure for a cost decision.
+- **The page can be shared.** It carried no Open Graph or Twitter tag, so it
+  rendered as a grey rectangle wherever it was pasted. It now carries eleven,
+  with a generated 1200x630 cover.
+- **The display font dropped from 153 KB to 32 KB.** VT323 shipped as
+  TrueType. It is WOFF2 now, and it sits in `public/` so `index.html` can
+  preload it; a bundled asset carries a content hash the markup cannot name.
+
+Two decisions went against the finish review, and both are recorded here rather
+than argued twice:
+
+- **The node brackets use two corners, not four.** The surface brief states the
+  implementation MUST NOT copy the comp's decorative corner marks where they
+  add no information. Two opposing corners frame the node and brighten with
+  selection, so the device carries state. The other two would be decoration.
+- **The body face stays the system monospace stack.** DESIGN.md's Two Voice
+  Rule binds body text and data to it. Self-hosting a body face would
+  contradict the design system this build follows. Changing that rule is a
+  DESIGN.md decision, not a fix.
+
 ## Tensions or open questions
 
 - **The deployed container topology is undecided.** Three containers on one

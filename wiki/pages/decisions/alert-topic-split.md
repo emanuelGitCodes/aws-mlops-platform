@@ -2,7 +2,7 @@
 type: decision
 title: Two alert topics, operational and security
 created: "2026-08-14"
-updated: "2026-08-14"
+updated: "2026-08-16"
 sources: ["../../../infra/stacks/security_stack.py", "../../../infra/stacks/monitoring_stack.py", "../../../infra/app.py", "../../../infra/config/dev.yaml", "../../../infra/config/prod.yaml", "../../../tests/unit/test_security_stack.py", "../../../tests/unit/test_monitoring_stack.py", "../architecture/phased-security-hardening.md", "../architecture/security-phase-2-audit-foundation.md"]
 summary: "The endpoint alarms move to a separate operational topic, because an idle dev endpoint is the expected state and its silence alarm made routine noise on the security channel."
 ---
@@ -101,22 +101,68 @@ for it.
 holds no `cloudformation:DescribeStacks`. Under `${AWS_ADMIN_USER_NAME}` the
 six integration tests pass. The API contract is unchanged by this phase.
 
+## Window closed as a go, 2026-08-16
+
+The window owed two pieces of evidence. Both arrived, and each one is an email
+in the operator's inbox rather than a console state.
+
+**One endpoint alarm reached the new topic.** `mlops-dev-endpoint-silent` went
+`OK -> ALARM` at 2026-08-15T23:26:10Z after 24 hourly datapoints below the
+threshold. The email names its destination on the `State Change Actions -
+ALARM:` line, `arn:aws:sns:us-east-1:${AWS_ACCOUNT_ID}:mlops-dev-ops-alerts`,
+and its unsubscribe link carries a `mlops-dev-ops-alerts` subscription. The
+address had never received a message from that topic before. Delivery is
+proved.
+
+**The security topic kept delivering.** Two security alarms fired after the
+split and both reached `mlops-dev-security-alerts`:
+`mlops-dev-security-iam-policy-changes` at 2026-08-14T21:37:07Z, which is
+after the 14:52Z deploy, and `mlops-dev-security-unauthorized-api-calls` at
+2026-08-16T21:12:17Z. The split moved the endpoint alarms and left the seven
+security alarms where they were.
+
+**The live routing matches the design.** `aws cloudwatch describe-alarms`
+under `${AWS_SECURITY_AUDITOR_USER_NAME}` returns nine alarms in dev. Two name
+`mlops-dev-ops-alerts` and seven name `mlops-dev-security-alerts`.
+
+| Alarm | Topic |
+|---|---|
+| `mlops-dev-endpoint-5xx` | `mlops-dev-ops-alerts` |
+| `mlops-dev-endpoint-silent` | `mlops-dev-ops-alerts` |
+| `mlops-dev-security-cloudtrail-configuration-changes` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-iam-policy-changes` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-kms-key-disable-or-deletion` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-prod-deploy-role-assumed` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-root-user-activity` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-s3-bucket-policy-changes` | `mlops-dev-security-alerts` |
+| `mlops-dev-security-unauthorized-api-calls` | `mlops-dev-security-alerts` |
+
+**The same email also proves the 2F silence refix.** It reports
+`MetricExpression: FILL(m1, 0)` over 24 of 24 one-hour periods. The original
+2F build used `TreatMissingData` and never re-evaluated. The `FILL` form
+evaluates on a missing datapoint, which is what makes a silence detector work.
+
+**The window found one thing worth carrying forward.** The
+`unauthorized-api-calls` alarm of 2026-08-16 was not a true positive. A query
+of `/aws/cloudtrail/mlops-dev-audit` with the alarm's own metric filter
+returned four `AccessDenied` events in the window, and every one came from an
+AWS service-linked role reading a service the account does not use:
+`AWSServiceRoleForConfig` against `frauddetector` and `cloudcontrolapi`, and
+`AWSServiceRoleForResourceExplorer` against `profile`. No human principal
+appears, and no external address does. The alarm behaved correctly against its
+filter. The filter has no floor for AWS's own inventory sweeps.
+
 ## Tensions or open questions
 
-- **The observation window is open.** Dev carries the change since
-  2026-08-14. Prod does not. The window MUST show one endpoint alarm arriving on
-  the new topic, and it MUST confirm that the seven security alarms still reach
-  the old one.
-- **The subscription is confirmed, and delivery is still unproved.** A human
-  accepted the request on 2026-08-14, and the ops topic now reports one
-  `CONFIRMED` email subscription. A confirmed subscription proves that the
-  address accepted the topic. It does not prove that an alarm reaches the
-  inbox. The window still owes that evidence.
-- **This is an alarm-behavior change, so it takes the Phase 2E gate.**
-  Sub-phases 2F and 2G set the precedent: a pre-flight baseline of the live
-  alarm state, a reviewed named diff, a scoped dev deploy, resource-level
-  verification, an observation window, and an explicit go/no-go. The window MUST
-  show one endpoint alarm arriving on the new topic and MUST confirm that the
-  seven security alarms still reach the old one.
+- **Prod still runs one topic.** Dev carries the split since 2026-08-14. Prod
+  keeps `mlops-prod-security-alerts` for all nine alarms until a deliberate
+  rollout. Prod waits 6 hours on silence rather than 24, so the noise the split
+  corrects does not exist there in the same form.
+- **The `unauthorized-api-calls` filter counts AWS's own denials.** Config's
+  resource-composition sweep pages the security channel on a schedule, and it
+  is the second such observation on record. The filter MAY gain a
+  `userIdentity.invokedBy` exclusion. That is a change to a CIS detection
+  control, so it takes its own gate and MUST NOT ride along with another
+  phase.
 - **Whether dev needs a silence alarm at all is a separate question.** This
   change assumes it does and corrects only the destination.

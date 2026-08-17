@@ -54,13 +54,13 @@ trusting this summary, which is coarse by design.
   run**: the `dev` and `prod` GitHub environments allow only `main`, and dev
   holds the role ARN. Environment reviewers remain unavailable on the current
   private-repository plan. Phase 4 (KMS) and Phases 7–9 are not started.
-- **One observation window is open.** The alert-topic split deployed to dev on
-  2026-08-14. `mlops-<env>-ops-alerts` now carries the two endpoint alarms, and
-  the seven security alarms stay on `mlops-<env>-security-alerts`. The email
-  subscription is confirmed. **Delivery through the new topic is still
-  unproved**, and that evidence closes the window. `mlops-dev-endpoint-silent`
-  fires on its own about 24 hours after the last `/predict` call. Prod keeps the
-  single topic. See
+- **No observation window is open.** The alert-topic split deployed to dev on
+  2026-08-14, and its window closed as a go on 2026-08-16.
+  `mlops-<env>-ops-alerts` carries the two endpoint alarms, and the seven
+  security alarms stay on `mlops-<env>-security-alerts`. Both topics have now
+  delivered a real alarm email. `mlops-dev-endpoint-silent` fires on its own
+  about 24 hours after the last `/predict` call, so an `ALARM` there means idle,
+  not broken. Prod keeps the single topic. See
   [two alert topics](wiki/pages/decisions/alert-topic-split.md).
 - **The website work is ON HOLD, and its stack MUST NOT be deployed.**
   `make deploy` refuses whenever the environment builds it, because that target

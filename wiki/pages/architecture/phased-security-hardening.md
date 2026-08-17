@@ -132,7 +132,7 @@ the CloudWatch evidence of that change.
   that inbox. A later change moves both endpoint alarms to a separate
   operational topic; see
   [two alert topics](../decisions/alert-topic-split.md). That change is live in
-  dev since 2026-08-14, and its observation window is open.
+  dev since 2026-08-14, and its window closed as a go on 2026-08-16.
 
   **The 5xx half passed.** The alarm left `INSUFFICIENT_DATA` 48 seconds after
   the deploy, with CloudWatch naming the cause — one missing datapoint `treated
@@ -667,12 +667,15 @@ positives on its own work.
 its window closed as a go on 2026-08-14. `POST /predict` requires `AWS_IAM`,
 the account has no API key or usage plan, and `make smoke` signs each request.
 
-**One window is open.** The alert-topic split reached dev on 2026-08-14, and
-`Mlops-Dev-Security` and `Mlops-Dev-Monitoring` carry it. Its subscription is
-confirmed and its delivery is unproved. See
+**No observation window is open.** The alert-topic split reached dev on
+2026-08-14, and `Mlops-Dev-Security` and `Mlops-Dev-Monitoring` carry it. Its
+window closed as a go on 2026-08-16: `mlops-dev-endpoint-silent` delivered
+through `mlops-dev-ops-alerts`, and two security alarms delivered through
+`mlops-dev-security-alerts` after the split. Dev routes two alarms to the ops
+topic and seven to the security topic. Prod keeps one topic. See
 [two alert topics](../decisions/alert-topic-split.md).
 
-The other checkpoint is the first `deploy.yml` run: both environments allow only
+The next checkpoint is the first `deploy.yml` run: both environments allow only
 `main`, and dev holds its role ARN as an environment secret. The manual workflow
 still needs its first run.
 

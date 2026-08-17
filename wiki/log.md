@@ -7811,3 +7811,77 @@ signed call against the deployed endpoint.
 
 The four Make targets above, plus `make public-check`. The wiki linter runs
 with this record.
+
+## [2026-08-16] update | The alert-topic split window closed as a go
+
+### Objective
+
+Close the observation window that the alert-topic split opened on 2026-08-14.
+The window owed two pieces of evidence: one endpoint alarm delivering through
+`mlops-dev-ops-alerts`, and confirmation that the seven security alarms still
+reach `mlops-dev-security-alerts`.
+
+### Scope
+
+`wiki/pages/decisions/alert-topic-split.md`,
+`wiki/pages/architecture/phased-security-hardening.md`, and root `AGENTS.md`.
+No stack was synthesized, no template changed, and no AWS resource was
+modified. The reads below used `${AWS_SECURITY_AUDITOR_USER_NAME}`.
+
+### Identity and environment
+
+AWS account `${AWS_ACCOUNT_ID}`, region `us-east-1`, environment dev. Three
+alarm notification emails supplied the delivery evidence.
+
+### Commands and observed results
+
+1. `aws cloudwatch describe-alarms` returned nine dev alarms.
+   `mlops-dev-endpoint-5xx` and `mlops-dev-endpoint-silent` name
+   `mlops-dev-ops-alerts`. The seven security alarms name
+   `mlops-dev-security-alerts`.
+2. `mlops-dev-endpoint-silent` went `OK -> ALARM` at 2026-08-15T23:26:10Z on 24
+   hourly datapoints below the threshold. Its email reads `State Change Actions
+   - ALARM: arn:aws:sns:us-east-1:${AWS_ACCOUNT_ID}:mlops-dev-ops-alerts`, and
+   its unsubscribe link carries a `mlops-dev-ops-alerts` subscription.
+3. The same email reads `MetricExpression: FILL(m1, 0)`.
+4. `mlops-dev-security-iam-policy-changes` delivered through
+   `mlops-dev-security-alerts` at 2026-08-14T21:37:07Z, after the 14:52Z
+   deploy. `mlops-dev-security-unauthorized-api-calls` delivered through the
+   same topic at 2026-08-16T21:12:17Z.
+5. `aws logs filter-log-events` against `/aws/cloudtrail/mlops-dev-audit`, with
+   the alarm's own filter pattern over 20:40Z to 21:20Z, returned four
+   `AccessDenied` events. `AWSServiceRoleForConfig` was denied
+   `frauddetector:GetEntityTypes`, `frauddetector:GetVariables`, and
+   `cloudcontrolapi:ListResources`. `AWSServiceRoleForResourceExplorer` was
+   denied `profile:ListDomains`.
+
+### Interpretation
+
+Both halves of the window passed. The ops topic had never executed an alarm
+action before item 2, so that email is the first delivery through it and the
+evidence the window owed. A confirmed subscription proves that an address
+accepted a topic; only a delivered message proves the path.
+
+Item 3 closes a second question. Sub-phase 2F first shipped the silence alarm
+with `TreatMissingData`, which does not cause an evaluation to run. The `FILL`
+form evaluates on a missing datapoint. A real firing over 24 of 24 missing
+periods proves the refix against live data, not against a template.
+
+Item 5 records a false positive. The `unauthorized-api-calls` alarm fired on
+AWS's own service-linked roles reading services the account does not use. The
+alarm matched its filter correctly. The filter has no floor for an AWS
+inventory sweep, and this is the second such observation.
+
+### Decision and next checkpoint
+
+The window is closed as a go. Dev keeps the split; prod keeps one topic until
+a deliberate rollout. No observation window is now open.
+
+Two items stay open and neither belongs to this window. A
+`userIdentity.invokedBy` exclusion on the `unauthorized-api-calls` filter is a
+change to a CIS detection control and takes its own gate. The first
+`deploy.yml` run is the next platform checkpoint.
+
+### Verification
+
+`make wiki-lint` and `make public-check`.

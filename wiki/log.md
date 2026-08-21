@@ -7912,3 +7912,14 @@ threshold and the reason for it.
 `security.ops_topic` into four stacks. The dead-letter-queue backlog alarm and
 the loop-health dashboard follow in the next change set. No observation window
 is open; the change is not deployed.
+
+## [2026-08-21] update | The loop is visible, and a stuck message pages
+
+`mlops-<env>-ingest-dlq-backlog` alarms on any message in the ingestion
+dead-letter queue. The `mlops-<env>` dashboard gained a `Drift loop` widget for
+the invocations and errors of both loop handlers. See
+[the closed drift loop](pages/concepts/closed-drift-loop.md).
+
+This change set closes the silent-failure gap opened on 2026-08-21. The three
+change sets together add one event rule, six alarms, and one widget. No
+observation window is open; none of the three is deployed.

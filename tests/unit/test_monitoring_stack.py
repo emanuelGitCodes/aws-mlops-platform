@@ -330,3 +330,17 @@ def test_each_loop_handler_has_its_own_error_alarm(stacks):
         assert alarm["Threshold"] == 1
         # An idle handler publishes no datapoint.
         assert alarm["TreatMissingData"] == "notBreaching"
+
+
+def test_the_dashboard_shows_whether_the_loop_ran(stacks):
+    """The loop reports through logs alone. Without these widgets an operator
+    cannot see that the hourly evaluation stopped."""
+    dashboard = next(
+        resource["Properties"]
+        for resource in stacks["monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Dashboard"
+    )
+    body = str(dashboard["DashboardBody"])
+    assert "Drift loop" in body
+    for label in ("Drift evaluations", "Retrain triggers", "Drift errors", "Retrain errors"):
+        assert label in body, label

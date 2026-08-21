@@ -32,6 +32,12 @@ DRIFT_EVENT_SOURCE = "mlops.monitoring"
 DRIFT_EVENT_DETAIL_TYPE = "Drift Evaluation Result"
 DRIFT_STATUS = "DriftDetected"
 
+# SageMaker publishes this event for each pipeline execution state change.
+PIPELINE_EVENT_DETAIL_TYPE = "SageMaker Model Building Pipeline Execution Status Change"
+
+# These execution states end a run without a registered model.
+PIPELINE_FAILURE_STATES = ["Failed", "Stopped"]
+
 
 class MonitoringStack(Stack):
     def __init__(
@@ -137,6 +143,39 @@ class MonitoringStack(Stack):
             detail_type=DRIFT_EVENT_DETAIL_TYPE,
             detail={"status": [DRIFT_STATUS]},
             handler=retrain_fn,
+        )
+
+        # A retrain that fails leaves the endpoint on the old model.
+        # SageMaker publishes no metric for a failed execution, so this rule is
+        # the only signal. The rule name must keep the `-ops-` part.
+        # `SecurityStack` scopes the topic and key grants to that prefix.
+        events.Rule(
+            self,
+            "PipelineFailureRule",
+            rule_name=f"mlops-{config['env_name']}-ops-pipeline-failed",
+            event_pattern=events.EventPattern(
+                source=["aws.sagemaker"],
+                detail_type=[PIPELINE_EVENT_DETAIL_TYPE],
+                detail={
+                    "currentPipelineExecutionStatus": PIPELINE_FAILURE_STATES,
+                    # Both environments publish to the same default bus.
+                    "pipelineArn": events.Match.suffix(f"pipeline/{pipeline_name}"),
+                },
+            ),
+            targets=[
+                targets.SnsTopic(
+                    # An imported topic has an immutable resource policy, so the
+                    # target adds no unconditioned publish grant of its own.
+                    # `SecurityStack` owns the grant, scoped to this rule prefix.
+                    sns.Topic.from_topic_arn(self, "OpsTopicRef", ops_topic.topic_arn),
+                    message=events.RuleTargetInput.from_text(
+                        f"The {pipeline_name} pipeline execution ended as "
+                        + events.EventField.from_path("$.detail.currentPipelineExecutionStatus")
+                        + ": "
+                        + events.EventField.from_path("$.detail.pipelineExecutionArn")
+                    ),
+                )
+            ],
         )
 
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}

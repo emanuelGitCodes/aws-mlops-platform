@@ -100,4 +100,4 @@ precision = 2
 # Raise `fail_under` after an increase. Do not lower it for a failing run.
 # Round the new floor down from the printed total.
 # The check compares `fail_under` against the unrounded value.
-fail_under = 94.74
+fail_under = 94.76

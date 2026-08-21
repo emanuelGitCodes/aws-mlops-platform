@@ -169,6 +169,13 @@ class SecurityStack(Stack):
             resource="rule",
             resource_name=f"mlops-{env_name}-security-*",
         )
+        # Every operational event rule uses this name prefix.
+        # `MonitoringStack` owns the rules. Do not reference one here.
+        ops_rule_arn = self.format_arn(
+            service="events",
+            resource="rule",
+            resource_name=f"mlops-{env_name}-ops-*",
+        )
         route_findings_to_alerts = security_config["services"]["eventbridge_alerts"]
 
         audit_key = kms.Key(
@@ -233,6 +240,8 @@ class SecurityStack(Stack):
         encrypted_alert_publishers = [
             ("AllowCloudWatchEncryptedAlerts", "cloudwatch.amazonaws.com", alarm_arn),
             ("AllowBudgetsEncryptedAlerts", "budgets.amazonaws.com", budget_arn),
+            # The operational rules publish an encrypted message to the ops topic.
+            ("AllowEventBridgeOpsAlerts", "events.amazonaws.com", ops_rule_arn),
         ]
         if route_findings_to_alerts:
             encrypted_alert_publishers.append(
@@ -445,17 +454,21 @@ class SecurityStack(Stack):
         )
         self.ops_topic = ops_topic
         ops_topic.add_subscription(subscriptions.EmailSubscription(alert_email.value_as_string))
-        # Only CloudWatch alarms publish here. Budgets and EventBridge findings
-        # stay on the security topic.
-        ops_topic.add_to_resource_policy(
-            _alert_service_statement(
-                "AllowCloudWatchAlarmPublish",
-                "cloudwatch.amazonaws.com",
-                alarm_arn,
-                actions=["sns:Publish"],
-                resources=[ops_topic.topic_arn],
+        # CloudWatch alarms and the operational event rules publish here.
+        # Budgets and EventBridge security findings stay on the security topic.
+        for sid, service, source_arn in (
+            ("AllowCloudWatchAlarmPublish", "cloudwatch.amazonaws.com", alarm_arn),
+            ("AllowEventBridgeOpsPublish", "events.amazonaws.com", ops_rule_arn),
+        ):
+            ops_topic.add_to_resource_policy(
+                _alert_service_statement(
+                    sid,
+                    service,
+                    source_arn,
+                    actions=["sns:Publish"],
+                    resources=[ops_topic.topic_arn],
+                )
             )
-        )
 
         alert_publishers = [
             ("AllowCloudWatchAlarmPublish", "cloudwatch.amazonaws.com", alarm_arn),

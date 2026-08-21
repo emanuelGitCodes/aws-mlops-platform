@@ -2,8 +2,8 @@
 type: concept
 title: Closed drift-to-retrain loop
 created: "2026-07-10"
-updated: "2026-08-14"
-sources: ["../decisions/drift-capture-design.md", "../../../README.md", "../../../infra/stacks/monitoring_stack.py", "../../../src/monitoring/drift_handler.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md"]
+updated: "2026-08-21"
+sources: ["../decisions/drift-capture-design.md", "../../../README.md", "../../../infra/stacks/monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../src/monitoring/drift_handler.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md"]
 summary: "Proxy capture, PSI drift evaluation, retraining, challenger evaluation, registry promotion, and endpoint deployment form a closed operational loop."
 ---
 # Closed drift-to-retrain loop
@@ -55,6 +55,23 @@ The loop separates detection, remediation, evaluation, and release. Each stage
 therefore fails on its own. A violation can exist without a successful training
 run. A training run can fail the quality gate. A registered model can wait for
 approval.
+
+### The failure signal
+
+SageMaker publishes no CloudWatch metric for a failed pipeline execution, so no
+alarm can watch one. `mlops-<env>-ops-pipeline-failed` is an EventBridge rule
+instead. It matches `SageMaker Model Building Pipeline Execution Status Change`
+for the `Failed` and `Stopped` states of this environment's pipeline, and it
+sends a readable line to `mlops-<env>-ops-alerts`.
+
+Two grants in `SecurityStack` carry the message: `sns:Publish` on the ops topic,
+and `kms:Decrypt` with `kms:GenerateDataKey*` on the audit key. Both conditions
+scope the source ARN to `mlops-<env>-ops-*`. Any operational rule that pages the
+operator MUST keep that name prefix.
+
+The rule target reads the topic through `Topic.from_topic_arn`. An imported
+topic has an immutable resource policy. A mutable one makes the CDK SNS target
+add its own publish grant for `events.amazonaws.com` with no source condition.
 
 ## Tensions or open questions
 

@@ -222,3 +222,19 @@ def test_the_proxy_may_write_capture_and_read_nothing(stacks):
     flat = [a for entry in actions for a in ([entry] if isinstance(entry, str) else entry)]
     assert "s3:PutObject" in flat
     assert not [a for a in flat if a.startswith("s3:Get") or a.startswith("s3:Delete")]
+
+
+def test_the_deploy_and_proxy_handlers_have_error_alarms(stacks):
+    """A deploy handler that throws leaves the endpoint on the old model while
+    the registry shows the new package as approved."""
+    alarms = {
+        resource["Properties"]["AlarmName"]: resource["Properties"]
+        for resource in stacks["serving"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    }
+    env = CONFIG["env_name"]
+    assert set(alarms) == {f"mlops-{env}-deploy-errors", f"mlops-{env}-proxy-errors"}
+    for alarm in alarms.values():
+        assert alarm["Namespace"] == "AWS/Lambda"
+        assert alarm["MetricName"] == "Errors"
+        assert "OpsAlertsTopic" in str(alarm["AlarmActions"])

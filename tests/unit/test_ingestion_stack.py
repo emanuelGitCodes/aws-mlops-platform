@@ -2,6 +2,8 @@
 
 from aws_cdk.assertions import Match
 
+from tests.unit.conftest import CONFIG
+
 
 def test_ingestion_wiring(stacks):
     template = stacks["ingestion"]
@@ -23,3 +25,17 @@ def test_ingestion_wiring(stacks):
             "Environment": {"Variables": Match.object_like({"CURATED_BUCKET": Match.any_value()})},
         },
     )
+
+
+def test_a_failed_validation_pages_the_operator(stacks):
+    """Ingestion runs unattended. Without the alarm a throwing handler is
+    visible only as an absence of curated objects."""
+    alarms = {
+        resource["Properties"]["AlarmName"]: resource["Properties"]
+        for resource in stacks["ingestion"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    }
+    env = CONFIG["env_name"]
+    assert set(alarms) == {f"mlops-{env}-ingest-errors"}
+    assert alarms[f"mlops-{env}-ingest-errors"]["MetricName"] == "Errors"
+    assert "OpsAlertsTopic" in str(alarms[f"mlops-{env}-ingest-errors"]["AlarmActions"])

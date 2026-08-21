@@ -6,6 +6,7 @@ from aws_cdk import ArnFormat, CfnOutput, Duration, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_sns as sns
 from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
@@ -13,6 +14,7 @@ from infra.stacks.shared import (
     CAPTURE_PREFIX,
     MODEL_ARTIFACT_PREFIX,
     PlatformConfig,
+    handler_error_alarm,
     lambda_event_rule,
     platform_lambda,
     sagemaker_execution_role,
@@ -27,6 +29,7 @@ class ServingStack(Stack):
         *,
         artifacts_bucket: s3.IBucket,
         package_group_name: str,
+        ops_topic: sns.ITopic,
         config: PlatformConfig,
         **kwargs: Any,
     ) -> None:
@@ -233,4 +236,12 @@ class ServingStack(Stack):
         self.predict_url = api.url_for_path("/predict")
 
         CfnOutput(self, "ApiUrl", value=self.predict_url)
+        # A deploy handler that throws leaves the endpoint on the old model.
+        handler_error_alarm(
+            self, "DeployErrors", handler=deploy_fn, slug="deploy", config=config, topic=ops_topic
+        )
+        handler_error_alarm(
+            self, "ProxyErrors", handler=proxy_fn, slug="proxy", config=config, topic=ops_topic
+        )
+
         CfnOutput(self, "EndpointName", value=endpoint_name)

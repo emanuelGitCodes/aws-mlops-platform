@@ -59,6 +59,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         f"{prefix}-Ingestion",
         raw_bucket=data.raw_bucket,
         curated_bucket=data.curated_bucket,
+        ops_topic=security.ops_topic,
         config=config,
     )
     registry = RegistryStack(app, f"{prefix}-Registry", config=config)
@@ -74,6 +75,7 @@ def build_app(app: cdk.App, config: PlatformConfig, prefix: str) -> dict[str, cd
         f"{prefix}-Serving",
         artifacts_bucket=data.artifacts_bucket,
         package_group_name=registry.package_group_name,
+        ops_topic=security.ops_topic,
         config=config,
     )
     cicd = CicdStack(

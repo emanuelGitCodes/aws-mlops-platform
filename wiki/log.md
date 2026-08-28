@@ -7939,3 +7939,68 @@ pull requests, which were blocked by this same red check.
 `make lock-check`, `make audit`, `make lint`, `make typecheck`, `make test`,
 `make docs-sync`, `make wiki-lint`, `make public-check`, and `make synth-all`,
 all green.
+
+---
+
+## [2026-08-28] implementation | AGENTS.md split into rules and skills
+
+### Objective
+
+Cut what every session loads, and move the procedure into skills that load on
+their trigger. `AGENTS.md` had grown to 452 lines, and about 40% of it was
+phase status that `wiki/pages/architecture/phased-security-hardening.md`
+already owns. A status copy in an always-on file goes stale between edits, and
+an agent trusts it.
+
+### Scope
+
+`AGENTS.md`, `wiki/AGENTS.md`, five new skills under `.claude/skills/`, the
+repository-rules section appended to both graphify skill copies, and five
+symlinks under `.agents/skills/`. No stack was synthesized, no template
+changed, and no AWS resource was touched.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used.
+
+### Commands and observed results
+
+1. `AGENTS.md` fell from 4172 words to 2093, measured with `wc -w` against
+   `git show HEAD:AGENTS.md`.
+2. The five new skills hold 8434 words between them, and none of it loads
+   until its trigger matches.
+3. `make docs-sync` printed `docs-sync: CLAUDE.md -> AGENTS.md`.
+4. `make public-check` printed `no sensitive literals found`.
+5. `make wiki-lint` printed `Wiki healthy: 53 page(s)`.
+6. `make test` passed 411 tests at 94.76% coverage, against the 94.74% floor.
+
+### Interpretation
+
+The `wiki/AGENTS.md` style pointer named a section that this change deletes,
+so it now names the `house-style` skill. That kind of dangling pointer is the
+cost of the split, and a grep for `AGENTS.md` found the one instance.
+
+`.agents/skills/` holds a second graphify copy whose text differs from the
+Claude copy in three host-specific lines. The five new skills carry no
+host-specific text, so `.agents/skills/` symlinks them. One copy cannot drift
+from the other.
+
+The old file recorded the coverage floor as 94.14 while `pyproject.toml` held
+94.74. The new file names no number and points at `pyproject.toml`. A value
+that lives in two places drifts.
+
+### Decision and next checkpoint
+
+The four invariants that stay in `AGENTS.md` — the website hold, the private
+repository, the two-policy execution boundary, and the literal ban — each cost
+money or break a boundary when an agent misses them on its first action.
+Everything else moved.
+
+The new "Report at the granularity your evidence supports" section states the
+rule that a completion claim MUST name the command behind it. The next change
+set enforces it mechanically with a `Stop` hook, and prose alone does not.
+
+### Verification
+
+`make docs-sync`, `make public-check`, `make wiki-lint`, and `make test`, all
+green.

@@ -6,9 +6,10 @@ Use `python scripts/wiki.py search "your terms"` before opening many pages and r
 
 ## Writing style
 
-The root [AGENTS.md](../AGENTS.md) section "Writing style (mandatory)" governs
-every wiki page, every `raw/` record you write yourself, and every `log.md`
-entry. Read it there. This file does not repeat it. In short:
+The `house-style` skill governs every wiki page, every `raw/` record you write
+yourself, and every `log.md` entry. Read it at
+[.claude/skills/house-style/SKILL.md](../.claude/skills/house-style/SKILL.md).
+This file does not repeat it. In short:
 
 - **ASD-STE100** governs the prose. Write short, plain, active sentences.
 - **RFC 2119** governs the requirement words. Write MUST, MUST NOT, SHOULD,

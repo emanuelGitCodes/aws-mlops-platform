@@ -1,4 +1,5 @@
-.PHONY: install lock-check lint typecheck test check agent-hooks docs-sync audit \
+.PHONY: install lock-check lint typecheck test check agent-hooks pr-size docs-sync \
+	audit \
 	synth synth-all \
 	diagrams security bootstrap check-stack check-alert-email diff-stack \
 	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
@@ -63,6 +64,14 @@ check: lint typecheck test docs-sync public-check wiki-lint
 # `permissions` as the operator wrote it.
 agent-hooks:
 	uv run --locked python scripts/agent_gate.py install-hooks
+
+# Measure the branch against the 150-line cap on a pull request.
+# The count covers `src/`, `infra/`, `scripts/`, and `website/`. It excludes
+# tests, Markdown, lockfiles, and build output.
+# `gh` supplies the base branch, so a stacked branch measures against the
+# branch below it. `AGENT_PR_BASE=…` overrides the base.
+pr-size:
+	uv run --locked python scripts/agent_gate.py pr-size
 
 synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups

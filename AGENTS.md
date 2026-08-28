@@ -73,6 +73,7 @@ Use the Makefile targets — do not invent your own invocations.
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
 | `make check` | lint + typecheck + test + docs-sync + public-check + wiki-lint |
 | `make agent-hooks` | Install the agent hooks into `.claude/settings.json` |
+| `make pr-size` | Measure the branch against the 150-line cap |
 | `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
 | `make public-check` | Rejects tracked account metadata and private filenames |
 | `make audit` | pip-audit over the locked dependencies |
@@ -146,6 +147,7 @@ is silent, so check the commit line in `graphify-out/GRAPH_REPORT.md` against
 | `no-duplicate-code` | Add a function, class, constant, helper, or module |
 | `phase-change-set` | Start security-hardening or any other phase work |
 | `deploy-verify` | Report what a deploy changed |
+| `stacked-prs` | Open a pull request, or plan work that will not fit in one |
 | `wiki-record` | Write or edit anything under `wiki/` |
 | `graphify` | Query the code graph |
 
@@ -157,6 +159,25 @@ uppercase, and no other synonym.
 One rule from `no-duplicate-code` binds every line you write: **search before
 you write**, and state what you found or confirmed absent before you add code.
 Logic needed by two modules belongs in `src/common/`.
+
+## One pull request, 150 lines of code
+
+**A pull request MUST NOT add more than 150 lines of code.** A feature that
+needs more MUST ship as a stack: several pull requests, each based on the one
+below it, merged in order. A large review is a shallow review.
+
+The count covers `src/`, `infra/`, `scripts/`, and `website/`, and it counts
+added lines only. Tests, Markdown, `wiki/`, lockfiles, and build output do not
+count — the cap MUST NOT discourage a test or the wiki record.
+
+`make pr-size` measures the branch, and the completion gate runs the same
+check first. The base comes from the pull request itself, so a stacked branch
+measures against the branch below it. State the merge order in every pull
+request body.
+
+`AGENT_PR_SIZE_OK=1` releases a branch that cannot split — a rename, a move, a
+generated file — and the pull request body MUST say why. Read the
+`stacked-prs` skill before you split anything.
 
 ## Conventions
 

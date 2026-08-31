@@ -7923,3 +7923,57 @@ the invocations and errors of both loop handlers. See
 This change set closes the silent-failure gap opened on 2026-08-21. The three
 change sets together add one event rule, six alarms, and one widget. No
 observation window is open; none of the three is deployed.
+
+---
+
+## [2026-08-28] update | pip upgraded to clear PYSEC-2026-3721
+
+### Objective
+
+Turn CI green. `make audit` failed on every pull request, so the `validate`
+job never reached `synth-all`. A standing red check hides the next real one.
+
+### Scope
+
+`uv.lock` only. One package changed. No source file, no template, and no AWS
+resource was touched.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used.
+
+### Commands and observed results
+
+1. `uv lock --upgrade-package pip` reported `Updated pip v26.1.2 -> v26.2.1`.
+   The diff touches the `pip` block alone: three lines, the version and the two
+   hashes.
+2. `make install` installed the one package.
+3. `make lock-check` passed, so the lockfile matches `pyproject.toml`.
+4. `make audit` printed `No known vulnerabilities found`. It had reported
+   `pip 26.1.2 PYSEC-2026-3721 26.2`.
+5. The rest of the CI set passed: `lint`, `typecheck`, `test` (411 tests,
+   94.76%), `docs-sync`, `wiki-lint`, `public-check`, and `synth-all` for both
+   environments.
+
+### Interpretation
+
+`pip` is a development dependency of the locked environment, not a runtime
+dependency of any Lambda or pipeline step. The advisory therefore reddened CI
+without exposing the deployed platform. That is still worth clearing: the job
+stops at the first failure, so this one advisory also stopped the cdk-nag gate
+from running on every pull request since it appeared.
+
+Item 5 records what the failing job had been skipping. `synth-all` passed for
+dev and prod, so the gate has been silent, not failing.
+
+### Decision and next checkpoint
+
+The change is the lockfile only. `pyproject.toml` pins no `pip` version, so no
+constraint needed an edit. The next checkpoint is the two open agent-tooling
+pull requests, which were blocked by this same red check.
+
+### Verification
+
+`make lock-check`, `make audit`, `make lint`, `make typecheck`, `make test`,
+`make docs-sync`, `make wiki-lint`, `make public-check`, and `make synth-all`,
+all green.

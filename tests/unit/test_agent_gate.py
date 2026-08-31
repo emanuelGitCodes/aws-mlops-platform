@@ -2,6 +2,7 @@
 
 import io
 import json
+import subprocess
 
 import pytest
 
@@ -257,3 +258,152 @@ def test_the_tracked_hooks_file_is_valid():
     for command in commands:
         assert "scripts/agent_gate.py" in command
         assert "$CLAUDE_PROJECT_DIR" in command
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["src/common/drift.py", "infra/app.py", "scripts/wiki.py", "website/backend/app.py"],
+)
+def test_is_counted_path_counts_code(path):
+    assert agent_gate.is_counted_path(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "tests/unit/test_drift.py",
+        "AGENTS.md",
+        "wiki/log.md",
+        "uv.lock",
+        "website/frontend/package-lock.json",
+        "infra/cdk.out/asset.py",
+        "website/frontend/dist/index.js",
+        "Makefile",
+    ],
+)
+def test_is_counted_path_excludes_the_rest(path):
+    assert not agent_gate.is_counted_path(path)
+
+
+def test_counted_insertions_counts_added_lines_only():
+    numstat = "10\t99\tsrc/common/drift.py\n5\t0\ttests/unit/test_drift.py\n"
+    total, files = agent_gate.counted_insertions(numstat)
+    assert total == 10
+    assert files == [("src/common/drift.py", 10)]
+
+
+def test_counted_insertions_sorts_by_size_and_skips_binary():
+    numstat = "3\t0\tsrc/a.py\n20\t0\tsrc/b.py\n-\t-\tsrc/logo.png\n0\t9\tsrc/c.py\n"
+    total, files = agent_gate.counted_insertions(numstat)
+    assert total == 23
+    assert files == [("src/b.py", 20), ("src/a.py", 3)]
+
+
+def test_counted_insertions_ignores_a_malformed_line():
+    assert agent_gate.counted_insertions("garbage\n") == (0, [])
+
+
+def test_size_message_names_the_cap_and_the_escape():
+    message = agent_gate.size_message(200, [("src/a.py", 200)], "origin/main")
+    assert "200 lines" in message
+    assert "150" in message
+    assert agent_gate.SIZE_OK_ENV in message
+    assert "stacked pull requests" in message
+    assert "src/a.py" in message
+
+
+def test_resolve_base_prefers_the_explicit_ref():
+    assert agent_gate.resolve_base("origin/x", "origin/y") == "origin/x"
+
+
+def test_resolve_base_uses_the_pull_request_base():
+    assert agent_gate.resolve_base(None, "origin/y") == "origin/y"
+
+
+def test_resolve_base_falls_back_to_main():
+    assert agent_gate.resolve_base(None, None) == agent_gate.DEFAULT_BASE
+
+
+def test_size_check_passes_under_the_cap(monkeypatch):
+    monkeypatch.delenv(agent_gate.SIZE_OK_ENV, raising=False)
+    monkeypatch.setattr(agent_gate, "_pr_base", lambda: None)
+    monkeypatch.setattr(agent_gate, "_git", lambda *args: "10\t0\tsrc/a.py")
+    assert agent_gate.size_check() == (0, "")
+
+
+def test_size_check_blocks_over_the_cap(monkeypatch):
+    monkeypatch.delenv(agent_gate.SIZE_OK_ENV, raising=False)
+    monkeypatch.setattr(agent_gate, "_pr_base", lambda: None)
+    monkeypatch.setattr(agent_gate, "_git", lambda *args: "400\t0\tsrc/a.py")
+    code, message = agent_gate.size_check()
+    assert code == 2
+    assert "400 lines" in message
+
+
+def test_size_check_honours_the_escape(monkeypatch):
+    monkeypatch.setenv(agent_gate.SIZE_OK_ENV, "1")
+    monkeypatch.setattr(agent_gate, "_git", lambda *args: "999\t0\tsrc/a.py")
+    assert agent_gate.size_check() == (0, "")
+
+
+def test_stop_gate_checks_the_size_before_the_targets(monkeypatch):
+    monkeypatch.delenv(agent_gate.SKIP_ENV, raising=False)
+    monkeypatch.setattr(agent_gate, "size_check", lambda: (2, "too big"))
+
+    def runner(target):  # pragma: no cover - the size check must come first
+        raise AssertionError("the gate ran a target on an oversized branch")
+
+    assert agent_gate.stop_gate({}, runner) == (2, "too big")
+
+
+def test_pr_size_reports_a_passing_branch(monkeypatch, capsys):
+    monkeypatch.setattr(agent_gate, "size_check", lambda: (0, ""))
+    monkeypatch.setattr(agent_gate, "_pr_base", lambda: None)
+    monkeypatch.setattr(agent_gate, "branch_totals", lambda base: (12, []))
+    assert agent_gate.main(["pr-size"]) == 0
+    assert "pr-size: 12 of 150" in capsys.readouterr().out
+
+
+def test_pr_size_reports_an_oversized_branch(monkeypatch, capsys):
+    monkeypatch.setattr(agent_gate, "size_check", lambda: (2, "too big"))
+    assert agent_gate.main(["pr-size"]) == 2
+    assert "too big" in capsys.readouterr().err
+
+
+def test_branch_totals_measures_from_the_merge_base(monkeypatch):
+    calls = []
+
+    def fake_git(*args):
+        calls.append(args)
+        return "abc123" if args[0] == "merge-base" else "7\t0\tsrc/a.py"
+
+    monkeypatch.setattr(agent_gate, "_git", fake_git)
+    assert agent_gate.branch_totals("origin/main") == (7, [("src/a.py", 7)])
+    assert calls[0] == ("merge-base", "origin/main", "HEAD")
+    assert calls[1] == ("diff", "--numstat", "abc123")
+
+
+def test_pr_base_reads_the_base_branch_from_gh(monkeypatch):
+    """Stub `gh`. A live call returns whatever branch the caller sits on."""
+
+    def fake_run(returncode, stdout):
+        def run(*_args, **_kwargs):
+            return subprocess.CompletedProcess([], returncode, stdout, "")
+
+        return run
+
+    # `gh` reports the base branch of the open pull request.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "main\n"))
+    assert agent_gate._pr_base() == "origin/main"
+
+    # A stacked branch bases on the branch below it.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "claude/lower\n"))
+    assert agent_gate._pr_base() == "origin/claude/lower"
+
+    # No pull request, or no `gh`.
+    monkeypatch.setattr(subprocess, "run", fake_run(1, ""))
+    assert agent_gate._pr_base() is None
+
+    # An empty name is not a branch.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "\n"))
+    assert agent_gate._pr_base() is None

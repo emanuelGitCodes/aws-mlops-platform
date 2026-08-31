@@ -8096,3 +8096,71 @@ target set, not a disabled gate.
 
 `make check` green: `lint`, `typecheck`, `test`, `docs-sync`, `public-check`,
 and `wiki-lint`.
+
+---
+
+## [2026-08-28] implementation | A 150-line cap on a pull request
+
+### Objective
+
+Hold a pull request to a size a human finishes reviewing. A large review is a
+shallow review, and the three pull requests before this one were large.
+
+### Scope
+
+`scripts/agent_gate.py` gains the size check and a `pr-size` subcommand.
+`tests/unit/test_agent_gate.py` gains 27 tests. `Makefile` gains `pr-size`.
+`.claude/skills/stacked-prs/` is new, with a symlink from `.agents/skills/`.
+`AGENTS.md` gains the rule. `pyproject.toml` raises the coverage floor. No
+stack was synthesized and no AWS resource was touched.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used.
+
+### Commands and observed results
+
+1. The operator set the two definitions: the count covers `src/`, `infra/`,
+   `scripts/`, and `website/`, and the check is local rather than a CI job.
+2. `make pr-size` on this branch first reported `This branch adds 151 lines of
+   code against origin/claude/agent-completion-gate. The cap is 150.` and
+   exited 2.
+3. Compressing the block message to eight lines brought the branch to
+   `pr-size: 147 of 150`.
+4. The first form of the check measured `<base>...HEAD`, which reads committed
+   work alone. It reported 0 lines on a branch with 151 uncommitted lines. The
+   check now measures from `git merge-base` to the working tree.
+5. `make check` passed: 479 tests at 95.02% coverage.
+
+### Interpretation
+
+Item 2 is the useful record. The rule's own pull request broke the rule by one
+line on the first measurement. The branch was tightened to fit rather than
+released with `AGENT_PR_SIZE_OK=1`, because the first use of an escape sets
+what the escape means.
+
+Item 4 was a real defect, not a preference. A gate that reads only committed
+work reports zero for every branch mid-change, which is exactly when the agent
+needs the number. The two-dot form was wrong for this purpose.
+
+The count excludes tests and Markdown on purpose. A cap that counts tests
+rewards writing fewer of them, and the coverage floor pushes the other way.
+Two rules that fight produce the weaker outcome.
+
+The base comes from `gh pr view`, so a stacked branch measures against the
+branch below it. Measuring a stacked branch against `main` counts the whole
+stack and blocks every child.
+
+### Decision and next checkpoint
+
+The check is local. A CI job would fail every Dependabot pull request and
+every approved large refactor, and neither is the target. `AGENT_PR_SIZE_OK=1`
+covers a change that cannot split; the pull request body MUST say why.
+
+The next checkpoint is the first feature that needs a real split. The
+`stacked-prs` skill names the split axes in preference order, and that
+guidance is untested against live work.
+
+### Verification
+
+`make check` green, and `make pr-size` reporting 147 of 150 for this branch.

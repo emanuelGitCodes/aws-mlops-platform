@@ -9,6 +9,10 @@ returns the output to the agent instead of ending the turn. `session-start`
 prints the two facts a session otherwise spends tool calls on. `deploy-guard`
 asks the operator before a deploy target runs.
 
+`pr-size` measures the branch against the 150-line cap. `make pr-size` runs
+it, and the `stop` gate runs it first, because the size decides what happens
+to the whole branch.
+
 `install-hooks` copies `.claude/hooks.json` into `.claude/settings.json`. Run
 it yourself with `make agent-hooks`. It replaces the `hooks` key and touches
 no other key, so it is safe to run again.
@@ -41,6 +45,20 @@ _DEPLOY_TARGET = re.compile(r"\bmake\s+\S*\b(deploy|deploy-stack|destroy|bootstr
 
 # Run the target in this order. A cheap target fails before an expensive one.
 _TARGET_ORDER = ("lint", "typecheck", "test", "docs-sync", "wiki-lint", "public-check")
+
+# A pull request MUST NOT add more than this many lines of code.
+PR_SIZE_LIMIT = 150
+SIZE_OK_ENV = "AGENT_PR_SIZE_OK"
+BASE_ENV = "AGENT_PR_BASE"
+DEFAULT_BASE = "origin/main"
+
+# The cap measures code. Tests live under `tests/`, so no prefix reaches them.
+_COUNTED_PREFIXES = ("src/", "infra/", "scripts/", "website/")
+_UNCOUNTED_PREFIXES = (
+    "infra/cdk.out/",
+    "website/frontend/dist/",
+    "website/frontend/node_modules/",
+)
 
 Runner = Callable[[str], tuple[int, str]]
 Settings = dict[str, object]
@@ -204,6 +222,72 @@ def deploy_decision(command: str) -> Settings | None:
     }
 
 
+def is_counted_path(path: str) -> bool:
+    """Report whether the path counts against the pull-request size cap.
+
+    The cap measures the code that is hard to review. A test, a wiki page, a
+    Markdown file, a lockfile, and build output do not count. Never let the
+    cap discourage a test or the wiki record.
+    """
+    if path.endswith((".md", ".lock")) or path.endswith("package-lock.json"):
+        return False
+    if path.startswith(_UNCOUNTED_PREFIXES):
+        return False
+    return path.startswith(_COUNTED_PREFIXES)
+
+
+def counted_insertions(numstat: str) -> tuple[int, list[tuple[str, int]]]:
+    """Return the added code lines, and the per-file counts, from `--numstat`.
+
+    Count an insertion only. A deletion makes a branch easier to review, not
+    harder. Git writes `-` for a binary file, which carries no line count.
+    """
+    total = 0
+    files: list[tuple[str, int]] = []
+    for line in numstat.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        added, _, path = parts
+        if added == "-" or not is_counted_path(path):
+            continue
+        count = int(added)
+        if count:
+            files.append((path, count))
+            total += count
+    return total, sorted(files, key=lambda item: -item[1])
+
+
+def size_message(total: int, files: list[tuple[str, int]], base: str) -> str:
+    """Return the text that tells the agent to split the branch."""
+    lines = [
+        f"This branch adds {total} lines of code against {base}.",
+        f"The cap is {PR_SIZE_LIMIT}. Split it into stacked pull requests.",
+        "Each one MUST stand on its own and base on the branch below it, not",
+        "on main. State the merge order when you report.",
+        "",
+        "The count covers src/, infra/, scripts/, and website/. It excludes",
+        "tests, Markdown, lockfiles, and build output. For a change that",
+        f"cannot split, set {SIZE_OK_ENV}=1 and say why in the pull request.",
+        "",
+    ]
+    lines.extend(f"  {count:>5}  {path}" for path, count in files)
+    return "\n".join(lines)
+
+
+def resolve_base(explicit: str | None, pr_base: str | None) -> str:
+    """Return the ref that the branch is measured against.
+
+    A stacked branch bases on the branch below it. Measuring it against main
+    counts the whole stack, so the pull request's own base wins.
+    """
+    if explicit:
+        return explicit
+    if pr_base:
+        return pr_base
+    return DEFAULT_BASE
+
+
 def merge_hooks(settings: Settings, hooks: Settings) -> Settings:
     """Return the settings with the `hooks` key replaced.
 
@@ -213,6 +297,46 @@ def merge_hooks(settings: Settings, hooks: Settings) -> Settings:
     merged: Settings = dict(settings)
     merged["hooks"] = hooks
     return merged
+
+
+def _pr_base() -> str | None:
+    """Return the base branch of the open pull request, when `gh` knows it.
+
+    A stacked branch bases on the branch below it. `gh` is the only source
+    that knows which one.
+    """
+    completed = subprocess.run(
+        ["gh", "pr", "view", "--json", "baseRefName", "--jq", ".baseRefName"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    name = completed.stdout.strip()
+    return f"origin/{name}" if name else None
+
+
+def branch_totals(base: str) -> tuple[int, list[tuple[str, int]]]:
+    """Return the added code lines on this branch, against the merge base.
+
+    Measure from the merge base to the working tree. A commit and an
+    uncommitted edit both count, because both reach the pull request.
+    """
+    merge_base = _git("merge-base", base, "HEAD") or base
+    return counted_insertions(_git("diff", "--numstat", merge_base))
+
+
+def size_check() -> tuple[int, str]:
+    """Return the exit code and message for the pull-request size cap."""
+    if os.environ.get(SIZE_OK_ENV):
+        return 0, ""
+    base = resolve_base(os.environ.get(BASE_ENV), _pr_base())
+    total, files = branch_totals(base)
+    if total <= PR_SIZE_LIMIT:
+        return 0, ""
+    return 2, size_message(total, files, base)
 
 
 def _git(*args: str) -> str:
@@ -253,6 +377,9 @@ def stop_gate(payload: Settings, runner: Runner) -> tuple[int, str]:
         return 0, ""
     if os.environ.get(SKIP_ENV):
         return 0, ""
+    code, message = size_check()
+    if code != 0:
+        return code, message
     paths = changed_paths(_git("status", "--porcelain"))
     targets = select_targets(paths, full=bool(os.environ.get(FULL_ENV)))
     if not targets:
@@ -310,12 +437,29 @@ def _cmd_install_hooks() -> int:
     return 0
 
 
+def _cmd_pr_size() -> int:
+    code, message = size_check()
+    if message:
+        print(message, file=sys.stderr)
+        return code
+    base = resolve_base(os.environ.get(BASE_ENV), _pr_base())
+    total, _ = branch_totals(base)
+    print(f"pr-size: {total} of {PR_SIZE_LIMIT} lines of code against {base}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Dispatch the hook subcommand."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("stop", "session-start", "deploy-guard", "install-hooks"),
+        choices=(
+            "stop",
+            "session-start",
+            "deploy-guard",
+            "install-hooks",
+            "pr-size",
+        ),
     )
     args = parser.parse_args(argv)
     if args.command == "stop":
@@ -324,6 +468,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_session_start()
     if args.command == "install-hooks":
         return _cmd_install_hooks()
+    if args.command == "pr-size":
+        return _cmd_pr_size()
     return _cmd_deploy_guard()
 
 

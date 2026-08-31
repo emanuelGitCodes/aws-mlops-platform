@@ -17,6 +17,9 @@ graphify-out/
 # Impeccable design-hook cache. Build output, never source.
 .impeccable/hook.cache.json
 .claude/settings.local.json
+# `make agent-hooks` writes this file. It carries the operator's own
+# permission list, and each machine installs its own.
+.claude/settings.json
 
 # Frontend build output and installed packages.
 website/frontend/node_modules/

@@ -8149,3 +8149,74 @@ guidance is untested against live work.
 ### Verification
 
 `make check` green, and `make pr-size` reporting 147 of 150 for this branch.
+
+---
+
+## [2026-08-31] update | The agent tooling stack merged, and the record page
+
+### Objective
+
+Land the four pull requests that rebuild the agent instructions, and file the
+decision page that the change set owes.
+
+### Scope
+
+`wiki/pages/decisions/agent-instruction-architecture.md`, new.
+`wiki/pages/overview.md` gains the inbound link. `wiki/index.md` rebuilt. No
+stack was synthesized, no template changed, and no AWS resource was touched.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used. The work ran in the
+`aws-cdk-ml-website-cf88da` worktree.
+
+### Commands and observed results
+
+1. Merge order was `#93` → `#91` → `#92` → `#94`, all squash-merged on
+   2026-08-31. `main` is linear and holds each as one commit.
+2. `#91` conflicted on `wiki/log.md`. Both it and `#93` appended a 2026-08-31
+   entry, and git matched the shared `### Objective` and `### Scope` headings,
+   which interleaved the halves of the two entries. The resolution rebuilt the
+   file: main's version verbatim, then the second entry appended whole. Three
+   assertions ran before the write — that main held the pip entry, that it did
+   not already hold the other, and that no conflict marker survived.
+3. The `--onto` rebase of `#92` first named `fdb5f9c`, the tip of `#91`
+   **after** its own rebase. `#92` forked from `2a32a53`, the tip before it, so
+   the rebase replayed two extra commits and hit the same conflict. Naming
+   `2a32a53` replayed one commit with no conflict.
+4. `gh pr edit --base main` failed twice with a GraphQL 500. The REST form
+   `gh api -X PATCH repos/<owner>/<repo>/pulls/92 -f base=main` worked.
+5. A force-push to `#92` emitted no `pull_request` event, so no checks ran and
+   `gh pr checks` reported none. Closing and reopening the pull request
+   triggered a fresh run, which passed.
+6. `make wiki-lint` printed `Wiki healthy: 54 page(s)` after
+   `scripts/wiki.py index` rebuilt the stale index.
+
+### Interpretation
+
+Item 2 is the reason a log entry MUST be appended whole. Two entries that share
+a heading structure merge into each other rather than beside each other, and
+the automatic result reads as one plausible entry. Taking either side would
+have dropped a record silently.
+
+Item 3 is a rule for any stack: the `--onto` argument is the commit the child
+**forked from**, which is not the parent's tip when the parent was rebased
+before merging. The pull request page does not show that commit, and the
+reflog does.
+
+Item 5 leaves a visible close and reopen in the `#92` timeline. That is the
+cost of the trigger, not a change of intent.
+
+### Decision and next checkpoint
+
+The decision page names five open tensions, and two need an operator:
+`make agent-hooks` in the primary checkout, and the permission allowlist that
+still grants `Bash(aws cloudformation *)`. The hooks do nothing until the
+first of those runs.
+
+The next checkpoint is the first feature that needs a real split under the
+150-line cap. The split axes are untested against live work.
+
+### Verification
+
+`scripts/wiki.py index`, then `make wiki-lint` and `make public-check`.

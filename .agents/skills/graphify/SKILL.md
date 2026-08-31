@@ -711,3 +711,52 @@ When the user asks to install the post-commit auto-rebuild hook or wire graphify
 - Always show token cost in the report.
 - Never hide cohesion scores behind symbols - show the raw number.
 - Never run HTML viz on a graph with more than 5,000 nodes without warning the user.
+
+---
+
+## Repository rules for this project
+
+This section is repository-owned. It is not part of the upstream skill.
+Keep it when you upgrade graphify.
+
+The wiki and the graph answer different questions. Keep the split:
+
+- **The wiki is the source of record.** It holds history, decisions, phase
+  status, dates, and the reasoning behind them. A human wrote or approved
+  every page. Cite the wiki when the question is "why", "when", or "what is
+  the state".
+- **The graph is a derived index.** It holds structure — which symbol calls
+  which, which file defines what, which files cluster together. Every node
+  comes from a parse of the current tree. Use it when the question is "where"
+  or "what connects to what".
+
+Rules:
+
+1. **`graphify-out/` is build output, never source.** It is untracked, the
+   same as `infra/cdk.out/`. Rebuild it with `make graph`; do not commit it,
+   and do not cite a generated file as evidence on a wiki page.
+2. **A stale graph is silent.** `GRAPH_REPORT.md` records the commit it was
+   built from. Check that line before you trust an answer, and run `make graph`
+   when it does not match `git rev-parse HEAD`.
+3. **`make graph-hooks` installs three hooks, and they still miss two cases.**
+   `graphify hook install` writes `post-commit` and `post-checkout`. Neither
+   one runs for a `git pull`, so the target also installs
+   `scripts/git-hooks/post-merge`, which covers a pull and a merge. Every
+   rebuild runs detached, so no hook holds the shell. Two limits remain:
+   - **The hooks exit immediately in a linked worktree.** This repository uses
+     worktrees, so a commit under `.claude/worktrees/` rebuilds nothing. The
+     graph belongs to the primary checkout.
+   - **Git does not track a hook.** A fresh clone has none until someone runs
+     `make graph-hooks`.
+
+   Run `make graph` by hand in both cases. `GRAPHIFY_SKIP_HOOK=1` turns every
+   hook off for one command. The target also removes the union merge driver
+   that `graphify hook install` registers for `graphify-out/graph.json`,
+   because this repository never tracks that file.
+4. **The graph MUST NOT become a second knowledge base.** When a query
+   produces durable knowledge, file it on a wiki page under the SCHEMA.md
+   contract. Do not hand-edit a file in `graphify-out/`.
+5. **Use the Make targets** — `make graph`, `make graph-query Q=…`,
+   `make graph-explain NODE=…` — rather than a bare `graphify` invocation.
+   `.graphifyignore` names the paths graphify MUST NOT extract; it merges with
+   `.gitignore` and wins on a conflict.

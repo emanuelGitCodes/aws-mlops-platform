@@ -71,6 +71,8 @@ Use the Makefile targets — do not invent your own invocations.
 | `make lint` | ruff check + format check |
 | `make typecheck` | mypy over `src/`, `website/backend/`, `infra/`, `scripts/` |
 | `make test` | pytest `tests/unit` with coverage, enforced against the floor |
+| `make check` | lint + typecheck + test + docs-sync + public-check + wiki-lint |
+| `make agent-hooks` | Install the agent hooks into `.claude/settings.json` |
 | `make docs-sync` | Asserts `CLAUDE.md` is still a git symlink to `AGENTS.md` |
 | `make public-check` | Rejects tracked account metadata and private filenames |
 | `make audit` | pip-audit over the locked dependencies |
@@ -202,6 +204,28 @@ reports.
 Never report a command you did not run. When you skip a check, say which one
 and why. A failing check is a result to report, not a step to repeat until it
 passes.
+
+### The completion gate
+
+`scripts/agent_gate.py` enforces this rule, because prose does not. A `Stop`
+hook runs it at the end of every turn. It reads `git status`, selects the Make
+targets that the changed files need, and runs them. A failure exits 2, and the
+output returns to the agent instead of ending the turn.
+
+Two hooks come with it. `SessionStart` prints whether the code graph matches
+`HEAD` and whether this is a worktree. A `PreToolUse` hook on Bash asks the
+operator before any `deploy`, `destroy`, or `bootstrap` target runs, and it
+repeats the dependency-stack warning.
+
+Git does not track `.claude/settings.json`, so a fresh clone has no hook until
+someone runs `make agent-hooks`. The tracked source is `.claude/hooks.json`.
+The target replaces the `hooks` key and leaves `permissions` alone.
+
+The gate does not run `make synth-all` or `make frontend-check`, which take
+minutes. When your change touches `infra/` or `website/frontend/`, it names
+them, and you MUST run them before you open a pull request.
+`AGENT_GATE_FULL=1` adds them to the gate. `AGENT_GATE_SKIP=1` turns the gate
+off for a deliberate handoff of unfinished work — say so when you use it.
 
 ## How to work and respond
 

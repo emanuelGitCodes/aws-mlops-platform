@@ -8004,3 +8004,80 @@ set enforces it mechanically with a `Stop` hook, and prose alone does not.
 
 `make docs-sync`, `make public-check`, `make wiki-lint`, and `make test`, all
 green.
+
+---
+
+## [2026-08-28] implementation | A completion gate ends an agent turn on evidence
+
+### Objective
+
+Stop the false positive at its source. An agent that checks its own work can
+report success it did not earn, and the previous change set added the rule in
+prose only. This change makes a check outside the model decide.
+
+### Scope
+
+`scripts/agent_gate.py` and `tests/unit/test_agent_gate.py`, both new.
+`.claude/hooks.json`, new and tracked. `Makefile` gains `check` and
+`agent-hooks`. `pyproject.toml` raises the coverage floor. `AGENTS.md` gains
+"The completion gate". No stack was synthesized, no template changed, and no
+AWS resource was touched.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used. The work ran in the
+`aws-cdk-ml-website-cf88da` worktree.
+
+### Commands and observed results
+
+1. A `Stop` hook runs `scripts/agent_gate.py stop`. With an unused import
+   added to `src/common/drift.py`, the gate printed `The completion gate
+   failed: make lint`, quoted the F401 and E402 output, and exited 2. Exit 2
+   returns the message to the agent instead of ending the turn.
+2. `AGENT_GATE_SKIP=1 … stop` exited 0 and ran no target.
+3. `{"stop_hook_active": true}` on stdin exited 0 and ran no target. That is
+   the loop guard.
+4. `… deploy-guard` on `make deploy-stack STACK=Mlops-Dev-Security` returned
+   `"permissionDecision": "ask"` with the dependency-stack warning. The same
+   command on `make test` printed nothing, which allows the call.
+5. `… session-start` printed `code graph: STALE. Built from be79a8e3, HEAD is
+   2a32a53f` and the two worktree lines.
+6. `make check` passed: 452 tests at 94.96% coverage. The floor rose from
+   94.74 to 94.96 across this change set and the one before it.
+
+### Interpretation
+
+Item 1 is the whole point. A failing check is now a result the agent must
+read, not a step it can skip. The gate runs only the targets the changed files
+need, so a wiki-only change costs `wiki-lint` and `public-check`, not `test`.
+
+The gate does not run `make synth-all` or `make frontend-check`, which take
+minutes. It names them instead, and `AGENT_GATE_FULL=1` adds them. A gate that
+blocks with no path to satisfy it produces a loop, so a named skip is honest
+where a silent one is not.
+
+Item 5 records a real staleness. The graph in this worktree was built from
+`be79a8e3` and the hooks do not rebuild inside a worktree. The session now
+learns this in its first line rather than after citing a stale answer.
+
+The assistant could not write `.claude/settings.json` itself: that file
+carries permissions and hooks, and the harness guards it. This is why
+`.claude/hooks.json` is tracked and `make agent-hooks` installs it. The
+operator runs the target. `merge_hooks` replaces the `hooks` key and leaves
+`permissions` as the operator wrote it.
+
+### Decision and next checkpoint
+
+`.claude/settings.json` stays untracked, so `make agent-hooks` is a manual
+step in a fresh clone, the same as `make graph-hooks`. The permission
+allowlist is not changed by this change set; a narrowed list is proposed in
+the pull request for the operator to accept.
+
+The next checkpoint is the first turn that the gate blocks in real work. If
+the `Stop` hook proves too slow on a large change, the answer is a narrower
+target set, not a disabled gate.
+
+### Verification
+
+`make check` green: `lint`, `typecheck`, `test`, `docs-sync`, `public-check`,
+and `wiki-lint`.

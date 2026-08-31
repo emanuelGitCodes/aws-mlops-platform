@@ -1,0 +1,36 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run --locked python scripts/agent_gate.py session-start",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run --locked python scripts/agent_gate.py deploy-guard",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run --locked python scripts/agent_gate.py stop",
+          "timeout": 900
+        }
+      ]
+    }
+  ]
+}

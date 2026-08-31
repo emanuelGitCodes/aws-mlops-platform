@@ -1,4 +1,5 @@
-.PHONY: install lock-check lint typecheck test docs-sync audit synth synth-all \
+.PHONY: install lock-check lint typecheck test check agent-hooks docs-sync audit \
+	synth synth-all \
 	diagrams security bootstrap check-stack check-alert-email diff-stack \
 	deploy-stack deploy destroy verify-deploy smoke wiki-init wiki-index \
 	wiki-search wiki-ingest wiki-lint public-check graph graph-query \
@@ -50,6 +51,18 @@ docs-sync:
 
 audit:
 	uv run --locked pip-audit --skip-editable
+
+# The fast local gate. `scripts/agent_gate.py` runs this set from the `Stop`
+# hook, and it runs only the targets that the changed files need.
+# `make security` covers `audit` and `synth-all`, which take minutes.
+check: lint typecheck test docs-sync public-check wiki-lint
+
+# Install the agent hooks from `.claude/hooks.json` into `.claude/settings.json`.
+# Git does not track `.claude/settings.json`, so a fresh clone has no hook until
+# someone runs this target. The target replaces the `hooks` key and leaves
+# `permissions` as the operator wrote it.
+agent-hooks:
+	uv run --locked python scripts/agent_gate.py install-hooks
 
 synth:
 	cd infra && $(CDK_CLI) synth -c env=$(ENV) --no-lookups

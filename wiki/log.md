@@ -8334,3 +8334,26 @@ object. The window MUST provoke both.
 ### Verification
 
 `scripts/wiki.py index`, then `make wiki-lint` and `make public-check`.
+
+## [2026-09-04] implement | Codex writer roles and Claude supervisor roles
+
+**Objective:** give every domain of the platform a Codex role that writes
+the code and a Claude role that verifies it, so the operator reviews a
+checked pull request.
+
+**Change:** seven TOML roles under `.codex/agents/`, eleven Markdown roles
+under `.claude/agents/`, two code-map rows in `AGENTS.md`, and a new
+section on
+[the agent instruction architecture](pages/decisions/agent-instruction-architecture.md).
+
+**Result:** a `tomllib` parse of every role and a frontmatter check of every
+supervisor passed. A read-only `codex exec` probe listed the roles. No task
+has run the full loop yet.
+
+**Next checkpoint:** the first delegated task. Record what the prompt
+template and `codex exec resume --last` got wrong.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index`, then `make wiki-lint`,
+`make docs-sync`, and `make public-check`.

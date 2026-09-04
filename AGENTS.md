@@ -133,6 +133,8 @@ Look here **before** writing anything new:
 | `telco/` | `telco.csv`, the raw dataset |
 | `wiki/` | Knowledge base — governed by `wiki/AGENTS.md` and the `wiki-record` skill |
 | `.claude/skills/` | The project skills. Read the one that matches your task. `.agents/skills/` serves the same skills to a non-Claude harness, and every host-neutral skill there is a symlink to this directory — add a new one the same way |
+| `.claude/agents/` | The Claude supervisor roles: `tech-lead` splits and delegates, one supervisor per domain verifies, and `security-reviewer`, `deploy-operator`, and `wiki-scribe` cover review, operations, and prose. A supervisor MUST NOT write code |
+| `.codex/agents/` | The Codex writer roles, one per domain and named the same as the supervisor. A supervisor starts one with `codex exec` and verifies the diff |
 | `graphify-out/` | The generated code graph — build output, untracked. `make graph` rebuilds it |
 
 The wiki and the graph answer different questions. The wiki is the source of

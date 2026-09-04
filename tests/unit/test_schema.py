@@ -8,7 +8,7 @@ from src.common.schema import FEATURE_COLUMNS, CustomerRecord
 from tests.unit.conftest import REPO_ROOT, VALID
 
 
-def test_valid_record_without_label():
+def test_valid_record_without_label_is_valid_for_predict_requests():
     rec = CustomerRecord.model_validate(VALID)
     assert rec.Churn is None
 
@@ -21,6 +21,20 @@ def test_valid_record_with_label():
 def test_blank_total_charges_coerced_to_zero():
     rec = CustomerRecord.model_validate({**VALID, "TotalCharges": " "})
     assert rec.TotalCharges == 0.0
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("MonthlyCharges", float("inf")),
+        ("MonthlyCharges", float("nan")),
+        ("TotalCharges", float("inf")),
+        ("TotalCharges", float("nan")),
+    ],
+)
+def test_non_finite_numeric_values_rejected(field, value):
+    with pytest.raises(ValidationError):
+        CustomerRecord.model_validate({**VALID, field: value})
 
 
 @pytest.mark.parametrize(

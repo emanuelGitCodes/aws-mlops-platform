@@ -47,8 +47,8 @@ class CustomerRecord(BaseModel):
     Contract: str
     PaperlessBilling: str
     PaymentMethod: str
-    MonthlyCharges: float = Field(ge=0)
-    TotalCharges: float = Field(ge=0)
+    MonthlyCharges: float = Field(ge=0, allow_inf_nan=False)
+    TotalCharges: float = Field(ge=0, allow_inf_nan=False)
     Churn: str | None = None
 
     # Validate each categorical value against the encoder vocabulary.

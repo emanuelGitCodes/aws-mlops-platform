@@ -1,14 +1,14 @@
 """Define the preprocess, train, evaluate, gate, and register pipeline.
 
-`get_champion` reads the champion AUC from the Model Registry and sets it as
-the `ChampionAuc` parameter default. It refreshes each time CI or the retrain
-trigger upserts the pipeline. A challenger registers only when its test AUC
-beats the champion.
+The build-time lookup sets the `ChampionAuc` parameter default. The default
+applies when an execution sends no `ChampionAuc` parameter. The retrain Lambda
+resolves the champion at invocation time and overrides the default.
+`src/common/registry.py` owns the lookup. A challenger registers only when its
+test AUC beats the champion.
 """
 
 import argparse
 
-import boto3
 import sagemaker
 from sagemaker.inputs import TrainingInput
 from sagemaker.model import Model
@@ -27,7 +27,7 @@ from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
 
-from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
+from src.common.registry import get_champion
 
 # Configure processing, training, and inference instance types separately.
 PROCESSING_INSTANCE_TYPE = "ml.m5.large"
@@ -51,25 +51,6 @@ TRAINING_HYPERPARAMETERS: dict[str, str | PipelineVariable] = {
     "eta": "0.2",
     "early_stopping_rounds": "20",
 }
-
-
-def get_champion(model_package_group: str, region: str) -> tuple[str, float]:
-    """Return the latest approved package ARN and its AUC. If the group holds
-    no approved package, return the 0.5 baseline."""
-    sm = boto3.client("sagemaker", region_name=region)
-    packages = sm.list_model_packages(
-        ModelPackageGroupName=model_package_group,
-        ModelApprovalStatus="Approved",
-        SortBy="CreationTime",
-        SortOrder="Descending",
-        MaxResults=1,
-    )["ModelPackageSummaryList"]
-    if not packages:
-        return NO_CHAMPION_ARN, BASELINE_CHAMPION_AUC
-    arn = packages[0]["ModelPackageArn"]
-    description = sm.describe_model_package(ModelPackageName=arn)
-    metadata = description.get("CustomerMetadataProperties", {})
-    return arn, float(metadata.get("test_auc", BASELINE_CHAMPION_AUC))
 
 
 def build_pipeline(

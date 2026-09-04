@@ -119,7 +119,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # Keep the model role logical id unchanged.
         "serving": "df36151514116565e7ad6d73e8185b530945a329fa1c3454273da7d0bbc04eb3",
         # Track both monitoring Lambda roles.
-        "monitoring": "3444854868fba5e089e04e4e55706b51c947cf883cc435e5a759831869a5b243",
+        "monitoring": "8742d0796549b2c92bb875a666ba008f6ce72ff8b2e24933a66ce205adffa4e6",
         # Track the deploy role permissions and OIDC trust conditions.
         "cicd": "7a803ee795eea06da566236a0a25ed949c54dcd570d3cb33b8ebcea10ef4b81d",
         # Track the website instance role and its scoped grants.

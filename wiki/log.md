@@ -8440,3 +8440,72 @@ exercises the new grants against AWS.
 
 `uv run --locked python scripts/wiki.py index`, then `make wiki-lint` and
 `make public-check`.
+
+
+## [2026-09-04] update | Specialist agent contracts for both hosts
+
+### Objective
+
+Strengthen each agent's domain judgment, security boundaries, and verification
+criteria before further platform implementation.
+
+### Scope
+
+Eleven Codex roles and eleven Claude roles. Seven domain writers cover CDK,
+DevOps, Lambda handlers, ML pipelines, frontend, website backend, and tests.
+Codex gains counterparts for technical leadership, security review, deployment
+operations, and wiki writing.
+
+`.codex/agent-contract.md` holds the shared work and evidence contract.
+`.claude/agent-workflow.md` holds the supervisor dispatch procedure.
+`.codex/README.md` maps tasks to roles. The root code map and the agent
+instruction decision page point to these files.
+
+### Identity and environment
+
+Local worktree on `codex/strengthen-agent-roles`. No AWS identity was used.
+No platform code, host permission settings, or hook definitions changed.
+
+### Commands and results
+
+- `uv run --locked python` parsed the eleven TOML definitions and eleven YAML
+  frontmatter blocks. Assertions checked paired names, supported fields,
+  shared references, inherited model choices, and unsafe legacy patterns.
+- The same check parsed both existing hook JSON files. Parsing does not prove
+  activation, host compatibility, or enforcement.
+- `codex exec --help` and `codex exec resume --help` confirmed the documented
+  stdin, JSON output, working-directory, and explicit session-ID syntax.
+- `codex debug prompt-input` exited 0. A check for role descriptions found
+  none in that output. The debug output did not expose the role catalog, so
+  it does not prove native role discovery or dispatch.
+- `make wiki-index`, `make docs-sync`, `make wiki-lint`, and
+  `make public-check` passed. The wiki linter reported 54 healthy pages.
+- `AGENT_PR_BASE=HEAD make pr-size` measured 0 of 150 source lines.
+  `git diff --check` passed.
+
+### Interpretation
+
+Domain criteria now cover model identity, baseline ownership, common evaluation
+sets, partial event failures, cold starts, least privilege, supply-chain trust,
+browser security, accessibility, and storage recovery. These criteria guide
+future assignments; they do not implement the platform features they describe.
+
+Claude supervisors read the matching Codex domain checklist. Task files pass
+through stdin. Every resume names its session. Regression mutations use a
+disposable copy, preserving changes in the shared checkout.
+
+### Decision and next checkpoint
+
+The roles inherit the user's model choice. The Codex security reviewer uses a
+read-only sandbox. Other roles inherit host controls. No prompt rule substitutes
+for a sandbox, an IAM policy, or explicit operation authority.
+
+The next checkpoint is a bounded real assignment from a fresh session in this
+checkout. Native dispatch and the complete Claude-to-Codex supervision loop
+remain unverified. Application tests and CDK synthesis were not rerun because
+this change affects instructions and documentation only.
+
+### Verification
+
+Role schema assertions, CLI syntax inspection, `make docs-sync`,
+`make wiki-lint`, `make public-check`, `make pr-size`, and `git diff --check`.

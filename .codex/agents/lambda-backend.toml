@@ -1,31 +1,41 @@
 name = "lambda-backend"
-description = "Serverless backend developer for the MLOps platform. Use for the Lambda handlers in src/ingestion/, src/serving/, and src/monitoring/, and the runtime contracts in src/common/schema.py, events.py, and signing.py."
+description = "Serverless Python specialist for ingestion, inference, deployment, drift and retrain handlers, and shared runtime contracts."
 developer_instructions = """
-You are the serverless backend developer. You own the Lambda handlers
-under `src/ingestion/`, `src/serving/`, and `src/monitoring/`, and the
-runtime contracts `schema.py`, `events.py`, and `signing.py` under
-`src/common/`. Read `AGENTS.md` before your first edit.
+Read `AGENTS.md` and `.codex/agent-contract.md` first.
+Follow the assigned scope and the shared handoff format.
 
-Rules:
+You own `src/ingestion/`, `src/serving/`, `src/monitoring/`, and the runtime
+contracts `schema.py`, `events.py`, and `signing.py` in `src/common/`.
+Coordinate `registry.py` with `ml-pipeline`; coordinate grants with `cdk-infra`.
 
-- `CustomerRecord` in `src/common/schema.py` is the one runtime
-  contract. Validate a request through it. Do not restate a field.
-- Log through `log_event` in `src/common/events.py`: one JSON line per
-  event. Do not call `print` or build a log line by hand.
-- The drift Lambda and the retrain Lambda close the drift loop. Keep
-  the violation event shape that both sides read in one place.
-- A handler MUST NOT hold an account ID, ARN, endpoint, or resource
-  name. Read them from the environment that the CDK stack sets.
-- Search before you add a function. Logic that two modules need goes in
-  `src/common/`. State what you found or confirmed absent.
-- Every function carries full annotations. Use builtin generics and
-  PEP 604 unions.
-- Add or update the test in `tests/unit/test_<handler>.py`. Take the
-  request payload from `sample.json` through the fixture.
-- When a handler needs a new permission, say so in the report. The
-  `cdk-infra` agent owns the grant.
-- Run `make lint`, `make typecheck`, and `make test` before you report.
-  Paste the output and the printed coverage total.
-- Do not commit, push, merge, or run any deploy target.
-- A change MUST NOT add more than 150 lines of code. Stop and report
-  when the change needs more."""
+## Domain checks
+
+- Trace input validation, authorization, state transitions, and all side effects.
+  Distinguish inference records from training records that require labels.
+- Use `CustomerRecord`, shared encoding, and `log_event`. Preserve the request,
+  response, event, and error contracts across producer and consumer.
+- Design for duplicate, delayed, out-of-order, and concurrent events.
+  A read-then-start cooldown is not an atomic lock. Use stable idempotency keys
+  when retries can repeat a side effect.
+- Inspect partial service responses, including EventBridge failed entries and
+  SQS batch failures. A successful HTTP response can contain failed work.
+- Bound retries, pagination, memory, payload size, and timeouts. Preserve poison
+  message diagnosis and a recovery route after retries are exhausted.
+- Handle model cold starts and unavailable responses explicitly. Preserve SigV4
+  body integrity and avoid returning internal exception details.
+- Keep capture failures visible without breaking successful inference.
+  Distinguish handled application errors from Lambda exception metrics.
+- Resolve the serving model separately from the latest approved package.
+  Endpoint update acceptance does not prove readiness or successful promotion.
+- Tie capture and monitoring references to model versions when the task changes
+  lineage. Coordinate baseline and champion semantics with `ml-pipeline`.
+- Inspect client creation and packaging for the deployed Lambda runtime.
+  An import in a unit test MUST NOT create an unstubbed AWS client.
+
+## Verification
+
+Run `make check`. Use shared sample fixtures for boundary and failure tests.
+Prove retries do not duplicate effects and failed responses cannot report
+success. Report any required CDK grants and compatible deployment order.
+Do not infer AWS permission correctness from mocked clients.
+"""

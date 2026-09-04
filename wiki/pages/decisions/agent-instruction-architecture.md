@@ -3,7 +3,7 @@ type: decision
 title: Agent instructions split into rules, skills, and a completion gate
 created: "2026-08-31"
 updated: "2026-09-04"
-sources: ["../../../AGENTS.md", "../../../scripts/agent_gate.py", "../../../tests/unit/test_agent_gate.py", "../../../.claude/hooks.json", "../../../.claude/skills/house-style/SKILL.md", "../../../.claude/skills/stacked-prs/SKILL.md", "../../../Makefile", "../../../pyproject.toml", "../../../.claude/agents/tech-lead.md", "../../../.codex/agents/cdk-infra.toml"]
+sources: ["../../../AGENTS.md", "../../../scripts/agent_gate.py", "../../../tests/unit/test_agent_gate.py", "../../../.claude/hooks.json", "../../../.claude/skills/house-style/SKILL.md", "../../../.claude/skills/stacked-prs/SKILL.md", "../../../Makefile", "../../../pyproject.toml", "../../../.claude/agents/tech-lead.md", "../../../.codex/agents/cdk-infra.toml", "../../../.codex/agent-contract.md", "../../../.claude/agent-workflow.md", "../../../.codex/README.md"]
 summary: "AGENTS.md keeps only the rules an agent needs before its first tool call, six skills carry the procedure, and a Stop hook runs the checks that the changed files need."
 ---
 # Agent instructions split into rules, skills, and a completion gate
@@ -40,6 +40,37 @@ summary: "AGENTS.md keeps only the rules an agent needs before its first tool ca
   the instruction split, the completion gate, and the size cap.
 
 ## Synthesis
+
+### Specialist roles and handoffs
+
+Both hosts define eleven roles. Seven cover CDK, DevOps, Lambda handlers,
+ML pipelines, frontend, website backend, and tests. Four cover technical
+leadership, security review, deployment operations, and wiki writing.
+
+The [shared contract](../../../.codex/agent-contract.md) defines ownership,
+authorization, evidence, and completion. Each Codex role holds its domain
+checklist. Its Claude supervisor reads that same checklist before delegation
+and verification. This keeps the domain criteria in one place for the seven
+implementation roles. The [role guide](../../../.codex/README.md) maps tasks
+to the appropriate specialist.
+
+The [Claude workflow](../../../.claude/agent-workflow.md) sends task files
+through stdin and records the exact Codex session ID. It does not resume the
+latest session by inference. Test mutations use a disposable copy rather than
+restoring a shared file to HEAD. Claude supervisors do not edit source.
+
+The checklists cover model identity, common evaluation data, baseline ownership,
+partial event failures, cold starts, IAM resource types, supply-chain controls,
+browser security, accessibility, and storage failure paths. These are review
+criteria, not claims that every corresponding platform feature exists.
+
+Roles inherit the user's model choice. The Codex security reviewer selects a
+read-only sandbox. Other roles inherit the host's sandbox and approval controls.
+Prompt instructions do not enforce an AWS or operating-system boundary.
+
+A Claude tech lead can dispatch domain agents when it runs as the main agent.
+A nested tech lead returns assignments to its parent because Claude subagents
+cannot spawn nested subagents.
 
 - **The always-on file pays a cost on every session, and status is the worst
   thing to put in it.** A phase-status copy in `AGENTS.md` goes stale between

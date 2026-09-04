@@ -8258,3 +8258,79 @@ The next checkpoint is the first feature that needs a real split under the
 ### Verification
 
 `scripts/wiki.py index`, then `make wiki-lint` and `make public-check`.
+
+## [2026-09-04] update | The silent-failure change sets merged
+
+### Objective
+
+Close the drift loop's silent-failure gap in `main`. The loop had no failure
+signal. The repository held two endpoint alarms and seven security alarms, and
+none of them watched the retraining path.
+
+### Scope
+
+Three stacked pull requests, merged in order. Each one stayed under the
+150-line cap.
+
+| Pull request | Commit | Adds |
+|---|---|---|
+| #86 | `adf387c` | The `mlops-<env>-ops-pipeline-failed` event rule and its two scoped grants |
+| #87 | `6b9b043` | One `mlops-<env>-<slug>-errors` alarm for each of the five handlers |
+| #88 | `674bd36` | The ingestion dead-letter-queue backlog alarm and the `Drift loop` widget |
+
+No AWS resource changed. The account holds none of these alarms yet.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used.
+
+### Commands and observed results
+
+1. Each pull request passed `lint`, `typecheck`, `test`, `docs-sync`,
+   `wiki-lint`, `public-check`, `audit`, and `synth-all` for both environments.
+   cdk-nag reported no new finding.
+2. The coverage floor rose from 94.74 to 95.15 across the three merges.
+3. `make pr-size` measured 62, 72, and 61 lines against each own base.
+4. Each merge used the administrator bypass. `main` requires one approving
+   review, and GitHub does not permit an author to approve their own pull
+   request.
+
+### Interpretation
+
+Three facts cost time, and each one repeats on any stack in this repository.
+
+1. **A squash merge makes the next child conflict.** `main` takes the parent as
+   one new commit, and the child carries the parent's own commits. Git reads
+   the shared lines as added on both sides. #87 conflicted in five files and
+   #88 in seven. Every conflict kept the child, which already held the parent
+   through its own history.
+2. **GitHub refuses to retarget a pull request that belongs to a stack.**
+   `gh pr edit --base main` returns "Cannot change the base branch because the
+   pull request is part of a stack". Deleting the merged base branch does not
+   retarget the child. It **closes** the child. Restoring the branch and
+   reopening the pull request recovers it, and the timeline keeps the close.
+3. **A conflict marker in `pyproject.toml` stops every `uv` command.** The
+   completion-gate hook runs `uv`, so an unresolved marker blocks the Bash
+   tool. Resolve that file first.
+
+The `test_pr_base_returns_none_without_a_pull_request` test made a live `gh`
+call and asserted a branch name from the branch that wrote it. It failed on
+every branch that has an open pull request with another base. #86 replaced it
+with a stubbed test that covers each return path.
+
+### Decision and next checkpoint
+
+The gap is closed in code, not in the account. The next checkpoint is a scoped
+dev deploy under the one-phase-per-change-set rule, followed by an observation
+window. `Mlops-<Env>-Security` is in the dependency chain for #86, because the
+event rule needs the topic and key grants. Read the
+`Including dependency stacks:` line before the deploy, and run
+`make verify-deploy SINCE=<YYYY-MM-DD>` after it.
+
+Two alarms cannot be proved by waiting. `mlops-<env>-ops-pipeline-failed` needs
+a failed pipeline execution, and `mlops-<env>-ingest-dlq-backlog` needs a poison
+object. The window MUST provoke both.
+
+### Verification
+
+`scripts/wiki.py index`, then `make wiki-lint` and `make public-check`.

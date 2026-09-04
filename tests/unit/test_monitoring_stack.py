@@ -6,6 +6,8 @@ from infra.stacks.monitoring_stack import (
     DRIFT_EVENT_DETAIL_TYPE,
     DRIFT_EVENT_SOURCE,
     DRIFT_STATUS,
+    PIPELINE_EVENT_DETAIL_TYPE,
+    PIPELINE_FAILURE_STATES,
 )
 from src.common import drift
 from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
@@ -261,3 +263,49 @@ def test_endpoint_alarms_publish_to_the_ops_topic(stacks):
         imported = action["Fn::ImportValue"]
         assert "OpsAlertsTopic" in imported, alarm["AlarmName"]
         assert "SecurityAlertsTopic" not in imported, alarm["AlarmName"]
+
+
+def test_a_failed_pipeline_execution_pages_the_operator(stacks):
+    """A failed retrain leaves the endpoint on the old model. SageMaker
+    publishes no metric for it, so the rule is the only signal."""
+    stacks["monitoring"].has_resource_properties(
+        "AWS::Events::Rule",
+        {
+            "Name": f"mlops-{CONFIG['env_name']}-ops-pipeline-failed",
+            "EventPattern": {
+                "source": ["aws.sagemaker"],
+                "detail-type": [PIPELINE_EVENT_DETAIL_TYPE],
+                "detail": {
+                    "currentPipelineExecutionStatus": PIPELINE_FAILURE_STATES,
+                    "pipelineArn": [{"suffix": f"pipeline/{CONFIG['pipeline_name']}"}],
+                },
+            },
+            "Targets": [
+                Match.object_like(
+                    {
+                        "Arn": {"Fn::ImportValue": Match.string_like_regexp(".*OpsAlertsTopic.*")},
+                        "InputTransformer": Match.any_value(),
+                    }
+                )
+            ],
+        },
+    )
+
+
+def test_the_failure_rule_keeps_the_name_prefix_the_topic_grant_scopes(stacks):
+    """`SecurityStack` grants `events.amazonaws.com` publish on the ops topic
+    for `mlops-<env>-ops-*` only. A renamed rule cannot publish."""
+    names = [
+        resource["Properties"]["Name"]
+        for resource in stacks["monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::Events::Rule" and "Name" in resource["Properties"]
+    ]
+    assert names
+    for name in names:
+        assert name.startswith(f"mlops-{CONFIG['env_name']}-ops-")
+
+
+def test_the_ops_topic_reference_stays_immutable(stack_constructs):
+    """A mutable topic makes the SNS target add an unscoped publish grant."""
+    reference = stack_constructs["monitoring"].node.find_child("OpsTopicRef")
+    assert reference.node.default_child is None

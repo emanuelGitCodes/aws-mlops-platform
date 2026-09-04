@@ -7886,6 +7886,21 @@ change to a CIS detection control and takes its own gate. The first
 
 `make wiki-lint` and `make public-check`.
 
+## [2026-08-21] update | A failed pipeline execution now pages the operator
+
+The drift loop had no failure signal. The repository held three alarms for the
+endpoint and seven for security, and none of them watched the retraining path. A
+drift-triggered execution could fail and leave the endpoint on the old model in
+silence.
+
+`MonitoringStack` now owns `mlops-<env>-ops-pipeline-failed`. See
+[the closed drift loop](pages/concepts/closed-drift-loop.md) for the rule, the
+two scoped grants in `SecurityStack`, and the imported-topic constraint.
+
+This change is the first of three that close the silent-failure gap. The Lambda
+error alarms and the loop-health dashboard follow in their own change sets. No
+observation window is open; the change is not deployed.
+
 ---
 
 ## [2026-08-28] update | pip upgraded to clear PYSEC-2026-3721

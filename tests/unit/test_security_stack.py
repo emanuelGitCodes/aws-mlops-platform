@@ -218,6 +218,8 @@ def test_security_audit_foundation(stacks):
         "AllowConfigSnapshotEncryption",
         # Grant EventBridge access to the alert-topic key.
         "AllowEventBridgeEncryptedAlerts",
+        # Grant EventBridge access to the ops-topic key.
+        "AllowEventBridgeOpsAlerts",
     }
 
     topic_policy = next(
@@ -429,7 +431,7 @@ def test_the_prod_deploy_role_assumption_is_detected(stacks):
     assert github_deploy_role_name("dev") not in pattern
 
 
-def test_the_ops_topic_is_encrypted_and_accepts_only_cloudwatch(stacks):
+def test_the_ops_topic_is_encrypted_and_scopes_every_publisher(stacks):
     """Separate the operational channel from the security channel."""
     template = stacks["security"]
 
@@ -458,8 +460,16 @@ def test_the_ops_topic_is_encrypted_and_accepts_only_cloudwatch(stacks):
         for statement in statements
         if statement["Effect"] == "Allow"
     }
-    # Budgets and EventBridge findings stay on the security topic.
-    assert services == {"cloudwatch.amazonaws.com"}
+    # Budgets and EventBridge security findings stay on the security topic.
+    assert services == {"cloudwatch.amazonaws.com", "events.amazonaws.com"}
+    # An unscoped grant lets any rule in the account page the operator.
+    for statement in statements:
+        if statement["Effect"] != "Allow":
+            continue
+        source = statement["Condition"]["ArnLike"]["aws:SourceArn"]
+        assert statement["Condition"]["StringEquals"]["aws:SourceAccount"]
+        if statement["Principal"]["Service"] == "events.amazonaws.com":
+            assert ":rule/mlops-dev-ops-*" in str(source)
     assert any(
         statement["Effect"] == "Deny"
         and statement["Condition"]["Bool"]["aws:SecureTransport"] == "false"

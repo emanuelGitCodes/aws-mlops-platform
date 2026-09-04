@@ -2,6 +2,7 @@
 
 import io
 import json
+import subprocess
 
 import pytest
 
@@ -382,6 +383,27 @@ def test_branch_totals_measures_from_the_merge_base(monkeypatch):
     assert calls[1] == ("diff", "--numstat", "abc123")
 
 
-def test_pr_base_returns_none_without_a_pull_request(monkeypatch):
-    monkeypatch.setattr(agent_gate, "REPO_ROOT", agent_gate.REPO_ROOT)
-    assert agent_gate._pr_base() in (None, "origin/claude/agent-completion-gate")
+def test_pr_base_reads_the_base_branch_from_gh(monkeypatch):
+    """Stub `gh`. A live call returns whatever branch the caller sits on."""
+
+    def fake_run(returncode, stdout):
+        def run(*_args, **_kwargs):
+            return subprocess.CompletedProcess([], returncode, stdout, "")
+
+        return run
+
+    # `gh` reports the base branch of the open pull request.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "main\n"))
+    assert agent_gate._pr_base() == "origin/main"
+
+    # A stacked branch bases on the branch below it.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "claude/lower\n"))
+    assert agent_gate._pr_base() == "origin/claude/lower"
+
+    # No pull request, or no `gh`.
+    monkeypatch.setattr(subprocess, "run", fake_run(1, ""))
+    assert agent_gate._pr_base() is None
+
+    # An empty name is not a branch.
+    monkeypatch.setattr(subprocess, "run", fake_run(0, "\n"))
+    assert agent_gate._pr_base() is None

@@ -13,12 +13,19 @@ from aws_cdk.assertions import Template
 from infra.app import build_app, load_config
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+TEST_AWS_REGION = "us-east-1"
+TEST_MODEL_PACKAGE_GROUP = "test-model-package-group"
+TEST_MODEL_PACKAGE_ARN_PREFIX = (
+    "arn:aws:sagemaker:us-east-1:123456789012:model-package/test-model-package-group"
+)
 
 # Set handler environment values before module imports.
 os.environ.setdefault("ENDPOINT_NAME", "test-endpoint")
 os.environ.setdefault("EXECUTION_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
 os.environ.setdefault("CURATED_BUCKET", "test-curated")
 os.environ.setdefault("PIPELINE_NAME", "test-pipeline")
+os.environ.setdefault("MODEL_PACKAGE_GROUP", TEST_MODEL_PACKAGE_GROUP)
+os.environ.setdefault("AWS_REGION", TEST_AWS_REGION)
 
 # Read the shared valid request from `sample.json`.
 SAMPLE_PATH = REPO_ROOT / "sample.json"

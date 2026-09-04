@@ -344,6 +344,18 @@ ACKNOWLEDGEMENTS = (
             "Phase 4 re-evaluates this grant when the bucket moves to a customer-managed key."
         ),
     ),
+    Acknowledgement(
+        "monitoring",
+        "RetrainTriggerFn/ServiceRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"
+            "<AWS::AccountId>:model-package/{group}/*]"
+        ),
+        (
+            "Phase 5D: the package version is assigned at registration, so the wildcard "
+            "is confined to this platform's own model package group."
+        ),
+    ),
     *(
         Acknowledgement(
             "monitoring",

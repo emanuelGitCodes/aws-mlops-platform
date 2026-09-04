@@ -1,7 +1,8 @@
 """Start a training pipeline execution for a drift violation.
 
 EventBridge sends drift events from `src.monitoring.drift_handler`. This handler
-starts the configured pipeline. The pipeline evaluates challenger AUC. An
+resolves the champion from the Model Registry at invocation time. It sends the
+champion as pipeline parameters. The pipeline evaluates challenger AUC. An
 approved challenger invokes `src.serving.deploy_handler`.
 """
 
@@ -14,10 +15,12 @@ import boto3
 
 from src.common.drift import DRIFT_STATUS
 from src.common.events import log_event
+from src.common.registry import get_champion
 
 sm = boto3.client("sagemaker")
 
 PIPELINE_NAME = os.environ["PIPELINE_NAME"]
+MODEL_PACKAGE_GROUP = os.environ["MODEL_PACKAGE_GROUP"]
 
 # Start retraining only for this drift status.
 VIOLATION_STATUS = DRIFT_STATUS
@@ -72,11 +75,26 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         )
         return {"suppressed": blocking["PipelineExecutionArn"]}
 
+    champion_arn, champion_auc = get_champion(
+        MODEL_PACKAGE_GROUP,
+        os.environ["AWS_REGION"],
+    )
+
     # `StartPipelineExecution` requires `ClientRequestToken`.
     execution_arn = sm.start_pipeline_execution(
         PipelineName=PIPELINE_NAME,
         PipelineExecutionDescription=RETRAIN_DESCRIPTION,
         ClientRequestToken=str(uuid.uuid4()),
+        PipelineParameters=[
+            {"Name": "ChampionAuc", "Value": str(champion_auc)},
+            {"Name": "ChampionModelPackageArn", "Value": champion_arn},
+        ],
     )["PipelineExecutionArn"]
-    log_event("retrain_started", pipeline=PIPELINE_NAME, execution_arn=execution_arn)
+    log_event(
+        "retrain_started",
+        pipeline=PIPELINE_NAME,
+        execution_arn=execution_arn,
+        champion_auc=champion_auc,
+        champion_arn=champion_arn,
+    )
     return {"retrain_started": execution_arn}

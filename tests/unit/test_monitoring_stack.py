@@ -1,5 +1,7 @@
 """Monitoring stack: the drift-to-retrain loop and the operator dashboard."""
 
+import json
+
 from aws_cdk.assertions import Match
 
 from infra.stacks.monitoring_stack import (
@@ -14,6 +16,22 @@ from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
 
 # Stub the module-level boto3 client during handler import.
 VIOLATION_STATUS = import_with_stubbed_boto3("src.monitoring.retrain_handler").VIOLATION_STATUS
+
+
+def _iam_policy_details(template):
+    statements = [
+        statement
+        for policy in template.find_resources("AWS::IAM::Policy").values()
+        for statement in policy["Properties"]["PolicyDocument"]["Statement"]
+    ]
+    actions = []
+    resources = []
+    for statement in statements:
+        action = statement["Action"]
+        actions.extend([action] if isinstance(action, str) else action)
+        resource = statement["Resource"]
+        resources.extend([resource] if not isinstance(resource, list) else resource)
+    return statements, actions, resources
 
 
 def test_the_stack_and_the_drift_module_agree_on_the_event():
@@ -100,14 +118,8 @@ def test_the_drift_lambda_reads_capture_and_never_writes_it(stacks):
             )
         },
     )
-    policies = template.find_resources("AWS::IAM::Policy")
-    actions = [
-        statement["Action"]
-        for policy in policies.values()
-        for statement in policy["Properties"]["PolicyDocument"]["Statement"]
-    ]
-    flat = [a for entry in actions for a in ([entry] if isinstance(entry, str) else entry)]
-    assert not [a for a in flat if a.startswith("s3:Put") or a.startswith("s3:Delete")]
+    _, actions, _ = _iam_policy_details(template)
+    assert not [a for a in actions if a.startswith("s3:Put") or a.startswith("s3:Delete")]
 
 
 def test_the_drift_lambda_may_only_put_events_on_the_default_bus(stacks):
@@ -177,6 +189,40 @@ def test_the_retrain_lambda_may_start_only_the_one_pipeline(stacks):
                     )
                 }
             )
+        },
+    )
+
+
+def test_the_retrain_lambda_reads_the_champion_with_scoped_access(stacks):
+    template = stacks["monitoring"]
+    statements, actions, resources = _iam_policy_details(template)
+
+    assert "sagemaker:ListModelPackages" in actions
+    assert "sagemaker:DescribeModelPackage" in actions
+    assert "*" not in resources
+
+    list_packages = next(
+        statement
+        for statement in statements
+        if statement["Action"] == "sagemaker:ListModelPackages"
+    )
+    describe_package = next(
+        statement
+        for statement in statements
+        if statement["Action"] == "sagemaker:DescribeModelPackage"
+    )
+    assert ":model-package-group/" in json.dumps(list_packages["Resource"])
+    assert ":model-package/" in json.dumps(describe_package["Resource"])
+
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "src.monitoring.retrain_handler.handler",
+            "Environment": {
+                "Variables": Match.object_like(
+                    {"MODEL_PACKAGE_GROUP": CONFIG["model_package_group"]}
+                )
+            },
         },
     )
 

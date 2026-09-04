@@ -48,6 +48,7 @@ class MonitoringStack(Stack):
         *,
         ops_topic: sns.ITopic,
         artifacts_bucket: s3.IBucket,
+        package_group_name: str,
         config: PlatformConfig,
         **kwargs: Any,
     ) -> None:
@@ -117,7 +118,10 @@ class MonitoringStack(Stack):
             config=config,
             handler="src.monitoring.retrain_handler.handler",
             timeout=Duration.minutes(1),
-            environment={"PIPELINE_NAME": pipeline_name},
+            environment={
+                "MODEL_PACKAGE_GROUP": package_group_name,
+                "PIPELINE_NAME": pipeline_name,
+            },
         )
         # The cooldown reads `ListPipelineExecutions` before it starts a run.
         # A persistent shift emits one violation for each scheduled evaluation.
@@ -132,6 +136,31 @@ class MonitoringStack(Stack):
                         service="sagemaker",
                         resource="pipeline",
                         resource_name=pipeline_name,
+                    )
+                ],
+            )
+        )
+        # The retrain function resolves the champion from this model package group.
+        retrain_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:ListModelPackages"],
+                resources=[
+                    self.format_arn(
+                        service="sagemaker",
+                        resource="model-package-group",
+                        resource_name=package_group_name,
+                    )
+                ],
+            )
+        )
+        retrain_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:DescribeModelPackage"],
+                resources=[
+                    self.format_arn(
+                        service="sagemaker",
+                        resource="model-package",
+                        resource_name=f"{package_group_name}/*",
                     )
                 ],
             )

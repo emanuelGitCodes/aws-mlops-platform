@@ -2,8 +2,8 @@
 type: decision
 title: Agent instructions split into rules, skills, and a completion gate
 created: "2026-08-31"
-updated: "2026-08-31"
-sources: ["../../../AGENTS.md", "../../../scripts/agent_gate.py", "../../../tests/unit/test_agent_gate.py", "../../../.claude/hooks.json", "../../../.claude/skills/house-style/SKILL.md", "../../../.claude/skills/stacked-prs/SKILL.md", "../../../Makefile", "../../../pyproject.toml"]
+updated: "2026-09-04"
+sources: ["../../../AGENTS.md", "../../../scripts/agent_gate.py", "../../../tests/unit/test_agent_gate.py", "../../../.claude/hooks.json", "../../../.claude/skills/house-style/SKILL.md", "../../../.claude/skills/stacked-prs/SKILL.md", "../../../Makefile", "../../../pyproject.toml", "../../../.claude/agents/tech-lead.md", "../../../.codex/agents/cdk-infra.toml"]
 summary: "AGENTS.md keeps only the rules an agent needs before its first tool call, six skills carry the procedure, and a Stop hook runs the checks that the changed files need."
 ---
 # Agent instructions split into rules, skills, and a completion gate
@@ -85,5 +85,9 @@ summary: "AGENTS.md keeps only the rules an agent needs before its first tool ca
   outside this repository, so that they apply to every project. The project
   copies win here and stay complete, because a public release MUST stand on
   its own. The two sets can drift, and no check compares them.
+- **No task has yet run the full Codex-write and Claude-verify loop.** A
+  read-only `codex exec` probe proved that Codex reads the role files. The
+  first real hand-off is the test of the prompt template and the resume
+  step.
 - **The split axes in `stacked-prs` are untested against live work.** No
   feature has yet needed a real split.

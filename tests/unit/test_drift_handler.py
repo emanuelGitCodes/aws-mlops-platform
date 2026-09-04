@@ -7,6 +7,7 @@ import os
 from unittest import mock
 
 import pytest
+from botocore.exceptions import ClientError as BotoClientError
 
 from src.common import drift
 from tests.unit.conftest import VALID, import_with_stubbed_boto3, varied_records
@@ -105,6 +106,92 @@ def test_an_empty_window_is_skipped(aws):
     events.put_events.assert_not_called()
 
 
+def test_baseline_missing_raises_and_logs_bucket_key(aws):
+    s3, _ = aws
+    by_key = {}
+
+    def read_object(Bucket: str, Key: str):
+        if Key == drift_handler.BASELINE_KEY:
+            raise BotoClientError(
+                {"Error": {"Code": "NoSuchKey", "Message": "missing baseline"}},
+                "GetObject",
+            )
+        return by_key[Key]
+
+    s3.get_object.side_effect = read_object
+
+    with mock.patch.object(drift_handler, "log_event") as log_event:
+        with pytest.raises(BotoClientError):
+            drift_handler.read_baseline()
+    log_event.assert_called_once_with(
+        "drift_baseline_missing",
+        bucket=drift_handler.ARTIFACTS_BUCKET,
+        key=drift_handler.BASELINE_KEY,
+    )
+
+
+def test_invalid_baseline_shape_aborts_drift_scoring(aws):
+    s3, _ = aws
+    baseline_key = drift_handler.BASELINE_KEY
+    s3.get_paginator.return_value.paginate.return_value = [
+        {"Contents": [{"Key": "capture/2026/08/07/09/0.json"}]}
+    ]
+    by_key = {
+        "capture/2026/08/07/09/0.json": body({"record": VALID}),
+        baseline_key: body({}),
+    }
+    s3.get_object.side_effect = lambda Bucket, Key: by_key[Key]
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            f"Baseline object s3://{drift_handler.ARTIFACTS_BUCKET}/{drift_handler.BASELINE_KEY}.*counts"
+        ),
+    ):
+        drift_handler.read_baseline()
+
+
+def test_invalid_baseline_record_count_aborts_drift_scoring(aws):
+    s3, _ = aws
+    baseline_key = drift_handler.BASELINE_KEY
+    baseline = {"record_count": 0, "counts": {"Contract": {"One year": 1}}, "edges": {}}
+    by_key = {baseline_key: body(baseline)}
+    s3.get_object.side_effect = lambda Bucket, Key: by_key[Key]
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            f"Baseline object s3://{drift_handler.ARTIFACTS_BUCKET}/{drift_handler.BASELINE_KEY}.*record_count"
+        ),
+    ):
+        drift_handler.read_baseline()
+
+
+def test_read_captured_skips_unreadable_objects_and_tracks_skips(aws):
+    s3, _ = aws
+    good_key = "capture/2026/08/07/09/0.json"
+    bad_key = "capture/2026/08/07/09/1.json"
+    by_key = {
+        good_key: body({"record": VALID}),
+        bad_key: {"Body": io.BytesIO(b"{")},
+    }
+    s3.get_paginator.return_value.paginate.return_value = [
+        {"Contents": [{"Key": good_key}, {"Key": bad_key}]}
+    ]
+    s3.get_object.side_effect = lambda Bucket, Key: by_key[Key]
+
+    with mock.patch.object(drift_handler, "log_event") as log_event:
+        records, unreadable_count = drift_handler.read_captured(["capture/2026/08/07/09/"])
+
+    assert records == [VALID]
+    assert unreadable_count == 1
+    log_event.assert_called_once_with(
+        "capture_object_unreadable",
+        key=bad_key,
+        skipped=1,
+    )
+
+
 def test_a_uniform_window_is_skipped_even_when_it_is_large(aws):
     """Skip a large point-mass window from repeated prediction requests."""
     s3, events = aws
@@ -132,19 +219,33 @@ def test_a_stable_window_reports_no_drift_and_emits_nothing(aws):
     events.put_events.assert_not_called()
 
 
-def test_a_shifted_window_emits_the_violation_event(aws):
+def test_a_shifted_window_with_one_unreadable_object_emits_count_in_result_and_detail(aws):
     s3, events = aws
-    stub_capture(s3, SHIFTED)
+    good_keys = [f"capture/2026/08/07/09/{index}.json" for index in range(200)]
+    bad_key = "capture/2026/08/07/09/201.json"
+    shifted_count = len(SHIFTED)
+    by_key: dict[str, dict[str, io.BytesIO]] = {}
+    for index, key in enumerate(good_keys):
+        by_key[key] = body({"record": SHIFTED[index % shifted_count]})
+    by_key[bad_key] = {"Body": io.BytesIO(b"{")}
+    by_key[drift_handler.BASELINE_KEY] = body(BASELINE)
+    s3.get_paginator.return_value.paginate.return_value = [
+        {"Contents": [{"Key": key} for key in [*good_keys, bad_key]]}
+    ]
+    s3.get_object.side_effect = lambda Bucket, Key: by_key[Key]
 
     result = drift_handler.handler({}, None)
 
     assert result["drifted"] is True
+    assert result["unreadable_count"] == 1
+    assert result["record_count"] == len(good_keys)
     entry = events.put_events.call_args.kwargs["Entries"][0]
     assert entry["Source"] == drift.EVENT_SOURCE
     assert entry["DetailType"] == drift.EVENT_DETAIL_TYPE
     detail = json.loads(entry["Detail"])
     assert detail["status"] == drift.DRIFT_STATUS
     assert "tenure" in detail["drifted_columns"]
+    assert detail["unreadable_count"] == 1
 
 
 def test_the_shift_is_detected_on_its_merits_not_on_uniformity(aws):

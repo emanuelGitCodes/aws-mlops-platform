@@ -20,8 +20,10 @@ drift→retrain loop — all defined in CDK. Python 3.12, dependencies managed
 with `uv`. The model (Telco churn, XGBoost) is deliberately simple; the
 engineering is the deliverable.
 
-Nine CDK stacks per environment, named `Mlops-<Env>-<Stack>` (the formula
-lives once in `stack_prefix()` in `infra/app.py`). Both environments deploy
+Nine CDK stacks in every environment, named `Mlops-<Env>-<Stack>` (the
+formula lives once in `stack_prefix()` in `infra/app.py`). Dev builds a tenth,
+`Mlops-Dev-Website`, because `build_app()` adds the website stack only where
+`website.enabled` is true. Both environments deploy
 into the same account — stacks are environment-agnostic, with no
 `env=cdk.Environment` — which is why `dev.yaml` and `prod.yaml` must not
 share account-scoped names (model package group, budget, OIDC provider).

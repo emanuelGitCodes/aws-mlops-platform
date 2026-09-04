@@ -8357,3 +8357,86 @@ template and `codex exec resume --last` got wrong.
 
 `uv run --locked python scripts/wiki.py index`, then `make wiki-lint`,
 `make docs-sync`, and `make public-check`.
+
+## [2026-09-04] update | The promotion gate stopped reading a stale champion
+
+### Objective
+
+Fix a defect a checkpoint audit found in `main`. The promotion gate compared
+every challenger against a champion AUC that a person recorded at the last
+manual upsert.
+
+### Scope
+
+One pull request, #101, commit `0b3d598`. It merges directly into `main` and
+has no parent.
+
+`get_champion` ran when `build_pipeline` ran, and its result became the
+`ChampionAuc` parameter default. `retrain_handler` called
+`StartPipelineExecution` with no `PipelineParameters`. Nothing in the
+repository re-upserts the pipeline: `pipeline.upsert` runs only from the
+`__main__` CLI, and no workflow, Make target, or stack calls it.
+
+The retrain Lambda now reads the Model Registry when it runs. It sends
+`ChampionAuc` and `ChampionModelPackageArn` as pipeline parameters. The
+build-time lookup stays as the parameter default, because a hand-started
+execution needs it.
+
+`get_champion` moves to `src/common/registry.py`. The Lambda runtime holds no
+`sagemaker` SDK, so the handler cannot import the pipeline definition.
+
+No AWS resource changed. The account does not hold this change.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used.
+
+### Commands and observed results
+
+1. `make lint`, `make typecheck`, `make docs-sync`, `make public-check`, and
+   `make wiki-lint` each exited 0.
+2. `make test` reported 493 passed. Coverage rose from 95.15 to 95.17, and the
+   floor rose with it.
+3. `make synth-all` synthesized both environments. cdk-nag reported no new
+   finding.
+4. `make pr-size` measured 106 of 150 lines against `origin/main`.
+5. A deliberate mutation removed `PipelineParameters` from the handler. Three
+   tests failed. The tests detect the regression.
+
+### Interpretation
+
+**A parameter default is not a refresh.** The docstring claimed that
+`get_champion` "refreshes each time CI or the retrain trigger upserts the
+pipeline". Neither half was true. A comment that states a mechanism MUST name
+the code that performs it.
+
+**The two Model Registry actions authorize against different resource types.**
+`ListModelPackages` acts on the model package group.
+`DescribeModelPackage` acts on that group's packages. A first draft granted
+both on `model-package/{group}/*`. This log already holds the denial that
+shape produces:
+
+```
+AccessDeniedException ... is not authorized to perform:
+sagemaker:ListModelPackages on resource: model-package/churn-model-group/*
+```
+
+Static analysis got the API surface right and the authorization surface wrong,
+which repeats the Phase 5D finding about `sagemaker:AddTags`.
+
+**A fix MUST NOT reintroduce the defect class it was audited for.** A first
+draft added an acknowledgement whose reason read "Phase 5D removes this
+wildcard". Phase 5D closed on 2026-08-06. The reason now follows the precedent
+that names the phase which scoped the wildcard.
+
+### Next checkpoint
+
+The change is not deployed. It owes a scoped dev deploy and an observation
+window under the one-phase-per-change-set rule. The window MUST cover a
+drift-triggered retrain that resolves a live champion, because no local test
+exercises the new grants against AWS.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index`, then `make wiki-lint` and
+`make public-check`.

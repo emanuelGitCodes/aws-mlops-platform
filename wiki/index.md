@@ -27,6 +27,7 @@ This is the content map. Read it first, then follow the most relevant links.
 
 ## Decisions
 
+- [Agent instructions split into rules, skills, and a completion gate](pages/decisions/agent-instruction-architecture.md) — AGENTS.md keeps only the rules an agent needs before its first tool call, six skills carry the procedure, and a Stop hook runs the checks that the changed files need.
 - [Dataset provenance and the untracked CSV](pages/decisions/dataset-provenance.md) — The Telco churn CSV stays untracked and is pinned by SHA-256 to the public IBM/Kaggle file, because the seeded split makes every downstream metric depend on the exact row order.
 - [Drift capture design for a serverless endpoint](pages/decisions/drift-capture-design.md) — Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay.
 - [graphify code graph beside the wiki](pages/decisions/graphify-knowledge-graph.md) — graphify indexes the tree into a disposable, untracked code graph, and the wiki keeps its role as the source of record for history, decisions, and status.

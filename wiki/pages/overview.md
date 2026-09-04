@@ -2,7 +2,7 @@
 type: overview
 title: AWS MLOps platform overview
 created: "2026-07-10"
-updated: "2026-08-14"
+updated: "2026-08-31"
 sources: ["../../README.md", "../../infra/app.py", "../../infra/stacks/monitoring_stack.py", "../../src/monitoring/drift_handler.py", "../../src/monitoring/retrain_handler.py", "../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../raw/evaluation-report-rollout-july-11-2026.md", "../raw/phased-aws-security-hardening-plan-july-12-2026.md", "../raw/aws-security-hardening-phase-0-baseline-july-12-2026.md", "../raw/aws-security-hardening-phase-1-implementation-july-12-2026.md", "../raw/aws-security-hardening-phase-1-completion-july-12-2026.md"]
 summary: "A portfolio-grade AWS platform with gated models, reproducible evaluation reports, and a deployed drift-to-retrain loop."
 ---
@@ -49,6 +49,10 @@ synthesized resource graph. The
 [graphify code graph](decisions/graphify-knowledge-graph.md) indexes the source
 tree and these pages together. A tool builds each one from the repository.
 Neither replaces a page here.
+
+An agent reads `AGENTS.md` first, and a completion gate checks its work before
+a turn ends. Both follow
+[the agent instruction architecture](decisions/agent-instruction-architecture.md).
 
 ## Tensions or open questions
 

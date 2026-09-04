@@ -73,6 +73,22 @@ The rule target reads the topic through `Topic.from_topic_arn`. An imported
 topic has an immutable resource policy. A mutable one makes the CDK SNS target
 add its own publish grant for `events.amazonaws.com` with no source condition.
 
+### The handler error alarms
+
+Five handlers carry the platform: `ingest`, `proxy`, `deploy`, `drift`, and
+`retrain`. Each one now has a `mlops-<env>-<slug>-errors` alarm on its Lambda
+`Errors` metric, at a threshold of one error over fifteen minutes. Every alarm
+publishes to `mlops-<env>-ops-alerts`. `handler_error_alarm` in
+`infra/stacks/shared.py` builds all five.
+
+One error is the correct threshold. Each handler runs a few times each hour at
+most, so a single exception is already a broken edge. The alarms treat missing
+data as not breaching, because an idle handler publishes no datapoint.
+
+The `deploy` alarm closes the widest gap. A deploy handler that throws leaves
+the endpoint on the old model while the registry shows the new package as
+approved. Nothing else in the platform compares those two facts.
+
 ## Tensions or open questions
 
 - `churn-serverless-dev` uses on-demand serverless inference and configures no

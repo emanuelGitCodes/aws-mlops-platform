@@ -7,10 +7,11 @@ from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_lambda_event_sources as event_sources
 from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig, platform_lambda
+from infra.stacks.shared import PlatformConfig, handler_error_alarm, platform_lambda
 
 
 class IngestionStack(Stack):
@@ -21,6 +22,7 @@ class IngestionStack(Stack):
         *,
         raw_bucket: s3.IBucket,
         curated_bucket: s3.IBucket,
+        ops_topic: sns.ITopic,
         config: PlatformConfig,
         **kwargs: Any,
     ) -> None:
@@ -58,3 +60,12 @@ class IngestionStack(Stack):
 
         raw_bucket.grant_read(validate_fn)
         curated_bucket.grant_write(validate_fn)
+
+        handler_error_alarm(
+            self,
+            "ValidateErrors",
+            handler=validate_fn,
+            slug="ingest",
+            config=config,
+            topic=ops_topic,
+        )

@@ -6,12 +6,15 @@ The ``*Config`` types define ``infra/config/{dev,prod}.yaml`` at build time.
 
 from typing import Any, TypedDict
 
-from aws_cdk import RemovalPolicy
+from aws_cdk import Duration, RemovalPolicy
+from aws_cdk import aws_cloudwatch as cw
+from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_sns as sns
 from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
@@ -182,6 +185,35 @@ def platform_lambda(
         role=role,
         **kwargs,
     )
+
+
+def handler_error_alarm(
+    scope: Construct,
+    construct_id: str,
+    *,
+    handler: lambda_.IFunction,
+    slug: str,
+    config: PlatformConfig,
+    topic: sns.ITopic,
+) -> cw.Alarm:
+    """Alarm on any invocation error of one platform handler.
+
+    A handler that throws breaks its edge of the pipeline and reports nothing
+    else. The threshold is one error, because every handler runs at most a few
+    times each hour.
+    """
+    alarm = cw.Alarm(
+        scope,
+        construct_id,
+        alarm_name=f"mlops-{config['env_name']}-{slug}-errors",
+        metric=handler.metric_errors(period=Duration.minutes(15), statistic="Sum"),
+        threshold=1,
+        evaluation_periods=1,
+        # An idle handler publishes no datapoint.
+        treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
+    )
+    alarm.add_alarm_action(cw_actions.SnsAction(topic))
+    return alarm
 
 
 def sagemaker_execution_role(

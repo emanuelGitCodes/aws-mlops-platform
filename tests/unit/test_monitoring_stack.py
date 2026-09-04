@@ -184,7 +184,8 @@ def test_the_retrain_lambda_may_start_only_the_one_pipeline(stacks):
 def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
     template = stacks["monitoring"]
     template.resource_count_is("AWS::CloudWatch::Dashboard", 1)
-    template.resource_count_is("AWS::CloudWatch::Alarm", 2)
+    # Two endpoint alarms, plus one for each loop handler.
+    template.resource_count_is("AWS::CloudWatch::Alarm", 4)
 
     # Send the endpoint error alarm to the security alert topic.
     template.has_resource_properties(
@@ -241,7 +242,7 @@ def test_the_retrain_lambda_can_read_its_own_execution_history(stacks):
     )
 
 
-def test_endpoint_alarms_publish_to_the_ops_topic(stacks):
+def test_monitoring_alarms_publish_to_the_ops_topic(stacks):
     """Keep endpoint alarms off the security topic.
 
     An idle dev endpoint is the expected state, so the silence alarm fires on
@@ -253,9 +254,12 @@ def test_endpoint_alarms_publish_to_the_ops_topic(stacks):
         for resource in stacks["monitoring"].to_json()["Resources"].values()
         if resource["Type"] == "AWS::CloudWatch::Alarm"
     ]
+    env = CONFIG["env_name"]
     assert {alarm["AlarmName"] for alarm in alarms} == {
-        f"mlops-{CONFIG['env_name']}-endpoint-5xx",
-        f"mlops-{CONFIG['env_name']}-endpoint-silent",
+        f"mlops-{env}-endpoint-5xx",
+        f"mlops-{env}-endpoint-silent",
+        f"mlops-{env}-drift-errors",
+        f"mlops-{env}-retrain-errors",
     }
 
     for alarm in alarms:
@@ -309,3 +313,20 @@ def test_the_ops_topic_reference_stays_immutable(stack_constructs):
     """A mutable topic makes the SNS target add an unscoped publish grant."""
     reference = stack_constructs["monitoring"].node.find_child("OpsTopicRef")
     assert reference.node.default_child is None
+
+
+def test_each_loop_handler_has_its_own_error_alarm(stacks):
+    """A handler that throws stops the loop and reports nothing else. Without
+    the alarm the only symptom is an absence of drift evaluations."""
+    alarms = {
+        resource["Properties"]["AlarmName"]: resource["Properties"]
+        for resource in stacks["monitoring"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+    }
+    for slug in ("drift", "retrain"):
+        alarm = alarms[f"mlops-{CONFIG['env_name']}-{slug}-errors"]
+        assert alarm["Namespace"] == "AWS/Lambda"
+        assert alarm["MetricName"] == "Errors"
+        assert alarm["Threshold"] == 1
+        # An idle handler publishes no datapoint.
+        assert alarm["TreatMissingData"] == "notBreaching"

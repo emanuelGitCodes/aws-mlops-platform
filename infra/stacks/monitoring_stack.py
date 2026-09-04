@@ -21,6 +21,7 @@ from infra.stacks.shared import (
     BASELINE_KEY,
     CAPTURE_PREFIX,
     PlatformConfig,
+    handler_error_alarm,
     lambda_event_rule,
     platform_lambda,
 )
@@ -176,6 +177,19 @@ class MonitoringStack(Stack):
                     ),
                 )
             ],
+        )
+
+        # A handler that throws stops the loop and reports nothing else.
+        handler_error_alarm(
+            self, "DriftErrors", handler=drift_fn, slug="drift", config=config, topic=ops_topic
+        )
+        handler_error_alarm(
+            self,
+            "RetrainErrors",
+            handler=retrain_fn,
+            slug="retrain",
+            config=config,
+            topic=ops_topic,
         )
 
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}

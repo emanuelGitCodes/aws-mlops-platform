@@ -7901,6 +7901,18 @@ This change is the first of three that close the silent-failure gap. The Lambda
 error alarms and the loop-health dashboard follow in their own change sets. No
 observation window is open; the change is not deployed.
 
+## [2026-08-21] update | Every platform handler now has an error alarm
+
+The five handlers ran unattended with no error alarm. A throwing handler was
+visible only as an absence: no curated object, no drift evaluation, no endpoint
+update. See [the closed drift loop](pages/concepts/closed-drift-loop.md) for the
+threshold and the reason for it.
+
+`IngestionStack` and `ServingStack` now take the ops topic, so `build_app` wires
+`security.ops_topic` into four stacks. The dead-letter-queue backlog alarm and
+the loop-health dashboard follow in the next change set. No observation window
+is open; the change is not deployed.
+
 ---
 
 ## [2026-08-28] update | pip upgraded to clear PYSEC-2026-3721

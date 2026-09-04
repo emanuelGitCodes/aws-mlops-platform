@@ -11,7 +11,12 @@ from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
-from infra.stacks.shared import PlatformConfig, handler_error_alarm, platform_lambda
+from infra.stacks.shared import (
+    PlatformConfig,
+    handler_error_alarm,
+    platform_lambda,
+    queue_backlog_alarm,
+)
 
 
 class IngestionStack(Stack):
@@ -61,6 +66,15 @@ class IngestionStack(Stack):
         raw_bucket.grant_read(validate_fn)
         curated_bucket.grant_write(validate_fn)
 
+        # A message reaches the dead-letter queue after three failed receives.
+        queue_backlog_alarm(
+            self,
+            "IngestDlqBacklog",
+            queue=dlq,
+            slug="ingest-dlq",
+            config=config,
+            topic=ops_topic,
+        )
         handler_error_alarm(
             self,
             "ValidateErrors",

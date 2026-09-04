@@ -36,6 +36,21 @@ def test_a_failed_validation_pages_the_operator(stacks):
         if resource["Type"] == "AWS::CloudWatch::Alarm"
     }
     env = CONFIG["env_name"]
-    assert set(alarms) == {f"mlops-{env}-ingest-errors"}
+    assert set(alarms) == {f"mlops-{env}-ingest-errors", f"mlops-{env}-ingest-dlq-backlog"}
     assert alarms[f"mlops-{env}-ingest-errors"]["MetricName"] == "Errors"
     assert "OpsAlertsTopic" in str(alarms[f"mlops-{env}-ingest-errors"]["AlarmActions"])
+
+
+def test_a_stuck_message_pages_the_operator(stacks):
+    """A poison object sits in the dead-letter queue until someone looks."""
+    backlog = next(
+        resource["Properties"]
+        for resource in stacks["ingestion"].to_json()["Resources"].values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+        and resource["Properties"]["AlarmName"].endswith("-ingest-dlq-backlog")
+    )
+    assert backlog["MetricName"] == "ApproximateNumberOfMessagesVisible"
+    assert backlog["Namespace"] == "AWS/SQS"
+    # One dead-lettered message already means a lost object.
+    assert backlog["Threshold"] == 1
+    assert "OpsAlertsTopic" in str(backlog["AlarmActions"])

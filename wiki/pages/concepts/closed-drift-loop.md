@@ -89,6 +89,18 @@ The `deploy` alarm closes the widest gap. A deploy handler that throws leaves
 the endpoint on the old model while the registry shows the new package as
 approved. Nothing else in the platform compares those two facts.
 
+`mlops-<env>-ingest-dlq-backlog` covers the one failure the error alarm misses.
+A message reaches the dead-letter queue after three failed receives, so the
+handler already alarmed. The backlog alarm reports that the object stayed
+unprocessed after those retries.
+
+### Seeing the loop
+
+The `mlops-<env>` dashboard carries a `Drift loop` widget. It plots drift
+evaluations and retrain triggers on the left axis, and the errors of both
+handlers on the right. The loop otherwise reports through `log_event` lines
+alone, and no operator view shows that the hourly evaluation stopped.
+
 ## Tensions or open questions
 
 - `churn-serverless-dev` uses on-demand serverless inference and configures no

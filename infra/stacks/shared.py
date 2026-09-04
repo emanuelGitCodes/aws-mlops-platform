@@ -15,6 +15,7 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_sns as sns
+from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
 from infra.stacks.lambda_code import src_code
@@ -210,6 +211,35 @@ def handler_error_alarm(
         threshold=1,
         evaluation_periods=1,
         # An idle handler publishes no datapoint.
+        treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
+    )
+    alarm.add_alarm_action(cw_actions.SnsAction(topic))
+    return alarm
+
+
+def queue_backlog_alarm(
+    scope: Construct,
+    construct_id: str,
+    *,
+    queue: sqs.IQueue,
+    slug: str,
+    config: PlatformConfig,
+    topic: sns.ITopic,
+) -> cw.Alarm:
+    """Alarm on any message that reaches a dead-letter queue.
+
+    A dead-letter queue holds what the platform already failed to process.
+    One message means an object never reached the curated bucket.
+    """
+    alarm = cw.Alarm(
+        scope,
+        construct_id,
+        alarm_name=f"mlops-{config['env_name']}-{slug}-backlog",
+        metric=queue.metric_approximate_number_of_messages_visible(
+            period=Duration.minutes(15), statistic="Maximum"
+        ),
+        threshold=1,
+        evaluation_periods=1,
         treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
     )
     alarm.add_alarm_action(cw_actions.SnsAction(topic))

@@ -225,6 +225,22 @@ class MonitoringStack(Stack):
             ),
         )
 
+        # The loop runs on a schedule and reports through logs alone. These
+        # widgets show whether it ran and whether it started a retrain.
+        dashboard.add_widgets(
+            cw.GraphWidget(
+                title="Drift loop",
+                left=[
+                    drift_fn.metric_invocations(statistic="Sum", label="Drift evaluations"),
+                    retrain_fn.metric_invocations(statistic="Sum", label="Retrain triggers"),
+                ],
+                right=[
+                    drift_fn.metric_errors(statistic="Sum", label="Drift errors"),
+                    retrain_fn.metric_errors(statistic="Sum", label="Retrain errors"),
+                ],
+            ),
+        )
+
         endpoint_5xx_alarm = cw.Alarm(
             self,
             "Endpoint5xxAlarm",

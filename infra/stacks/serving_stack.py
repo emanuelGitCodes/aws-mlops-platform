@@ -112,7 +112,7 @@ class ServingStack(Stack):
             },
         )
         # Scope each action to resources named by `deploy_handler`.
-        # Generated model and endpoint-config names end with the epoch second.
+        # Generated model and endpoint-config names end with a package hash.
         #
         # The handler does not call `Delete*` or `List*` actions.
         # The `aws/lambda` key policy authorizes the cold-start decrypt.
@@ -123,7 +123,7 @@ class ServingStack(Stack):
         )
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateModel"],
+                actions=["sagemaker:CreateModel", "sagemaker:DescribeModel"],
                 resources=[
                     self.format_arn(
                         service="sagemaker",
@@ -135,7 +135,7 @@ class ServingStack(Stack):
         )
         deploy_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateEndpointConfig"],
+                actions=["sagemaker:CreateEndpointConfig", "sagemaker:DescribeEndpointConfig"],
                 resources=[endpoint_config_arn],
             )
         )

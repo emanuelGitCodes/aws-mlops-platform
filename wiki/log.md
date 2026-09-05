@@ -1100,6 +1100,33 @@ state is distinct from an already-current endpoint.
 
 **Decision and next checkpoint:** prepared as the first of two retry layers.
 The next layer activates these helpers and adds the scoped Describe grants.
+
+## [2026-09-05] implement | Idempotent approval deployment
+
+**Objective:** prevent repeated approval events from creating repeated
+resources or requesting the same endpoint update again.
+
+**Scope:** approval checks, resource assurance, legacy-resource reuse,
+endpoint-state handling, Serving Describe grants, and regression tests.
+The handler verifies current approval before writes. Matching legacy resources
+can produce a no-op without replacement. Pending deployments have a distinct
+result and log event.
+
+**Identity and environment:** local tests only. No AWS deployment was performed.
+
+**Commands and results:** the combined `make check` passed 634 tests at
+96.17% coverage. `make pr-size` measured 145 of 150 source lines. The isolated
+change passed dev and prod synthesis. Only the serving IAM fingerprint changed
+after review of the scoped Describe actions.
+
+**Interpretation:** an existing resource with the wrong identity is not reused.
+Failed, rollback, and deleting endpoint states are not successful no-ops.
+Access denials remain failures. A final review corrected the in-progress log
+event so it does not claim that the requested model is already current.
+
+**Decision and next checkpoint:** prepared for local review. This protection
+precedes any metadata migration that can trigger approval automation.
+Live retries, cold-start inference, and notification delivery remain unverified.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

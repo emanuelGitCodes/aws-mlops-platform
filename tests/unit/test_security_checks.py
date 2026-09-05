@@ -170,7 +170,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         # Keep the pipeline role logical id unchanged.
         "training": "69aa221901f5836abed23335c0cad335c49182053310f72e3a64a28f5b92c4f5",
         # Keep the model role logical id unchanged.
-        "serving": "df36151514116565e7ad6d73e8185b530945a329fa1c3454273da7d0bbc04eb3",
+        "serving": "fcb7f599b4b0fff119999d1897761dc1088d1b8268761bc19a5c9c4ef048a2d9",
         # Track both monitoring Lambda roles.
         "monitoring": "4b38f1c4825eddf344b48b8ca962af2847c8fe53d4f08162e53d459d6619c459",
         # Track the deploy role permissions and OIDC trust conditions.

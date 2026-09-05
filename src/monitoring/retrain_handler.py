@@ -30,9 +30,11 @@ VIOLATION_STATUS = DRIFT_STATUS
 # Suppress new executions for this many hours after the latest run starts.
 # Persistent drift can emit one violation during each hourly evaluation.
 RETRAIN_COOLDOWN_HOURS = int(os.environ.get("RETRAIN_COOLDOWN_HOURS", "6"))
+RETRAIN_NO_PROGRESS_LIMIT = int(os.environ.get("RETRAIN_NO_PROGRESS_LIMIT", "3"))
 
 # These statuses identify an active pipeline execution.
 ACTIVE_STATUSES = frozenset({"Executing", "Stopping"})
+COMPLETED_STATUSES = frozenset({"Succeeded"})
 
 RETRAIN_DESCRIPTION = "drift-triggered retrain"
 TOKEN_SAFE_CHAR_RE = re.compile(r"[^0-9A-Za-z_-]")
@@ -48,6 +50,68 @@ def _list_pipeline_executions(max_results: int = 1) -> list[dict[str, Any]]:
         MaxResults=max(max_results, 1),
     ).get("PipelineExecutionSummaries", [])
     return [dict(summary) for summary in summaries]
+
+
+def _list_recent_model_package_times(max_results: int) -> list[datetime.datetime]:
+    """List the latest model package creation timestamps."""
+    max_results = max(max_results, 1)
+    summaries = sm.list_model_packages(
+        ModelPackageGroupName=MODEL_PACKAGE_GROUP,
+        SortBy="CreationTime",
+        SortOrder="Descending",
+        MaxResults=max_results,
+    ).get("ModelPackageSummaryList", [])
+    times: list[datetime.datetime] = []
+    for summary in summaries:
+        created = summary.get("CreationTime")
+        if isinstance(created, datetime.datetime):
+            times.append(created)
+    return times
+
+
+def _execution_has_model_package(
+    execution_start: datetime.datetime,
+    package_times: list[datetime.datetime],
+    next_execution_start: datetime.datetime | None = None,
+) -> bool:
+    """Check whether a model package appears for one pipeline execution."""
+    for package_time in package_times:
+        if package_time <= execution_start:
+            break
+        if next_execution_start is not None and package_time > next_execution_start:
+            continue
+        return True
+    return False
+
+
+def _unproductive_retrain_count() -> int:
+    """Count consecutive drift-triggered completed retrains without packages."""
+    recent_limit = RETRAIN_NO_PROGRESS_LIMIT * 2 + 1
+    executions = _list_pipeline_executions(recent_limit)
+    package_times = _list_recent_model_package_times(recent_limit)
+    next_execution_start: datetime.datetime | None = None
+    consecutive = 0
+    for execution in executions:
+        if execution.get("PipelineExecutionDescription") != RETRAIN_DESCRIPTION:
+            break
+        execution_status = execution.get("PipelineExecutionStatus")
+        started = execution.get("StartTime")
+        if not isinstance(started, datetime.datetime):
+            continue
+
+        if execution_status in COMPLETED_STATUSES:
+            if _execution_has_model_package(
+                execution_start=started,
+                package_times=package_times,
+                next_execution_start=next_execution_start,
+            ):
+                break
+            consecutive += 1
+            if consecutive >= RETRAIN_NO_PROGRESS_LIMIT:
+                return consecutive
+
+        next_execution_start = started
+    return consecutive
 
 
 def _normalize_client_request_token(raw: str) -> str:
@@ -112,6 +176,16 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
             cooldown_hours=RETRAIN_COOLDOWN_HOURS,
         )
         return {"suppressed": blocking["PipelineExecutionArn"]}
+
+    unproductive_retrains = _unproductive_retrain_count()
+    if unproductive_retrains >= RETRAIN_NO_PROGRESS_LIMIT:
+        log_event(
+            "retrain_loop_stalled",
+            pipeline=PIPELINE_NAME,
+            consecutive_unproductive_retrains=unproductive_retrains,
+            no_progress_limit=RETRAIN_NO_PROGRESS_LIMIT,
+        )
+        return {"suppressed": "loop_stalled"}
 
     champion_arn, champion_auc = get_champion(
         MODEL_PACKAGE_GROUP,

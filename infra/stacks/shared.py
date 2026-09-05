@@ -33,6 +33,7 @@ class MonitorConfig(TypedDict):
 
     schedule_cron: str
     silence_alarm_hours: int
+    retrain_no_progress_limit: int
 
 
 class SecurityServicesConfig(TypedDict):

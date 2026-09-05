@@ -143,6 +143,22 @@ def _summary(status="Succeeded", hours_ago=99.0, arn=EXECUTION_ARN):
     }
 
 
+def _model_package(hours_ago: float) -> dict[str, Any]:
+    return {
+        "CreationTime": datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=hours_ago),
+    }
+
+
+def _with_summaries(*summaries: dict[str, Any]) -> dict[str, Any]:
+    normalized: list[dict[str, Any]] = []
+    for summary in summaries:
+        if "PipelineExecutionSummaries" in summary:
+            normalized.append(summary["PipelineExecutionSummaries"][0])
+        else:
+            normalized.append(summary)
+    return {"PipelineExecutionSummaries": normalized}
+
+
 def _violation(sm: mock.Mock, event: dict[str, Any] | None = None) -> dict[str, Any]:
     if event is None:
         event = _event(retrain_handler.VIOLATION_STATUS)
@@ -156,6 +172,110 @@ def _violation(sm: mock.Mock, event: dict[str, Any] | None = None) -> dict[str, 
         mock.patch("builtins.print"),
     ):
         return retrain_handler.handler(event, None)
+
+
+def test_non_datetime_model_package_creation_times_are_skipped():
+    valid = datetime.datetime.now(datetime.UTC)
+    sm = mock.Mock()
+    sm.list_model_packages.return_value = {
+        "ModelPackageSummaryList": [{"CreationTime": "invalid-timestamp"}, {"CreationTime": valid}]
+    }
+
+    with mock.patch.object(retrain_handler, "sm", sm):
+        result = retrain_handler._list_recent_model_package_times(2)
+
+    assert result == [valid]
+
+
+def test_execution_window_stops_scan_on_package_before_execution_start():
+    """Stop checking as soon as the list reaches stale package times."""
+    execution_start = datetime.datetime(2026, 9, 5, 12, 0, tzinfo=datetime.UTC)
+    package_times = [datetime.datetime(2026, 9, 5, 11, 0, tzinfo=datetime.UTC)]
+
+    assert (
+        retrain_handler._execution_has_model_package(
+            execution_start=execution_start,
+            package_times=package_times,
+        )
+        is False
+    )
+
+
+def test_package_created_after_next_execution_start_is_skipped_for_prior_run():
+    """Skip a package when it belongs to the next execution window."""
+    older_execution_start = datetime.datetime(2026, 9, 5, 10, 0, tzinfo=datetime.UTC)
+    newer_execution_start = datetime.datetime(2026, 9, 5, 12, 0, tzinfo=datetime.UTC)
+    package_times = [datetime.datetime(2026, 9, 5, 13, 0, tzinfo=datetime.UTC)]
+
+    assert (
+        retrain_handler._execution_has_model_package(
+            execution_start=older_execution_start,
+            package_times=package_times,
+            next_execution_start=newer_execution_start,
+        )
+        is False
+    )
+    assert (
+        retrain_handler._execution_has_model_package(
+            execution_start=older_execution_start,
+            package_times=package_times,
+            next_execution_start=None,
+        )
+        is True
+    )
+
+
+def test_normalized_token_fallback_uses_hash_for_empty_token():
+    token = retrain_handler._normalize_client_request_token("###")
+    expected = retrain_handler.hashlib.sha256(b"###").hexdigest()
+
+    assert token == expected
+    assert len(token) == 64
+
+
+def test_blocking_execution_without_start_time_returns_none():
+    assert (
+        retrain_handler.blocking_execution(
+            [{"PipelineExecutionStatus": "Succeeded", "PipelineExecutionDescription": "X"}]
+        )
+        is None
+    )
+
+
+def test_unproductive_retrain_count_stops_before_non_retrain_execution():
+    sm = mock.Mock()
+    older_retrain = _summary(status="Succeeded", hours_ago=2, arn=f"{EXECUTION_ARN}-2")
+    older_retrain["PipelineExecutionSummaries"][0]["PipelineExecutionDescription"] = "other"
+    sm.list_pipeline_executions.return_value = _with_summaries(_summary(), older_retrain)
+    sm.list_model_packages.return_value = {"ModelPackageSummaryList": []}
+
+    with mock.patch.object(retrain_handler, "sm", sm):
+        count = retrain_handler._unproductive_retrain_count()
+
+    assert count == 1
+
+
+def test_unproductive_retrain_count_skips_execution_without_start_time():
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = {
+        "PipelineExecutionSummaries": [
+            {
+                "PipelineExecutionArn": EXECUTION_ARN,
+                "PipelineExecutionStatus": "Succeeded",
+                "PipelineExecutionDescription": retrain_handler.RETRAIN_DESCRIPTION,
+                "StartTime": "invalid-timestamp",
+            },
+            _summary(status="Succeeded", hours_ago=1, arn=f"{EXECUTION_ARN}-2")[
+                "PipelineExecutionSummaries"
+            ][0],
+        ]
+    }
+    sm.list_model_packages.return_value = {"ModelPackageSummaryList": []}
+
+    with mock.patch.object(retrain_handler, "sm", sm):
+        count = retrain_handler._unproductive_retrain_count()
+
+    assert count == 1
 
 
 def test_a_run_already_in_flight_suppresses_a_second_one():
@@ -250,3 +370,82 @@ def test_missing_event_id_uses_deterministic_request_token():
     calls = sm.start_pipeline_execution.call_args_list
     assert len(calls) == 2
     assert calls[0].kwargs["ClientRequestToken"] == calls[1].kwargs["ClientRequestToken"]
+
+
+def test_a_stalled_drift_loop_stops_retrains_after_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(retrain_handler, "RETRAIN_NO_PROGRESS_LIMIT", 2)
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _with_summaries(
+        _summary(status="Succeeded", hours_ago=7),
+        _summary(status="Succeeded", hours_ago=8, arn=f"{EXECUTION_ARN}-2"),
+        _summary(status="Succeeded", hours_ago=10, arn=f"{EXECUTION_ARN}-3"),
+    )
+    sm.list_model_packages.return_value = {"ModelPackageSummaryList": []}
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    with (
+        mock.patch.object(retrain_handler, "sm", sm),
+        mock.patch.object(retrain_handler, "log_event") as log,
+    ):
+        result = _violation(sm)
+
+    assert result == {"suppressed": "loop_stalled"}
+    assert sm.list_model_packages.call_args.kwargs["MaxResults"] == 5
+    logged = log.call_args
+    assert logged.args[0] == "retrain_loop_stalled"
+    assert logged.kwargs["consecutive_unproductive_retrains"] == 2
+    sm.start_pipeline_execution.assert_not_called()
+
+
+def test_a_recent_successful_retrain_resets_the_count(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(retrain_handler, "RETRAIN_NO_PROGRESS_LIMIT", 2)
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _with_summaries(
+        _summary(status="Succeeded", hours_ago=7),
+        _summary(status="Succeeded", hours_ago=10, arn=f"{EXECUTION_ARN}-2"),
+    )
+    sm.list_model_packages.return_value = {
+        "ModelPackageSummaryList": [_model_package(hours_ago=8.5)]
+    }
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    assert _violation(sm) == {"retrain_started": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_called_once()
+
+
+def test_failed_or_in_flight_runs_are_not_counted(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(retrain_handler, "RETRAIN_NO_PROGRESS_LIMIT", 2)
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _with_summaries(
+        _summary(status="Succeeded", hours_ago=7),
+        _summary(status="Failed", hours_ago=8),
+        _summary(status="Succeeded", hours_ago=10, arn=f"{EXECUTION_ARN}-2"),
+    )
+    sm.list_model_packages.return_value = {
+        "ModelPackageSummaryList": [_model_package(hours_ago=9.5)]
+    }
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    assert _violation(sm) == {"retrain_started": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_called_once()
+
+
+def test_executing_retrain_runs_are_not_counted(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(retrain_handler, "RETRAIN_NO_PROGRESS_LIMIT", 2)
+    sm = mock.Mock()
+    sm.list_pipeline_executions.return_value = _with_summaries(
+        _summary(status="Succeeded", hours_ago=7),
+        _summary(status="Executing", hours_ago=8),
+        _summary(status="Succeeded", hours_ago=10, arn=f"{EXECUTION_ARN}-2"),
+    )
+    sm.list_model_packages.return_value = {
+        "ModelPackageSummaryList": [_model_package(hours_ago=9.0)]
+    }
+    sm.start_pipeline_execution.return_value = {"PipelineExecutionArn": EXECUTION_ARN}
+
+    assert _violation(sm) == {"retrain_started": EXECUTION_ARN}
+    sm.start_pipeline_execution.assert_called_once()

@@ -8509,3 +8509,114 @@ this change affects instructions and documentation only.
 
 Role schema assertions, CLI syntax inspection, `make docs-sync`,
 `make wiki-lint`, `make public-check`, `make pr-size`, and `git diff --check`.
+
+## [2026-09-05] update | A checkpoint audit closed twelve change sets
+
+### Objective
+
+Pause feature work, audit the whole repository against the original goal, and
+fix what the audit found. The operator asked for a supervised review before
+more features landed.
+
+### Scope
+
+Six read-only agents audited the repository at `6665648`, one for each domain.
+Five reported. The reviewer for CI, the `Makefile`, and `scripts/` was stopped
+before it reported, so that scope stays unaudited.
+
+Twelve change sets merged into `main` on this date, from `c60c540` to
+`579b63a`:
+
+| Pull request | Change |
+|---|---|
+| #105 | The drift window stops reporting a healthy lie |
+| #106 | Ingestion stops losing an upload behind a success log |
+| #107 | The loop reports what it did, not what it attempted |
+| #108 | The validation Lambda narrows, and both queues enforce TLS |
+| #109 | Role creation scopes to `Mlops-*`, and a Deny protects the audit evidence |
+| #110 | The README names the tenth stack |
+| #111 | The detection metrics scope to their environment |
+| #113 | A retrain loop that resolves nothing now stops |
+| #114 | The acknowledgements that suppress nothing are retired |
+| #115 | The model lineage is retained, and its deploy is ordered |
+| #116 | The deploy-boundary gates catch a regression |
+
+#112 carried the retrain terminating condition and merged into
+`fix/loop-silent-failures` two minutes after that branch had already merged to
+`main`. Its content never reached `main`. #113 re-lands it.
+
+### Identity and environment
+
+Local workstation only. No AWS profile was used, and no AWS API was called.
+Codex CLI models `gpt-5.3-codex-spark` and `gpt-5.6-luna` wrote the code.
+Claude verified every diff and ran every gate.
+
+### Commands and observed results
+
+1. `make check` on `main` exits 0. `make test` reports 540 passed and 95.45
+   percent coverage against a 95.17 floor.
+2. `make synth-all` synthesizes both environments. cdk-nag reports no
+   unacknowledged finding.
+3. Each change set was mutation-tested. A deliberate revert of each fix failed
+   at least one named test.
+4. `make graph` re-extracted 269 code files and rebuilt 3321 nodes and 4555
+   edges.
+
+### Interpretation
+
+**A green gate is not a working gate.** Three gates passed while the control
+they guard was broken. Subset assertions over the execution boundary accepted
+`iam:*` on the 162-action statement. The cdk-nag plugin could be removed with
+every test still passing. Nine acknowledgements suppressed nothing or named a
+closed phase, and the guard only checked that the word `Phase` appeared.
+
+**A Deny that matches no ARN reads as protection and gives none.** The first
+version of #109 denied deletion on `mlops-*-audit-logs` and
+`mlops-*-audit-trail`. The trail is `mlops-<env>-audit`, and the audit bucket
+sets no name at all, so CloudFormation generates one. Every gate passed while
+both statements matched nothing.
+
+**Meeting the coverage floor is not the same as testing the change.** #113
+reached the floor at 95.33 percent while both branches of the windowing rule,
+which decides the execution a model package belongs to, were unreached.
+
+**A stacked pull request merges into a branch, not into the trunk.** #112
+proves it. GitHub reported it merged, and `main` did not hold its content.
+`git cherry` distinguishes a merged branch from one that is merely behind;
+`git diff` does not. Automatic head-branch deletion is now enabled, because
+every stacking failure here followed from a merged branch that still existed.
+
+**One recommendation from the audit was wrong, and following it would have
+broken deployment.** The audit proposed denying `s3:PutBucketPolicy` and
+`cloudtrail:DeleteTrail`. CloudFormation calls both: the Security stack
+manages the audit bucket policy on every deploy, and a teardown deletes the
+trail. An explicit Deny always beats an Allow.
+
+### Decision and next checkpoint
+
+Nothing is deployed. Twelve change sets sit in `main` and none has reached the
+account. Three alter live IAM, and one replaces every security metric filter.
+
+`infra/stacks/lambda_code.py` bundles `src/` into one shared asset that every
+platform function uses, so the first deploy of a stack ships every accumulated
+`src/` change to that stack's functions. Five change sets touch `src/`. One
+phase per change set cannot hold for them, and each observation window MUST
+record which change sets shared it.
+
+The deploy order is policies, Registry, Security, Ingestion, Serving, then
+Monitoring. Most controls here cannot be proved by waiting. The windows MUST
+provoke a malformed baseline, an unreadable capture object, a rejected
+`PutEvents` entry, four unproductive retrains, a failed pipeline execution, a
+poison object, and a quarantine delete.
+
+Two defects stay open by choice. Captured traffic never joins the training
+set, so a real serving shift still cannot be resolved by retraining. No rule
+watches `SageMaker Endpoint State Change` for a failed endpoint update.
+
+The audit of CI, the `Makefile`, and `scripts/` is still owed.
+
+### Verification
+
+`uv run --locked python scripts/wiki.py index`, then `make wiki-lint` and
+`make public-check`.
+

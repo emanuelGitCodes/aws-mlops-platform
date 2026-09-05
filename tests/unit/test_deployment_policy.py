@@ -1,19 +1,36 @@
-"""Regression tests for the CDK CloudFormation execution boundary."""
+"""Regression tests for the CDK deployment boundaries."""
 
+import hashlib
 import json
 from fnmatch import fnmatchcase
 
+import aws_cdk as cdk
 import pytest
+from aws_cdk import aws_sqs as sqs
 from aws_cdk.assertions import Template
 
+from infra.security_checks import apply_security_checks
 from tests.unit.conftest import REPO_ROOT, synth_env
 
 POLICY_DIR = REPO_ROOT / "infra" / "policies"
 POLICY_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy.json"
-# The execution boundary uses two managed policies on one CloudFormation role.
-# AWS limits each managed policy document to 6144 characters.
 EXTENSION_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy-extension.json"
+DEPLOYMENT_PATH = POLICY_DIR / "mlops-cdk-deployment-policy.json"
+POLICY_PATHS = (POLICY_PATH, EXTENSION_PATH, DEPLOYMENT_PATH)
+# AWS limits each managed policy document to 6144 characters.
 POLICY_SIZE_QUOTA = 6144
+POLICY_SHA256 = {
+    "mlops-cloudformation-execution-policy.json": (
+        "f559c575d8d6826e6613969368501c8af5d157f55240d91ed7f976a32fd2fd9a"
+    ),
+    "mlops-cloudformation-execution-policy-extension.json": (
+        "f5981c6317618679383440b7458141457b73949d7236512f105e94b63d9d5042"
+    ),
+    "mlops-cdk-deployment-policy.json": (
+        "b564f53035616e1ed8a680857f4467cb8787cf7f97637c91616e8733ebeb6b39"
+    ),
+}
+WILDCARD_ACTION_ALLOWLIST: set[str] = set()
 
 
 def _statement(document, sid):
@@ -291,11 +308,13 @@ def test_audit_deny_patterns_match_synthesized_security_resources():
 
 def _rendered_size(path):
     """Return the compact policy size with a documentation account id."""
-    document = path.read_text().replace("${AWS_ACCOUNT_ID}", "123456789012")
+    document = path.read_text()
+    document = document.replace("${AWS_ACCOUNT_ID}", "123456789012")
+    document = document.replace("${AWS_REGION}", "us-east-1")
     return len(json.dumps(json.loads(document), separators=(",", ":")))
 
 
-@pytest.mark.parametrize("path", [POLICY_PATH, EXTENSION_PATH])
+@pytest.mark.parametrize("path", POLICY_PATHS)
 def test_each_policy_document_fits_the_aws_size_quota(path):
     """Reject a policy document above the 6144-byte AWS quota."""
     size = _rendered_size(path)
@@ -306,15 +325,60 @@ def test_each_policy_document_fits_the_aws_size_quota(path):
     )
 
 
-def test_no_statement_id_is_reused_across_the_two_documents():
-    """Require unique statement ids across both policy documents."""
-    main = {statement["Sid"] for statement in json.loads(POLICY_PATH.read_text())["Statement"]}
-    extension = {
-        statement["Sid"] for statement in json.loads(EXTENSION_PATH.read_text())["Statement"]
-    }
+@pytest.mark.parametrize("path", POLICY_PATHS)
+def test_policy_fingerprint_is_pinned(path):
+    """Require an explicit review when a policy document changes."""
+    fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
 
-    assert main and extension
-    assert main.isdisjoint(extension)
+    assert fingerprint == POLICY_SHA256[path.name]
+
+
+@pytest.mark.parametrize("path", POLICY_PATHS)
+def test_broad_action_wildcards_are_allowlisted(path):
+    """Reject broad action wildcards outside the named allowlist."""
+    document = json.loads(path.read_text())
+    wildcard_actions = set()
+    for statement in document["Statement"]:
+        actions = statement["Action"]
+        if isinstance(actions, str):
+            actions = [actions]
+        wildcard_actions.update(action for action in actions if action.endswith(":*"))
+
+    assert wildcard_actions <= WILDCARD_ACTION_ALLOWLIST
+
+
+def test_no_statement_id_is_reused_across_policy_documents():
+    """Require unique statement ids across all policy documents."""
+    statement_ids = [
+        statement["Sid"]
+        for path in POLICY_PATHS
+        for statement in json.loads(path.read_text())["Statement"]
+    ]
+
+    assert statement_ids
+    assert len(statement_ids) == len(set(statement_ids))
+
+
+def test_cdk_nag_gate_rejects_non_compliant_construct(monkeypatch):
+    """Require synthesis to reject a queue without the cdk-nag controls."""
+    app = cdk.App()
+    stack = cdk.Stack(app, "NonCompliantStack")
+    sqs.Queue(stack, "NonCompliantQueue")
+    monkeypatch.setattr(
+        "infra.security_checks.resolved_acknowledgements",
+        lambda *_args: (),
+    )
+    config = {
+        "security": {"services": {}, "account_budget": False},
+        "website": {"enabled": False},
+    }
+    apply_security_checks(app, {}, config, "Test")
+
+    with pytest.raises(Exception) as error:
+        app.synth()
+
+    assert "AwsSolutions-SQS3" in str(error.value)
+    assert "AwsSolutions-SQS4" in str(error.value)
 
 
 def test_the_extension_carries_the_oidc_provider_lifecycle():

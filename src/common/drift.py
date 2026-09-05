@@ -39,6 +39,11 @@ EVENT_SOURCE = "mlops.monitoring"
 EVENT_DETAIL_TYPE = "Drift Evaluation Result"
 DRIFT_STATUS = "DriftDetected"
 
+# Store per-run baselines under this prefix.
+BASELINE_RUN_PREFIX = "monitor/baselines"
+# Registered model metadata uses this key for the baseline URI.
+BASELINE_URI_METADATA_KEY = "baseline_uri"
+
 
 def numeric_value(raw: Any) -> float:
     """Return one numeric feature value. Convert a blank string to `0.0`."""

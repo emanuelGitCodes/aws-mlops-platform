@@ -974,6 +974,30 @@ operator supplies a separate read profile. These paths do not grant access.
 
 **Decision and next checkpoint:** prepared for local review. A test identity
 with the needed inference and fixture-read grants remains a live prerequisite.
+
+## [2026-09-05] implement | Serving-baseline read prerequisites
+
+**Objective:** prepare the drift role to resolve the model that the endpoint
+actually serves and read that model's execution-specific baseline.
+
+**Scope:** shared baseline metadata names, Monitoring environment values,
+scoped read grants, cdk-nag acknowledgements, and regression tests.
+This change does not activate the new reader.
+
+**Identity and environment:** local checkouts only. No AWS grants were installed.
+
+**Commands and results:** the combined `make check` passed 568 tests.
+The isolated prerequisite change passed `make synth-all` for dev and prod.
+Permission tests bind each Describe action to its endpoint, configuration,
+model, or model-package ARN type. Only the monitoring fingerprint changed.
+
+**Interpretation:** the role can describe this endpoint and its generated
+resources. The new S3 read is limited to `monitor/baselines/*` in the
+artifacts bucket. It adds no write or training permission.
+
+**Decision and next checkpoint:** prepared for local review. The producer and
+reader changes follow in the local stack. Model metadata migration and a
+scoped dev deployment remain pending.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

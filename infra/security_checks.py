@@ -348,6 +348,41 @@ ACKNOWLEDGEMENTS = (
     ),
     Acknowledgement(
         "monitoring",
+        "DriftEvaluationFnRole/DefaultPolicy",
+        (
+            "AwsSolutions-IAM5[Resource::{prefix}-Data:ExportsOutputFnGetAttArtifactsBucket"
+            "2AAC5544ArnD57FAE19/monitor/baselines/*]"
+        ),
+        "Phase 4 re-evaluates this grant when the bucket moves to a customer-managed key.",
+    ),
+    *(
+        Acknowledgement(
+            "monitoring",
+            "DriftEvaluationFnRole/DefaultPolicy",
+            (
+                "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"
+                f"<AWS::AccountId>:{resource}]"
+            ),
+            reason,
+        )
+        for resource, reason in (
+            (
+                "endpoint-config/churn-serverless-{env}-config-*",
+                "Phase 5 least privilege limits this read to this endpoint's "
+                "generated configurations.",
+            ),
+            (
+                "model/churn-serverless-{env}-model-*",
+                "Phase 5 least privilege limits this read to this endpoint's generated models.",
+            ),
+            (
+                "model-package/{group}/*",
+                "Phase 5 least privilege limits this read to this platform's model package group.",
+            ),
+        )
+    ),
+    Acknowledgement(
+        "monitoring",
         "RetrainTriggerFn/ServiceRole/DefaultPolicy",
         (
             "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:sagemaker:<AWS::Region>:"

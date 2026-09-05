@@ -11,7 +11,9 @@ from infra.stacks.monitoring_stack import (
     PIPELINE_EVENT_DETAIL_TYPE,
     PIPELINE_FAILURE_STATES,
 )
+from infra.stacks.shared import BASELINE_KEY
 from src.common import drift
+from src.common.drift import BASELINE_RUN_PREFIX, BASELINE_URI_METADATA_KEY
 from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
 
 # Stub the module-level boto3 client during handler import.
@@ -42,6 +44,11 @@ def test_the_stack_and_the_drift_module_agree_on_the_event():
     assert DRIFT_STATUS == drift.DRIFT_STATUS
     # Match the producer status with the consumer guard.
     assert VIOLATION_STATUS == DRIFT_STATUS
+
+
+def test_the_baseline_promotion_contract_has_canonical_names():
+    assert BASELINE_RUN_PREFIX == "monitor/baselines"
+    assert BASELINE_URI_METADATA_KEY == "baseline_uri"
 
 
 def test_the_violation_rule_matches_the_platforms_own_event(stacks):
@@ -92,6 +99,7 @@ def test_the_drift_lambda_knows_where_the_baseline_and_capture_live(stacks):
                     {
                         "BASELINE_KEY": "monitor/baseline/baseline.json",
                         "CAPTURE_PREFIX": "capture",
+                        "ENDPOINT_NAME": CONFIG["endpoint_name"],
                     }
                 )
             },
@@ -121,6 +129,34 @@ def test_the_drift_lambda_reads_capture_and_never_writes_it(stacks):
     )
     _, actions, _ = _iam_policy_details(template)
     assert not [a for a in actions if a.startswith("s3:Put") or a.startswith("s3:Delete")]
+
+
+def test_the_drift_lambda_can_read_run_baselines_and_serving_metadata(stacks):
+    resources = stacks["monitoring"].to_json()["Resources"]
+    policy = next(
+        resource
+        for logical_id, resource in resources.items()
+        if logical_id.startswith("DriftEvaluationFnRoleDefaultPolicy")
+    )
+    statements = policy["Properties"]["PolicyDocument"]["Statement"]
+
+    get_object = next(
+        statement for statement in statements if statement["Action"] == "s3:GetObject"
+    )
+    object_resources = json.dumps(get_object["Resource"])
+    assert f"/{BASELINE_RUN_PREFIX}/*" in object_resources
+    assert f"/{BASELINE_KEY}" in object_resources
+
+    expected_resources = {
+        "sagemaker:DescribeEndpoint": f":endpoint/{CONFIG['endpoint_name']}",
+        "sagemaker:DescribeEndpointConfig": f":endpoint-config/{CONFIG['endpoint_name']}-config-*",
+        "sagemaker:DescribeModel": f":model/{CONFIG['endpoint_name']}-model-*",
+        "sagemaker:DescribeModelPackage": f":model-package/{CONFIG['model_package_group']}/*",
+    }
+    for action, resource_suffix in expected_resources.items():
+        statement = next(statement for statement in statements if statement["Action"] == action)
+        assert resource_suffix in json.dumps(statement["Resource"])
+        assert statement["Resource"] != "*"
 
 
 def test_the_drift_lambda_may_only_put_events_on_the_default_bus(stacks):

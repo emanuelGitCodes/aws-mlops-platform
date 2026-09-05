@@ -8804,3 +8804,51 @@ Found 22 matching page(s).
 ## [2026-09-05] query | evaluation
 
 Found 17 matching page(s).
+## [2026-09-05] query | audit repair readiness
+
+Found 35 matching page(s).
+
+
+## [2026-09-05] deploy | Dev repair rollout and live API verification
+
+### Objective and scope
+
+Deploy the authorized MLOps infrastructure from `1072db9`, inspect errors, and
+assess readiness. Website and production remained untouched. See the
+[deployment record](pages/decisions/dev-deployment-check-2026-09-05.md).
+
+### Identity and environment
+
+Dev in `us-east-1`. `${MLOPS_DEPLOYER_USER_NAME}` deployed;
+`${AWS_SECURITY_AUDITOR_USER_NAME}` verified CloudFormation resources.
+`${AWS_ADMIN_USER_NAME}` read application logs and signed the API checks.
+No identity or account execution policy was changed.
+
+### Commands and results
+
+- `make test`: 649 passed, 96.14% coverage, above the 95.17% floor.
+- `make synth-all`: exit zero for dev and prod.
+- Reviewed `make diff-stack` output before scoped deployment.
+- `make deploy-stack ENV=dev` for Security, Training, Serving, and Ingestion:
+  all exited zero. Training also updated Registry; Data was a no-op dependency.
+- `make verify-deploy PREFIX=Mlops-Dev- SINCE=2026-09-05`: 30 resource changes
+  across those five changed stacks. The deployment record lists the resources.
+- SDK pipeline publication without `--start`: failed on `ListModelPackages`
+  with `AccessDeniedException`. The deployed definition remained byte-identical.
+- `make smoke ENV=dev`: six passed with separate inference and discovery
+  identities, after correcting a local jsii cache path.
+- Proxy error-pattern query: no matches in the inspected deployment window.
+- IAM alarm history: `OK` to `ALARM`, followed by a successful SNS action.
+  End-user email receipt and recovery remain unverified.
+
+### Interpretation and next checkpoint
+
+The scoped infrastructure updates succeeded. Full lifecycle release remains
+**no-go**: operator registry permissions block pipeline publication, and absent
+serving-package `baseline_uri` metadata blocks the Monitoring reader rollout.
+Serving retry protection is deployed before any future metadata migration.
+The previous drift reader remains active; its inspected logs show insufficient
+capture volume. No training execution or forced model promotion occurred.
+
+Resolve permissions and baseline provenance, then publish the pipeline and
+exercise training, promotion, drift, retraining, notifications, and recovery.

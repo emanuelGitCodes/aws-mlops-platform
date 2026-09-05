@@ -45,9 +45,11 @@ The original audit recorded six defects, F1 through F6:
    its package.
 4. Stalled retraining and endpoint failure now have operator notifications.
 
-The source repair passes local tests and CDK synthesis. No repair deployment
-has occurred. The current dev serving package was read through a read-only
-query on 2026-09-05. It has `test_auc` metadata and no `baseline_uri`.
+The source repair passes local tests and CDK synthesis. The
+[2026-09-05 deployment check](dev-deployment-check-2026-09-05.md) deployed
+Security, Registry, Training, Serving, and Ingestion changes. Monitoring and
+pipeline publication remain blocked. The current dev serving package has
+`test_auc` metadata and no `baseline_uri`.
 
 ## Synthesis
 
@@ -89,7 +91,7 @@ The operator MUST complete these checks before a future dev release:
 2. A metadata migration can emit an approval event regardless of the caller's
    permission boundary. The operator MUST plan for that event, use an explicit
    reviewed plan, and use the locally implemented serving retry protection. It
-   is tested but not deployed. Metadata migration remains pending.
+   deployed on 2026-09-05. Metadata migration remains pending.
 3. Confirm the training role has `sagemaker:ListModelPackages` on the
    model-package group before using an updated SDK pipeline definition.
    `DescribeModelPackage` uses package-version ARNs.
@@ -121,7 +123,7 @@ Use this rollout order:
 6. Migrate metadata for the approved serving package. Plan for approval events
    that may occur during migration.
 7. Activate the Monitoring reader only after migration readiness passes. The
-   serving retry protection is implemented and tested locally. Deployment and
+   serving retry protection deployed on 2026-09-05. Monitoring deployment and
    metadata migration remain pending.
 8. Complete approved smoke, failure, notification, and recovery checks. Record
    resource evidence and a go/no-go decision for each observation window.
@@ -141,8 +143,8 @@ The handler rejects a pending configuration mismatch and rejects
 `Failed`, `RollingBack`, `UpdateRollbackFailed`, and `Deleting` states. A
 `ResourceInUse` race triggers a describe-and-match check before the handler
 continues. Tests cover these paths and confirm no duplicate create or update
-writes for matching resources. This behavior is implemented and tested locally
-but is not deployed.
+writes for matching resources. This behavior deployed on 2026-09-05. Live
+approval-event replay remains unverified.
 
 ## Operational contract
 

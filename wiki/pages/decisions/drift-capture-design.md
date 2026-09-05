@@ -2,8 +2,8 @@
 type: decision
 title: Drift capture design for a serverless endpoint
 created: "2026-08-07"
-updated: "2026-08-14"
-sources: ["https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html", "https://github.com/aws-samples/sample-aiops-on-amazon-sagemakerai/tree/main/monitoring", "../../../infra/stacks/monitoring_stack.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/serving/deploy_handler.py", "../../../src/common/drift.py", "../../../src/monitoring/drift_handler.py", "../../../infra/config/prod.yaml", "../concepts/closed-drift-loop.md", "../architecture/phased-security-hardening.md"]
+updated: "2026-09-05"
+sources: ["../../log.md", "https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html", "https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-availability-change.html", "https://github.com/aws-samples/sample-aiops-on-amazon-sagemakerai/tree/main/monitoring", "../../../infra/stacks/monitoring_stack.py", "../../../infra/stacks/serving_stack.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/serving/deploy_handler.py", "../../../src/common/drift.py", "../../../src/monitoring/drift_handler.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluate.py", "../../../infra/config/prod.yaml", "../concepts/closed-drift-loop.md", "../architecture/phased-security-hardening.md"]
 summary: "Model Monitor is closed to new customers, so the deferred capture leg is rebuilt as a repository-owned drift job rather than restored; the serverless endpoint and its zero idle cost stay."
 ---
 # Drift capture design for a serverless endpoint
@@ -39,12 +39,10 @@ summary: "Model Monitor is closed to new customers, so the deferred capture leg 
   regularly running batch transform job, and on-schedule monitoring for
   asynchronous batch transform. A capture-format S3 prefix is therefore a
   legitimate Model Monitor input, independent of the endpoint type.
-- **The retrain half of the loop is deployed and unused.**
-  `infra/stacks/monitoring_stack.py` creates `DriftViolationRule` on the
-  `SageMaker Model Monitor Execution Status Change` detail type, filtered to
-  `MonitoringExecutionStatus: CompletedWithViolations` and a schedule name
-  prefixed with the endpoint name. It invokes `RetrainTriggerFn`, which holds
-  `sagemaker:StartPipelineExecution` on exactly one pipeline ARN.
+- **The retrain half uses a repository-owned event.**
+  `infra/stacks/monitoring_stack.py` creates `DriftViolationRule` for the
+  drift Lambda's event source and status. It invokes `RetrainTriggerFn`, which
+  holds `sagemaker:StartPipelineExecution` on exactly one pipeline ARN.
   `retrain_handler.VIOLATION_STATUS` MUST equal the literal in the stack.
   `tests/unit/test_monitoring_stack.py` pins that agreement.
 - **The original schedule was the budget event, not the endpoint.** The comment
@@ -111,9 +109,8 @@ the real work in this option, and it is small and well-pinned.
 
 ### What Option C changed
 
-Implemented on 2026-08-07, not yet deployed. The list below is what the change
-set did, and the parenthetical notes record where the design met something it
-had not anticipated.
+The original capture path was deployed to dev on 2026-08-07. The repair set
+below was prepared locally on 2026-09-05. It has no deployment evidence.
 
 - `src/serving/proxy_handler.py` writes the validated record and the returned
   score to the capture prefix. **The write MUST NOT fail a prediction.** The handler's current failure semantics are deliberate — every
@@ -150,6 +147,28 @@ had not anticipated.
   rule.
 - The baseline comes from the **train split alone**, not the whole curated
   dataset. Validation and test rows are data the model never learned.
+- Each pipeline execution writes the baseline under
+  `monitor/baselines/<pipeline-execution-id>/baseline.json`. The registered
+  model package records this URI as `baseline_uri`.
+- The drift reader follows the endpoint's current configuration to its model
+  and model package. It reads that package's `baseline_uri`, checks the same
+  artifacts bucket and versioned prefix, and rechecks endpoint state and
+  configuration before publishing a result.
+- The reader fails closed for legacy packages without `baseline_uri`. Before
+  activation, a compatible package or a verified training-baseline migration
+  MUST be in place.
+- The evaluator loads the latest approved package named by the current execution
+  when the evaluation step runs. It scores that champion artifact and the
+  challenger on the same held-out rows. The retrain Lambda and the CLI refresh
+  champion values at execution time.
+- The Monitoring, Ingestion, Serving, and Security stacks define 5, 2, 2, and
+  7 alarms. Pipeline and endpoint failures use separate EventBridge rules.
+- The serving deployment handler rechecks package approval before writes. It
+  reuses exact current or legacy model/config resources, returns a no-op for a
+  matching `InService` endpoint, and returns `in_progress` for an expected
+  matching pending configuration. It rejects unhealthy or mismatched states.
+  `ResourceInUse` races recheck resources before continuing. This retry
+  protection is implemented and tested locally, but it is not deployed.
 - The drift job MUST derive the baseline statistics from the existing
   preprocess output of the pipeline. `src/common/features.py` stays the single
   source of the raw-value contract. The drift job MUST NOT re-implement the
@@ -185,22 +204,32 @@ had not anticipated.
   `SeniorCitizen` holds 0 and 1, so its only quantile edge is `0.0`, and every
   shift in that column would have been invisible. `bucket_of` uses
   `bisect_left` for this reason.
-- **Corrected 2026-08-07: the baseline does *not* reliably reset, and the
-  retrain-storm protection claimed here does not exist.** The original claim
-  was that every preprocessing run overwrites the fixed baseline key, so a
-  rejected challenger resets it and a shift the model cannot beat stops firing
-  every hour. The first drift-triggered retrain disproved it. `Preprocess` and
-  `Train` are cached with `expire_after="P30D"`, and on unchanged curated data
-  both were **cache hits of one second each**. A cached step does not re-run,
-  so it wrote no baseline: the object still carries its original timestamp.
-
-  The consequence is the opposite of the claim. While drifted traffic keeps
-  arriving, the loop can retrain every hour, hit the cache, fail the AUC gate,
-  and never move the reference it is measuring against. A cooldown after a
-  retrain, or an uncached baseline refresh, is the fix. Neither is implemented.
-- **Nothing is deployed.** This change set is code, tests, and documentation
-  only. The loop has never run end to end in AWS, so `MIN_RECORDS`, the
-  thresholds, and the hourly cadence are all unvalidated against real traffic.
+- **History, 2026-08-07:** A live retrain showed that cached `Preprocess` and
+  `Train` steps did not rewrite the fixed baseline. A rejected challenger could
+  therefore leave the loop measuring the old reference. The current source
+  disables those mutable data-step caches and writes one baseline per execution.
+- **The repair is not deployed.** A read-only dev query on 2026-09-05 found the
+  current serving package has `test_auc` metadata but no `baseline_uri`. Before
+  activating the reader, verify legacy training provenance and bind a matching
+  versioned baseline, or serve a compatible approved package.
+- **Do not force the migration.** Do not bypass the strict AUC gate on a tie.
+  Do not label the current shared baseline as verified without provenance. A
+  metadata migration can emit an approval event regardless of the caller's
+  permission boundary. The operator MUST plan for that event, use an explicit
+  reviewed plan, and use the locally implemented serving retry protection. It
+  is tested but not deployed. Metadata migration remains pending.
+- **The training role is a migration prerequisite.** It MUST have
+  `sagemaker:ListModelPackages` on the package-group ARN before an updated SDK
+  pipeline definition is used. `DescribeModelPackage` uses package-version
+  ARNs.
+- **A deployment diff is not permission proof.** Read-only policy-version
+  checks, a named dev prefix, and the `${AWS_SECURITY_AUDITOR_USER_NAME}`
+  verification profile are required for a future deployment report.
+- **The budget is an alert boundary.** The `$20` budget sends 50/80/100% alerts.
+  It does not cap account spending.
+- **Labels remain external.** Capture records contain inputs and scores without
+  churn labels. The platform MUST NOT train from predicted labels.
+- **The website hold and production flags remain unchanged.**
 - **The threshold conversation is separate.** The 0.50 cutoff and its
   `0.5370` recall, raised in the [closed drift loop](../concepts/closed-drift-loop.md),
   concern the classification rule rather than drift detection. Do not fold the

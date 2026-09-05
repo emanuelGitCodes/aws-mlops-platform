@@ -2,115 +2,137 @@
 type: concept
 title: Closed drift-to-retrain loop
 created: "2026-07-10"
-updated: "2026-08-21"
-sources: ["../decisions/drift-capture-design.md", "../../../README.md", "../../../infra/stacks/monitoring_stack.py", "../../../infra/stacks/security_stack.py", "../../../src/monitoring/drift_handler.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/pipeline/preprocess.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/pipeline.py", "../../raw/mlops-deployment-and-pipeline-troubleshooting-summary-july-10-2026.md", "../../raw/evaluation-report-rollout-july-11-2026.md"]
-summary: "Proxy capture, PSI drift evaluation, retraining, challenger evaluation, registry promotion, and endpoint deployment form a closed operational loop."
+updated: "2026-09-05"
+sources: ["../../log.md", "../decisions/drift-capture-design.md", "../../../README.md", "../../../infra/stacks/monitoring_stack.py", "../../../infra/stacks/serving_stack.py", "../../../infra/stacks/security_stack.py", "../../../src/common/drift.py", "../../../src/common/registry.py", "../../../src/monitoring/drift_handler.py", "../../../src/monitoring/retrain_handler.py", "../../../src/serving/deploy_handler.py", "../../../src/serving/proxy_handler.py", "../../../src/pipeline/pipeline.py", "../../../src/pipeline/evaluate.py", "../../../src/pipeline/preprocess.py", "../../../scripts/evaluate_api.py"]
+summary: "A repository-owned drift loop captures live inputs, compares models on common held-out rows, binds baselines to the serving package, and gates promotion."
 ---
 # Closed drift-to-retrain loop
 
 ## Confirmed
 
-The proxy Lambda writes each request and score to an hour-partitioned S3
-capture prefix. The preprocessing step writes the training distribution as a
-baseline. An hourly Lambda compares the previous capture window with that
-baseline through Population Stability Index. A violation event starts a new
-pipeline execution through the retrain Lambda.
+The proxy Lambda writes each validated request and score to an hour-partitioned
+S3 capture prefix. The preprocessing step writes one baseline per pipeline
+execution under `monitor/baselines/<pipeline-execution-id>/baseline.json`. Model
+registration stores that URI as `baseline_uri` metadata.
 
-The pipeline evaluates the challenger before registration. A `ConditionStep`
-compares the challenger test AUC with the champion test AUC. A drift signal
-therefore starts training but does not promote a worse model. Approval of a
-registered package sends the deployment event that updates the endpoint.
+The drift Lambda resolves the endpoint's current endpoint configuration, model,
+and model package. It reads the baseline named by that package. It accepts only
+the artifacts bucket and the versioned baseline prefix. It validates the
+baseline before scoring. A missing or invalid package URI fails closed.
 
-Before the gate uses AUC, the `Evaluate` ProcessingStep now records the full
-held-out test result in the artifacts bucket: metrics, row-level predictions,
-and confusion-matrix, ROC, precision-recall, calibration, and score-
-distribution charts. The report uses the same 0.50 threshold as the API. Its
-visual metrics therefore describe the deployed classification rule, not a
-separate offline threshold.
+The Lambda skips an endpoint that is not `InService`. It checks the endpoint
+status and endpoint configuration again after comparison. A configuration
+change discards the result. A result carries the endpoint configuration, model,
+model package, and baseline URI that produced it.
 
-The first live pipeline checkpoint failed in `Preprocess`, because the
-Processing job could not import `src.common.schema`. The repository fixed that
-packaging defect. Execution `<pipeline-execution-id>` then completed
-preprocessing, training, and evaluation. It logged test AUC `0.8398` and
-registered the approved model package `churn-model-group/1`.
+The pipeline evaluates the challenger and the current champion on the same
+held-out rows. `Evaluate` loads the latest approved package named by the current
+execution when that step runs. The `ConditionStep` reads the champion AUC
+computed by that evaluation. The retrain Lambda resolves current registry
+values when it starts an execution. The CLI refreshes those values after it
+upserts the pipeline.
 
-The approval-to-endpoint handoff works for low-cost serving. The serverless
-endpoint is `InService`, and API Gateway returns model predictions. A live
-drift event has started a pipeline execution, and the retrain guard has
-suppressed a duplicate while that run was active.
+An approved package invokes the deployment Lambda. The source defines 16
+CloudWatch alarms: seven Security alarms, five Monitoring alarms, two
+Ingestion alarms, and two Serving alarms. Pipeline and endpoint failure paths
+use EventBridge rules. They are separate from the alarm count.
 
-Execution `<pipeline-execution-id>` confirmed that this report path succeeds in the live
-environment, producing AUC `0.8398` and the full S3 visual-artifact bundle.
+The repair set is local. It has no deployment evidence. A read-only dev query
+on 2026-09-05 found that the current serving package has `test_auc` metadata
+but no `baseline_uri`. The reader MUST stay inactive until a compatible package
+or a verified migration supplies the metadata.
 
 ## Synthesis
 
-This is a feedback loop with a quality gate, not an unconditional retraining loop:
+The source flow is:
 
 ```text
-traffic -> capture -> monitor -> violation -> pipeline -> challenger
-                                               -> AUC gate -> registry -> approval -> endpoint
+traffic -> capture -> drift reader -> violation -> retrain -> pipeline
+                                      -> challenger -> same holdout -> AUC gate
+                                                        -> registry -> approval
+                                                        -> endpoint
 ```
 
-The loop separates detection, remediation, evaluation, and release. Each stage
-therefore fails on its own. A violation can exist without a successful training
-run. A training run can fail the quality gate. A registered model can wait for
-approval.
+The baseline flow is separate:
 
-### The failure signal
+```text
+train split -> execution baseline -> registered baseline_uri
+endpoint -> endpoint config -> model -> serving package -> baseline_uri
+```
 
-SageMaker publishes no CloudWatch metric for a failed pipeline execution, so no
-alarm can watch one. `mlops-<env>-ops-pipeline-failed` is an EventBridge rule
-instead. It matches `SageMaker Model Building Pipeline Execution Status Change`
-for the `Failed` and `Stopped` states of this environment's pipeline, and it
-sends a readable line to `mlops-<env>-ops-alerts`.
+This separation binds drift to the model that serves traffic. A rejected
+challenger cannot replace the serving reference. A package without metadata
+cannot use the old fixed baseline as a substitute.
 
-Two grants in `SecurityStack` carry the message: `sns:Publish` on the ops topic,
-and `kms:Decrypt` with `kms:GenerateDataKey*` on the audit key. Both conditions
-scope the source ARN to `mlops-<env>-ops-*`. Any operational rule that pages the
-operator MUST keep that name prefix.
+### Quality and sample limits
 
-The rule target reads the topic through `Topic.from_topic_arn`. An imported
-topic has an immutable resource policy. A mutable one makes the CDK SNS target
-add its own publish grant for `events.amazonaws.com` with no source condition.
+The drift job reads one complete prior hour. It skips a window with fewer than
+`MIN_RECORDS=100` records. It also skips a window with fewer than
+`MIN_DISTINCT_RECORDS=25` distinct records. These gates prevent sparse or
+point-mass traffic from producing a false signal.
 
-### The handler error alarms
+The job emits a violation when at least 30% of the 19 feature columns reach PSI
+`0.2`, or when one column reaches PSI `1.0`. The job detects input drift. It
+does not measure model quality against an observed outcome.
 
-Five handlers carry the platform: `ingest`, `proxy`, `deploy`, `drift`, and
-`retrain`. Each one now has a `mlops-<env>-<slug>-errors` alarm on its Lambda
-`Errors` metric, at a threshold of one error over fifteen minutes. Every alarm
-publishes to `mlops-<env>-ops-alerts`. `handler_error_alarm` in
-`infra/stacks/shared.py` builds all five.
+The held-out evaluation uses the fixed canonical splits: 4,930 training rows,
+1,056 validation rows, and 1,057 test rows. The API evaluator uses the same
+raw labeled fixture. Its default selection is a deterministic, class-balanced
+sample of 25 rows. The `--all` option evaluates the full fixture.
 
-One error is the correct threshold. Each handler runs a few times each hour at
-most, so a single exception is already a broken edge. The alarms treat missing
-data as not breaching, because an idle handler publishes no datapoint.
+### Failure signals
 
-The `deploy` alarm closes the widest gap. A deploy handler that throws leaves
-the endpoint on the old model while the registry shows the new package as
-approved. Nothing else in the platform compares those two facts.
+`mlops-<env>-retrain-loop-stalled` reports the structured
+`retrain_loop_stalled` event. The alarm uses a metric filter on the retrain
+Lambda log group and publishes to the operational SNS topic.
 
-`mlops-<env>-ingest-dlq-backlog` covers the one failure the error alarm misses.
-A message reaches the dead-letter queue after three failed receives, so the
-handler already alarmed. The backlog alarm reports that the object stayed
-unprocessed after those retries.
-
-### Seeing the loop
-
-The `mlops-<env>` dashboard carries a `Drift loop` widget. It plots drift
-evaluations and retrain triggers on the left axis, and the errors of both
-handlers on the right. The loop otherwise reports through `log_event` lines
-alone, and no operator view shows that the hourly evaluation stopped.
+`mlops-<env>-ops-pipeline-failed` matches failed or stopped SageMaker pipeline
+executions. `mlops-<env>-ops-endpoint-failed` matches the configured endpoint
+ARN and the `FAILED`, `ROLLING_BACK`, and `UPDATE_ROLLBACK_FAILED` endpoint
+states. Both rules publish to the operational topic. Neither is a CloudWatch
+alarm.
 
 ## Tensions or open questions
 
-- `churn-serverless-dev` uses on-demand serverless inference and configures no
-  provisioned concurrency. It therefore keeps no hosting instance while idle.
-- Built-in Model Monitor is **not** the route. See
-  [drift capture design](../decisions/drift-capture-design.md) for the decision.
-  Do not add `DataCaptureConfig` to the serverless configuration.
-- That decision also sets the limit of the loop. The platform never receives a
-  churn label after a prediction. The loop can therefore detect a change in the
-  input traffic. It can never detect that the model got worse.
-- The current 0.50 threshold has recall `0.5370` on the held-out set. Define the
-  cost of a retention offer and the cost of missed churn first. Only then choose
-  a lower threshold, and keep the report and the proxy Lambda on the same value.
+- The current dev serving package lacks `baseline_uri`. Before activating the
+  reader, verify the legacy training provenance and bind its corresponding
+  versioned baseline. A compatible approved package is the other valid path.
+- A metadata migration can emit an approval event regardless of the caller's
+  permission boundary. The operator MUST plan for that event, use an explicit
+  reviewed plan, and use the locally implemented serving retry protection. It
+  is tested but not deployed. Metadata migration remains pending.
+- The training role MUST have `sagemaker:ListModelPackages` on the package-group
+  ARN before an updated SDK pipeline definition is used. The
+  `DescribeModelPackage` grant uses package-version ARNs.
+- A CDK diff describes desired state. It does not prove IAM authorization. A
+  future deployment MUST inspect the read-only policy versions and a named
+  dev resource diff. Security owns the alert topics and audit key. Data owns
+  the buckets.
+- Capture records contain inputs and scores without churn labels. Real labels
+  remain external input. The platform MUST NOT train from predicted labels.
+- The website hold and production service flags remain unchanged.
+
+The serving deployment handler rechecks package approval before writes. It
+reuses exact matching current and legacy model/config resources. A matching
+`InService` endpoint returns a no-op. An expected in-flight endpoint with the
+same pending configuration returns `in_progress`. Mismatched pending or
+unhealthy states fail closed. A `ResourceInUse` race rechecks the resource
+before continuing, so matching resources receive no duplicate writes. This
+retry protection is implemented and tested locally, but is not deployed.
+
+## Dated history
+
+- **2026-07-10:** The first pipeline run exposed missing package imports in the
+  Processing job. The packaging path was fixed. A later execution completed
+  preprocessing, training, evaluation, and model registration with test AUC
+  `0.8398`. The approval path then reached the serverless endpoint and API.
+- **2026-08-07:** Live drift traffic exercised the count, uniformity, clean,
+  and violation branches. The AUC gate rejected the shifted challenger, so the
+  endpoint stayed on its prior model. The run also exposed the cached fixed-
+  baseline defect recorded in the decision page. A live retrain showed that
+  cached `Preprocess` and `Train` steps did not rewrite the fixed baseline.
+  The former reset claim was removed.
+  The current source uses execution-specific baseline outputs and disables the
+  mutable data-step cache.
+- **2026-09-05:** The baseline reader and same-holdout comparison were prepared
+  locally. No AWS deployment or observation window followed those changes.

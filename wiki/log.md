@@ -1151,6 +1151,38 @@ remain local to the deployment handler.
 
 **Decision and next checkpoint:** prepared for local review. Final combined
 security, frontend, documentation, and release-size checks follow.
+
+## [2026-09-05] document | Audit repair release readiness
+
+**Objective:** distinguish prepared source from deployed behavior and give the
+operator a corrected dev release sequence.
+
+**Scope:** README, drift-loop synthesis, capture-design history, a new repair
+readiness decision, and the wiki index. The sequence includes Registry,
+Security, Data, Training, Serving, Ingestion, metadata migration, and Monitoring.
+
+**Identity and environment:** local validation only. No repair was pushed,
+deployed, or applied to AWS permissions. The website remains on hold.
+
+**Commands and results:** the final source check passed 649 tests at 96.14%
+coverage. `make security` passed lock validation, dependency audit, and dev/prod
+synthesis. `make frontend-check` passed five tests and TypeScript checks.
+The frontend production build passed. `make wiki-lint` reports 55 healthy
+pages. `make docs-sync` and `make public-check` passed. The source-history
+Gitleaks scan passed before this final documentation commit.
+
+The repair is prepared as eleven local review branches. Each source change
+is at or below 150 added lines against its actual parent. No size escape was
+used. The original coverage floor remains unchanged.
+
+**Interpretation:** local evidence verifies the repaired source. It does not
+verify cloud permissions, live model behavior, notification delivery, or the
+legacy baseline's provenance. Real outcome labels remain an external input.
+
+**Decision and next checkpoint:** review and merge the local stack in order.
+Resolve the documented identity and baseline-migration gates before a reviewed
+dev rollout. Then run approved training, inference, failure, and recovery checks.
+No deployment or observation-window go decision is recorded here.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

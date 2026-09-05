@@ -163,14 +163,22 @@ def _save_calibration_curve(
 
 
 def _save_score_distribution(
-    labels: list[int], scores: list[float], output_dir: pathlib.Path
+    labels: list[int],
+    scores: list[float],
+    output_dir: pathlib.Path,
+    threshold: float,
 ) -> None:
     stayed_scores = [scores[index] for index, label in enumerate(labels) if label == 0]
     churn_scores = [scores[index] for index, label in enumerate(labels) if label == 1]
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(stayed_scores, bins=20, alpha=0.65, label="Actual stay")
     ax.hist(churn_scores, bins=20, alpha=0.65, label="Actual churn")
-    ax.axvline(DEFAULT_THRESHOLD, color="black", linestyle="--", label="Threshold 0.50")
+    ax.axvline(
+        threshold,
+        color="black",
+        linestyle="--",
+        label=f"Threshold {threshold:.2f}",
+    )
     ax.set(
         xlabel="Predicted churn probability",
         ylabel="Test records",
@@ -237,7 +245,7 @@ def write_evaluation_artifacts(
     _save_roc_curve(labels, scores, metrics, destination)
     _save_precision_recall_curve(labels, scores, destination)
     _save_calibration_curve(labels, scores, destination)
-    _save_score_distribution(labels, scores, destination)
+    _save_score_distribution(labels, scores, destination, threshold)
     return metrics
 
 

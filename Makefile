@@ -199,21 +199,30 @@ verify-deploy:
 
 # Resolve the deployed API URL and run the signed integration tests.
 # The caller needs `execute-api:Invoke` on the method.
+# Set API_URL to skip CloudFormation discovery.
+# Set DISCOVERY_PROFILE to choose the profile for CloudFormation reads.
+smoke: export API_URL := $(API_URL)
+smoke: export DISCOVERY_PROFILE := $(DISCOVERY_PROFILE)
 smoke:
 	@set -eu; \
-	prefix=$$(uv run --locked --extra dev python -c \
-		'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))'); \
-	stack="$$prefix-Serving"; \
-	stack_output() { \
-		aws cloudformation describe-stacks --stack-name "$$stack" \
-			--query "Stacks[0].Outputs[?OutputKey=='$$1'].OutputValue" \
-			--output text; \
-	}; \
-	require() { \
-		test -n "$$2" -a "$$2" != "None" || \
-			{ echo "$$stack: no $$1" >&2; exit 1; }; \
-	}; \
-	url=$$(stack_output ApiUrl); require ApiUrl "$$url"; \
+	if [ -n "$${API_URL:-}" ]; then \
+		url="$$API_URL"; \
+	else \
+		prefix=$$(uv run --locked --extra dev python -c \
+			'from infra.app import stack_prefix; print(stack_prefix("$(ENV)"))'); \
+		stack="$$prefix-Serving"; \
+		discover_url() { \
+			if [ -n "$${DISCOVERY_PROFILE:-}" ]; then \
+				AWS_PROFILE="$$DISCOVERY_PROFILE"; export AWS_PROFILE; \
+			fi; \
+			aws cloudformation describe-stacks --stack-name "$$stack" \
+				--query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+				--output text; \
+		}; \
+		url=$$(discover_url); \
+		test -n "$$url" -a "$$url" != "None" || \
+			{ echo "$$stack: no ApiUrl" >&2; exit 1; }; \
+	fi; \
 	echo "smoke testing $$url"; \
 	API_URL="$$url" \
 		uv run --locked --extra dev pytest tests/integration -q

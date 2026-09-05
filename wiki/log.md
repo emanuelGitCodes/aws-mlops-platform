@@ -944,6 +944,36 @@ S3 reader and direct comparisons use the same validator.
 **Decision and next checkpoint:** prepared for local review. Scoped deployment
 and an upload replacement test in dev remain pending. No observation window
 is closed by these local tests.
+
+## [2026-09-05] implement | Preprocessing and evaluation tool correctness
+
+**Objective:** reject unusable datasets before artifact writes and make
+evaluation commands use the selected identities and thresholds.
+
+**Scope:** preprocessing, evaluation charts, the API evaluator, the smoke
+target, and regression tests. Valid canonical splits retain their row mapping.
+A deterministic fallback preserves both classes when the input permits it.
+The writer rejects inputs that cannot support all three splits.
+
+**Identity and environment:** local checkouts and mocked commands only.
+No AWS permission was changed and no live prediction was invoked.
+
+**Commands and results:** the isolated change passed `make check` with
+549 tests and 95.29% coverage. `make pr-size` measured 118 of 150 source lines.
+Tests cover the threshold marker, fixture-read sessions, an explicit read
+profile, an API URL override, and separated discovery and signing profiles.
+
+The first combined check passed 562 tests but failed the unchanged coverage
+floor at 95.12%. Four additional boundary tests cover invalid external splits
+and the minimum dataset size. The combined `make check` then passed 566 tests
+at 95.34% coverage. The floor remains 95.17%.
+
+**Interpretation:** `make smoke` can skip CloudFormation discovery when given
+an API URL. The evaluator uses its selected session for all reads unless the
+operator supplies a separate read profile. These paths do not grant access.
+
+**Decision and next checkpoint:** prepared for local review. A test identity
+with the needed inference and fixture-read grants remains a live prerequisite.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

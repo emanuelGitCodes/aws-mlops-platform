@@ -51,9 +51,17 @@ def parse_s3_uri(uri: str) -> tuple[str, str]:
     return bucket_and_key[0], bucket_and_key[1].rstrip("/")
 
 
-def resolve_fixture_s3_uri(pipeline_execution_arn: str, region: str | None = None) -> str:
+def resolve_fixture_s3_uri(
+    pipeline_execution_arn: str,
+    region: str | None = None,
+    session: boto3.Session | None = None,
+) -> str:
     """Find the api_test ProcessingOutput that one pipeline execution wrote."""
-    client = boto3.client("sagemaker", region_name=region)
+    client = (
+        session.client("sagemaker", region_name=region)
+        if session is not None
+        else boto3.client("sagemaker", region_name=region)
+    )
     paginator = client.get_paginator("list_pipeline_execution_steps")
     for page in paginator.paginate(PipelineExecutionArn=pipeline_execution_arn):
         for step in page["PipelineExecutionSteps"]:
@@ -69,11 +77,20 @@ def resolve_fixture_s3_uri(pipeline_execution_arn: str, region: str | None = Non
     raise ApiEvaluationError("pipeline execution does not have an api_test preprocessing output")
 
 
-def load_fixture(s3_uri: str, region: str | None = None) -> list[dict[str, Any]]:
+def load_fixture(
+    s3_uri: str,
+    region: str | None = None,
+    session: boto3.Session | None = None,
+) -> list[dict[str, Any]]:
     """Load the JSON Lines test fixture from S3."""
     bucket, prefix = parse_s3_uri(s3_uri)
     key = prefix if prefix.endswith(".jsonl") else f"{prefix}/api_test.jsonl"
-    body = boto3.client("s3", region_name=region).get_object(Bucket=bucket, Key=key)["Body"]
+    client = (
+        session.client("s3", region_name=region)
+        if session is not None
+        else boto3.client("s3", region_name=region)
+    )
+    body = client.get_object(Bucket=bucket, Key=key)["Body"]
     records = [json.loads(line) for line in body.read().decode().splitlines() if line]
     if not records:
         raise ApiEvaluationError("API evaluation fixture is empty")
@@ -169,6 +186,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--api-url", default=os.getenv("API_URL"))
     parser.add_argument("--region", default=os.getenv("AWS_REGION"))
     parser.add_argument("--profile", default=os.getenv("AWS_PROFILE"))
+    parser.add_argument(
+        "--read-profile",
+        help="optional profile for SageMaker and S3 fixture reads",
+    )
     parser.add_argument("--limit", type=int, default=25)
     parser.add_argument("--all", action="store_true", dest="all_records")
     parser.add_argument("--output", help="optional local JSON report path")
@@ -177,11 +198,14 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--api-url/API_URL is required")
 
     session = boto3.Session(profile_name=args.profile, region_name=args.region)
+    read_session = session
+    if args.read_profile:
+        read_session = boto3.Session(profile_name=args.read_profile, region_name=args.region)
     fixture_s3_uri = args.fixture_s3_uri or resolve_fixture_s3_uri(
-        args.pipeline_execution_arn, args.region
+        args.pipeline_execution_arn, region=args.region, session=read_session
     )
     report = evaluate_api_records(
-        load_fixture(fixture_s3_uri, args.region),
+        load_fixture(fixture_s3_uri, region=args.region, session=read_session),
         api_url=args.api_url,
         session=session,
         region=args.region,

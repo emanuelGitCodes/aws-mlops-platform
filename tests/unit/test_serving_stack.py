@@ -2,6 +2,7 @@
 
 from aws_cdk.assertions import Match
 
+from infra.stacks.serving_stack import ENDPOINT_EVENT_DETAIL_TYPE, ENDPOINT_FAILURE_STATES
 from infra.stacks.shared import MODEL_ARTIFACT_PREFIX
 from tests.unit.conftest import CONFIG
 
@@ -238,3 +239,31 @@ def test_the_deploy_and_proxy_handlers_have_error_alarms(stacks):
         assert alarm["Namespace"] == "AWS/Lambda"
         assert alarm["MetricName"] == "Errors"
         assert "OpsAlertsTopic" in str(alarm["AlarmActions"])
+
+
+def test_endpoint_failure_events_are_scoped_and_page_the_ops_topic(stacks):
+    resources = stacks["serving"].to_json()["Resources"]
+    rule = next(
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::Events::Rule"
+        and resource["Properties"].get("Name") == f"mlops-{CONFIG['env_name']}-ops-endpoint-failed"
+    )
+    pattern = rule["EventPattern"]
+    assert pattern["source"] == ["aws.sagemaker"]
+    assert pattern["detail-type"] == [ENDPOINT_EVENT_DETAIL_TYPE]
+    assert pattern["detail"] == {
+        "EndpointName": [CONFIG["endpoint_name"]],
+        "EndpointStatus": ENDPOINT_FAILURE_STATES,
+    }
+    resource_arn = str(pattern["resources"])
+    assert "endpoint/" in resource_arn
+    assert CONFIG["endpoint_name"] in resource_arn
+
+    (target,) = rule["Targets"]
+    assert "OpsAlertsTopic" in str(target["Arn"])
+    assert "SecurityAlertsTopic" not in str(target["Arn"])
+    transformer = target["InputTransformer"]
+    assert transformer["InputPathsMap"] == {"detail-EndpointStatus": "$.detail.EndpointStatus"}
+    assert "EndpointStatus" in transformer["InputTemplate"]
+    assert "FailureReason" not in transformer["InputTemplate"]

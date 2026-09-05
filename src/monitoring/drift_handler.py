@@ -11,6 +11,7 @@ import os
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 
 from src.common.drift import (
     DRIFT_STATUS,
@@ -47,28 +48,57 @@ def window_prefixes(now: datetime.datetime, hours: int) -> list[str]:
     ]
 
 
-def read_captured(prefixes: list[str]) -> list[dict[str, Any]]:
+def read_captured(prefixes: list[str]) -> tuple[list[dict[str, Any]], int]:
     """Read every captured record under the given prefixes."""
     records = []
+    unreadable_count = 0
     paginator = s3.get_paginator("list_objects_v2")
     for prefix in prefixes:
         for page in paginator.paginate(Bucket=ARTIFACTS_BUCKET, Prefix=prefix):
             for entry in page.get("Contents", []):
-                body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=entry["Key"])["Body"].read()
-                records.append(json.loads(body)["record"])
-    return records
+                try:
+                    body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=entry["Key"])["Body"].read()
+                    records.append(json.loads(body)["record"])
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    unreadable_count += 1
+                    log_event(
+                        "capture_object_unreadable",
+                        key=entry["Key"],
+                        skipped=unreadable_count,
+                    )
+    return records, unreadable_count
 
 
 def read_baseline() -> dict[str, Any]:
     """Read the baseline the preprocessing step wrote."""
-    body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=BASELINE_KEY)["Body"].read()
+    try:
+        body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=BASELINE_KEY)["Body"].read()
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "NoSuchKey":
+            log_event(
+                "drift_baseline_missing",
+                bucket=ARTIFACTS_BUCKET,
+                key=BASELINE_KEY,
+            )
+        raise
     baseline: dict[str, Any] = json.loads(body)
+    if not isinstance(baseline.get("counts"), dict) or not baseline.get("counts"):
+        raise ValueError(
+            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} "
+            "must include non-empty 'counts' mapping."
+        )
+    record_count = baseline.get("record_count")
+    if not isinstance(record_count, int) or record_count < 1:
+        raise ValueError(
+            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} "
+            "must include integer 'record_count' above 0."
+        )
     return baseline
 
 
 def emit_violation(result: dict[str, Any]) -> None:
     """Put the violation event that starts a retraining run."""
-    events.put_events(
+    response = events.put_events(
         Entries=[
             {
                 "Source": EVENT_SOURCE,
@@ -78,15 +108,23 @@ def emit_violation(result: dict[str, Any]) -> None:
         ]
     )
 
+    failed_count = response.get("FailedEntryCount", 0)
+    if not isinstance(failed_count, int) or failed_count <= 0:
+        return
+
+    error = response["Entries"][0].get("ErrorCode", "unknown")
+    raise RuntimeError(f"EventBridge rejected {failed_count} drift events: {error}")
+
 
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     now = datetime.datetime.now(datetime.UTC)
-    records = read_captured(window_prefixes(now, WINDOW_HOURS))
+    records, unreadable_count = read_captured(window_prefixes(now, WINDOW_HOURS))
+    skipped = {"unreadable_count": unreadable_count}
 
     if len(records) < MIN_RECORDS:
         # Record an unscored window as a separate outcome.
         log_event("drift_window_too_small", records=len(records), required=MIN_RECORDS)
-        return {"skipped": "insufficient_records", "records": len(records)}
+        return {"skipped": "insufficient_records", "records": len(records), **skipped}
 
     distinct = distinct_record_count(records)
     if distinct < MIN_DISTINCT_RECORDS:
@@ -97,9 +135,15 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
             distinct=distinct,
             required=MIN_DISTINCT_RECORDS,
         )
-        return {"skipped": "uniform_records", "records": len(records), "distinct": distinct}
+        return {
+            "skipped": "uniform_records",
+            "records": len(records),
+            "distinct": distinct,
+            **skipped,
+        }
 
     result = compare(read_baseline(), records)
+    result["unreadable_count"] = unreadable_count
     if not result["drifted"]:
         log_event("drift_evaluated", **result)
         return {"drifted": False, **result}

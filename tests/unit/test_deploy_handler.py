@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -30,15 +31,16 @@ def _mock_sm(endpoint_exists: bool, describe_error: Exception = ENDPOINT_MISSING
 
 def test_non_approval_event_is_skipped():
     event = {"detail": {"ModelPackageArn": "arn", "ModelApprovalStatus": "Rejected"}}
-    with mock.patch.object(deploy_handler, "sm") as sm:
+    with mock.patch.object(deploy_handler, "sm") as sm, mock.patch("builtins.print") as log:
         result = deploy_handler.handler(event, None)
     assert "skipped" in result
+    assert json.loads(log.call_args.args[0])["event"] == "deploy_skipped"
     sm.create_model.assert_not_called()
 
 
 def test_first_approval_creates_endpoint():
     sm = _mock_sm(endpoint_exists=False)
-    with mock.patch.object(deploy_handler, "sm", sm):
+    with mock.patch.object(deploy_handler, "sm", sm), mock.patch("builtins.print") as log:
         result = deploy_handler.handler(APPROVAL_EVENT, None)
 
     assert result["action"] == "created"
@@ -53,16 +55,18 @@ def test_first_approval_creates_endpoint():
     assert "ServerlessConfig" in variant
     assert "DataCaptureConfig" not in config_call
     assert result["test_auc"] == "0.8398"
+    assert json.loads(log.call_args.args[0])["event"] == "endpoint_update_requested"
 
 
 def test_subsequent_approval_updates_endpoint():
     sm = _mock_sm(endpoint_exists=True)
-    with mock.patch.object(deploy_handler, "sm", sm):
+    with mock.patch.object(deploy_handler, "sm", sm), mock.patch("builtins.print") as log:
         result = deploy_handler.handler(APPROVAL_EVENT, None)
 
     assert result["action"] == "updated"
     sm.update_endpoint.assert_called_once()
     sm.create_endpoint.assert_not_called()
+    assert json.loads(log.call_args.args[0])["event"] == "endpoint_update_requested"
 
 
 @pytest.mark.parametrize(

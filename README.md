@@ -6,7 +6,7 @@
 
 A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
-`make deploy ENV=dev` creates the nine infrastructure stacks. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
+`make deploy ENV=dev` creates the infrastructure stacks. Every environment builds nine, and dev builds a tenth, `Mlops-Dev-Website`. The website work is on hold, so `make deploy` refuses while an environment builds that stack. Use `make deploy-stack` for the rest. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The current dev environment has completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
 
 ## Architecture
 
@@ -118,7 +118,7 @@ that the model got worse. See the
 
 | Path | What |
 |---|---|
-| `infra/` | CDK app: nine stacks split by lifecycle and blast radius, including security monitoring and CI/CD identity |
+| `infra/` | CDK app: nine stacks in every environment, and a tenth website stack in dev, split by lifecycle and blast radius, including security monitoring and CI/CD identity |
 | `infra/config/` | `dev.yaml` / `prod.yaml`; the shape is typed once as `PlatformConfig` in `infra/stacks/shared.py` |
 | `infra/security_checks.py` | cdk-nag gate: every acknowledgement is bound to one construct and names the phase that removes it |
 | `src/common/` | Single source of truth: `schema.py` (pydantic contract shared by ingestion and the inference API) and `features.py` (column order, accepted vocabulary, and encoding) |
@@ -211,7 +211,17 @@ make install                 # deps
 # From here on, switch AWS_PROFILE to the deploy user this script created.
 make lint test                        # local checks
 make bootstrap ENV=dev                # once per account/region; uses the scoped policy above
-make deploy ENV=dev                   # all nine stacks
+# `make deploy` refuses while the environment builds the website stack, which
+# dev does. Deploy each of the other stacks and its dependencies instead. Read
+# the `Including dependency stacks:` line each run prints.
+make deploy-stack STACK=Mlops-Dev-Security ENV=dev
+make deploy-stack STACK=Mlops-Dev-Data ENV=dev
+make deploy-stack STACK=Mlops-Dev-Ingestion ENV=dev
+make deploy-stack STACK=Mlops-Dev-Registry ENV=dev
+make deploy-stack STACK=Mlops-Dev-Training ENV=dev
+make deploy-stack STACK=Mlops-Dev-Serving ENV=dev
+make deploy-stack STACK=Mlops-Dev-Cicd ENV=dev
+make deploy-stack STACK=Mlops-Dev-Monitoring ENV=dev
 make diagrams ENV=dev                 # PNG, SVG, and DOT desired-state diagrams
 
 # Fill the remaining .env values (RAW_BUCKET, CURATED_BUCKET, ARTIFACTS_BUCKET,
@@ -275,7 +285,7 @@ account, at the point noted:
 
 ## Teardown
 
-`make destroy ENV=dev` deletes the nine stacks, but retained buckets, the
+`make destroy ENV=dev` deletes every stack the environment builds, but retained buckets, the
 audit KMS key and log group, and every SDK-created SageMaker resource survive
 it — and two of the retained names block the next deploy. Follow the
 [complete teardown and rebuild](wiki/pages/architecture/teardown-and-rebuild.md)

@@ -71,6 +71,28 @@ def test_bucket_counts_ignores_a_column_the_row_omits():
     assert counts["gender"] == {}
 
 
+def test_compare_marks_a_missing_window_column_as_unscorable():
+    baseline = drift.build_baseline(varied_records(500, seed=1))
+    stripped_rows = [
+        {column: value for column, value in record.items() if column != "Contract"}
+        for record in varied_records(200, seed=1)
+    ]
+    result = drift.compare(baseline, stripped_rows)
+
+    assert result["unscorable_columns"] == ["Contract"]
+    assert result["column_psi"]["Contract"] is None
+    assert result["drifted"] is False
+
+
+def test_compare_accepts_non_mapping_baseline_counts_as_zero_buckets():
+    baseline = drift.build_baseline(varied_records(50, seed=2))
+    baseline["counts"]["Contract"] = 5
+    result = drift.compare(baseline, varied_records(25, seed=2))
+
+    assert result["unscorable_columns"] == []
+    assert result["column_psi"]["Contract"] == 0.0
+
+
 def test_build_baseline_stores_edges_for_every_numeric_column():
     baseline = drift.build_baseline(spread(50, "tenure", [1, 12, 24, 48, 60]))
     assert baseline["record_count"] == 50
@@ -181,6 +203,8 @@ def test_compare_survives_an_empty_window():
     result = drift.compare(drift.build_baseline(rows(10)), [])
     assert result["record_count"] == 0
     assert result["drifted"] is False
+    assert set(result["unscorable_columns"]) == set(FEATURE_COLUMNS)
+    assert all(result["column_psi"][column] is None for column in FEATURE_COLUMNS)
 
 
 def test_distinct_record_count_sees_through_repetition():

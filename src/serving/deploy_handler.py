@@ -41,6 +41,11 @@ def _is_endpoint_not_found(error: Exception) -> bool:
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     detail = event["detail"]
     if detail.get("ModelApprovalStatus") != "Approved":
+        log_event(
+            "deploy_skipped",
+            reason="not_an_approval",
+            status=detail.get("ModelApprovalStatus"),
+        )
         return {"skipped": "not an approval"}
     package_arn = detail["ModelPackageArn"]
 
@@ -84,7 +89,7 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     package = sm.describe_model_package(ModelPackageName=package_arn)
     test_auc = package.get("CustomerMetadataProperties", {}).get("test_auc")
     log_event(
-        "approved_challenger_deployed",
+        "endpoint_update_requested",
         action=action,
         endpoint=ENDPOINT_NAME,
         model_package_arn=package_arn,

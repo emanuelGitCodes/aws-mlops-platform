@@ -112,7 +112,7 @@ def test_iam_policy_baseline_has_not_changed(stacks):
         "security": "9925908b0ff292a103399b71a26a17717dccd31daf542493a0723645d056dd24",
         "security_monitoring": "9815f466b4c436c348c80a636d5099b644e77e52c2d0f5c8041df0f35d89a17a",
         "data": "2939699d4ec8219e7af89d0bc03ac579b55c02c28f638d251fe25296fd6b67c1",
-        "ingestion": "c8b076e8f8204d2bd8934a16fd3a5908676338b6e39b62181beb204ef3486f90",
+        "ingestion": "aba379c277bc83dff544b62ff0570ee570786afc28d1e8b259907ab36a1c6aaa",
         "registry": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         # Keep the pipeline role logical id unchanged.
         "training": "38c16b61765d1ad0a1f8dede12c2af664eb508af0cdcc5fd97e38780154a4574",

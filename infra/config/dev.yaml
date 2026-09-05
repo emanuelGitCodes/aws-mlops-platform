@@ -14,6 +14,8 @@ monitor:
   # Page after this many hours with no endpoint invocations.
   # Dev has no minimum traffic level. Idle time can start this alarm.
   silence_alarm_hours: 24
+  # Dev tolerates repeated retrain attempts before pausing the loop.
+  retrain_no_progress_limit: 4
 budget_usd: 20
 log_retention_days: 14
 # Expire captured predictions after this many days.

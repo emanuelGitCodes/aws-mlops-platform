@@ -6,7 +6,14 @@
 
 A portfolio-grade **MLOps reference platform** on AWS where the *infrastructure is the deliverable*. The model is deliberately simple (Telco customer churn with XGBoost); the engineering lives in ingestion, reproducible evaluation, champion/challenger promotion, infrastructure as code, CI/CD, and low-cost serverless inference.
 
-`make deploy ENV=dev` creates the infrastructure stacks. Every environment builds nine, and dev builds a tenth, `Mlops-Dev-Website`. The website work is on hold, so `make deploy` refuses while an environment builds that stack. Use `make deploy-stack` for the rest. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The earlier dev baseline completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap. The audit repair set described here has no deployment yet.
+`make deploy ENV=dev` creates the infrastructure stacks. Every environment builds nine, and dev builds a tenth, `Mlops-Dev-Website`. The website work is on hold, so `make deploy` refuses while an environment builds that stack. Use `make deploy-stack` for the rest. The SageMaker Pipeline is then upserted through the SDK-driven pipeline command because its definition depends on live Model Registry state. The earlier dev baseline completed ingestion, training, held-out evaluation, model registration, serverless deployment, API inference, and the audit-and-detection half of the security roadmap.
+
+The [2026-09-05 deployment check](wiki/pages/decisions/dev-deployment-check-2026-09-05.md)
+updated Security, Registry, Training, Serving, and Ingestion. Six live API
+checks passed. Pipeline publication is blocked by operator permissions;
+Monitoring rollout waits for verified serving-model baseline metadata.
+The release-gate text below describes the original repair handoff. The dated
+deployment record holds the subsequent live evidence and remaining checkpoints.
 
 ## Architecture
 

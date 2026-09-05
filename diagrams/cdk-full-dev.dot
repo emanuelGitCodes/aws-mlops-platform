@@ -645,6 +645,32 @@ digraph "Diagram" {
           width = 2;
           height = 2.266;
         ];
+        "Mlops-Dev-Ingestion/IngestDlqBacklog" [
+          label = " IngestDlqBacklog";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Ingestion/ValidateErrors" [
+          label = " ValidateErrors";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
       }
       subgraph "cluster-SubGraph.Mlops-Dev-Registry" {
         graph [
@@ -775,6 +801,19 @@ digraph "Diagram" {
           width = 1.2;
           height = 1.466;
         ];
+        "Mlops-Dev-Serving/EndpointFailureRule" [
+          label = " EndpointFailureRule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
         "Mlops-Dev-Serving/ProxyFnLogs" [
           label = " ProxyFnLogs";
           fontsize = 12;
@@ -818,6 +857,32 @@ digraph "Diagram" {
           label = " ChurnApi";
           fontsize = 12;
           image = "cdk-dia-icons/aws/Service/Arch_Networking-Content/64/Arch_Amazon-API-Gateway_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/DeployErrors" [
+          label = " DeployErrors";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Serving/ProxyErrors" [
+          label = " ProxyErrors";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
           imagescale = "true";
           imagepos = "tc";
           penwidth = 0;
@@ -969,6 +1034,71 @@ digraph "Diagram" {
           labelloc = "b";
           width = 1.2;
           height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/PipelineFailureRule" [
+          label = " PipelineFailureRule";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/DriftErrors" [
+          label = " DriftErrors";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/RetrainErrors" [
+          label = " RetrainErrors";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.466;
+        ];
+        "Mlops-Dev-Monitoring/RetrainLoopStalledFilter" [
+          label = "\nRetrainLoopStalledFil";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/cloudwatch_metric_filter.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 2;
+          height = 2.4819999999999998;
+        ];
+        "Mlops-Dev-Monitoring/RetrainLoopStalledAlarm" [
+          label = "\nRetrainLoopStalledAla";
+          fontsize = 12;
+          image = "cdk-dia-icons/aws/Service/Arch_Management-Governance/64/Arch_Amazon-CloudWatch_64@5x.png";
+          imagescale = "true";
+          imagepos = "tc";
+          penwidth = 0;
+          shape = "node";
+          fixedsize = "true";
+          labelloc = "b";
+          width = 1.2;
+          height = 1.682;
         ];
         "Mlops-Dev-Monitoring/OpsDashboard" [
           label = " OpsDashboard";
@@ -1255,6 +1385,18 @@ digraph "Diagram" {
   "Mlops-Dev-Ingestion/ValidateFn" -> "Mlops-Dev-Ingestion/ValidateFnLogs" [
     dir = "both";
   ];
+  "Mlops-Dev-Ingestion/IngestDlqBacklog" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/IngestDlqBacklog" -> "Mlops-Dev-Ingestion/IngestDlq" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateErrors" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Ingestion/ValidateErrors" -> "Mlops-Dev-Ingestion/ValidateFn" [
+    dir = "both";
+  ];
   "Mlops-Dev-Training/PipelineExecutionRole" -> "Mlops-Dev-Data/CuratedBucket" [
     dir = "both";
   ];
@@ -1282,6 +1424,9 @@ digraph "Diagram" {
   "Mlops-Dev-Serving/ModelApprovedRule" -> "Mlops-Dev-Serving/DeployFn" [
     dir = "both";
   ];
+  "Mlops-Dev-Serving/EndpointFailureRule" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
   "Mlops-Dev-Serving/ProxyFnRole" -> "Mlops-Dev-Data/ArtifactsBucket" [
     dir = "both";
   ];
@@ -1298,6 +1443,18 @@ digraph "Diagram" {
     dir = "both";
   ];
   "Mlops-Dev-Serving/ChurnApi" -> "Mlops-Dev-Serving/ProxyFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployErrors" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/DeployErrors" -> "Mlops-Dev-Serving/DeployFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyErrors" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Serving/ProxyErrors" -> "Mlops-Dev-Serving/ProxyFn" [
     dir = "both";
   ];
   "Mlops-Dev-Cicd/GitHubDeployRole" -> "Mlops-Dev-Serving/ChurnApi" [
@@ -1325,6 +1482,33 @@ digraph "Diagram" {
     dir = "both";
   ];
   "Mlops-Dev-Monitoring/DriftViolationRule" -> "Mlops-Dev-Monitoring/RetrainTriggerFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/PipelineFailureRule" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftErrors" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/DriftErrors" -> "Mlops-Dev-Monitoring/DriftEvaluationFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/RetrainErrors" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/RetrainErrors" -> "Mlops-Dev-Monitoring/RetrainTriggerFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/RetrainLoopStalledFilter" -> "Mlops-Dev-Monitoring/RetrainTriggerFnLogs" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/RetrainLoopStalledAlarm" -> "Mlops-Dev-Security/OpsAlertsTopic" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/OpsDashboard" -> "Mlops-Dev-Monitoring/DriftEvaluationFn" [
+    dir = "both";
+  ];
+  "Mlops-Dev-Monitoring/OpsDashboard" -> "Mlops-Dev-Monitoring/RetrainTriggerFn" [
     dir = "both";
   ];
   "Mlops-Dev-Monitoring/Endpoint5xxAlarm" -> "Mlops-Dev-Security/OpsAlertsTopic" [

@@ -26,6 +26,7 @@ from infra.stacks.shared import (
     lambda_event_rule,
     platform_lambda,
 )
+from src.common.drift import BASELINE_RUN_PREFIX
 
 # Keep these literals synchronized with `src/common/drift.py`.
 # Importing the handler evaluates its environment lookups during synthesis.
@@ -73,6 +74,7 @@ class MonitoringStack(Stack):
                 "ARTIFACTS_BUCKET": artifacts_bucket.bucket_name,
                 "BASELINE_KEY": BASELINE_KEY,
                 "CAPTURE_PREFIX": CAPTURE_PREFIX,
+                "ENDPOINT_NAME": endpoint_name,
             },
         )
         # Grant read-only access to the baseline and capture window.
@@ -81,8 +83,48 @@ class MonitoringStack(Stack):
                 actions=["s3:GetObject"],
                 resources=[
                     artifacts_bucket.arn_for_objects(BASELINE_KEY),
+                    artifacts_bucket.arn_for_objects(f"{BASELINE_RUN_PREFIX}/*"),
                     artifacts_bucket.arn_for_objects(f"{CAPTURE_PREFIX}/*"),
                 ],
+            )
+        )
+
+        endpoint_arn = self.format_arn(
+            service="sagemaker",
+            resource="endpoint",
+            resource_name=endpoint_name,
+        )
+        endpoint_config_arn = self.format_arn(
+            service="sagemaker",
+            resource="endpoint-config",
+            resource_name=f"{endpoint_name}-config-*",
+        )
+        model_arn = self.format_arn(
+            service="sagemaker",
+            resource="model",
+            resource_name=f"{endpoint_name}-model-*",
+        )
+        model_package_arn = self.format_arn(
+            service="sagemaker",
+            resource="model-package",
+            resource_name=f"{package_group_name}/*",
+        )
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(actions=["sagemaker:DescribeEndpoint"], resources=[endpoint_arn])
+        )
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:DescribeEndpointConfig"],
+                resources=[endpoint_config_arn],
+            )
+        )
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(actions=["sagemaker:DescribeModel"], resources=[model_arn])
+        )
+        drift_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sagemaker:DescribeModelPackage"],
+                resources=[model_package_arn],
             )
         )
         # `ListBucket` uses the bucket ARN. The prefix condition limits the listing.

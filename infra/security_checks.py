@@ -242,7 +242,7 @@ ACKNOWLEDGEMENTS = (
         ),
     ),
     # The deploy role uses three ARNs with generated trailing values.
-    # `deploy_handler` adds the epoch second to model and endpoint-config names.
+    # `deploy_handler` adds a package hash to model and endpoint-config names.
     # SageMaker assigns the model package version under one group.
     *(
         Acknowledgement(

@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from src.common import registry
 from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
 from tests.unit.conftest import (
@@ -9,6 +11,33 @@ from tests.unit.conftest import (
 )
 
 CHAMPION_ARN = f"{TEST_MODEL_PACKAGE_ARN_PREFIX}/7"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        {"Containers": [{"ModelPackageName": CHAMPION_ARN}]},
+        {"PrimaryContainer": {"ModelPackageName": CHAMPION_ARN}},
+    ],
+)
+def test_extract_model_package_name_supports_one_container_contract(model):
+    assert registry.extract_model_package_name(model) == CHAMPION_ARN
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        {"Containers": []},
+        {"Containers": [{"ModelPackageName": CHAMPION_ARN}, {}]},
+        {"Containers": [{}]},
+        {"Containers": [{"ModelPackageName": 7}]},
+        {"Containers": "invalid"},
+        {"PrimaryContainer": {}},
+    ],
+)
+def test_extract_model_package_name_rejects_invalid_container_shapes(model):
+    with pytest.raises(ValueError, match="model"):
+        registry.extract_model_package_name(model)
 
 
 def test_get_champion_returns_the_latest_approved_package():

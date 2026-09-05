@@ -1127,6 +1127,30 @@ event so it does not claim that the requested model is already current.
 **Decision and next checkpoint:** prepared for local review. This protection
 precedes any metadata migration that can trigger approval automation.
 Live retries, cold-start inference, and notification delivery remain unverified.
+
+## [2026-09-05] implement | Share the model-package extraction contract
+
+**Objective:** keep one interpretation of the SageMaker model-container shape
+across drift evaluation and deployment retries.
+
+**Scope:** a pure extractor in `src/common/registry.py`, both callers, and
+regression tests. The extractor accepts one named container or the supported
+primary-container form. Malformed and multiple containers are rejected.
+
+**Identity and environment:** local tests only. This change adds no service
+call or permission.
+
+**Commands and results:** the combined `make check` passed 649 tests at
+96.14% coverage. `make pr-size` measured 29 of 150 source lines.
+Searches for `ModelPackageName`, `Containers`, and `_model_matches` found the
+duplicate parsing. Both handlers now call `extract_model_package_name`.
+
+**Interpretation:** drift preserves explicit validation failures. Deployment
+treats malformed model descriptions as nonmatches. Role and settings checks
+remain local to the deployment handler.
+
+**Decision and next checkpoint:** prepared for local review. Final combined
+security, frontend, documentation, and release-size checks follow.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

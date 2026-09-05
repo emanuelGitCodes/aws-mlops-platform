@@ -9,7 +9,6 @@ import datetime
 import json
 import os
 import re
-from collections.abc import Mapping
 from typing import Any
 from urllib.parse import unquote, urlparse
 
@@ -27,6 +26,7 @@ from src.common.drift import (
     validate_baseline,
 )
 from src.common.events import log_event
+from src.common.registry import extract_model_package_name
 
 s3 = boto3.client("s3")
 events = boto3.client("events")
@@ -98,21 +98,6 @@ def _skip_unhealthy_endpoint(status: str) -> dict[str, Any]:
     return {"skipped": "endpoint_not_healthy", "endpoint_status": status, "reason": reason}
 
 
-def _model_package_name(model: Mapping[str, Any]) -> str:
-    """Return the one model package named by a model description."""
-    containers = model.get("Containers")
-    if isinstance(containers, list) and containers:
-        if len(containers) != 1 or not isinstance(containers[0], dict):
-            raise ValueError("serving model must name exactly one container")
-        package_name = containers[0].get("ModelPackageName")
-    else:
-        primary = model.get("PrimaryContainer")
-        package_name = primary.get("ModelPackageName") if isinstance(primary, dict) else None
-    if not isinstance(package_name, str) or not package_name:
-        raise ValueError("serving model must name one model package")
-    return package_name
-
-
 def _baseline_key(uri: object, model_package_name: str) -> str:
     """Return a validated key for one versioned baseline URI."""
     parsed = urlparse(uri if isinstance(uri, str) else "")
@@ -182,7 +167,7 @@ def resolve_serving_baseline(endpoint_config_name: str) -> tuple[dict[str, Any],
     if not isinstance(model_name, str) or not model_name:
         raise ValueError("endpoint config must name one model")
     model = sm.describe_model(ModelName=model_name)
-    model_package_name = _model_package_name(model)
+    model_package_name = extract_model_package_name(model, "serving model")
     package = sm.describe_model_package(ModelPackageName=model_package_name)
     metadata = package.get("CustomerMetadataProperties")
     baseline_uri = metadata.get(BASELINE_URI_METADATA_KEY) if isinstance(metadata, dict) else None

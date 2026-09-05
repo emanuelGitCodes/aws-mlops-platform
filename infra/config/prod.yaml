@@ -14,6 +14,8 @@ monitor:
   schedule_cron: "cron(0 * ? * * *)"
   # Page after this many hours with no endpoint invocations.
   silence_alarm_hours: 6
+  # Prod should pause retraining sooner to avoid repeated cost under drift.
+  retrain_no_progress_limit: 2
 
 # This value is inactive while `security.account_budget` is false.
 budget_usd: 20

@@ -131,21 +131,34 @@ def compare(baseline: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     """
     counts = bucket_counts(rows, baseline.get("edges", {}))
     reference = baseline.get("counts", {})
-    column_psi = {
-        column: round(population_stability_index(reference.get(column, {}), counts[column]), 6)
-        for column in FEATURE_COLUMNS
-    }
+    column_psi: dict[str, float | None] = {}
+    unscorable_columns: list[str] = []
+    for column in FEATURE_COLUMNS:
+        reference_counts = reference.get(column, {})
+        if not isinstance(reference_counts, dict):
+            reference_counts = {}
+        current_counts = counts.get(column, {})
+        if reference_counts and not current_counts:
+            unscorable_columns.append(column)
+            column_psi[column] = None
+            continue
+        column_psi[column] = round(population_stability_index(reference_counts, current_counts), 6)
+
     drifted = sorted(
-        column for column, value in column_psi.items() if value >= COLUMN_PSI_THRESHOLD
+        column
+        for column, value in column_psi.items()
+        if value is not None and value >= COLUMN_PSI_THRESHOLD
     )
     fraction = len(drifted) / len(FEATURE_COLUMNS)
-    worst = max(column_psi.values()) if column_psi else 0.0
+    scored_values = [value for value in column_psi.values() if value is not None]
+    worst = max(scored_values) if scored_values else 0.0
     return {
         "record_count": len(rows),
         "column_psi": column_psi,
         "drifted_columns": drifted,
         "drifted_fraction": round(fraction, 6),
         "max_column_psi": round(worst, 6),
+        "unscorable_columns": unscorable_columns,
         # Declare drift from a broad shift or one severe column shift.
         "drifted": fraction >= DRIFTED_COLUMN_FRACTION or worst >= SEVERE_COLUMN_PSI,
     }

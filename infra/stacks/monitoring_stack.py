@@ -112,6 +112,7 @@ class MonitoringStack(Stack):
         )
 
         # A violation starts one training pipeline execution.
+        retrain_no_progress_limit = str(config["monitor"]["retrain_no_progress_limit"])
         retrain_fn = platform_lambda(
             self,
             "RetrainTriggerFn",
@@ -121,6 +122,7 @@ class MonitoringStack(Stack):
             environment={
                 "MODEL_PACKAGE_GROUP": package_group_name,
                 "PIPELINE_NAME": pipeline_name,
+                "RETRAIN_NO_PROGRESS_LIMIT": retrain_no_progress_limit,
             },
         )
         # The cooldown reads `ListPipelineExecutions` before it starts a run.

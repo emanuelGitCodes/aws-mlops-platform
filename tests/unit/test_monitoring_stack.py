@@ -15,7 +15,8 @@ from src.common import drift
 from tests.unit.conftest import CONFIG, import_with_stubbed_boto3
 
 # Stub the module-level boto3 client during handler import.
-VIOLATION_STATUS = import_with_stubbed_boto3("src.monitoring.retrain_handler").VIOLATION_STATUS
+RETRAIN_HANDLER = import_with_stubbed_boto3("src.monitoring.retrain_handler")
+VIOLATION_STATUS = RETRAIN_HANDLER.VIOLATION_STATUS
 
 
 def _iam_policy_details(template):
@@ -220,7 +221,12 @@ def test_the_retrain_lambda_reads_the_champion_with_scoped_access(stacks):
             "Handler": "src.monitoring.retrain_handler.handler",
             "Environment": {
                 "Variables": Match.object_like(
-                    {"MODEL_PACKAGE_GROUP": CONFIG["model_package_group"]}
+                    {
+                        "MODEL_PACKAGE_GROUP": CONFIG["model_package_group"],
+                        "RETRAIN_NO_PROGRESS_LIMIT": str(
+                            CONFIG["monitor"]["retrain_no_progress_limit"]
+                        ),
+                    }
                 )
             },
         },

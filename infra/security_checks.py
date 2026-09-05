@@ -106,15 +106,6 @@ ACKNOWLEDGEMENTS = (
     *(
         Acknowledgement(
             "ingestion",
-            queue,
-            "AwsSolutions::AwsSolutions-SQS4",
-            "Existing queue lacks a TLS-only policy; remediate before the Phase 2 deploy.",
-        )
-        for queue in ("IngestDlq", "IngestQueue")
-    ),
-    *(
-        Acknowledgement(
-            "ingestion",
             "ValidateFn/ServiceRole/DefaultPolicy",
             f"AwsSolutions-IAM5[Action::{action}]",
             "CDK S3 grant uses wildcard actions; narrow during Phase 5 IAM work.",
@@ -123,8 +114,6 @@ ACKNOWLEDGEMENTS = (
             "s3:GetObject*",
             "s3:GetBucket*",
             "s3:List*",
-            "s3:DeleteObject*",
-            "s3:Abort*",
         )
     ),
     *(
@@ -136,7 +125,8 @@ ACKNOWLEDGEMENTS = (
         )
         for resource in (
             "{prefix}-Data:ExportsOutputFnGetAttRawBucket0C3EE094ArnD2F95F99/*",
-            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/*",
+            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/telco/*",
+            "{prefix}-Data:ExportsOutputFnGetAttCuratedBucket6A59C97EArn2BF9884A/quarantine/*",
         )
     ),
     Acknowledgement(

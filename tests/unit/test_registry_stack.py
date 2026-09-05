@@ -15,6 +15,14 @@ def test_registry_and_training(stacks):
     )
 
 
+def test_registry_group_is_retained_on_delete_and_replacement(stacks):
+    resources = stacks["registry"].find_resources("AWS::SageMaker::ModelPackageGroup")
+
+    resource = next(iter(resources.values()))
+    assert resource["DeletionPolicy"] == "Retain"
+    assert resource["UpdateReplacePolicy"] == "Retain"
+
+
 def _registry_group_name(stacks: dict) -> str:
     """The physical model package group name one environment synthesizes."""
     resources = Template.from_stack(stacks["registry"]).find_resources(

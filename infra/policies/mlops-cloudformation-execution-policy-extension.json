@@ -154,6 +154,21 @@
         "ssm:GetParameters"
       ],
       "Resource": "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/*"
+    },
+    {
+      "Sid": "ProtectAuditBucketObjects",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::mlops-*-security-auditbucketb01e0ae8-*/*"
+    },
+    {
+      "Sid": "ProtectAuditTrail",
+      "Effect": "Deny",
+      "Action": "cloudtrail:StopLogging",
+      "Resource": "arn:aws:cloudtrail:us-east-1:${AWS_ACCOUNT_ID}:trail/mlops-*-audit"
     }
   ]
 }

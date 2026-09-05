@@ -1,10 +1,12 @@
 """Regression tests for the CDK CloudFormation execution boundary."""
 
 import json
+from fnmatch import fnmatchcase
 
 import pytest
+from aws_cdk.assertions import Template
 
-from tests.unit.conftest import REPO_ROOT
+from tests.unit.conftest import REPO_ROOT, synth_env
 
 POLICY_DIR = REPO_ROOT / "infra" / "policies"
 POLICY_PATH = POLICY_DIR / "mlops-cloudformation-execution-policy.json"
@@ -144,6 +146,14 @@ def test_config_recorder_can_pass_only_its_own_service_linked_role():
     }
 
 
+def test_application_role_lifecycle_stays_scoped_to_mlops_roles():
+    document = json.loads(POLICY_PATH.read_text())
+    statement = _statement(document, "ApplicationRoleLifecycle")
+
+    assert statement["Resource"] == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/Mlops-*"
+    assert statement["Resource"] != "*"
+
+
 def test_website_ec2_grants_cover_the_stack_resources():
     """Grant the network and instance actions the website stack creates."""
     document = json.loads(EXTENSION_PATH.read_text())
@@ -213,6 +223,70 @@ def test_website_ami_parameter_read_is_scoped_to_the_public_ami_path():
         "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/*"
     )
     assert set(statement["Action"]) == {"ssm:GetParameter", "ssm:GetParameters"}
+
+
+def test_audit_bucket_objects_are_protected_from_deletion():
+    document = json.loads(EXTENSION_PATH.read_text())
+    statement = _statement(document, "ProtectAuditBucketObjects")
+
+    assert statement["Effect"] == "Deny"
+    assert set(statement["Action"]) == {
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+    }
+    assert statement["Resource"] == "arn:aws:s3:::mlops-*-security-auditbucketb01e0ae8-*/*"
+    assert "s3:PutBucketPolicy" not in statement["Action"]
+    assert "cloudtrail:DeleteTrail" not in statement["Action"]
+
+
+def test_audit_trail_cannot_be_stopped_by_the_deploy_boundary():
+    document = json.loads(EXTENSION_PATH.read_text())
+    statement = _statement(document, "ProtectAuditTrail")
+
+    assert statement["Effect"] == "Deny"
+    assert statement["Action"] == "cloudtrail:StopLogging"
+    assert statement["Resource"] == (
+        "arn:aws:cloudtrail:us-east-1:${AWS_ACCOUNT_ID}:trail/mlops-*-audit"
+    )
+    assert "s3:PutBucketPolicy" not in statement["Action"]
+    assert "cloudtrail:DeleteTrail" not in statement["Action"]
+
+
+def test_audit_deny_patterns_match_synthesized_security_resources():
+    document = json.loads(EXTENSION_PATH.read_text())
+    bucket_statement = _statement(document, "ProtectAuditBucketObjects")
+    trail_statement = _statement(document, "ProtectAuditTrail")
+    security_stack = synth_env("dev", "Mlops-Dev")["security"]
+    resources = Template.from_stack(security_stack).to_json()["Resources"]
+    stack_name = security_stack.stack_name.lower()
+
+    audit_logical_id = "AuditBucketB01E0AE8"
+    access_logical_id = "AccessLogBucketDA470295"
+    audit_bucket = resources[audit_logical_id]
+    access_log_bucket = resources[access_logical_id]
+    trail_type = "AWS::CloudTrail::Trail"
+    trail = next(
+        filter(
+            lambda resource: resource["Type"] == trail_type,
+            resources.values(),
+        )
+    )
+    assert audit_bucket["Type"] == "AWS::S3::Bucket"
+    assert access_log_bucket["Type"] == "AWS::S3::Bucket"
+    assert "BucketName" not in audit_bucket["Properties"]
+    assert "BucketName" not in access_log_bucket["Properties"]
+
+    trail_name = trail["Properties"]["TrailName"]
+    assert trail_name == "mlops-dev-audit"
+    audit_bucket_name = f"{stack_name}-{audit_logical_id.lower()}-random"
+    access_log_bucket_name = f"{stack_name}-{access_logical_id.lower()}-random"
+    bucket_pattern = bucket_statement["Resource"].removeprefix("arn:aws:s3:::")
+    bucket_pattern = bucket_pattern.removesuffix("/*")
+    trail_pattern = trail_statement["Resource"].rsplit("/", maxsplit=1)[-1]
+
+    assert fnmatchcase(audit_bucket_name, bucket_pattern)
+    assert not fnmatchcase(access_log_bucket_name, bucket_pattern)
+    assert fnmatchcase(trail_name, trail_pattern)
 
 
 def _rendered_size(path):

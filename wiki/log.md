@@ -998,6 +998,34 @@ artifacts bucket. It adds no write or training permission.
 **Decision and next checkpoint:** prepared for local review. The producer and
 reader changes follow in the local stack. Model metadata migration and a
 scoped dev deployment remain pending.
+
+## [2026-09-05] implement | Compare models on the same held-out rows
+
+**Objective:** prevent historical champion scores from controlling a comparison
+against a different test population.
+
+**Scope:** evaluation, pipeline definition, CLI start parameters, and tests.
+Evaluation loads the approved model artifact and scores both models on the
+same feature rows. The gate reads the newly computed champion AUC.
+Archive loading reads only the regular `xgboost-model` member.
+
+**Identity and environment:** local checkouts and a local Docker runtime.
+No AWS training, deployment, or model approval was performed.
+
+**Commands and results:** the combined `make check` passed 580 tests at
+96.04% coverage. `make pr-size` measured 124 of 150 source lines.
+A local XGBoost 1.7.6 exercise used all 7,043 canonical rows with unchanged
+4,930/1,056/1,057 splits. The two early-stopped models each produced AUC
+0.838232 and accuracy 0.795648. The equal-score challenger was rejected.
+
+**Interpretation:** local tests verify comparison arithmetic, safe artifact
+loading, same-row scoring, and the strict gate. Preprocessing and training
+caches are disabled because the curated input prefix can change in place.
+The CLI refreshes champion parameters after upsert.
+
+**Decision and next checkpoint:** prepared for local review. Runtime champion
+selection for arbitrary unparameterized starts follows in another small
+change. Live pipeline execution and endpoint evaluation remain pending.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

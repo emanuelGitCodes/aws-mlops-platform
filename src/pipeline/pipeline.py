@@ -1,13 +1,15 @@
 """Define the preprocess, train, evaluate, gate, and register pipeline.
 
-The build-time lookup sets the `ChampionAuc` parameter default. The default
-applies when an execution sends no `ChampionAuc` parameter. The retrain Lambda
-resolves the champion at invocation time and overrides the default.
-`src/common/registry.py` owns the lookup. A challenger registers only when its
-test AUC beats the champion.
+The evaluation step resolves the supplied champion package and scores it on the
+same held-out rows as the challenger. The `ChampionAuc` parameter remains for
+execution compatibility. A challenger registers only when its test AUC beats
+the current champion.
 """
 
+from __future__ import annotations
+
 import argparse
+from typing import Any
 
 import sagemaker
 from sagemaker.inputs import TrainingInput
@@ -25,7 +27,7 @@ from sagemaker.workflow.parameters import ParameterFloat, ParameterString
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.workflow.steps import CacheConfig, ProcessingStep, TrainingStep
+from sagemaker.workflow.steps import ProcessingStep, TrainingStep
 
 from src.common.registry import get_champion
 
@@ -63,7 +65,6 @@ def build_pipeline(
     region: str = "us-east-1",
 ) -> Pipeline:
     session = PipelineSession(default_bucket=artifacts_bucket)
-    cache = CacheConfig(enable_caching=True, expire_after="P30D")
 
     input_data = ParameterString(name="InputDataUri", default_value=f"s3://{curated_bucket}/telco/")
     champion_model_arn, champion_test_auc = get_champion(model_package_group, region)
@@ -101,8 +102,6 @@ def build_pipeline(
     preprocess = ProcessingStep(
         name="Preprocess",
         step_args=preprocess_args,
-        # Apply cache configuration to the pipeline step.
-        cache_config=cache,
     )
 
     image_uri = sagemaker.image_uris.retrieve("xgboost", region, version="1.7-1")
@@ -128,7 +127,6 @@ def build_pipeline(
                 content_type="text/csv",
             ),
         },
-        cache_config=cache,
     )
 
     evaluation_report = PropertyFile(
@@ -178,6 +176,10 @@ def build_pipeline(
             champion_model,
             "--champion-test-auc",
             champion_auc.to_string(),
+            "--artifacts-bucket",
+            artifacts_bucket,
+            "--region",
+            region,
             "--challenger-model-artifact",
             train.properties.ModelArtifacts.S3ModelArtifacts,
         ],
@@ -192,6 +194,11 @@ def build_pipeline(
         step_name=evaluate.name,
         property_file=evaluation_report,
         json_path="binary_classification_metrics.auc.value",
+    )
+    current_champion_auc = JsonGet(
+        step_name=evaluate.name,
+        property_file=evaluation_report,
+        json_path="current_champion_auc",
     )
 
     model = Model(
@@ -233,7 +240,7 @@ def build_pipeline(
             # SDK `left` hint omits it. Remove the ignore if the SDK adds it.
             ConditionGreaterThan(
                 left=challenger_auc,  # type: ignore[arg-type]
-                right=champion_auc,
+                right=current_champion_auc,  # type: ignore[arg-type]
             )
         ],
         if_steps=[register],
@@ -246,6 +253,17 @@ def build_pipeline(
         steps=[preprocess, train, evaluate, gate],
         sagemaker_session=session,
     )
+
+
+def _fresh_champion_parameters(model_package_group: str, region: str) -> dict[str, float | str]:
+    """Return current registry values for an explicit pipeline start."""
+    champion_arn, champion_auc = get_champion(model_package_group, region)
+    return {"ChampionAuc": champion_auc, "ChampionModelPackageArn": champion_arn}
+
+
+def _start_pipeline(pipeline: Pipeline, model_package_group: str, region: str) -> Any:
+    """Start a pipeline with registry values read after the upsert."""
+    return pipeline.start(parameters=_fresh_champion_parameters(model_package_group, region))
 
 
 if __name__ == "__main__":
@@ -272,5 +290,5 @@ if __name__ == "__main__":
     pipeline.upsert(role_arn=args.role_arn)
     print(f"upserted pipeline {args.pipeline_name}")
     if args.start:
-        execution = pipeline.start()
+        execution = _start_pipeline(pipeline, args.model_package_group, args.region)
         print(f"started execution {execution.arn}")

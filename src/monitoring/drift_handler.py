@@ -8,12 +8,17 @@ the configured monitor schedule.
 import datetime
 import json
 import os
+import re
+from collections.abc import Mapping
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 import boto3
 from botocore.exceptions import ClientError
 
 from src.common.drift import (
+    BASELINE_RUN_PREFIX,
+    BASELINE_URI_METADATA_KEY,
     DRIFT_STATUS,
     EVENT_DETAIL_TYPE,
     EVENT_SOURCE,
@@ -25,10 +30,14 @@ from src.common.events import log_event
 
 s3 = boto3.client("s3")
 events = boto3.client("events")
+sm = boto3.client("sagemaker")
 
 ARTIFACTS_BUCKET = os.environ["ARTIFACTS_BUCKET"]
 BASELINE_KEY = os.environ["BASELINE_KEY"]
 CAPTURE_PREFIX = os.environ["CAPTURE_PREFIX"]
+ENDPOINT_NAME = os.environ["ENDPOINT_NAME"]
+
+IN_SERVICE_STATUS = "InService"
 
 # Score this many complete hours before the current hour.
 WINDOW_HOURS = int(os.environ.get("WINDOW_HOURS", "1"))
@@ -70,25 +79,123 @@ def read_captured(prefixes: list[str]) -> tuple[list[dict[str, Any]], int]:
     return records, unreadable_count
 
 
-def read_baseline() -> dict[str, Any]:
-    """Read the baseline the preprocessing step wrote."""
+def _endpoint_snapshot() -> tuple[str, str]:
+    """Return the configured endpoint status and endpoint-config name."""
+    endpoint = sm.describe_endpoint(EndpointName=ENDPOINT_NAME)
+    status = endpoint.get("EndpointStatus")
+    config_name = endpoint.get("EndpointConfigName")
+    if not isinstance(status, str) or not isinstance(config_name, str) or not config_name:
+        raise ValueError("endpoint status or config is missing")
+    return status, config_name
+
+
+def _skip_unhealthy_endpoint(status: str) -> dict[str, Any]:
+    """Record an endpoint that cannot provide a stable serving model."""
+    reason = f"endpoint_status_{status.lower()}"
+    log_event(
+        "drift_endpoint_not_healthy", endpoint=ENDPOINT_NAME, endpoint_status=status, reason=reason
+    )
+    return {"skipped": "endpoint_not_healthy", "endpoint_status": status, "reason": reason}
+
+
+def _model_package_name(model: Mapping[str, Any]) -> str:
+    """Return the one model package named by a model description."""
+    containers = model.get("Containers")
+    if isinstance(containers, list) and containers:
+        if len(containers) != 1 or not isinstance(containers[0], dict):
+            raise ValueError("serving model must name exactly one container")
+        package_name = containers[0].get("ModelPackageName")
+    else:
+        primary = model.get("PrimaryContainer")
+        package_name = primary.get("ModelPackageName") if isinstance(primary, dict) else None
+    if not isinstance(package_name, str) or not package_name:
+        raise ValueError("serving model must name one model package")
+    return package_name
+
+
+def _baseline_key(uri: object, model_package_name: str) -> str:
+    """Return a validated key for one versioned baseline URI."""
+    parsed = urlparse(uri if isinstance(uri, str) else "")
+    path = unquote(parsed.path)
+    prefix = f"{BASELINE_RUN_PREFIX}/"
+    if (
+        parsed.scheme != "s3"
+        or parsed.netloc != ARTIFACTS_BUCKET
+        or parsed.query
+        or parsed.fragment
+        or not path.startswith("/")
+        or path.startswith("//")
+    ):
+        log_event(
+            "drift_baseline_uri_invalid", package=model_package_name, reason="bucket_or_scheme"
+        )
+        raise ValueError("baseline URI must use the configured artifacts bucket")
+    key = path[1:]
+    run_id = key[len(prefix) : -len("/baseline.json")] if key.startswith(prefix) else ""
+    if (
+        not key.startswith(prefix)
+        or not key.endswith("/baseline.json")
+        or not re.fullmatch(r"[A-Za-z0-9_-]+", run_id)
+    ):
+        log_event(
+            "drift_baseline_uri_invalid", package=model_package_name, reason="versioned_prefix"
+        )
+        raise ValueError("baseline URI must name one versioned baseline object")
+    return key
+
+
+def read_baseline(key: str) -> dict[str, Any]:
+    """Read and validate one baseline object from the artifacts bucket."""
     try:
-        body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=BASELINE_KEY)["Body"].read()
+        body = s3.get_object(Bucket=ARTIFACTS_BUCKET, Key=key)["Body"].read()
     except ClientError as error:
         if error.response.get("Error", {}).get("Code") == "NoSuchKey":
             log_event(
                 "drift_baseline_missing",
                 bucket=ARTIFACTS_BUCKET,
-                key=BASELINE_KEY,
+                key=key,
             )
         raise
-    baseline = json.loads(body)
+    try:
+        baseline = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as error:
+        log_event("drift_baseline_invalid", bucket=ARTIFACTS_BUCKET, key=key, reason="json")
+        raise ValueError(
+            f"Baseline object s3://{ARTIFACTS_BUCKET}/{key} is invalid JSON"
+        ) from error
     try:
         return validate_baseline(baseline)
     except ValueError as error:
+        log_event("drift_baseline_invalid", bucket=ARTIFACTS_BUCKET, key=key, reason="schema")
         raise ValueError(
-            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} is invalid: {error}"
+            f"Baseline object s3://{ARTIFACTS_BUCKET}/{key} is invalid: {error}"
         ) from error
+
+
+def resolve_serving_baseline(endpoint_config_name: str) -> tuple[dict[str, Any], dict[str, str]]:
+    """Resolve the baseline bound to the model currently in the endpoint."""
+    endpoint_config = sm.describe_endpoint_config(EndpointConfigName=endpoint_config_name)
+    variants = endpoint_config.get("ProductionVariants")
+    if not isinstance(variants, list) or len(variants) != 1:
+        raise ValueError("endpoint config must name exactly one production variant")
+    model_name = variants[0].get("ModelName") if isinstance(variants[0], dict) else None
+    if not isinstance(model_name, str) or not model_name:
+        raise ValueError("endpoint config must name one model")
+    model = sm.describe_model(ModelName=model_name)
+    model_package_name = _model_package_name(model)
+    package = sm.describe_model_package(ModelPackageName=model_package_name)
+    metadata = package.get("CustomerMetadataProperties")
+    baseline_uri = metadata.get(BASELINE_URI_METADATA_KEY) if isinstance(metadata, dict) else None
+    if not isinstance(baseline_uri, str) or not baseline_uri:
+        log_event("drift_baseline_metadata_missing", package=model_package_name)
+        raise ValueError(f"model package has no {BASELINE_URI_METADATA_KEY} metadata")
+    baseline = read_baseline(_baseline_key(baseline_uri, model_package_name))
+    return baseline, {
+        "endpoint_config_name": endpoint_config_name,
+        "model_name": model_name,
+        "model_package_name": model_package_name,
+        "baseline_uri": baseline_uri,
+    }
 
 
 def emit_violation(result: dict[str, Any]) -> None:
@@ -137,8 +244,25 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
             **skipped,
         }
 
-    result = compare(read_baseline(), records)
-    result["unreadable_count"] = unreadable_count
+    endpoint_status, endpoint_config_name = _endpoint_snapshot()
+    if endpoint_status != IN_SERVICE_STATUS:
+        return _skip_unhealthy_endpoint(endpoint_status)
+
+    baseline, identity = resolve_serving_baseline(endpoint_config_name)
+    result = compare(baseline, records)
+    latest_status, latest_config_name = _endpoint_snapshot()
+    if latest_status != IN_SERVICE_STATUS:
+        return _skip_unhealthy_endpoint(latest_status)
+    if latest_config_name != endpoint_config_name:
+        log_event(
+            "drift_serving_model_changed",
+            endpoint=ENDPOINT_NAME,
+            previous_endpoint_config=endpoint_config_name,
+            current_endpoint_config=latest_config_name,
+        )
+        return {"skipped": "serving_model_changed", "reason": "endpoint_config_changed"}
+
+    result.update(identity | {"endpoint_name": ENDPOINT_NAME, "unreadable_count": unreadable_count})
     if not result["drifted"]:
         log_event("drift_evaluated", **result)
         return {"drifted": False, **result}

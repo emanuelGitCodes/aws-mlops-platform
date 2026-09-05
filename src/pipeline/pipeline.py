@@ -29,19 +29,13 @@ from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep
 
+from src.common.drift import BASELINE_RUN_PREFIX, BASELINE_URI_METADATA_KEY
 from src.common.registry import get_champion
 
 # Configure processing, training, and inference instance types separately.
 PROCESSING_INSTANCE_TYPE = "ml.m5.large"
 TRAINING_INSTANCE_TYPE = "ml.m5.large"
 INFERENCE_INSTANCE_TYPES = ["ml.m5.large"]
-
-# The drift Lambda reads the baseline from this fixed prefix.
-# `infra/stacks/shared.py` repeats it for IAM and the Lambda environment.
-# `tests/unit/test_pipeline.py` compares both values.
-#
-# Each preprocessing run replaces the baseline object.
-BASELINE_DESTINATION_PREFIX = "monitor/baseline"
 
 # SageMaker represents each hyperparameter as a string.
 # The SDK type also permits `PipelineVariable` values.
@@ -72,6 +66,15 @@ def build_pipeline(
     champion_model = ParameterString(
         name="ChampionModelPackageArn", default_value=champion_model_arn
     )
+    baseline_destination = Join(
+        on="/",
+        values=[
+            f"s3://{artifacts_bucket}",
+            BASELINE_RUN_PREFIX,
+            ExecutionVariables.PIPELINE_EXECUTION_ID,
+        ],
+    )
+    baseline_uri = Join(on="/", values=[baseline_destination, "baseline.json"])
 
     # `FrameworkProcessor` bundles `src` with the preprocessing entrypoint.
     preprocess_processor = FrameworkProcessor(
@@ -95,7 +98,7 @@ def build_pipeline(
             ProcessingOutput(
                 output_name="baseline",
                 source="/opt/ml/processing/baseline",
-                destination=f"s3://{artifacts_bucket}/{BASELINE_DESTINATION_PREFIX}",
+                destination=baseline_destination,
             ),
         ],
     )
@@ -229,7 +232,10 @@ def build_pipeline(
                     content_type="application/json",
                 )
             ),
-            customer_metadata_properties={"test_auc": challenger_auc.to_string()},
+            customer_metadata_properties={
+                "test_auc": challenger_auc.to_string(),
+                BASELINE_URI_METADATA_KEY: baseline_uri,
+            },
         ),
     )
 

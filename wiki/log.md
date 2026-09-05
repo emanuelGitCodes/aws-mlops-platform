@@ -1026,6 +1026,35 @@ The CLI refreshes champion parameters after upsert.
 **Decision and next checkpoint:** prepared for local review. Runtime champion
 selection for arbitrary unparameterized starts follows in another small
 change. Live pipeline execution and endpoint evaluation remain pending.
+
+## [2026-09-05] implement | Bind drift baselines to the serving model
+
+**Objective:** prevent a rejected candidate from replacing the reference
+distribution used to monitor the serving model.
+
+**Scope:** execution-specific baseline output, model-package metadata,
+the drift reader, and regression tests. The reader resolves the endpoint,
+configuration, model, and package before reading that package's baseline URI.
+It rechecks endpoint state and configuration before publishing a result.
+
+**Identity and environment:** local tests used mocked service clients.
+A separate read-only dev query confirmed that the current serving package
+has `test_auc` metadata but no `baseline_uri` key.
+
+**Commands and results:** the combined `make check` passed 598 tests at
+96.14% coverage. `make pr-size` measured 147 of 150 source lines.
+The isolated change passed dev and prod synthesis. Tests cover current-model
+selection, missing metadata, URI scope, malformed baselines, transitional
+states, and a model change during evaluation.
+
+**Interpretation:** no deployment callback copies a candidate baseline into
+the active reference. Each execution writes its own object. Missing legacy
+metadata is an explicit failure, not permission to use an unverified baseline.
+
+**Decision and next checkpoint:** prepared for local review. Before activating
+the new reader in dev, bind a verified training baseline to the serving model
+or deploy a compatible approved package. Do not label the current shared
+baseline as verified without checking its training provenance.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

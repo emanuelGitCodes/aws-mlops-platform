@@ -1,3 +1,4 @@
+import hashlib
 import json
 from unittest import mock
 
@@ -16,6 +17,43 @@ APPROVAL_EVENT = {
 }
 
 
+def _names(package_arn: str, memory_mb: int = 2048, max_concurrency: int = 5) -> tuple[str, str]:
+    suffix = hashlib.sha256(f"{package_arn}:{memory_mb}:{max_concurrency}".encode()).hexdigest()[
+        :16
+    ]
+    return f"test-endpoint-model-{suffix}", f"test-endpoint-config-{suffix}"
+
+
+def _model_description(package_arn: str) -> dict:
+    return {
+        "ExecutionRoleArn": "arn:aws:iam::123456789012:role/test",
+        "Containers": [{"ModelPackageName": package_arn}],
+    }
+
+
+def _config_description(
+    model_name: str,
+    memory_mb: int = 2048,
+    max_concurrency: int = 5,
+    provisioned_concurrency: int | None = None,
+) -> dict:
+    serverless = {
+        "MemorySizeInMB": memory_mb,
+        "MaxConcurrency": max_concurrency,
+    }
+    if provisioned_concurrency is not None:
+        serverless["ProvisionedConcurrency"] = provisioned_concurrency
+    return {
+        "ProductionVariants": [
+            {
+                "VariantName": "AllTraffic",
+                "ModelName": model_name,
+                "ServerlessConfig": serverless,
+            }
+        ]
+    }
+
+
 # What SageMaker returns for a DescribeEndpoint on a missing endpoint.
 ENDPOINT_MISSING = _ClientError("ValidationException", 'Could not find endpoint "test-endpoint".')
 
@@ -23,10 +61,159 @@ ENDPOINT_MISSING = _ClientError("ValidationException", 'Could not find endpoint 
 def _mock_sm(endpoint_exists: bool, describe_error: Exception = ENDPOINT_MISSING) -> mock.Mock:
     sm = mock.Mock()
     sm.exceptions.ClientError = _ClientError
-    sm.describe_model_package.return_value = {"CustomerMetadataProperties": {"test_auc": "0.8398"}}
+    sm.describe_model_package.return_value = {
+        "ModelApprovalStatus": "Approved",
+        "CustomerMetadataProperties": {"test_auc": "0.8398"},
+    }
+    sm.describe_model.side_effect = _ClientError("ValidationException", "Could not find model")
+    sm.describe_endpoint_config.side_effect = _ClientError(
+        "ValidationException", "Could not find endpoint config"
+    )
     if not endpoint_exists:
         sm.describe_endpoint.side_effect = describe_error
     return sm
+
+
+def test_resource_helpers_validate_names_and_existing_settings():
+    package_arn = APPROVAL_EVENT["detail"]["ModelPackageArn"]
+    model_name, config_name = _names(package_arn)
+    assert deploy_handler._resource_names(package_arn) == (model_name, config_name)
+    assert deploy_handler._model_matches(_model_description(package_arn), package_arn)
+    assert deploy_handler._config_matches(_config_description(model_name), model_name)
+    assert not deploy_handler._config_matches(
+        _config_description(model_name, provisioned_concurrency=1), model_name
+    )
+
+
+def test_resource_helpers_reject_malformed_config_and_long_names():
+    assert not deploy_handler._config_matches({"ProductionVariants": [{}]}, "model")
+    assert not deploy_handler._config_matches(
+        {"ProductionVariants": [{"ServerlessConfig": []}]}, "model"
+    )
+    with mock.patch.object(deploy_handler, "ENDPOINT_NAME", "e" * 60):
+        with pytest.raises(ValueError, match="too long"):
+            deploy_handler._resource_names("arn:package")
+
+
+def test_resource_helpers_require_precise_sagemaker_error_messages():
+    assert deploy_handler._is_resource_not_found(
+        _ClientError("ValidationException", "Could not find model")
+    )
+    assert not deploy_handler._is_resource_not_found(
+        _ClientError("ValidationException", "model has an invalid configuration")
+    )
+    assert deploy_handler._is_resource_in_use(
+        _ClientError("ValidationException", "model already exists")
+    )
+    assert not deploy_handler._is_resource_in_use(
+        _ClientError("ValidationException", "model configuration is invalid")
+    )
+
+
+def test_resource_assurance_reuses_a_matching_resource():
+    describe = mock.Mock(return_value={"matching": True})
+    create = mock.Mock()
+
+    deploy_handler._ensure_resource(
+        describe,
+        create,
+        {"Name": "resource"},
+        {"Name": "resource"},
+        lambda description: description["matching"],
+        "model",
+    )
+
+    describe.assert_called_once_with(Name="resource")
+    create.assert_not_called()
+
+
+def test_resource_assurance_rejects_mismatch_and_propagates_errors():
+    with pytest.raises(RuntimeError, match="does not match approval"):
+        deploy_handler._ensure_resource(
+            mock.Mock(return_value={"matching": False}),
+            mock.Mock(),
+            {"Name": "resource"},
+            {"Name": "resource"},
+            lambda description: description["matching"],
+            "model",
+        )
+
+    describe = mock.Mock(side_effect=_ClientError("AccessDeniedException", "denied"))
+    sm = mock.Mock()
+    sm.exceptions.ClientError = _ClientError
+    with mock.patch.object(deploy_handler, "sm", sm):
+        with pytest.raises(_ClientError):
+            deploy_handler._ensure_resource(
+                describe,
+                mock.Mock(),
+                {"Name": "resource"},
+                {"Name": "resource"},
+                lambda description: True,
+                "model",
+            )
+
+
+def test_resource_assurance_rejects_a_concurrent_mismatch():
+    describe = mock.Mock(
+        side_effect=[
+            _ClientError("ValidationException", "Could not find model"),
+            {"matching": False},
+        ]
+    )
+    create = mock.Mock(side_effect=_ClientError("ResourceInUseException", "already exists"))
+
+    sm = mock.Mock()
+    sm.exceptions.ClientError = _ClientError
+    with mock.patch.object(deploy_handler, "sm", sm):
+        with pytest.raises(RuntimeError, match="does not match approval"):
+            deploy_handler._ensure_resource(
+                describe,
+                create,
+                {"Name": "resource"},
+                {"Name": "resource"},
+                lambda description: description["matching"],
+                "model",
+            )
+
+
+@pytest.mark.parametrize("status", ["Failed", "UpdateRollbackFailed", "Deleting"])
+def test_endpoint_action_rejects_unusable_endpoint_states(status):
+    with pytest.raises(RuntimeError, match=status):
+        deploy_handler._endpoint_action(
+            {"EndpointStatus": status, "EndpointConfigName": "test-config"},
+            "test-config",
+        )
+
+
+def test_endpoint_action_tracks_pending_deployment_config():
+    endpoint = {
+        "EndpointStatus": "Updating",
+        "EndpointConfigName": "old-config",
+        "PendingDeploymentSummary": {"EndpointConfigName": "new-config"},
+    }
+    assert deploy_handler._endpoint_action(endpoint, "new-config") == "in_progress"
+    with pytest.raises(RuntimeError, match="another pending config"):
+        deploy_handler._endpoint_action(endpoint, "other-config")
+
+
+def test_endpoint_action_rejects_unknown_or_unresolved_states():
+    with pytest.raises(RuntimeError, match="Updating"):
+        deploy_handler._endpoint_action(
+            {"EndpointStatus": "Updating", "EndpointConfigName": "old-config"},
+            "new-config",
+        )
+    assert (
+        deploy_handler._endpoint_action(
+            {"EndpointStatus": "InService", "EndpointConfigName": "test-config"},
+            "test-config",
+        )
+        == "unchanged"
+    )
+    with pytest.raises(RuntimeError, match="unexpected status"):
+        deploy_handler._endpoint_action(
+            {"EndpointStatus": "Pending", "EndpointConfigName": "test-config"},
+            "test-config",
+        )
 
 
 def test_non_approval_event_is_skipped():

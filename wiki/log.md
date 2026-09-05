@@ -1080,6 +1080,26 @@ read action on its own model package group.
 
 **Decision and next checkpoint:** prepared for local review. Install the
 reviewed Training grants before updating the live pipeline definition.
+
+## [2026-09-05] implement | Deployment resource assurance helpers
+
+**Objective:** prepare reusable checks for deployment retries without changing
+the active approval handler flow in this layer.
+
+**Scope:** deterministic resource names, precise service-error classification,
+resource matching, endpoint-state checks, and direct helper tests.
+
+**Identity and environment:** local tests only. No AWS resource was created.
+
+**Commands and results:** the combined `make check` passed 611 tests at
+96.37% coverage. `make pr-size` measured 113 of 150 source lines.
+
+**Interpretation:** a matching existing resource can be reused. Unrelated
+validation errors and access denials remain failures. Pending deployment
+state is distinct from an already-current endpoint.
+
+**Decision and next checkpoint:** prepared as the first of two retry layers.
+The next layer activates these helpers and adds the scoped Describe grants.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "IdentifyAccount",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AssumeCdkRoles",
+      "Effect": "Allow",
+      "Action": ["sts:AssumeRole", "sts:TagSession"],
+      "Resource": [
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-deploy-role-${AWS_ACCOUNT_ID}-${AWS_REGION}",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-file-publishing-role-${AWS_ACCOUNT_ID}-${AWS_REGION}",
+        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-lookup-role-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+      ]
+    },
+    {
+      "Sid": "ReadCdkBootstrapVersion",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+      "Resource": "arn:aws:ssm:${AWS_REGION}:${AWS_ACCOUNT_ID}:parameter/cdk-bootstrap/hnb659fds/version"
+    }
+  ]
+}

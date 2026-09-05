@@ -10,10 +10,9 @@
 #
 # Idempotent: safe to re-run. Existing IAM objects are left as-is.
 #
-# The MLOpsCdkDeploymentPolicy document below reproduces the live policy in
-# the reference account. Keep the two in step. The SSM grant names the single
-# CDK bootstrap version parameter; a wildcard resource here would widen the
-# control-plane identity beyond what it needs.
+# The MLOpsCdkDeploymentPolicy document lives in infra/policies/. The SSM grant
+# names the single CDK bootstrap version parameter. A wildcard resource here
+# would widen the control-plane identity beyond what it needs.
 #
 # Requires: aws CLI configured with an admin-capable profile, envsubst,
 # and a populated .env (AWS_ACCOUNT_ID, AWS_REGION, MLOPS_DEPLOYER_USER_NAME).
@@ -70,35 +69,7 @@ echo "== CDK deployment policy (control-plane boundary) =="
 # Lets a human or CI identity assume the CDK bootstrap roles without any
 # direct S3/Lambda/SageMaker/CloudFormation permission of its own.
 tmp_deploy_policy="$(mktemp)"
-cat >"${tmp_deploy_policy}" <<JSON
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "IdentifyAccount",
-      "Effect": "Allow",
-      "Action": "sts:GetCallerIdentity",
-      "Resource": "*"
-    },
-    {
-      "Sid": "AssumeCdkRoles",
-      "Effect": "Allow",
-      "Action": ["sts:AssumeRole", "sts:TagSession"],
-      "Resource": [
-        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-deploy-role-${AWS_ACCOUNT_ID}-${AWS_REGION}",
-        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-file-publishing-role-${AWS_ACCOUNT_ID}-${AWS_REGION}",
-        "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cdk-hnb659fds-lookup-role-${AWS_ACCOUNT_ID}-${AWS_REGION}"
-      ]
-    },
-    {
-      "Sid": "ReadCdkBootstrapVersion",
-      "Effect": "Allow",
-      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
-      "Resource": "arn:aws:ssm:${AWS_REGION}:${AWS_ACCOUNT_ID}:parameter/cdk-bootstrap/hnb659fds/version"
-    }
-  ]
-}
-JSON
+envsubst <"${POLICY_DIR}/mlops-cdk-deployment-policy.json" >"${tmp_deploy_policy}"
 create_or_skip_policy "${DEPLOY_POLICY_NAME}" "${deploy_policy_arn}" "${tmp_deploy_policy}"
 rm -f "${tmp_deploy_policy}"
 

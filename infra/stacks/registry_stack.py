@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from aws_cdk import Stack
+from aws_cdk import RemovalPolicy, Stack
 from aws_cdk import aws_sagemaker as sagemaker
 from constructs import Construct
 
@@ -16,9 +16,13 @@ class RegistryStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.package_group_name = config["model_package_group"]
-        sagemaker.CfnModelPackageGroup(
+        package_group = sagemaker.CfnModelPackageGroup(
             self,
             "ChurnModelGroup",
             model_package_group_name=self.package_group_name,
             model_package_group_description="Telco churn challengers, gated on test AUC.",
+        )
+        package_group.apply_removal_policy(
+            RemovalPolicy.RETAIN,
+            apply_to_update_replace_policy=True,
         )

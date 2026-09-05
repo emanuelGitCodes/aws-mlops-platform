@@ -489,6 +489,7 @@ class SecurityStack(Stack):
                 )
             )
 
+        metric_namespace = f"MLOps/Security/{env_name}"
         for detection in SECURITY_DETECTIONS:
             logs.MetricFilter(
                 self,
@@ -497,12 +498,12 @@ class SecurityStack(Stack):
                 filter_pattern=logs.FilterPattern.literal(detection.filter_pattern),
                 log_group=audit_log_group,
                 metric_name=detection.metric_name,
-                metric_namespace="MLOps/Security",
+                metric_namespace=metric_namespace,
                 metric_value="1",
             )
             filtered_metric = cloudwatch.Metric(
                 metric_name=detection.metric_name,
-                namespace="MLOps/Security",
+                namespace=metric_namespace,
                 period=Duration.minutes(5),
                 statistic="Sum",
             )

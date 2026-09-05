@@ -445,6 +445,21 @@ the CloudWatch evidence of that change.
   or identity change is deployed by this checkpoint. Full 3F — GuardDuty and
   Security Hub findings — follows the deferred services.
 
+  **Phase 9 now owns the least-privilege residue Phase 5 left.** Phase 5
+  converted four roles and stopped there. `ValidateFn`, `RetrainTriggerFn`, and
+  the CDK provider Lambdas still carry `AWSLambdaBasicExecutionRole`, because
+  `least_privilege_logs` is opt-in. Seven cdk-nag acknowledgements named Phase 5
+  as the phase that removes them, which made each one a promise no phase would
+  keep. They name Phase 9 instead, and a test now fails when an acknowledgement
+  suppresses no live finding. See the
+  [2026-09-05 checkpoint entry](../../log.md).
+
+  Two acknowledgements were deleted rather than retargeted. `AwsSolutions-APIG4`
+  stopped firing when Phase 6 moved `/predict` to `AWS_IAM`, and
+  `AwsSolutions-S1` no longer fires on the access-log bucket. Synthesis proves
+  both: removing a live acknowledgement fails the cdk-nag gate, and
+  `make synth-all` passes without them.
+
 ### Stable interfaces and deliberate breakpoints
 
 - The `/predict` JSON request, JSON response, and `score >= 0.50` churn rule do

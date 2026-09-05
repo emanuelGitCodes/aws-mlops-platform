@@ -9,7 +9,8 @@ serverless:
   memory_mb: 3072
   max_concurrency: 20
 monitor:
-  # This hourly schedule starts about 720 SageMaker processing jobs each month.
+  # This hourly schedule starts about 720 drift-evaluation Lambda
+  # invocations each month.
   schedule_cron: "cron(0 * ? * * *)"
   # Page after this many hours with no endpoint invocations.
   silence_alarm_hours: 6

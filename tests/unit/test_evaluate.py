@@ -257,7 +257,9 @@ def test_main_scores_champion_and_challenger_on_the_same_features(tmp_path, monk
         [
             "evaluate.py",
             "--champion-model-package-arn",
-            "arn:package",
+            "none",
+            "--model-package-group",
+            "fresh-group",
             "--champion-test-auc",
             "0.0",
             "--artifacts-bucket",
@@ -272,7 +274,12 @@ def test_main_scores_champion_and_challenger_on_the_same_features(tmp_path, monk
     }
     s3 = mock.Mock()
     s3.get_object.return_value = {"Body": io.BytesIO(_archive(payload=b"champion"))}
-    with mock.patch.object(evaluate.boto3, "client", side_effect=[sagemaker, s3]):
+    with (
+        mock.patch.object(
+            evaluate, "get_champion", return_value=("fresh-arn", 0.1)
+        ) as get_champion,
+        mock.patch.object(evaluate.boto3, "client", side_effect=[sagemaker, s3]),
+    ):
         evaluate.main()
 
     evaluation = json.loads((output_dir / "evaluation.json").read_text())
@@ -281,3 +288,5 @@ def test_main_scores_champion_and_challenger_on_the_same_features(tmp_path, monk
     assert metrics["promotion_decision"] == "reject"
     assert matrices == [[[0.0], [1.0], [2.0], [3.0]]] * 2
     assert loaded_types == [bytearray, bytearray]
+    get_champion.assert_called_once_with("fresh-group", "us-east-1")
+    sagemaker.describe_model_package.assert_called_once_with(ModelPackageName="fresh-arn")

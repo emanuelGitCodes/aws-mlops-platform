@@ -177,6 +177,8 @@ def build_pipeline(
         arguments=[
             "--champion-model-package-arn",
             champion_model,
+            "--model-package-group",
+            model_package_group,
             "--champion-test-auc",
             champion_auc.to_string(),
             "--artifacts-bucket",

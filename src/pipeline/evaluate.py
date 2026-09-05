@@ -37,6 +37,7 @@ from src.common.features import (
     DEFAULT_THRESHOLD,
     NO_CHAMPION_ARN,
 )
+from src.common.registry import get_champion
 
 MODEL_DIR = "/opt/ml/processing/model"
 TEST_DIR = "/opt/ml/processing/test"
@@ -320,6 +321,7 @@ def _load_test_data(test_dir: str) -> tuple[list[int], list[list[float]]]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--champion-model-package-arn", default=NO_CHAMPION_ARN)
+    parser.add_argument("--model-package-group")
     parser.add_argument("--champion-test-auc", type=float, default=BASELINE_CHAMPION_AUC)
     parser.add_argument("--artifacts-bucket", default="")
     parser.add_argument("--region", default="us-east-1")
@@ -330,12 +332,15 @@ def main() -> None:
     # This processing step supplies the XGBoost runtime.
     import xgboost as xgb
 
+    champion_model_package_arn = args.champion_model_package_arn
+    if args.model_package_group:
+        champion_model_package_arn, _ = get_champion(args.model_package_group, args.region)
     challenger_archive = pathlib.Path(f"{MODEL_DIR}/model.tar.gz").read_bytes()
     challenger = _load_booster_from_archive(challenger_archive, xgb)
     labels, features = _load_test_data(TEST_DIR)
     challenger_scores = [float(score) for score in challenger.predict(xgb.DMatrix(features))]
     champion = _load_champion_booster(
-        args.champion_model_package_arn,
+        champion_model_package_arn,
         args.artifacts_bucket,
         args.region,
         xgb,
@@ -354,7 +359,7 @@ def main() -> None:
         "challenger_evaluation",
         challenger_model_artifact=args.challenger_model_artifact,
         challenger_test_auc=round(metrics["auc"], 4),
-        champion_model_package_arn=args.champion_model_package_arn,
+        champion_model_package_arn=champion_model_package_arn,
         champion_test_auc=champion_auc,
         promotion_decision=metrics["promotion_decision"],
     )

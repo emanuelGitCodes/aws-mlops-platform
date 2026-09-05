@@ -143,7 +143,7 @@ def write_preprocessed_splits(splits: dict[str, list[dict[str, Any]]], output_ro
 def main() -> None:
     input_dir = "/opt/ml/processing/input"
     records: list[dict[str, Any]] = []
-    for path in glob.glob(f"{input_dir}/*.csv"):
+    for path in sorted(glob.glob(f"{input_dir}/*.csv")):
         with open(path) as f:
             records.extend(csv.DictReader(f))
 

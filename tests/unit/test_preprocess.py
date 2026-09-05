@@ -1,10 +1,13 @@
+import csv
 import json
 import random
+from unittest import mock
 
 import pytest
 
 from src.common.features import encode_features
 from src.common.schema import FEATURE_COLUMNS
+from src.pipeline import preprocess
 from src.pipeline.preprocess import (
     encode_labeled_row,
     split_records,
@@ -146,3 +149,30 @@ def test_five_rows_are_rejected_before_any_split_is_returned():
 
     with pytest.raises(ValueError, match="at least 6 records"):
         split_records(records)
+
+
+def test_main_sorts_multiple_input_files_before_splitting(tmp_path):
+    records = [
+        {**VALID, "Churn": "Yes" if index < 10 else "No", "tenure": index} for index in range(20)
+    ]
+    paths = [tmp_path / "b.csv", tmp_path / "a.csv"]
+    for path, rows in ((paths[0], records[:10]), (paths[1], records[10:])):
+        with path.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=rows[0])
+            writer.writeheader()
+            writer.writerows(rows)
+
+    captured = []
+    for order in (paths, list(reversed(paths))):
+        with (
+            mock.patch.object(preprocess.glob, "glob", return_value=[str(path) for path in order]),
+            mock.patch.object(
+                preprocess,
+                "write_preprocessed_splits",
+                side_effect=lambda splits, _: captured.append(splits),
+            ),
+            mock.patch.object(preprocess, "log_event"),
+        ):
+            preprocess.main()
+
+    assert captured[0] == captured[1]

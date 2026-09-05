@@ -2,14 +2,67 @@
 
 import hashlib
 import json
+import re
+from unittest import mock
 
 import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Match
+from cdk_nag import AwsSolutionsChecks
 
-from infra.app import load_config, stack_prefix
+from infra.app import build_app, load_config, stack_prefix
 from infra.security_checks import acknowledgement_metadata_key, resolved_acknowledgements
 from tests.unit.conftest import CONFIG, synth_env
+
+
+def test_acknowledgements_match_live_cdk_nag_findings():
+    """Require each active acknowledgement to match a live cdk-nag finding."""
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    with mock.patch("infra.app.apply_security_checks"):
+        stacks = build_app(app, CONFIG, "Test")
+
+    app.synth()
+    report = AwsSolutionsChecks(app, verbose=False).validate_scope(app)
+
+    def canonical_finding_id(finding_id: str) -> str:
+        finding_id = finding_id.removeprefix("AwsSolutions::")
+        return re.sub(
+            r"Test-Data:ExportsOutputFnGetAtt([A-Za-z0-9]+)Arn[A-F0-9]+",
+            r"<\1.Arn>",
+            finding_id,
+        )
+
+    live_pairs = {
+        (resource.construct_path, canonical_finding_id(violation.rule_name))
+        for violation in report.violations
+        for resource in violation.violating_resources
+    }
+    service_flags = CONFIG["security"]["services"]
+    enabled_flags = {name for name, enabled in service_flags.items() if enabled}
+    if CONFIG["security"]["account_budget"]:
+        enabled_flags.add("account_budget")
+    if CONFIG["website"]["enabled"]:
+        enabled_flags.add("website")
+
+    expected_pairs = set()
+    for acknowledgement in resolved_acknowledgements(CONFIG, "Test"):
+        if acknowledgement.requires_flag and acknowledgement.requires_flag not in enabled_flags:
+            continue
+        stack = stacks[acknowledgement.stack]
+        expected_path = f"{stack.node.path}/{acknowledgement.construct_path}"
+        matches = [node for node in stack.node.find_all() if node.node.path == expected_path]
+        assert len(matches) == 1, expected_path
+        target = matches[0].node.default_child or matches[0]
+        pair = target.node.path, canonical_finding_id(acknowledgement.finding_id)
+        expected_pairs.add(pair)
+
+    missing_pairs = sorted(expected_pairs - live_pairs)
+    assert not missing_pairs, missing_pairs
 
 
 def test_security_acknowledgements_are_exact_and_expiring(stack_constructs):

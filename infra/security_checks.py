@@ -54,12 +54,6 @@ APIGW_LOG_POLICY = (
 ACKNOWLEDGEMENTS = (
     Acknowledgement(
         "security",
-        "AccessLogBucket",
-        "AwsSolutions::AwsSolutions-S1",
-        "Phase 2 access-log sink must not recursively deliver server access logs to itself.",
-    ),
-    Acknowledgement(
-        "security",
         "CloudTrailLogsRole/DefaultPolicy",
         (
             "AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:logs:<AWS::Region>:"
@@ -71,7 +65,10 @@ ACKNOWLEDGEMENTS = (
         "security_monitoring",
         "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
         LAMBDA_BASIC_POLICY,
-        "Phase 3E account-BPA provider; replace managed log policy during Phase 5 IAM work.",
+        (
+            "The account-BPA provider uses AWSLambdaBasicExecutionRole. "
+            "Phase 9 MUST review this managed log policy."
+        ),
         requires_flag="account_bpa",
     ),
     Acknowledgement(
@@ -88,27 +85,39 @@ ACKNOWLEDGEMENTS = (
         "data",
         "BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role",
         LAMBDA_BASIC_POLICY,
-        "CDK singleton notification provider; replace managed log policy during Phase 5 IAM work.",
+        (
+            "The CDK singleton notification provider uses AWSLambdaBasicExecutionRole. "
+            "Phase 9 MUST review this managed log policy."
+        ),
     ),
     Acknowledgement(
         "data",
         "AWS679f53fac002430cb0da5b7982bd2287/ServiceRole",
         LAMBDA_BASIC_POLICY,
-        "Phase 2 budget API provider; replace managed log policy during Phase 5 IAM work.",
+        (
+            "The budget API provider uses AWSLambdaBasicExecutionRole. "
+            "Phase 9 MUST review this managed log policy."
+        ),
         requires_flag=ACCOUNT_BUDGET_FLAG,
     ),
     Acknowledgement(
         "ingestion",
         "ValidateFn/ServiceRole",
         LAMBDA_BASIC_POLICY,
-        "Existing validation Lambda; replace managed log policy during Phase 5 IAM work.",
+        (
+            "The validation Lambda uses AWSLambdaBasicExecutionRole. "
+            "Phase 9 MUST review this managed log policy."
+        ),
     ),
     *(
         Acknowledgement(
             "ingestion",
             "ValidateFn/ServiceRole/DefaultPolicy",
             f"AwsSolutions-IAM5[Action::{action}]",
-            "CDK S3 grant uses wildcard actions; narrow during Phase 5 IAM work.",
+            (
+                "The CDK S3 grant uses wildcard actions. "
+                "Phase 9 MUST review whether AWS permits narrower actions."
+            ),
         )
         for action in (
             "s3:GetObject*",
@@ -121,7 +130,7 @@ ACKNOWLEDGEMENTS = (
             "ingestion",
             "ValidateFn/ServiceRole/DefaultPolicy",
             f"AwsSolutions-IAM5[Resource::{resource}]",
-            "Object access is limited to one imported bucket; replace with a Phase 5 policy.",
+            "Object access is limited to one imported bucket. Phase 9 MUST review it.",
         )
         for resource in (
             "{prefix}-Data:ExportsOutputFnGetAttRawBucket0C3EE094ArnD2F95F99/*",
@@ -308,18 +317,21 @@ ACKNOWLEDGEMENTS = (
             "serving",
             "ChurnApi/Default/predict/POST",
             finding,
-            "Phase 0 records the API-key boundary; replace it with IAM in Phase 6.",
+            (
+                "IAM SigV4 is the deliberate authorizer choice, not a Cognito user-pool "
+                "authorizer. Phase 9 MUST review this choice."
+            ),
         )
-        for finding in (
-            "AwsSolutions::AwsSolutions-APIG4",
-            "AwsSolutions::AwsSolutions-COG4",
-        )
+        for finding in ("AwsSolutions::AwsSolutions-COG4",)
     ),
     Acknowledgement(
         "monitoring",
         "RetrainTriggerFn/ServiceRole",
         LAMBDA_BASIC_POLICY,
-        "Existing retrain Lambda; replace managed log policy during Phase 5 IAM work.",
+        (
+            "The retrain Lambda uses AWSLambdaBasicExecutionRole. "
+            "Phase 9 MUST review this managed log policy."
+        ),
     ),
     Acknowledgement(
         "monitoring",

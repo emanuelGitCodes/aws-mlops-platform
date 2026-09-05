@@ -248,6 +248,20 @@ def test_a_shifted_window_with_one_unreadable_object_emits_count_in_result_and_d
     assert detail["unreadable_count"] == 1
 
 
+def test_put_events_failure_raises_with_a_named_error_code(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    events.put_events.return_value = {
+        "FailedEntryCount": 1,
+        "Entries": [{"ErrorCode": "InternalFailure"}],
+    }
+
+    with pytest.raises(RuntimeError, match="InternalFailure"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_called_once()
+
+
 def test_the_shift_is_detected_on_its_merits_not_on_uniformity(aws):
     """The window that triggers a violation is as diverse as the stable one."""
     assert drift.distinct_record_count(SHIFTED) == len(SHIFTED)

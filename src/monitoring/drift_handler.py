@@ -98,7 +98,7 @@ def read_baseline() -> dict[str, Any]:
 
 def emit_violation(result: dict[str, Any]) -> None:
     """Put the violation event that starts a retraining run."""
-    events.put_events(
+    response = events.put_events(
         Entries=[
             {
                 "Source": EVENT_SOURCE,
@@ -107,6 +107,13 @@ def emit_violation(result: dict[str, Any]) -> None:
             }
         ]
     )
+
+    failed_count = response.get("FailedEntryCount", 0)
+    if not isinstance(failed_count, int) or failed_count <= 0:
+        return
+
+    error = response["Entries"][0].get("ErrorCode", "unknown")
+    raise RuntimeError(f"EventBridge rejected {failed_count} drift events: {error}")
 
 
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:

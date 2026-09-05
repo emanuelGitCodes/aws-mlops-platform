@@ -167,6 +167,16 @@ def test_invalid_baseline_record_count_aborts_drift_scoring(aws):
         drift_handler.read_baseline()
 
 
+def test_invalid_baseline_missing_feature_distribution_aborts_drift_scoring(aws):
+    s3, _ = aws
+    baseline = json.loads(json.dumps(BASELINE))
+    del baseline["counts"]["Contract"]
+    s3.get_object.return_value = body(baseline)
+
+    with pytest.raises(ValueError, match="every feature column"):
+        drift_handler.read_baseline()
+
+
 def test_read_captured_skips_unreadable_objects_and_tracks_skips(aws):
     s3, _ = aws
     good_key = "capture/2026/08/07/09/0.json"

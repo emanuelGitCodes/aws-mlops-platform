@@ -99,7 +99,11 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         curated_key = _dest_key("telco", source_key)
         quarantine_key = _dest_key("quarantine", source_key)
 
-        _write_csv(CURATED_BUCKET, curated_key, valid)
+        if valid:
+            _write_csv(CURATED_BUCKET, curated_key, valid)
+        else:
+            # Delete stale curated data only after parsing and row validation.
+            s3.delete_object(Bucket=CURATED_BUCKET, Key=curated_key)
         if rejected:
             _write_csv(CURATED_BUCKET, quarantine_key, rejected)
         else:

@@ -19,6 +19,7 @@ from src.common.drift import (
     EVENT_SOURCE,
     compare,
     distinct_record_count,
+    validate_baseline,
 )
 from src.common.events import log_event
 
@@ -81,19 +82,13 @@ def read_baseline() -> dict[str, Any]:
                 key=BASELINE_KEY,
             )
         raise
-    baseline: dict[str, Any] = json.loads(body)
-    if not isinstance(baseline.get("counts"), dict) or not baseline.get("counts"):
+    baseline = json.loads(body)
+    try:
+        return validate_baseline(baseline)
+    except ValueError as error:
         raise ValueError(
-            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} "
-            "must include non-empty 'counts' mapping."
-        )
-    record_count = baseline.get("record_count")
-    if not isinstance(record_count, int) or record_count < 1:
-        raise ValueError(
-            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} "
-            "must include integer 'record_count' above 0."
-        )
-    return baseline
+            f"Baseline object s3://{ARTIFACTS_BUCKET}/{BASELINE_KEY} is invalid: {error}"
+        ) from error
 
 
 def emit_violation(result: dict[str, Any]) -> None:

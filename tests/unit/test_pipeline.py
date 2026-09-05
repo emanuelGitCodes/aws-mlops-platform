@@ -132,18 +132,22 @@ def test_evaluation_reports_land_where_the_pipeline_role_is_allowed_to_write(def
 
 
 def test_the_baseline_lands_where_the_drift_lambda_reads_it(definition):
-    """Write the baseline under the drift Lambda read key."""
-    from infra.stacks.shared import BASELINE_KEY, MONITOR_OUTPUT_PREFIX
-    from src.pipeline.pipeline import BASELINE_DESTINATION_PREFIX
-
-    assert BASELINE_DESTINATION_PREFIX.startswith(f"{MONITOR_OUTPUT_PREFIX}/")
-    assert BASELINE_KEY == f"{BASELINE_DESTINATION_PREFIX}/baseline.json"
+    """Write an execution-scoped baseline and register its URI metadata."""
+    from src.common.drift import BASELINE_RUN_PREFIX, BASELINE_URI_METADATA_KEY
 
     outputs = _step(definition, "Preprocess")["Arguments"]["ProcessingOutputConfig"]["Outputs"]
     baseline = next(o for o in outputs if o["OutputName"] == "baseline")
-    # The other outputs are execution-scoped. This one must not be: the drift
-    # Lambda reads a fixed key and cannot discover an execution id.
-    assert baseline["S3Output"]["S3Uri"].endswith(f"/{BASELINE_DESTINATION_PREFIX}")
+    destination = json.dumps(baseline["S3Output"]["S3Uri"])
+    assert BASELINE_RUN_PREFIX in destination
+    assert "Execution.PipelineExecutionId" in destination
+
+    register = _step(definition, "BeatsChampion")["Arguments"]["IfSteps"][0]
+    metadata = register["Arguments"]["CustomerMetadataProperties"]
+    assert BASELINE_URI_METADATA_KEY in metadata
+    metadata_uri = json.dumps(metadata[BASELINE_URI_METADATA_KEY])
+    assert BASELINE_RUN_PREFIX in metadata_uri
+    assert "Execution.PipelineExecutionId" in metadata_uri
+    assert "baseline.json" in metadata_uri
 
 
 def test_training_hyperparameters_reach_the_estimator(definition):

@@ -10,6 +10,7 @@ import pytest
 from botocore.exceptions import ClientError as BotoClientError
 
 from src.common import drift
+from src.common.drift import BASELINE_RUN_PREFIX, BASELINE_URI_METADATA_KEY
 from tests.unit.conftest import VALID, import_with_stubbed_boto3, varied_records
 
 os.environ.setdefault("ARTIFACTS_BUCKET", "test-artifacts")
@@ -17,6 +18,11 @@ os.environ.setdefault("BASELINE_KEY", "monitor/baseline/baseline.json")
 os.environ.setdefault("CAPTURE_PREFIX", "capture")
 
 drift_handler = import_with_stubbed_boto3("src.monitoring.drift_handler")
+BASELINE_RUN_KEY = f"{BASELINE_RUN_PREFIX}/execution-1/baseline.json"
+BASELINE_URI = f"s3://test-artifacts/{BASELINE_RUN_KEY}"
+MODEL_PACKAGE_ARN = "arn:aws:sagemaker:us-east-1:123456789012:model-package/group/1"
+MODEL_NAME = "test-endpoint-model-1"
+ENDPOINT_CONFIG_NAME = "test-endpoint-config-1"
 
 # Build baseline and stable windows from varied feature records.
 BASELINE = drift.build_baseline(varied_records(600, seed=1))
@@ -40,23 +46,44 @@ def body(payload):
     return {"Body": io.BytesIO(json.dumps(payload).encode())}
 
 
+def stub_serving(sm, baseline_uri=BASELINE_URI):
+    """Serve one stable endpoint and its model package metadata."""
+    sm.describe_endpoint.return_value = {
+        "EndpointStatus": "InService",
+        "EndpointConfigName": ENDPOINT_CONFIG_NAME,
+    }
+    sm.describe_endpoint_config.return_value = {"ProductionVariants": [{"ModelName": MODEL_NAME}]}
+    sm.describe_model.return_value = {
+        "Containers": [{"Mode": "SingleModel", "ModelPackageName": MODEL_PACKAGE_ARN}]
+    }
+    sm.describe_model_package.return_value = {
+        "CustomerMetadataProperties": {BASELINE_URI_METADATA_KEY: baseline_uri}
+    }
+
+
 @pytest.fixture
 def aws():
-    """Stub S3 listing/reading and the EventBridge client."""
+    """Stub S3, SageMaker, and EventBridge clients."""
     with (
         mock.patch.object(drift_handler, "s3") as s3,
         mock.patch.object(drift_handler, "events") as events,
+        mock.patch.object(drift_handler, "sm") as sm,
     ):
+        stub_serving(sm)
         yield s3, events
 
 
-def stub_capture(s3, records, baseline=BASELINE):
+def stub_capture(s3, records, baseline=BASELINE, baseline_uri=BASELINE_URI):
     """Serve `records` from the listing, and `baseline` from its own key."""
+    drift_handler.sm.describe_model_package.return_value = {
+        "CustomerMetadataProperties": {BASELINE_URI_METADATA_KEY: baseline_uri}
+    }
     keys = [f"capture/2026/08/07/10/{index}.json" for index in range(len(records))]
     s3.get_paginator.return_value.paginate.return_value = [
         {"Contents": [{"Key": key} for key in keys]}
     ]
     by_key = {key: body({"record": record}) for key, record in zip(keys, records, strict=True)}
+    by_key[BASELINE_RUN_KEY] = body(baseline)
     by_key[drift_handler.BASELINE_KEY] = body(baseline)
     s3.get_object.side_effect = lambda Bucket, Key: by_key[Key]
 
@@ -122,7 +149,7 @@ def test_baseline_missing_raises_and_logs_bucket_key(aws):
 
     with mock.patch.object(drift_handler, "log_event") as log_event:
         with pytest.raises(BotoClientError):
-            drift_handler.read_baseline()
+            drift_handler.read_baseline(drift_handler.BASELINE_KEY)
     log_event.assert_called_once_with(
         "drift_baseline_missing",
         bucket=drift_handler.ARTIFACTS_BUCKET,
@@ -148,7 +175,7 @@ def test_invalid_baseline_shape_aborts_drift_scoring(aws):
             f"Baseline object s3://{drift_handler.ARTIFACTS_BUCKET}/{drift_handler.BASELINE_KEY}.*counts"
         ),
     ):
-        drift_handler.read_baseline()
+        drift_handler.read_baseline(drift_handler.BASELINE_KEY)
 
 
 def test_invalid_baseline_record_count_aborts_drift_scoring(aws):
@@ -164,7 +191,7 @@ def test_invalid_baseline_record_count_aborts_drift_scoring(aws):
             f"Baseline object s3://{drift_handler.ARTIFACTS_BUCKET}/{drift_handler.BASELINE_KEY}.*record_count"
         ),
     ):
-        drift_handler.read_baseline()
+        drift_handler.read_baseline(drift_handler.BASELINE_KEY)
 
 
 def test_invalid_baseline_missing_feature_distribution_aborts_drift_scoring(aws):
@@ -174,7 +201,7 @@ def test_invalid_baseline_missing_feature_distribution_aborts_drift_scoring(aws)
     s3.get_object.return_value = body(baseline)
 
     with pytest.raises(ValueError, match="every feature column"):
-        drift_handler.read_baseline()
+        drift_handler.read_baseline(drift_handler.BASELINE_KEY)
 
 
 def test_read_captured_skips_unreadable_objects_and_tracks_skips(aws):
@@ -238,6 +265,7 @@ def test_a_shifted_window_with_one_unreadable_object_emits_count_in_result_and_d
     for index, key in enumerate(good_keys):
         by_key[key] = body({"record": SHIFTED[index % shifted_count]})
     by_key[bad_key] = {"Body": io.BytesIO(b"{")}
+    by_key[BASELINE_RUN_KEY] = body(BASELINE)
     by_key[drift_handler.BASELINE_KEY] = body(BASELINE)
     s3.get_paginator.return_value.paginate.return_value = [
         {"Contents": [{"Key": key} for key in [*good_keys, bad_key]]}
@@ -318,3 +346,194 @@ def test_the_four_window_outcomes_stay_distinguishable(aws):
     stub_capture(s3, SHIFTED)
     assert drift_handler.handler({}, None)["drifted"] is True
     events.put_events.assert_called_once()
+
+
+def test_current_serving_package_binds_the_drift_result(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+
+    result = drift_handler.handler({}, None)
+
+    assert result["model_package_name"] == MODEL_PACKAGE_ARN
+    assert result["endpoint_config_name"] == ENDPOINT_CONFIG_NAME
+    detail = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
+    assert detail["baseline_uri"] == BASELINE_URI
+
+
+def test_current_package_is_used_instead_of_the_latest_approved_package(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    latest = mock.patch("src.common.registry.get_champion")
+
+    with latest as get_champion:
+        drift_handler.handler({}, None)
+
+    get_champion.assert_not_called()
+    detail = json.loads(events.put_events.call_args.kwargs["Entries"][0]["Detail"])
+    assert detail["model_package_name"] == MODEL_PACKAGE_ARN
+
+
+def test_legacy_package_without_baseline_metadata_fails_closed(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    drift_handler.sm.describe_model_package.return_value = {"CustomerMetadataProperties": {}}
+
+    with mock.patch.object(drift_handler, "log_event") as log_event:
+        with pytest.raises(ValueError, match=BASELINE_URI_METADATA_KEY):
+            drift_handler.handler({}, None)
+
+    log_event.assert_called_once_with("drift_baseline_metadata_missing", package=MODEL_PACKAGE_ARN)
+    events.put_events.assert_not_called()
+    assert BASELINE_RUN_KEY not in [call.kwargs["Key"] for call in s3.get_object.call_args_list]
+
+
+@pytest.mark.parametrize(
+    "baseline_uri",
+    [
+        "s3://other-artifacts/monitor/baselines/execution-1/baseline.json",
+        "s3://test-artifacts/monitor/baseline/baseline.json",
+        "s3://test-artifacts/monitor/baselines/../baseline.json",
+    ],
+)
+def test_untrusted_baseline_uri_fails_closed(aws, baseline_uri):
+    s3, events = aws
+    stub_capture(s3, SHIFTED, baseline_uri=baseline_uri)
+
+    with pytest.raises(ValueError, match="baseline URI"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+    assert BASELINE_RUN_KEY not in [call.kwargs["Key"] for call in s3.get_object.call_args_list]
+
+
+def test_malformed_serving_baseline_fails_closed(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED, baseline={})
+
+    with pytest.raises(ValueError, match="Baseline object"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+
+
+def test_transitional_endpoint_state_skips_before_model_lookup(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    drift_handler.sm.describe_endpoint.return_value = {
+        "EndpointStatus": "Updating",
+        "EndpointConfigName": ENDPOINT_CONFIG_NAME,
+    }
+
+    result = drift_handler.handler({}, None)
+
+    assert result == {
+        "skipped": "endpoint_not_healthy",
+        "endpoint_status": "Updating",
+        "reason": "endpoint_status_updating",
+    }
+    drift_handler.sm.describe_endpoint_config.assert_not_called()
+    events.put_events.assert_not_called()
+
+
+def test_endpoint_config_change_drops_result_before_publication(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    drift_handler.sm.describe_endpoint.side_effect = [
+        {"EndpointStatus": "InService", "EndpointConfigName": ENDPOINT_CONFIG_NAME},
+        {"EndpointStatus": "InService", "EndpointConfigName": "test-endpoint-config-2"},
+    ]
+
+    result = drift_handler.handler({}, None)
+
+    assert result == {"skipped": "serving_model_changed", "reason": "endpoint_config_changed"}
+    events.put_events.assert_not_called()
+
+
+def test_primary_container_model_package_shape_is_supported(aws):
+    s3, events = aws
+    stub_capture(s3, STABLE)
+    drift_handler.sm.describe_model.return_value = {
+        "PrimaryContainer": {"ModelPackageName": MODEL_PACKAGE_ARN}
+    }
+
+    result = drift_handler.handler({}, None)
+
+    assert result["drifted"] is False
+    events.put_events.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        {"Containers": [{"ModelPackageName": MODEL_PACKAGE_ARN}, {}]},
+        {"Containers": [{}]},
+        {"PrimaryContainer": {}},
+    ],
+)
+def test_model_without_one_named_package_fails_closed(aws, model):
+    s3, events = aws
+    stub_capture(s3, STABLE)
+    drift_handler.sm.describe_model.return_value = model
+
+    with pytest.raises(ValueError, match="serving model"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+
+
+def test_endpoint_snapshot_requires_status_and_config(aws):
+    s3, events = aws
+    stub_capture(s3, STABLE)
+    drift_handler.sm.describe_endpoint.return_value = {"EndpointStatus": "InService"}
+
+    with pytest.raises(ValueError, match="status or config"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+
+
+def test_invalid_serving_baseline_json_fails_closed(aws):
+    s3, events = aws
+    stub_capture(s3, STABLE)
+    original_get_object = s3.get_object.side_effect
+
+    def get_object(Bucket, Key):
+        if Key == BASELINE_RUN_KEY:
+            return {"Body": io.BytesIO(b"{")}
+        return original_get_object(Bucket=Bucket, Key=Key)
+
+    s3.get_object.side_effect = get_object
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "endpoint_config",
+    [{"ProductionVariants": []}, {"ProductionVariants": [{"ModelName": ""}]}],
+)
+def test_endpoint_config_without_one_model_fails_closed(aws, endpoint_config):
+    s3, events = aws
+    stub_capture(s3, STABLE)
+    drift_handler.sm.describe_endpoint_config.return_value = endpoint_config
+
+    with pytest.raises(ValueError, match="endpoint config"):
+        drift_handler.handler({}, None)
+
+    events.put_events.assert_not_called()
+
+
+def test_endpoint_becomes_unhealthy_before_publication(aws):
+    s3, events = aws
+    stub_capture(s3, SHIFTED)
+    drift_handler.sm.describe_endpoint.side_effect = [
+        {"EndpointStatus": "InService", "EndpointConfigName": ENDPOINT_CONFIG_NAME},
+        {"EndpointStatus": "Updating", "EndpointConfigName": ENDPOINT_CONFIG_NAME},
+    ]
+
+    result = drift_handler.handler({}, None)
+
+    assert result["reason"] == "endpoint_status_updating"
+    events.put_events.assert_not_called()

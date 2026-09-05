@@ -2,9 +2,23 @@
 
 import json
 
-from aws_cdk.assertions import Match
+import aws_cdk as cdk
+from aws_cdk.assertions import Match, Template
 
+from infra.app import build_app, load_config
 from infra.stacks.shared import github_deploy_role_name
+
+
+def _security_template(env_name: str) -> Template:
+    app = cdk.App(
+        context={
+            "aws:cdk:bundling-stacks": [],
+            "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True,
+        }
+    )
+    stacks = build_app(app, load_config(env_name), "Test")
+    app.synth()
+    return Template.from_stack(stacks["security"])
 
 
 def test_security_audit_foundation(stacks):
@@ -334,16 +348,30 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         for resource in resources.values()
         if resource["Type"] == "AWS::Logs::MetricFilter"
     ]
+    metric_namespace = "MLOps/Security/dev"
+    expected_metric_names = {
+        "RootUserActivity",
+        "UnauthorizedApiCalls",
+        "IamPolicyChanges",
+        "CloudTrailConfigurationChanges",
+        "KmsKeyDisableOrDeletion",
+        "ProdDeployRoleAssumed",
+        "S3BucketPolicyChanges",
+    }
     assert {metric_filter["FilterPattern"] for metric_filter in metric_filters} == (
         expected_patterns
     )
+    metric_names = set()
+    for metric_filter in metric_filters:
+        metric_names.add(metric_filter["MetricTransformations"][0]["MetricName"])
+    assert metric_names == expected_metric_names
     for metric_filter in metric_filters:
         assert metric_filter["LogGroupName"] == {"Ref": "AuditLogGroup6D13791A"}
         assert metric_filter["MetricTransformations"] == [
             {
                 "DefaultValue": 0,
                 "MetricName": metric_filter["MetricTransformations"][0]["MetricName"],
-                "MetricNamespace": "MLOps/Security",
+                "MetricNamespace": metric_namespace,
                 "MetricValue": "1",
             }
         ]
@@ -378,13 +406,31 @@ def test_security_detection_patterns_and_alarms_are_exact(stacks):
         if slug == "unauthorized-api-calls":
             # The filled alarm uses a metric-math array.
             continue
-        assert alarm["Namespace"] == "MLOps/Security"
+        assert alarm["Namespace"] == metric_namespace
         assert alarm["Period"] == 300
         assert alarm["Statistic"] == "Sum"
         assert "Metrics" not in alarm
     assert {alarm["AlarmName"].split("-security-", 1)[1] for alarm in alarms} == set(
         expected_evaluation
     )
+
+
+def test_security_metric_namespaces_are_environment_scoped():
+    templates = {env_name: _security_template(env_name) for env_name in ("dev", "prod")}
+    namespaces = {}
+    for env_name, template in templates.items():
+        namespaces[env_name] = {
+            transformation["MetricNamespace"]
+            for resource in template.to_json()["Resources"].values()
+            if resource["Type"] == "AWS::Logs::MetricFilter"
+            for transformation in resource["Properties"]["MetricTransformations"]
+        }
+
+    assert namespaces == {
+        "dev": {"MLOps/Security/dev"},
+        "prod": {"MLOps/Security/prod"},
+    }
+    assert namespaces["dev"] != namespaces["prod"]
 
 
 def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
@@ -407,7 +453,7 @@ def test_only_unauthorized_api_calls_fills_its_gaps(stacks):
     assert stat["ReturnData"] is False
     assert stat["MetricStat"]["Metric"] == {
         "MetricName": "UnauthorizedApiCalls",
-        "Namespace": "MLOps/Security",
+        "Namespace": "MLOps/Security/dev",
     }
     assert stat["MetricStat"]["Period"] == 300
     assert stat["MetricStat"]["Stat"] == "Sum"

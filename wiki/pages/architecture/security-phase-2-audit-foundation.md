@@ -52,10 +52,10 @@ The deployed Phase 2C change adds one exact AWS
 Security Hub/CIS metric filter and one alarm for root usage, unauthorized API
 calls, IAM policy changes, CloudTrail configuration changes, KMS disable or
 scheduled deletion, and S3 bucket-policy changes. Every filter writes to
-`MLOps/Security`; every five-minute alarm notifies the confirmed encrypted topic
-at `>= 1` and treats missing data as non-breaching. Since Phase 2E, five alarms
-still page on the first breaching datapoint, while `unauthorized-api-calls`
-requires three consecutive breaching five-minute datapoints
+`MLOps/Security/<env>`; every five-minute alarm notifies the confirmed
+encrypted topic at `>= 1` and treats missing data as non-breaching. Since
+Phase 2E, five alarms still page on the first breaching datapoint, while
+`unauthorized-api-calls` requires three consecutive breaching five-minute datapoints
 (`EvaluationPeriods 3`, `DatapointsToAlarm 3`; threshold and filter unchanged).
 
 A controlled read-only IAM denial proved the entire chain through received

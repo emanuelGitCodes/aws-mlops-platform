@@ -236,8 +236,8 @@ def test_the_retrain_lambda_reads_the_champion_with_scoped_access(stacks):
 def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
     template = stacks["monitoring"]
     template.resource_count_is("AWS::CloudWatch::Dashboard", 1)
-    # Two endpoint alarms, plus one for each loop handler.
-    template.resource_count_is("AWS::CloudWatch::Alarm", 4)
+    # Two endpoint alarms, one for each loop handler, and one stalled-loop alarm.
+    template.resource_count_is("AWS::CloudWatch::Alarm", 5)
 
     # Send the endpoint error alarm to the security alert topic.
     template.has_resource_properties(
@@ -249,6 +249,40 @@ def test_the_dashboard_and_the_endpoint_alarm_are_unchanged(stacks):
             "TreatMissingData": "notBreaching",
         },
     )
+
+
+def test_the_stalled_loop_event_has_a_scoped_ops_alarm(stacks):
+    resources = stacks["monitoring"].to_json()["Resources"]
+    filters = [
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::Logs::MetricFilter"
+    ]
+    assert len(filters) == 1
+    metric_filter = filters[0]
+    assert metric_filter["FilterPattern"] == '{ $.event = "retrain_loop_stalled" }'
+    assert "RetrainTriggerFnLogs" in str(metric_filter["LogGroupName"])
+    assert metric_filter["MetricTransformations"] == [
+        {
+            "DefaultValue": 0,
+            "MetricName": "RetrainLoopStalled",
+            "MetricNamespace": f"MLOps/Monitoring/{CONFIG['env_name']}",
+            "MetricValue": "1",
+        }
+    ]
+
+    alarm = next(
+        resource["Properties"]
+        for resource in resources.values()
+        if resource["Type"] == "AWS::CloudWatch::Alarm"
+        and resource["Properties"]["AlarmName"].endswith("-retrain-loop-stalled")
+    )
+    assert alarm["MetricName"] == "RetrainLoopStalled"
+    assert alarm["Namespace"] == f"MLOps/Monitoring/{CONFIG['env_name']}"
+    assert alarm["Threshold"] == 1
+    assert alarm["TreatMissingData"] == "notBreaching"
+    assert "OpsAlertsTopic" in str(alarm["AlarmActions"])
+    assert "SecurityAlertsTopic" not in str(alarm["AlarmActions"])
 
 
 def test_the_silence_alarm_fills_the_empty_periods(stacks):
@@ -312,6 +346,7 @@ def test_monitoring_alarms_publish_to_the_ops_topic(stacks):
         f"mlops-{env}-endpoint-silent",
         f"mlops-{env}-drift-errors",
         f"mlops-{env}-retrain-errors",
+        f"mlops-{env}-retrain-loop-stalled",
     }
 
     for alarm in alarms:

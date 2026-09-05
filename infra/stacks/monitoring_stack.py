@@ -13,6 +13,7 @@ from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_sns as sns
 from constructs import Construct
@@ -222,6 +223,32 @@ class MonitoringStack(Stack):
             config=config,
             topic=ops_topic,
         )
+
+        # A stalled retrain loop logs one structured event before it returns.
+        # The metric filter reads only that event name from this function's log group.
+        stalled_filter = logs.MetricFilter(
+            self,
+            "RetrainLoopStalledFilter",
+            default_value=0,
+            filter_pattern=logs.FilterPattern.string_value("$.event", "=", "retrain_loop_stalled"),
+            log_group=retrain_fn.log_group,
+            metric_name="RetrainLoopStalled",
+            metric_namespace=f"MLOps/Monitoring/{config['env_name']}",
+            metric_value="1",
+        )
+        stalled_alarm = cw.Alarm(
+            self,
+            "RetrainLoopStalledAlarm",
+            alarm_name=f"mlops-{config['env_name']}-retrain-loop-stalled",
+            metric=stalled_filter.metric(
+                period=Duration.minutes(15),
+                statistic="Sum",
+            ),
+            threshold=1,
+            evaluation_periods=1,
+            treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
+        )
+        stalled_alarm.add_alarm_action(cw_actions.SnsAction(ops_topic))
 
         dims = {"EndpointName": endpoint_name, "VariantName": "AllTraffic"}
 

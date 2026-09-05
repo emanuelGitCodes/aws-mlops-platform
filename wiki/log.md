@@ -895,6 +895,28 @@ until the Data-to-Serving export-removal blocker has a reviewed remediation.
 
 Found 17 matching page(s).
 
+## [2026-09-05] implement | Operational stall and endpoint failure alerts
+
+**Objective:** notify the operator when retraining stops without progress or
+the serving endpoint enters a failure state.
+
+**Scope:** Monitoring and Serving stack definitions and their regression tests.
+The new alarm uses the retrain function's log group and the operational topic.
+The endpoint rule matches the configured endpoint name, ARN, and failure states.
+
+**Identity and environment:** local checkouts only. No AWS deployment or
+permission change was performed.
+
+**Commands and results:** the isolated alert checkout passed `make check`
+with 542 tests and 95.47% coverage. `make synth-all` passed for dev and prod.
+`make pr-size` measured 58 of 150 source lines against the original base.
+
+**Interpretation:** local tests verify filter shape, resource scope, and
+notification routing. They do not prove event delivery or received email.
+
+**Decision and next checkpoint:** prepared for local review. A scoped dev
+deployment and controlled notification tests remain pending. This is not an
+observation-window go decision.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective
@@ -8509,3 +8531,10 @@ this change affects instructions and documentation only.
 
 Role schema assertions, CLI syntax inspection, `make docs-sync`,
 `make wiki-lint`, `make public-check`, `make pr-size`, and `git diff --check`.
+## [2026-09-05] query | baseline
+
+Found 22 matching page(s).
+
+## [2026-09-05] query | evaluation
+
+Found 17 matching page(s).

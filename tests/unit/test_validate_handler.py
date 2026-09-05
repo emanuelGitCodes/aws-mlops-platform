@@ -89,6 +89,7 @@ def test_handler_rejects_unparsable_upload_and_reports_rows_unparsable():
     assert log_event.call_args.args[0] == "rows_unparsable"
     assert log_event.call_args.kwargs["key"] == "raw/empty.csv"
     assert log_event.call_args.kwargs["reason"] == "no rows parsed"
+    s3.delete_object.assert_not_called()
 
 
 def test_handler_rejects_payloads_without_feature_columns():
@@ -177,6 +178,44 @@ def test_handler_deletes_stale_quarantine_when_clean():
         "Bucket": "test-curated",
         "Key": _dest_key("quarantine", key),
     } in [c.kwargs for c in s3.delete_object.call_args_list]
+
+
+def test_handler_deletes_stale_curated_when_replacement_is_all_invalid():
+    key = "reupload/telco.csv"
+    s3 = mock.Mock()
+    s3.get_object.side_effect = [
+        {"Body": io.BytesIO(_csv_bytes([{**VALID, "Churn": "Yes"}]))},
+        {"Body": io.BytesIO(_csv_bytes([{**VALID, "tenure": "-1", "Churn": "No"}]))},
+    ]
+
+    with mock.patch.object(validate_handler, "s3", s3):
+        validate_handler.handler(_sqs_event("raw-bucket", key), None)
+        validate_handler.handler(_sqs_event("raw-bucket", key), None)
+
+    assert {
+        "Bucket": "test-curated",
+        "Key": _dest_key("telco", key),
+    } in [c.kwargs for c in s3.delete_object.call_args_list]
+    quarantine_put = [
+        call.kwargs
+        for call in s3.put_object.call_args_list
+        if call.kwargs["Key"] == _dest_key("quarantine", key)
+    ]
+    assert len(quarantine_put) == 1
+
+
+def test_handler_propagates_failure_to_delete_stale_curated_data():
+    s3 = mock.Mock()
+    s3.get_object.return_value = {
+        "Body": io.BytesIO(_csv_bytes([{**VALID, "tenure": "-1", "Churn": "No"}]))
+    }
+    s3.delete_object.side_effect = RuntimeError("curated bucket unavailable")
+
+    with mock.patch.object(validate_handler, "s3", s3):
+        with pytest.raises(RuntimeError, match="curated bucket unavailable"):
+            validate_handler.handler(_sqs_event("raw-bucket", "telco.csv"), None)
+
+    s3.put_object.assert_not_called()
 
 
 def test_handler_all_valid_skips_quarantine_write():

@@ -84,8 +84,8 @@ def test_validate_function_has_scoped_curated_object_access(stacks):
     assert any("quarantine/*" in resource for resource in put_resources)
     assert len(put_resources) == 2
     assert any("quarantine/*" in resource for resource in delete_resources)
-    assert all("telco/*" not in resource for resource in delete_resources)
-    assert len(delete_resources) == 1
+    assert any("telco/*" in resource for resource in delete_resources)
+    assert len(delete_resources) == 2
 
 
 def test_ingestion_queues_require_tls(stacks):

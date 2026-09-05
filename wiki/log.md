@@ -917,6 +917,33 @@ notification routing. They do not prove event delivery or received email.
 **Decision and next checkpoint:** prepared for local review. A scoped dev
 deployment and controlled notification tests remain pending. This is not an
 observation-window go decision.
+
+## [2026-09-05] implement | Curated replacement and baseline validation
+
+**Objective:** prevent stale training rows and invalid drift baselines from
+being reported as successful work.
+
+**Scope:** the ingestion handler, shared drift validation, drift reader,
+Ingestion IAM grants, and regression tests. Readable uploads with no valid
+rows remove the prior curated object. Unreadable uploads still fail without
+deleting the previous validated data.
+
+**Identity and environment:** local checkouts only. No AWS operation changed
+data or permissions.
+
+**Commands and results:** the isolated change passed `make check` with
+551 tests and 95.26% coverage. `make synth-all` passed for dev and prod.
+The initial full check caught the changed ingestion IAM fingerprint.
+The fingerprint was updated only after checking the exact `telco/*` and
+`quarantine/*` delete resources. `make pr-size` measured 81 of 150 source lines.
+
+**Interpretation:** baseline validation now checks the complete feature
+contract, distribution totals, numeric bins, and category values. Both the
+S3 reader and direct comparisons use the same validator.
+
+**Decision and next checkpoint:** prepared for local review. Scoped deployment
+and an upload replacement test in dev remain pending. No observation window
+is closed by these local tests.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

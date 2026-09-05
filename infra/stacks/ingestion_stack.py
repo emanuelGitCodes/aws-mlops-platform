@@ -83,7 +83,10 @@ class IngestionStack(Stack):
         validate_fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:DeleteObject"],
-                resources=[curated_bucket.arn_for_objects("quarantine/*")],
+                resources=[
+                    curated_bucket.arn_for_objects("telco/*"),
+                    curated_bucket.arn_for_objects("quarantine/*"),
+                ],
             )
         )
 

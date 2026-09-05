@@ -90,6 +90,24 @@ def test_resource_helpers_validate_names_and_existing_settings():
     )
 
 
+@pytest.mark.parametrize(
+    "container_shape",
+    [
+        {"Containers": []},
+        {"Containers": [{"ModelPackageName": APPROVAL_EVENT["detail"]["ModelPackageArn"]}, {}]},
+        {"Containers": [{}]},
+        {"Containers": [{"ModelPackageName": 7}]},
+    ],
+)
+def test_model_matcher_rejects_invalid_package_shapes(container_shape):
+    description = {"ExecutionRoleArn": "arn:aws:iam::123456789012:role/test"}
+    description.update(container_shape)
+
+    assert not deploy_handler._model_matches(
+        description, APPROVAL_EVENT["detail"]["ModelPackageArn"]
+    )
+
+
 def test_resource_helpers_reject_malformed_config_and_long_names():
     assert not deploy_handler._config_matches({"ProductionVariants": [{}]}, "model")
     assert not deploy_handler._config_matches(

@@ -465,8 +465,11 @@ def test_primary_container_model_package_shape_is_supported(aws):
 @pytest.mark.parametrize(
     "model",
     [
+        {"Containers": []},
         {"Containers": [{"ModelPackageName": MODEL_PACKAGE_ARN}, {}]},
         {"Containers": [{}]},
+        {"Containers": [{"ModelPackageName": 7}]},
+        {"Containers": "invalid"},
         {"PrimaryContainer": {}},
     ],
 )

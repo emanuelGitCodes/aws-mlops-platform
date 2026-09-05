@@ -14,6 +14,7 @@ from typing import Any
 import boto3
 
 from src.common.events import log_event
+from src.common.registry import extract_model_package_name
 
 sm = boto3.client("sagemaker")
 
@@ -61,14 +62,12 @@ def _resource_names(package_arn: str) -> tuple[str, str]:
 
 def _model_matches(description: Mapping[str, Any], package_arn: str) -> bool:
     """Return true when a model has the expected role and package."""
-    containers = description.get("Containers") or [description.get("PrimaryContainer")]
-    return (
-        description.get("ExecutionRoleArn") == EXECUTION_ROLE_ARN
-        and isinstance(containers, list)
-        and len(containers) == 1
-        and isinstance(containers[0], dict)
-        and containers[0].get("ModelPackageName") == package_arn
-    )
+    if description.get("ExecutionRoleArn") != EXECUTION_ROLE_ARN:
+        return False
+    try:
+        return extract_model_package_name(description) == package_arn
+    except ValueError:
+        return False
 
 
 def _config_matches(description: Mapping[str, Any], model_name: str | None = None) -> bool:

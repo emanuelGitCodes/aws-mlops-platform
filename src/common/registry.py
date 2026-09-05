@@ -11,11 +11,30 @@ an AWS Model Registry call.
 # Deferred annotations preserve compatibility with that image.
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 import boto3
 
 from src.common.features import BASELINE_CHAMPION_AUC, NO_CHAMPION_ARN
 
-__all__ = ["get_champion"]
+__all__ = ["extract_model_package_name", "get_champion"]
+
+
+def extract_model_package_name(model: Mapping[str, Any], subject: str = "model") -> str:
+    """Return the one model package named by a SageMaker model description."""
+    containers = model.get("Containers")
+    if containers is None:
+        primary = model.get("PrimaryContainer")
+        package_name = primary.get("ModelPackageName") if isinstance(primary, Mapping) else None
+    else:
+        if not isinstance(containers, list) or len(containers) != 1:
+            raise ValueError(f"{subject} must name exactly one container")
+        container = containers[0]
+        package_name = container.get("ModelPackageName") if isinstance(container, Mapping) else None
+    if not isinstance(package_name, str) or not package_name:
+        raise ValueError(f"{subject} must name one model package")
+    return package_name
 
 
 def get_champion(model_package_group: str, region: str) -> tuple[str, float]:

@@ -7,8 +7,10 @@ approved challenger invokes `src.serving.deploy_handler`.
 """
 
 import datetime
+import hashlib
+import json
 import os
-import uuid
+import re
 from typing import Any
 
 import boto3
@@ -33,26 +35,56 @@ RETRAIN_COOLDOWN_HOURS = int(os.environ.get("RETRAIN_COOLDOWN_HOURS", "6"))
 ACTIVE_STATUSES = frozenset({"Executing", "Stopping"})
 
 RETRAIN_DESCRIPTION = "drift-triggered retrain"
+TOKEN_SAFE_CHAR_RE = re.compile(r"[^0-9A-Za-z_-]")
+TOKEN_MAX_LENGTH = 128
 
 
-def blocking_execution() -> dict[str, Any] | None:
-    """Return the latest execution when it blocks a new run."""
+def _list_pipeline_executions(max_results: int = 1) -> list[dict[str, Any]]:
+    """List recent pipeline executions."""
     summaries = sm.list_pipeline_executions(
         PipelineName=PIPELINE_NAME,
         SortBy="CreationTime",
         SortOrder="Descending",
-        MaxResults=1,
-    )["PipelineExecutionSummaries"]
+        MaxResults=max(max_results, 1),
+    ).get("PipelineExecutionSummaries", [])
+    return [dict(summary) for summary in summaries]
+
+
+def _normalize_client_request_token(raw: str) -> str:
+    """Convert raw input into a valid SageMaker idempotency token."""
+    token = TOKEN_SAFE_CHAR_RE.sub("-", raw).strip("-_")
+    if not token:
+        token = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return token[:TOKEN_MAX_LENGTH]
+
+
+def _client_request_token(event: dict[str, Any]) -> str:
+    """Return the deterministic token for one drift event."""
+    raw = event.get("id")
+    if isinstance(raw, str) and raw.strip():
+        return _normalize_client_request_token(raw)
+
+    detail = json.dumps(event.get("detail", {}), sort_keys=True, separators=(",", ":"))
+    return _normalize_client_request_token(f"drift-{detail}")
+
+
+def blocking_execution(
+    summaries: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """Return the latest execution when it blocks a new run."""
+    if summaries is None:
+        summaries = _list_pipeline_executions(1)
     if not summaries:
         return None
 
-    latest: dict[str, Any] = dict(summaries[0])
+    latest: dict[str, Any] = summaries[0]
     if latest.get("PipelineExecutionStatus") in ACTIVE_STATUSES:
         return latest
 
     started = latest.get("StartTime")
-    if started is None:
+    if not isinstance(started, datetime.datetime):
         return None
+
     age = datetime.datetime.now(datetime.UTC) - started
     return latest if age < datetime.timedelta(hours=RETRAIN_COOLDOWN_HOURS) else None
 
@@ -60,16 +92,22 @@ def blocking_execution() -> dict[str, Any] | None:
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     status = event["detail"].get("status")
     if status != VIOLATION_STATUS:
+        log_event(
+            "retrain_skipped",
+            status=status,
+            reason="status_mismatch",
+        )
         return {"skipped": status}
 
     blocking = blocking_execution()
     if blocking is not None:
+        reason = (
+            "in_flight" if blocking["PipelineExecutionStatus"] in ACTIVE_STATUSES else "cooldown"
+        )
         log_event(
             "retrain_suppressed",
             pipeline=PIPELINE_NAME,
-            reason="in_flight"
-            if blocking["PipelineExecutionStatus"] in ACTIVE_STATUSES
-            else "cooldown",
+            reason=reason,
             latest_status=blocking["PipelineExecutionStatus"],
             cooldown_hours=RETRAIN_COOLDOWN_HOURS,
         )
@@ -80,11 +118,10 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         os.environ["AWS_REGION"],
     )
 
-    # `StartPipelineExecution` requires `ClientRequestToken`.
     execution_arn = sm.start_pipeline_execution(
         PipelineName=PIPELINE_NAME,
         PipelineExecutionDescription=RETRAIN_DESCRIPTION,
-        ClientRequestToken=str(uuid.uuid4()),
+        ClientRequestToken=_client_request_token(event),
         PipelineParameters=[
             {"Name": "ChampionAuc", "Value": str(champion_auc)},
             {"Name": "ChampionModelPackageArn", "Value": champion_arn},

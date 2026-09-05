@@ -52,6 +52,7 @@ def test_the_pipeline_role_names_every_resource_it_touches(stacks):
         "sagemaker:CreateModelPackage",
         "sagemaker:DescribeModelPackage",
         "sagemaker:CreateModelPackageGroup",
+        "sagemaker:ListModelPackages",
         # Pipelines adds tags inside each resource creation call.
         "sagemaker:AddTags",
         "iam:PassRole",
@@ -101,3 +102,17 @@ def test_the_pipeline_role_registers_only_into_this_platforms_group(stacks):
     assert package_resources
     for resource in package_resources:
         assert CONFIG["model_package_group"] in str(resource)
+
+
+def test_the_pipeline_role_lists_packages_only_in_this_platforms_group(stacks):
+    """Limit champion lookup to the environment's model package group."""
+    _, policy = _role_and_policy(stacks)
+    statements = policy["Properties"]["PolicyDocument"]["Statement"]
+    list_packages = next(
+        statement
+        for statement in statements
+        if "sagemaker:ListModelPackages" in statement["Action"]
+    )
+
+    assert ":model-package-group/" in str(list_packages["Resource"])
+    assert CONFIG["model_package_group"] in str(list_packages["Resource"])

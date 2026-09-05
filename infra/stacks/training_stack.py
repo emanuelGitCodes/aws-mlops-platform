@@ -132,7 +132,11 @@ class TrainingStack(Stack):
         )
         self.pipeline_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["sagemaker:CreateModelPackageGroup", "sagemaker:AddTags"],
+                actions=[
+                    "sagemaker:CreateModelPackageGroup",
+                    "sagemaker:ListModelPackages",
+                    "sagemaker:AddTags",
+                ],
                 resources=[
                     self.format_arn(
                         service="sagemaker",

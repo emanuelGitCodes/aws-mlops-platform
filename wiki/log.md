@@ -1055,6 +1055,31 @@ metadata is an explicit failure, not permission to use an unverified baseline.
 the new reader in dev, bind a verified training baseline to the serving model
 or deploy a compatible approved package. Do not label the current shared
 baseline as verified without checking its training provenance.
+
+## [2026-09-05] implement | Resolve the champion during evaluation
+
+**Objective:** prevent an unparameterized pipeline start from using a stale
+model-package default.
+
+**Scope:** evaluation-time registry lookup, pipeline arguments, Training IAM,
+input-file ordering, and regression tests. The pipeline supplies its configured
+model package group. Evaluation resolves the latest approved package before
+loading its artifact. Direct evaluator calls can still name an explicit package.
+
+**Identity and environment:** local tests and an isolated local model runtime.
+No AWS training or deployment was performed.
+
+**Commands and results:** the combined `make check` passed 600 tests at
+96.43% coverage. `make pr-size` measured 15 of 150 source lines. The isolated
+change passed dev and prod synthesis. Tests bind `ListModelPackages` to the
+exact group ARN and check deterministic ordering across multiple input CSVs.
+
+**Interpretation:** stored parameter defaults no longer select the comparison
+model for the managed pipeline path. The training role gets one additional
+read action on its own model package group.
+
+**Decision and next checkpoint:** prepared for local review. Install the
+reviewed Training grants before updating the live pipeline definition.
 ## [2026-07-12] deploy | AWS security hardening Phase 2A
 
 ### Objective

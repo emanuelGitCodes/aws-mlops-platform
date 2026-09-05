@@ -101,6 +101,8 @@ def test_registration_only_happens_behind_the_gate(definition):
 def test_evaluate_receives_the_champion_to_compare_against(definition):
     arguments = _step(definition, "Evaluate")["Arguments"]["AppSpecification"]["ContainerArguments"]
     assert "--champion-model-package-arn" in arguments
+    assert "--model-package-group" in arguments
+    assert arguments[arguments.index("--model-package-group") + 1] == GROUP
     assert "--champion-test-auc" in arguments
     assert "--artifacts-bucket" in arguments
     assert "--region" in arguments

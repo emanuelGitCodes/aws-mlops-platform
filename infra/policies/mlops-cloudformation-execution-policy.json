@@ -188,7 +188,7 @@
         "iam:TagRole",
         "iam:UntagRole"
       ],
-      "Resource": "*"
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/Mlops-*"
     },
     {
       "Sid": "AccessAnalyzerServiceLinkedRole",

@@ -77,6 +77,25 @@ def test_resolve_fixture_s3_uri_finds_the_api_test_output():
     assert client.describe_processing_job.call_args.kwargs == {"ProcessingJobName": "prep-1"}
 
 
+def test_resolve_fixture_s3_uri_uses_the_supplied_session():
+    pages, job = _preprocess_page(
+        [{"OutputName": "api_test", "S3Output": {"S3Uri": "s3://bucket/api_test"}}]
+    )
+    client = _sagemaker_client(pages, job)
+    session = mock.Mock()
+    session.client.return_value = client
+    with mock.patch.object(evaluate_api.boto3, "client") as default_client:
+        assert (
+            evaluate_api.resolve_fixture_s3_uri(
+                "arn:execution", region="us-east-1", session=session
+            )
+            == "s3://bucket/api_test"
+        )
+
+    session.client.assert_called_once_with("sagemaker", region_name="us-east-1")
+    default_client.assert_not_called()
+
+
 def test_resolve_fixture_s3_uri_fails_when_the_execution_has_no_api_test_output():
     """Raise an explicit error when an execution has no fixture output."""
     pages, job = _preprocess_page(
@@ -113,6 +132,17 @@ def test_load_fixture_uses_an_explicit_jsonl_key_as_given():
     with mock.patch.object(evaluate_api.boto3, "client", return_value=client):
         evaluate_api.load_fixture("s3://bucket/a/api_test.jsonl")
     assert client.get_object.call_args.kwargs["Key"] == "a/api_test.jsonl"
+
+
+def test_load_fixture_uses_the_supplied_session():
+    client = _s3_client_returning(b'{"row_id": 0}\n')
+    session = mock.Mock()
+    session.client.return_value = client
+    with mock.patch.object(evaluate_api.boto3, "client") as default_client:
+        evaluate_api.load_fixture("s3://bucket/a/api_test.jsonl", session=session)
+
+    session.client.assert_called_once_with("s3", region_name=None)
+    default_client.assert_not_called()
 
 
 def test_load_fixture_rejects_an_empty_fixture():
@@ -281,6 +311,43 @@ def test_main_writes_the_report_when_output_is_given(tmp_path, capsys):
 
     capsys.readouterr()
     assert json.loads(output.read_text())["source"] == "deployed_api"
+
+
+def test_main_can_use_a_separate_explicit_profile_for_fixture_reads(capsys):
+    inference_session = _session()
+    read_session = _session()
+    with (
+        mock.patch.object(evaluate_api, "load_fixture", return_value=[_fixture(1, 0)]) as load,
+        mock.patch.object(evaluate_api, "evaluate_api_records", return_value=dict(REPORT)),
+        mock.patch.object(
+            evaluate_api.boto3,
+            "Session",
+            side_effect=[inference_session, read_session],
+        ) as session_factory,
+    ):
+        evaluate_api.main(
+            [
+                "--fixture-s3-uri",
+                "s3://bucket/prefix",
+                "--api-url",
+                "https://x/p",
+                "--profile",
+                "inference",
+                "--read-profile",
+                "reader",
+            ]
+        )
+
+    assert [call.kwargs["profile_name"] for call in session_factory.call_args_list] == [
+        "inference",
+        "reader",
+    ]
+    assert (
+        session_factory.call_args_list[0].kwargs["region_name"]
+        == session_factory.call_args_list[1].kwargs["region_name"]
+    )
+    assert load.call_args.kwargs["session"] is read_session
+    capsys.readouterr()
 
 
 @pytest.mark.parametrize(

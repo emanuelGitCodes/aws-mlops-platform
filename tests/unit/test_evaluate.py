@@ -1,5 +1,6 @@
 import csv
 import json
+from unittest import mock
 
 import pytest
 
@@ -50,6 +51,27 @@ def test_write_evaluation_artifacts_creates_json_csv_and_charts(tmp_path):
         "score_distribution.png",
     ):
         assert (tmp_path / filename).stat().st_size > 0
+
+
+def test_write_evaluation_artifacts_uses_a_custom_score_chart_threshold(tmp_path):
+    from matplotlib.axes import Axes
+
+    calls = []
+    original = Axes.axvline
+
+    def capture(self, *args, **kwargs):
+        calls.append((args, kwargs))
+        return original(self, *args, **kwargs)
+
+    with mock.patch.object(Axes, "axvline", capture):
+        write_evaluation_artifacts(
+            labels=[0, 0, 1, 1],
+            scores=[0.1, 0.6, 0.5, 0.9],
+            output_dir=str(tmp_path),
+            threshold=0.8,
+        )
+
+    assert calls[0][0][0] == pytest.approx(0.8)
 
 
 def test_write_evaluation_artifacts_records_the_gate_decision(tmp_path):

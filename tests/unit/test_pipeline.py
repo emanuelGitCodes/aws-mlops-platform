@@ -82,7 +82,9 @@ def test_gate_compares_challenger_auc_against_the_champion(definition):
     left = condition["LeftValue"]["Std:JsonGet"]
     assert left["Path"] == "binary_classification_metrics.auc.value"
     assert left["PropertyFile"]["Get"].startswith("Steps.Evaluate")
-    assert condition["RightValue"] == {"Get": "Parameters.ChampionAuc"}
+    right = condition["RightValue"]["Std:JsonGet"]
+    assert right["Path"] == "current_champion_auc"
+    assert right["PropertyFile"]["Get"].startswith("Steps.Evaluate")
 
 
 def test_registration_only_happens_behind_the_gate(definition):
@@ -100,14 +102,14 @@ def test_evaluate_receives_the_champion_to_compare_against(definition):
     arguments = _step(definition, "Evaluate")["Arguments"]["AppSpecification"]["ContainerArguments"]
     assert "--champion-model-package-arn" in arguments
     assert "--champion-test-auc" in arguments
+    assert "--artifacts-bucket" in arguments
+    assert "--region" in arguments
     assert "--challenger-model-artifact" in arguments
 
 
-def test_preprocess_and_train_are_cached_but_evaluate_is_not(definition):
-    """Cache preprocessing and training. Always run evaluation."""
-    for name in ("Preprocess", "Train"):
-        assert _step(definition, name)["CacheConfig"]["Enabled"] is True
-    assert "CacheConfig" not in _step(definition, "Evaluate")
+def test_mutable_data_steps_do_not_use_cache(definition):
+    for name in ("Preprocess", "Train", "Evaluate"):
+        assert "CacheConfig" not in _step(definition, name)
 
 
 def test_model_artifacts_land_where_the_model_role_is_allowed_to_read(definition):
@@ -167,3 +169,31 @@ def test_existing_champion_becomes_the_bar_to_beat():
     parameters = {p["Name"]: p for p in definition["Parameters"]}
     assert parameters["ChampionAuc"]["DefaultValue"] == pytest.approx(0.8398)
     assert parameters["ChampionModelPackageArn"]["DefaultValue"] == CHAMPION_ARN
+
+
+def test_explicit_start_parameters_resolve_the_current_champion():
+    from src.pipeline.pipeline import _fresh_champion_parameters
+
+    with mock.patch(
+        "src.pipeline.pipeline.get_champion", return_value=(CHAMPION_ARN, 0.91)
+    ) as lookup:
+        parameters = _fresh_champion_parameters(GROUP, "us-east-1")
+
+    assert parameters == {"ChampionAuc": 0.91, "ChampionModelPackageArn": CHAMPION_ARN}
+    lookup.assert_called_once_with(GROUP, "us-east-1")
+
+
+def test_explicit_start_passes_fresh_champion_parameters():
+    from src.pipeline.pipeline import _start_pipeline
+
+    pipeline = mock.Mock()
+    with mock.patch(
+        "src.pipeline.pipeline._fresh_champion_parameters",
+        return_value={"ChampionAuc": 0.91, "ChampionModelPackageArn": CHAMPION_ARN},
+    ) as fresh:
+        _start_pipeline(pipeline, GROUP, "us-east-1")
+
+    fresh.assert_called_once_with(GROUP, "us-east-1")
+    pipeline.start.assert_called_once_with(
+        parameters={"ChampionAuc": 0.91, "ChampionModelPackageArn": CHAMPION_ARN}
+    )

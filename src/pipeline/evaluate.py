@@ -11,10 +11,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import pathlib
 import tarfile
+from typing import Any
+from urllib.parse import urlparse
 
+import boto3
 import matplotlib
 
 matplotlib.use("Agg")
@@ -41,6 +45,59 @@ OUTPUT_DIR = "/opt/ml/processing/evaluation"
 
 def _safe_divide(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
+
+
+def _load_booster_from_archive(archive: bytes, xgb: Any) -> Any:
+    """Load the regular XGBoost model member from a model archive."""
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive), mode="r:*") as tar:
+            members = [member for member in tar.getmembers() if member.name == "xgboost-model"]
+            if len(members) != 1 or not members[0].isreg():
+                raise ValueError("model archive must contain one regular xgboost-model member")
+            model_file = tar.extractfile(members[0])
+            if model_file is None:
+                raise ValueError("model archive does not contain readable xgboost-model data")
+            model_bytes = model_file.read()
+    except (EOFError, OSError, tarfile.TarError) as error:
+        raise ValueError("model archive is invalid") from error
+
+    booster = xgb.Booster()
+    booster.load_model(bytearray(model_bytes))
+    return booster
+
+
+def _load_champion_booster(
+    model_package_arn: str,
+    artifacts_bucket: str,
+    region: str,
+    xgb: Any,
+) -> Any | None:
+    """Resolve and load the champion artifact from the platform bucket."""
+    if model_package_arn == NO_CHAMPION_ARN:
+        return None
+    sagemaker = boto3.client("sagemaker", region_name=region)
+    package = sagemaker.describe_model_package(ModelPackageName=model_package_arn)
+    try:
+        containers = package["InferenceSpecification"]["Containers"]
+    except (KeyError, TypeError) as error:
+        raise ValueError("champion model package has no model artifact") from error
+    if not isinstance(containers, list) or len(containers) != 1:
+        raise ValueError("champion model package must contain one model artifact")
+    container = containers[0]
+    if not isinstance(container, dict) or not isinstance(container.get("ModelDataUrl"), str):
+        raise ValueError("champion model package must contain one model artifact")
+    model_uri = container["ModelDataUrl"]
+
+    parsed = urlparse(model_uri)
+    key = parsed.path.lstrip("/")
+    if parsed.scheme != "s3" or not parsed.netloc or not key or parsed.query or parsed.fragment:
+        raise ValueError("champion model artifact URI is invalid")
+    if parsed.netloc != artifacts_bucket or not key.startswith("training/"):
+        raise ValueError("champion model artifact must be under the artifacts training prefix")
+
+    s3 = boto3.client("s3", region_name=region)
+    archive = s3.get_object(Bucket=parsed.netloc, Key=key)["Body"].read()
+    return _load_booster_from_archive(archive, xgb)
 
 
 def calculate_classification_metrics(
@@ -197,32 +254,33 @@ def write_evaluation_artifacts(
     output_dir: str,
     threshold: float = DEFAULT_THRESHOLD,
     champion_test_auc: float | None = None,
+    current_champion_auc: float | None = None,
 ) -> dict:
     """Write the complete report bundle and return its metrics dictionary.
 
-    ``champion_test_auc`` records the score the challenger had to beat. The
-    gate reads the same comparison, so the report carries the decision rather
-    than the score alone.
+    ``current_champion_auc`` records the score the challenger had to beat.
+    ``champion_test_auc`` remains accepted for older callers.
     """
     metrics = calculate_classification_metrics(labels, scores, threshold)
-    if champion_test_auc is not None:
-        metrics["champion_test_auc"] = champion_test_auc
-        metrics["promotion_decision"] = (
-            "register" if metrics["auc"] > champion_test_auc else "reject"
-        )
+    comparison_auc = current_champion_auc if current_champion_auc is not None else champion_test_auc
+    if comparison_auc is not None:
+        metrics["champion_test_auc"] = comparison_auc
+        if current_champion_auc is not None:
+            metrics["current_champion_auc"] = comparison_auc
+        metrics["promotion_decision"] = "register" if metrics["auc"] > comparison_auc else "reject"
     destination = pathlib.Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     predictions = [int(score >= threshold) for score in scores]
 
+    evaluation: dict[str, Any] = {
+        "binary_classification_metrics": {
+            "auc": {"value": metrics["auc"], "standard_deviation": "NaN"},
+        }
+    }
+    if current_champion_auc is not None:
+        evaluation["current_champion_auc"] = current_champion_auc
     with open(destination / "evaluation.json", "w") as f:
-        json.dump(
-            {
-                "binary_classification_metrics": {
-                    "auc": {"value": metrics["auc"], "standard_deviation": "NaN"},
-                }
-            },
-            f,
-        )
+        json.dump(evaluation, f)
     with open(destination / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
     with open(destination / "predictions.csv", "w", newline="") as f:
@@ -263,6 +321,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--champion-model-package-arn", default=NO_CHAMPION_ARN)
     parser.add_argument("--champion-test-auc", type=float, default=BASELINE_CHAMPION_AUC)
+    parser.add_argument("--artifacts-bucket", default="")
+    parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--challenger-model-artifact", default="unknown")
     args = parser.parse_args()
 
@@ -270,22 +330,32 @@ def main() -> None:
     # This processing step supplies the XGBoost runtime.
     import xgboost as xgb
 
-    with tarfile.open(f"{MODEL_DIR}/model.tar.gz") as tar:
-        tar.extractall(MODEL_DIR)
-
-    booster = xgb.Booster()
-    booster.load_model(f"{MODEL_DIR}/xgboost-model")
+    challenger_archive = pathlib.Path(f"{MODEL_DIR}/model.tar.gz").read_bytes()
+    challenger = _load_booster_from_archive(challenger_archive, xgb)
     labels, features = _load_test_data(TEST_DIR)
-    scores = [float(score) for score in booster.predict(xgb.DMatrix(features))]
+    challenger_scores = [float(score) for score in challenger.predict(xgb.DMatrix(features))]
+    champion = _load_champion_booster(
+        args.champion_model_package_arn,
+        args.artifacts_bucket,
+        args.region,
+        xgb,
+    )
+    champion_auc = BASELINE_CHAMPION_AUC
+    if champion is not None:
+        champion_scores = [float(score) for score in champion.predict(xgb.DMatrix(features))]
+        champion_auc = calculate_classification_metrics(labels, champion_scores)["auc"]
     metrics = write_evaluation_artifacts(
-        labels, scores, OUTPUT_DIR, champion_test_auc=args.champion_test_auc
+        labels,
+        challenger_scores,
+        OUTPUT_DIR,
+        current_champion_auc=champion_auc,
     )
     log_event(
         "challenger_evaluation",
         challenger_model_artifact=args.challenger_model_artifact,
         challenger_test_auc=round(metrics["auc"], 4),
         champion_model_package_arn=args.champion_model_package_arn,
-        champion_test_auc=args.champion_test_auc,
+        champion_test_auc=champion_auc,
         promotion_decision=metrics["promotion_decision"],
     )
 

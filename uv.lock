@@ -3,10 +3,10 @@ revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version < '3.14' and sys_platform == 'emscripten'",
@@ -2081,7 +2081,7 @@ wheels = [
 
 [[package]]
 name = "sagemaker"
-version = "2.257.5"
+version = "2.257.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -2112,9 +2112,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/2f/97d15aaaf84d9803bf93d8ea9e1f76d879bc77a3794e858cf840e786740f/sagemaker-2.257.5.tar.gz", hash = "sha256:80cfe327e38ef76accf0b163d713aaea31798d54e6cb8ed748fe0f0e13324595", size = 1246194, upload-time = "2026-07-14T23:16:03.064Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/7f/6bdefbdd01aa07b91a898d26c7b983c8d55428c15b10e8491b6b81755975/sagemaker-2.257.6.tar.gz", hash = "sha256:811db7196574ad30444d59ee4b57bf21c9fbf29f54317319a22f42221f58fdee", size = 1251802, upload-time = "2026-08-10T22:25:00.147Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/2b/c7eddcce6b94de45419717bbea6841761fb6d2614b7bc485b13a16f173b3/sagemaker-2.257.5-py3-none-any.whl", hash = "sha256:e90faffc3af1580a7f1900b1549ec8b09286b2a8aa78ef0222cf4f75ca466618", size = 1707949, upload-time = "2026-07-14T23:16:00.824Z" },
+    { url = "https://files.pythonhosted.org/packages/95/fc/a022a83055e5b4504ddaf4452ed0e579e4cfd468154549ed41866031dfdd/sagemaker-2.257.6-py3-none-any.whl", hash = "sha256:4719aadcaf64554e4c5c5a65f056edac18e2d8e867b4110386300cb955376c3d", size = 1718217, upload-time = "2026-08-10T22:24:58.214Z" },
 ]
 
 [[package]]

@@ -8852,3 +8852,73 @@ capture volume. No training execution or forced model promotion occurred.
 
 Resolve permissions and baseline provenance, then publish the pipeline and
 exercise training, promotion, drift, retraining, notifications, and recovery.
+## [2026-10-02] query | teardown destroy rebuild
+
+Found 9 matching page(s).
+
+## [2026-10-02] teardown | Dev environment removed to stop charges
+
+### Objective and scope
+
+Remove every chargeable dev resource of this project. The operator kept the
+five retained buckets and the audit KMS key. The `FewiaBedrock*` stacks and
+`CDKToolkit` in the same account belong to another project and stayed
+untouched. Production was never deployed. See the
+[teardown page](pages/architecture/teardown-and-rebuild.md).
+
+### Identity and environment
+
+Dev in `us-east-1`. `${AWS_ADMIN_USER_NAME}` ran every command. No IAM
+identity or execution policy changed.
+
+### Commands and results
+
+All commands below except the inventory were mutating.
+
+- Read-only inventory before the teardown: nine `Mlops-Dev-*` stacks, the
+  serverless endpoint `InService`, four endpoint configs, seven models, the
+  pipeline, three model packages, the Config recorder, the trail, and the
+  audit key. No training or processing job ran. No EC2 instance, NAT
+  gateway, or Elastic IP existed.
+- SageMaker CLI: deleted the endpoint, the four endpoint configs, the seven
+  models, the three model packages, and the pipeline.
+- `make destroy ENV=dev`: failed with `make: *** [destroy] Error 1` before any
+  delete, because no terminal was attached.
+- `cdk destroy --all --force -c env=dev` with the pinned CLI: exit 0.
+  `list-stacks` then showed no `Mlops-Dev-*` stack.
+- CloudFormation reported `DELETE_COMPLETE` for `AuditKey/Alias`, and
+  `DELETE_SKIPPED` for the audit key, the audit log group, and both
+  Security buckets.
+- The model package group survived the Registry stack delete. The operator
+  deleted it with `delete-model-package-group`.
+- Deleted 13 leftover log groups: the CloudTrail audit group, the endpoint
+  group, and eleven `/aws/lambda/Mlops-Dev-*` groups.
+- `GetPublicAccessBlock` for the account returned
+  `NoSuchPublicAccessBlockConfiguration`.
+
+### Interpretation
+
+The teardown page predicted the Block Public Access removal correctly. It
+was wrong on two retention claims. The alias is its own resource, without a
+retain policy, so it does not survive. PR #115 (`852eb2b`) added
+`RemovalPolicy.RETAIN` to the model package group, so the group survives.
+The page now records both, and the model package group is a redeploy
+collision.
+
+The audit bucket is encrypted with the audit key. Deleting the key would
+make the kept audit history unreadable, so the operator kept the key.
+
+### Decision and next checkpoint
+
+The standing cost is the audit key, about USD 1 a month, plus S3 storage for
+the five buckets. The operator restores the account-level S3 Block Public
+Access setting by hand. A redeploy starts from `make deploy`. No rebuild
+from this state has run yet.
+
+### Verification
+
+After the teardown, read-only CLI checks found no `Mlops-Dev-*` stack,
+SageMaker endpoint, model package group, Config recorder, trail, project
+Lambda, project EventBridge rule, or project log group. `make wiki-lint`
+and `make public-check` ran on this record.
+
